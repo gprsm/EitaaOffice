@@ -1,0 +1,253 @@
+{
+  "base": "eitaa_bridge_v0_7_ui_mvp6_1_1_gmi2_local_index_filters_WORKING.zip",
+  "version": "0.7.0-ui-mvp6.1.1-gmi3",
+  "changed_file_count": 41,
+  "files": [
+    {
+      "path": "GMI3_ARCHITECTURE_AND_SCOPE.md",
+      "status": "added",
+      "bytes": 4445,
+      "sha256": "245b6dd0c9f7ab03c686ea4e1aba3c36c66257ee1ed2004ce2b68185ed141578"
+    },
+    {
+      "path": "GMI3_INVARIANTS_REPORT.md",
+      "status": "added",
+      "bytes": 1056,
+      "sha256": "68b6763fe750ef1e24e9023ca58c8a5562b4bb9e5b678178932e33eca8c5bdbe"
+    },
+    {
+      "path": "GMI3_MIGRATION_REPORT.md",
+      "status": "added",
+      "bytes": 1530,
+      "sha256": "eee46134a7d60bd29657141a29753f542ebc9b5a2a331ce939566f9aa62744ac"
+    },
+    {
+      "path": "GMI3_PRIVACY_SCAN.md",
+      "status": "added",
+      "bytes": 1236,
+      "sha256": "9bc7fffc3e438f906bc0711dc89ff739bb78b4eeaa331b17f4f91b695a4be310"
+    },
+    {
+      "path": "GMI3_REVIEW_README.md",
+      "status": "added",
+      "bytes": 602,
+      "sha256": "1d1569b35695348b6dc4b742d1684bd6384d5670aa124c9f0594d1ec7f02187c"
+    },
+    {
+      "path": "GMI3_VALIDATION_REPORT.md",
+      "status": "added",
+      "bytes": 2032,
+      "sha256": "804b6830000ccc2d7f30bb662fe7a434fae91ff182d124ef1756b6c82ed00199"
+    },
+    {
+      "path": "GMI3_WINDOWS_ACCEPTANCE_CHECKLIST.md",
+      "status": "added",
+      "bytes": 2784,
+      "sha256": "968319ec75c020dde5a5d016e7eb893c7dd931cf47b83ced3d7dbaad6ed0b581"
+    },
+    {
+      "path": "README.md",
+      "status": "modified",
+      "bytes": 19066,
+      "sha256": "b6101700a8cad47287a306961b2b78dd1dac42ef6a81a9e0b20a44d31549c7bc"
+    },
+    {
+      "path": "RELEASE_MANIFEST.json",
+      "status": "modified",
+      "bytes": 2728,
+      "sha256": "306aa7a6f0584aa15b6493722d96669fc344139a60bedff294e200e2a6282dcd"
+    },
+    {
+      "path": "VERSION.txt",
+      "status": "modified",
+      "bytes": 216,
+      "sha256": "ca6351be0a48e4183561fae6347e71ce509fe825768e91d8596cbf92e5b751fe"
+    },
+    {
+      "path": "dist/eitaa_bridge-0.7.0.dev28-py3-none-any.whl",
+      "status": "added",
+      "bytes": 116976,
+      "sha256": "3a0aa5ee0be825ccfb556ec7b2c61f098e8094cca291dd1899ae03c23e2ef232"
+    },
+    {
+      "path": "lab/MULTI_ACCOUNT_LAB.md",
+      "status": "added",
+      "bytes": 1523,
+      "sha256": "7e8db486eeb06334b8dc37b2731b6da06aedf9262f4c1646c0209fc917dee129"
+    },
+    {
+      "path": "lab/multi_account_coordinator.py",
+      "status": "added",
+      "bytes": 5767,
+      "sha256": "412a01deee77a307491e160a8238c353dff4c008c3dc21658cc5785eb8e832cc"
+    },
+    {
+      "path": "pyproject.toml",
+      "status": "modified",
+      "bytes": 904,
+      "sha256": "baa24c299aafb8e05211a82eee7af05970ab874ca45fce2383462eb56236e857"
+    },
+    {
+      "path": "scripts/build_gmi3_release.py",
+      "status": "added",
+      "bytes": 8410,
+      "sha256": "4cd57b94f2eccd660a8b0c7ab994e4df378dc82c7b0307545c43b24c3ea3874d"
+    },
+    {
+      "path": "scripts/build_wheel_stdlib.py",
+      "status": "added",
+      "bytes": 2439,
+      "sha256": "d3eb9c0efb448dbeba28a9ac0d58101cc843cee5dd7f60bdae841458e8bbb489"
+    },
+    {
+      "path": "scripts/check_gmi3_invariants.py",
+      "status": "added",
+      "bytes": 1885,
+      "sha256": "716739cf87e54e1f5f71d220949d9259597f67a14c7cbbf9a375c4c8846fa90e"
+    },
+    {
+      "path": "scripts/check_runtime_environment.py",
+      "status": "modified",
+      "bytes": 1999,
+      "sha256": "36b5d5537e284e35bdb02f2d4187e28a9d7d5c5ab620d5d6d0ed4df21de20477"
+    },
+    {
+      "path": "scripts/gmi3_smoke.py",
+      "status": "added",
+      "bytes": 9218,
+      "sha256": "6e67e561ba3c8b6d683b15327abd8be91ee9ec760bbf2aa0b4ee59efd4038f87"
+    },
+    {
+      "path": "src/eitaa_bridge/application/api.py",
+      "status": "modified",
+      "bytes": 150700,
+      "sha256": "3769a0e6ffb91fccbf760511b8107c96252e5a333f7f5f72fb188cb3a3d7f69b"
+    },
+    {
+      "path": "src/eitaa_bridge/application/contact_import.py",
+      "status": "added",
+      "bytes": 5868,
+      "sha256": "273f5dc556d0bc40afb1dafa0561ec8f49a25d789961ace64b4c07e2c7259941"
+    },
+    {
+      "path": "src/eitaa_bridge/errors.py",
+      "status": "modified",
+      "bytes": 3281,
+      "sha256": "bdb92ffe2cfd4df9d94aae641bd6239438007c95de9153539f60a8e9ac0c608b"
+    },
+    {
+      "path": "src/eitaa_bridge/infrastructure/contact_store.py",
+      "status": "added",
+      "bytes": 22366,
+      "sha256": "fd51511426cccb03a57162a03698231d18b4db752e67f4c951de5c0fd961b788"
+    },
+    {
+      "path": "src/eitaa_bridge/infrastructure/content_index_store.py",
+      "status": "modified",
+      "bytes": 20515,
+      "sha256": "8e6b686e88fbd9257f2783c1e6d5815f8ce3e84ee0d3afa47063a8de552b318d"
+    },
+    {
+      "path": "src/eitaa_bridge/version.py",
+      "status": "modified",
+      "bytes": 39,
+      "sha256": "551160f31f52f4f751cdbf6b91bd215accfebfd054edc97cc7e39c5c93ca70b9"
+    },
+    {
+      "path": "tests/test_contact_directory.py",
+      "status": "added",
+      "bytes": 5936,
+      "sha256": "b9aa5b65d4f1556a977b34fb31ebf80d0de0622e47bb4a1fadbf193b39ba29f5"
+    },
+    {
+      "path": "tests/test_content_index.py",
+      "status": "modified",
+      "bytes": 15699,
+      "sha256": "0e49decf40ddd0fa46137defb33af8262bae1c5f2111b2d291dfbf1795857e60"
+    },
+    {
+      "path": "tests/test_multi_account_lab.py",
+      "status": "added",
+      "bytes": 2061,
+      "sha256": "83b1a588d6e6ab4b88b8a0fb7be802b0de03ecd61d6bc8cb217b29385a9cb4be"
+    },
+    {
+      "path": "ui/dist/assets/index-BRKPFAIl.css",
+      "status": "added",
+      "bytes": 80931,
+      "sha256": "9e4a9b0ec96da2b44a724195bb55491d5c4c16d02b4c46ab0a3df037499d51ab"
+    },
+    {
+      "path": "ui/dist/assets/index-CWug8ypA.js",
+      "status": "added",
+      "bytes": 398156,
+      "sha256": "2289b8030a68da1e882a5067cc99a558bbfddbe5a3b859fc6a999f4cca8f26be"
+    },
+    {
+      "path": "ui/dist/assets/index-RZLPuouK.css",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "ui/dist/assets/index-tEYkWn1w.js",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "ui/dist/index.html",
+      "status": "modified",
+      "bytes": 517,
+      "sha256": "24c830bc9a62691a37fff1033caa8704df7b7852cccf03628c2db0f70532b14a"
+    },
+    {
+      "path": "ui/electron/main.cjs",
+      "status": "modified",
+      "bytes": 10140,
+      "sha256": "e75c6e171214dfd5dbce2db10edeb81ba249ba834b33717e9ba43511536f7f6b"
+    },
+    {
+      "path": "ui/package-lock.json",
+      "status": "modified",
+      "bytes": 163313,
+      "sha256": "a925b84d77402afa16f765bb6e13e5ac77a4227382ea35ef9faf3b98acc41d81"
+    },
+    {
+      "path": "ui/package.json",
+      "status": "modified",
+      "bytes": 1287,
+      "sha256": "f92a95a54c93b9f1b3301f01086a719b50343ec83d2a1cb9db9a7ed0e3280dd3"
+    },
+    {
+      "path": "ui/src/App.tsx",
+      "status": "modified",
+      "bytes": 193752,
+      "sha256": "9077bc3ab041d59b2b43ee956c5b8d3515d65f19ea489dea43fc1b703441ba6b"
+    },
+    {
+      "path": "ui/src/ContactDirectoryModal.tsx",
+      "status": "added",
+      "bytes": 21149,
+      "sha256": "5715992fa1051bad1b52cf52cb22ddbef0df8b91007a77d64e4b8bbed6573045"
+    },
+    {
+      "path": "ui/src/lib/types.ts",
+      "status": "modified",
+      "bytes": 3503,
+      "sha256": "469c45b876a4133eafb1353871f5eb5d3a3bacd0130949e2d3f98ad3e796861e"
+    },
+    {
+      "path": "ui/src/styles.css",
+      "status": "modified",
+      "bytes": 78682,
+      "sha256": "b653691206d7b7c6d7a87dafbe465cc21ec205a4574cebd160b37652d8ce0983"
+    },
+    {
+      "path": "ui/tsconfig.app.tsbuildinfo",
+      "status": "modified",
+      "bytes": 211,
+      "sha256": "0408f987988390225423b065719982d0f7ea5e3ca9c3e30204b71ab7ec4ebf3d"
+    }
+  ]
+}

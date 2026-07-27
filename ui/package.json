@@ -1,0 +1,46 @@
+{
+  "name": "eitaa-bridge-ui",
+  "version": "0.7.29",
+  "private": true,
+  "description": "Responsive desktop UI for Eitaa Bridge",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1 --configLoader runner\" \"wait-on http://127.0.0.1:5173 && cross-env EITAA_UI_DEV_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "tsc -b && vite build --configLoader runner && node scripts/finalize-ui-build.mjs",
+    "start": "electron .",
+    "check": "tsc -b --pretty false",
+    "pack:win": "npm run build && electron-packager . EitaaBridge --platform=win32 --arch=x64 --out=release --overwrite --asar --ignore=release --ignore=node_modules/.cache",
+    "test:scroll": "node scripts/run-scroll-tests.mjs",
+    "test:grouped-media": "node scripts/run-grouped-media-tests.mjs"
+  },
+  "dependencies": {
+    "@emotion/cache": "11.14.0",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/icons-material": "7.3.11",
+    "@mui/material": "7.3.11",
+    "@tanstack/react-virtual": "^3.13.12",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-toastify": "^11.1.0",
+    "stylis": "4.3.6",
+    "stylis-plugin-rtl": "2.1.1"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.4.4",
+    "@types/node": "^24.0.13",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "concurrently": "^9.2.0",
+    "cross-env": "^7.0.3",
+    "electron": "^37.2.3",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.5",
+    "wait-on": "^8.0.3"
+  },
+  "allowScripts": {
+    "electron": true,
+    "esbuild": true
+  }
+}
