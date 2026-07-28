@@ -2840,6 +2840,7 @@ class BridgeApplicationApi:
 
         def runner(cancellation: threading.Event, update_progress: Any) -> dict[str, Any]:
             added = updated = existing = failed = skipped = processed = 0
+            first_failure: dict[str, Any] | None = None
             update_progress({
                 "total": len(selected), "eitaa_added": 0, "eitaa_updated": 0,
                 "eitaa_existing": 0, "eitaa_failed": 0,
@@ -2886,8 +2887,30 @@ class BridgeApplicationApi:
                         updated += 1
                     else:
                         existing += 1
-                except Exception:
+                except Exception as exc:
                     failed += 1
+                    error = self._contact_job_error(
+                        exc, fallback="Adding this contact to Eitaa failed."
+                    )
+                    if first_failure is None:
+                        first_failure = error
+                    self._runtime_logger.emit(
+                        "eitaa_contact_import_item_failed",
+                        level="error",
+                        fields={
+                            "contact_id": int(item["id"]),
+                            "phone": phone,
+                            **{
+                                key: value
+                                for key, value in error.items()
+                                if key != "message"
+                            },
+                        },
+                    )
+                    # A rejected session cannot recover by trying the remaining
+                    # contacts and must be surfaced immediately to the login UI.
+                    if self._is_invalid_session_error(exc):
+                        raise
                 processed += 1
                 if processed % 5 == 0 or processed == len(selected):
                     update_progress({
@@ -2895,6 +2918,21 @@ class BridgeApplicationApi:
                         "eitaa_updated": updated, "eitaa_existing": existing,
                         "eitaa_failed": failed, "skipped": skipped,
                     })
+            if failed and not (added or updated or existing):
+                first_failure = first_failure or {
+                    "message": "Adding contacts to Eitaa failed.",
+                    "error_type": "UnknownError",
+                    "error_code": "eitaa_contact_import_failed",
+                }
+                raise ContactDirectoryError(
+                    str(first_failure["message"]),
+                    safe_context={
+                        "failed_count": failed,
+                        "error_type": first_failure.get("error_type"),
+                        "error_code": first_failure.get("error_code"),
+                    },
+                    code="eitaa_contact_import_all_failed",
+                )
             return {
                 "processed": processed, "eitaa_added": added,
                 "eitaa_updated": updated, "eitaa_existing": existing,
@@ -3126,6 +3164,16 @@ class BridgeApplicationApi:
     ) -> None:
         with self._contact_import_lock:
             self._contact_import_jobs[job_id]["state"] = "running"
+        self._runtime_logger.emit(
+            "contact_import_started",
+            fields={
+                "job_id": job_id,
+                "file_suffix": Path(file_name).suffix.lower(),
+                "file_size_bytes": len(content),
+                "category_count": len(category_ids),
+                "add_to_eitaa": add_to_eitaa,
+            },
+        )
 
         def update_progress(progress: Mapping[str, object]) -> None:
             with self._contact_import_lock:
@@ -3161,8 +3209,25 @@ class BridgeApplicationApi:
                 cancel_event=cancellation,
                 progress=update_progress,
             )
+            self._runtime_logger.emit(
+                "contact_import_local_completed",
+                fields={
+                    "job_id": job_id,
+                    "processed": int(result.get("processed") or 0),
+                    "imported": int(result.get("imported") or 0),
+                    "updated": int(result.get("updated") or 0),
+                    "duplicates": int(result.get("duplicates") or 0),
+                    "errors": int(result.get("errors") or 0),
+                    "selected_contact_count": len(result.get("contact_ids") or ()),
+                    "cancelled": bool(result.get("cancelled")),
+                },
+            )
             if add_to_eitaa and not result.get("cancelled"):
-                selected_ids = tuple(int(value) for value in result.get("contact_ids", []))
+                # This value crosses the same validation boundary as a JSON API
+                # request, which deliberately accepts arrays (lists) only.
+                # Passing a tuple here used to fail after the local import had
+                # already succeeded and before the first Eitaa RPC was issued.
+                selected_ids = [int(value) for value in result.get("contact_ids", [])]
                 remote = self._eitaa_contacts_import_local_start({
                     "site_key": site_key,
                     "contact_ids": selected_ids,
@@ -3183,6 +3248,22 @@ class BridgeApplicationApi:
                     if remote_status.get("state") in {"completed", "cancelled", "failed"}:
                         result["remote_state"] = remote_status.get("state")
                         result.update({key: value for key, value in remote_progress.items() if key.startswith("eitaa_")})
+                        if remote_status.get("state") == "cancelled":
+                            result["cancelled"] = True
+                        elif remote_status.get("state") == "failed":
+                            remote_error = dict(remote_status.get("error") or {})
+                            raise ContactDirectoryError(
+                                str(remote_error.get("message") or "Adding contacts to Eitaa failed."),
+                                safe_context={
+                                    "remote_job_id": remote_job_id,
+                                    "remote_error_type": remote_error.get("error_type"),
+                                    "remote_error_code": remote_error.get("error_code"),
+                                },
+                                code=str(
+                                    remote_error.get("error_code")
+                                    or "eitaa_contact_import_failed"
+                                ),
+                            )
                         break
                     time.sleep(0.25)
             result.pop("contact_ids", None)
@@ -3191,23 +3272,84 @@ class BridgeApplicationApi:
                 job["progress"] = {**job["progress"], **result}
                 job["state"] = "cancelled" if result.get("cancelled") else "completed"
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._runtime_logger.emit(
+                "contact_import_completed",
+                fields={
+                    "job_id": job_id,
+                    "state": "cancelled" if result.get("cancelled") else "completed",
+                    "processed": int(result.get("processed") or 0),
+                    "imported": int(result.get("imported") or 0),
+                    "updated": int(result.get("updated") or 0),
+                    "errors": int(result.get("errors") or 0),
+                    "remote_state": result.get("remote_state"),
+                    "eitaa_added": int(result.get("eitaa_added") or 0),
+                    "eitaa_updated": int(result.get("eitaa_updated") or 0),
+                    "eitaa_existing": int(result.get("eitaa_existing") or 0),
+                    "eitaa_failed": int(result.get("eitaa_failed") or 0),
+                },
+            )
         except Exception as exc:
+            error = self._contact_job_error(exc, fallback="Local contact import failed.")
             with self._contact_import_lock:
                 job = self._contact_import_jobs[job_id]
                 job["state"] = "failed"
-                job["error"] = {
-                    "message": (
-                        exc.message
-                        if isinstance(exc, ContactDirectoryError)
-                        else str(exc) if isinstance(exc, ValueError)
-                        else "Local contact import failed."
-                    ),
-                    "error_type": type(exc).__name__,
-                }
+                job["error"] = error
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._runtime_logger.emit(
+                "contact_import_failed",
+                level="error",
+                fields={
+                    "job_id": job_id,
+                    **{key: value for key, value in error.items() if key != "message"},
+                },
+            )
         finally:
             with self._contact_import_lock:
                 self._contact_import_cancellations.pop(job_id, None)
+
+    @staticmethod
+    def _contact_job_error(
+        exc: Exception,
+        *,
+        fallback: str,
+    ) -> dict[str, Any]:
+        """Return a user-safe job error plus stable diagnostic identifiers."""
+
+        if isinstance(exc, BridgeError):
+            return {
+                "message": exc.message,
+                "error_type": type(exc).__name__,
+                "error_code": exc.code,
+                "component": exc.component,
+                "safe_context": dict(exc.safe_context),
+                "debug_file": exc.debug_file,
+            }
+        if isinstance(exc, EitaaCoreError):
+            return {
+                "message": exc.message,
+                "error_type": type(exc).__name__,
+                "error_code": f"core_{type(exc).__name__.removesuffix('Error').lower()}",
+                "component": exc.component,
+                "safe_context": dict(exc.safe_context),
+                "debug_file": exc.debug_file,
+            }
+        if isinstance(exc, ValueError):
+            return {
+                "message": str(exc),
+                "error_type": type(exc).__name__,
+                "error_code": "contact_import_value_error",
+                "component": "contact_directory",
+                "safe_context": {},
+                "debug_file": None,
+            }
+        return {
+            "message": fallback,
+            "error_type": type(exc).__name__,
+            "error_code": "contact_import_internal_error",
+            "component": "contact_directory",
+            "safe_context": {},
+            "debug_file": None,
+        }
 
     def _start_contact_source_import(
         self,
@@ -3243,6 +3385,14 @@ class BridgeApplicationApi:
         def run() -> None:
             with self._contact_import_lock:
                 self._contact_import_jobs[job_id]["state"] = "running"
+            self._runtime_logger.emit(
+                "contact_source_import_started",
+                fields={
+                    "job_id": job_id,
+                    "kind": kind,
+                    "source_label": source_label,
+                },
+            )
 
             def update_progress(progress: Mapping[str, object]) -> None:
                 with self._contact_import_lock:
@@ -3262,20 +3412,40 @@ class BridgeApplicationApi:
                         "cancelled" if result.get("cancelled") else "completed"
                     )
                     current["completed_at"] = datetime.now(timezone.utc).isoformat()
+                self._runtime_logger.emit(
+                    "contact_source_import_completed",
+                    fields={
+                        "job_id": job_id,
+                        "kind": kind,
+                        "state": (
+                            "cancelled" if result.get("cancelled") else "completed"
+                        ),
+                        "processed": int(result.get("processed") or 0),
+                        "eitaa_added": int(result.get("eitaa_added") or 0),
+                        "eitaa_updated": int(result.get("eitaa_updated") or 0),
+                        "eitaa_existing": int(result.get("eitaa_existing") or 0),
+                        "eitaa_failed": int(result.get("eitaa_failed") or 0),
+                        "skipped": int(result.get("skipped") or 0),
+                    },
+                )
             except Exception as exc:
+                error = self._contact_job_error(
+                    exc, fallback="Local contact source import failed."
+                )
                 with self._contact_import_lock:
                     current = self._contact_import_jobs[job_id]
                     current["state"] = "failed"
-                    current["error"] = {
-                        "message": (
-                            exc.message
-                            if isinstance(exc, ContactDirectoryError)
-                            else str(exc) if isinstance(exc, (ValueError, EitaaCoreError))
-                            else "Local contact source import failed."
-                        ),
-                        "error_type": type(exc).__name__,
-                    }
+                    current["error"] = error
                     current["completed_at"] = datetime.now(timezone.utc).isoformat()
+                self._runtime_logger.emit(
+                    "contact_source_import_failed",
+                    level="error",
+                    fields={
+                        "job_id": job_id,
+                        "kind": kind,
+                        **{key: value for key, value in error.items() if key != "message"},
+                    },
+                )
             finally:
                 with self._contact_import_lock:
                     self._contact_import_cancellations.pop(job_id, None)

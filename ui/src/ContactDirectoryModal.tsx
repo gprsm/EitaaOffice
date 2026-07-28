@@ -65,7 +65,13 @@ type ContactDraft = {
   category_ids: number[]
 }
 type ImportPreview = { file_name: string; headers: string[]; rows: string[][]; row_count: number; preview_truncated: boolean }
-type ImportJob = { job_id: string; kind?: string; state: string; progress: Record<string, number | boolean>; error?: { message?: string } }
+type ImportJob = {
+  job_id: string
+  kind?: string
+  state: string
+  progress: Record<string, number | boolean | string | null>
+  error?: { message?: string; error_code?: string; error_type?: string }
+}
 type ResolvedPhoneList = {
   id: string
   name: string
@@ -558,6 +564,13 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
           </Stack>
           {importActive && <LinearProgress variant={Number(importJob.progress.total || 0) ? 'determinate' : 'indeterminate'} value={Number(importJob.progress.total || 0) ? Number(importJob.progress.processed || 0) / Number(importJob.progress.total || 1) * 100 : undefined} />}
           {importJob.error?.message && <Alert severity="error">{importJob.error.message}</Alert>}
+          {importJob.error?.error_code && <Typography variant="caption" color="text.secondary">کد پیگیری: {importJob.error.error_code}</Typography>}
+          {Number(importJob.progress.eitaa_failed || 0) > 0 && importJob.state === 'completed' && <Alert severity="warning">
+            عملیات پایان یافت، اما افزودن {Number(importJob.progress.eitaa_failed).toLocaleString('fa-IR')} مخاطب به ایتا ناموفق بود. جزئیات امن در لاگ عملیات ثبت شده است.
+          </Alert>}
+          {(importJob.progress.eitaa_total !== undefined || importJob.progress.eitaa_added !== undefined) && <Typography variant="body2" color="text.secondary">
+            ایتا: {Number(importJob.progress.eitaa_added || 0).toLocaleString('fa-IR')} افزوده‌شده · {Number(importJob.progress.eitaa_updated || 0).toLocaleString('fa-IR')} به‌روزشده · {Number(importJob.progress.eitaa_existing || 0).toLocaleString('fa-IR')} موجود · {Number(importJob.progress.eitaa_failed || 0).toLocaleString('fa-IR')} ناموفق
+          </Typography>}
         </Stack>
       </Paper>}
       {tab === 'eitaa' && <Grid container spacing={2}>

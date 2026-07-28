@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from io import BytesIO
+import json
 import sqlite3
 import threading
 import time
@@ -16,6 +17,7 @@ from eitaa_bridge.infrastructure.contact_store import (
     normalize_phone,
 )
 from eitaa_bridge.application.api import BridgeApplicationApi
+from eitaa_bridge.errors import CompositionValidationError
 
 
 def _wait_for_import(api: BridgeApplicationApi, job_id: str) -> dict:
@@ -188,6 +190,88 @@ def test_eitaa_file_import_requires_first_name_mapping(config_file) -> None:
         == "api_contact_import_first_name_mapping_required"
     )
     api.close()
+
+
+def test_file_import_continues_to_eitaa_with_json_compatible_contact_ids(
+    config_file, monkeypatch
+) -> None:
+    api = BridgeApplicationApi(config_file)
+    remote_calls: list[dict] = []
+
+    def fake_add(payload):
+        remote_calls.append(dict(payload))
+        return {
+            "ok": True,
+            "contact_added": True,
+            "contact_updated": False,
+            "contact": {"user_id": 9000 + len(remote_calls)},
+        }
+
+    monkeypatch.setattr(api, "_eitaa_contacts_add", fake_add)
+    content = base64.b64encode(
+        b"first_name,phone\nTest One,09120000041\nTest Two,09120000042\n"
+    ).decode("ascii")
+    started = api.dispatch(
+        "POST",
+        "/api/v1/contacts/import/start",
+        body={
+            "site_key": "medical-site",
+            "file_name": "contacts.csv",
+            "content_base64": content,
+            "mapping": {"first_name": 0, "phone": 1},
+            "add_to_eitaa": True,
+        },
+    )
+    assert started.status == 202
+    job = _wait_for_import(api, started.payload["job"]["job_id"])
+    assert job["state"] == "completed"
+    assert job["progress"]["remote_state"] == "completed"
+    assert job["progress"]["eitaa_added"] == 2
+    assert len(remote_calls) == 2
+    api.close()
+
+
+def test_file_import_surfaces_and_logs_remote_background_failure(
+    config_file, monkeypatch
+) -> None:
+    api = BridgeApplicationApi(config_file)
+
+    def reject_contact(payload):
+        raise CompositionValidationError(
+            "Remote contact import was rejected for this test.",
+            code="api_test_remote_contact_error",
+        )
+
+    monkeypatch.setattr(api, "_eitaa_contacts_add", reject_contact)
+    content = base64.b64encode(
+        b"first_name,phone\nTest Contact,09120000043\n"
+    ).decode("ascii")
+    started = api.dispatch(
+        "POST",
+        "/api/v1/contacts/import/start",
+        body={
+            "site_key": "medical-site",
+            "file_name": "contacts.csv",
+            "content_base64": content,
+            "mapping": {"first_name": 0, "phone": 1},
+            "add_to_eitaa": True,
+        },
+    )
+    job = _wait_for_import(api, started.payload["job"]["job_id"])
+    assert job["state"] == "failed"
+    assert job["error"]["message"] == "Remote contact import was rejected for this test."
+    assert job["error"]["error_code"] == "eitaa_contact_import_all_failed"
+    api.close()
+
+    log_path = api.base_directory / "runtime" / "logs" / "application.jsonl"
+    events = [
+        json.loads(line)["event"]
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert "eitaa_contact_import_item_failed" in events
+    assert "contact_source_import_failed" in events
+    assert "contact_import_failed" in events
 
 
 def test_schema_rejects_newer_database_without_modifying_it(tmp_path) -> None:
