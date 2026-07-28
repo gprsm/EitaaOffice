@@ -32,6 +32,21 @@ def test_index_workbench_is_material_dialog_and_not_header_popover() -> None:
     assert "ایندکس‌گذاری" in workbench and "نمایش و فیلتر" in workbench
 
 
+def test_sender_filter_uses_names_and_marks_eitaa_contacts() -> None:
+    app = read("App.tsx")
+    workbench = read("MaterialIndexWorkbench.tsx")
+    types = read("lib/types.ts")
+    assert "sender_display_name" in types
+    assert "sender_is_eitaa_contact" in types
+    assert "کاربر ناشناس · شناسه" in app
+    assert "/api/v1/messages/sync" in app
+    assert "stop_when_unchanged: false" in app
+    assert "senderResolutionState" in app
+    assert "sender.isEitaaContact" in workbench
+    assert 'label="مخاطب ایتا"' in workbench
+    assert "sender.label" in workbench
+
+
 def test_multi_index_editor_is_searchable_and_bounded() -> None:
     editor = read("MessageIndexEditor.tsx")
     assert "جست‌وجوی ایندکس" in editor
@@ -81,6 +96,17 @@ def test_login_and_startup_surfaces_use_material_components() -> None:
     assert "<CircularProgress" in app
     assert "<Alert severity=\"error\"" in app
     assert '<form className="login-card card"' not in login
+
+
+def test_invalid_session_errors_return_to_the_recovery_surface() -> None:
+    app = read("App.tsx")
+    api_client = read("lib/api.ts")
+    assert "AUTH_SESSION_INVALID_EVENT" in api_client
+    assert "error.code === 'auth_session_invalid'" in api_client
+    assert "window.dispatchEvent(new Event(AUTH_SESSION_INVALID_EVENT))" in api_client
+    assert "window.addEventListener(AUTH_SESSION_INVALID_EVENT" in app
+    assert "status.session_error_code === 'auth_session_invalid'" in app
+    assert "/api/v1/auth/reset-local-session" in app
 
 
 def test_legacy_operational_dialogs_are_contained_by_material_dialogs() -> None:

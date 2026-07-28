@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -26,6 +27,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
+import type { SenderFilterOption } from './lib/types'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
@@ -56,7 +58,9 @@ type Props = {
   selectedSenderKey: string | null
   setSelectedSenderKey: (value: string | null) => void
   indexFilterLabels: NamedId[]
-  senderFilterOptions: string[]
+  senderFilterOptions: SenderFilterOption[]
+  senderResolutionState: 'idle' | 'syncing' | 'ready' | 'failed'
+  unresolvedSenderCount: number
   filteredMessageCount: number
   contentIndexActive: boolean
   contentIndexState?: string
@@ -124,6 +128,15 @@ export function MaterialIndexWorkbench(props: Props) {
     <DialogContent sx={{ bgcolor: 'background.default' }}>
       {props.tab === 'display' ? <Stack spacing={2}>
         <Alert severity="info">فیلترها فقط نمای محلی را تغییر می‌دهند. هنگام فعال‌بودن فیلتر، پیام‌ها به‌صورت خودکار «خوانده‌شده» علامت‌گذاری نمی‌شوند.</Alert>
+        {props.senderResolutionState === 'syncing' && <Alert
+          severity="info"
+          icon={<CircularProgress color="inherit" size={18} />}
+        >
+          در حال دریافت نام {props.unresolvedSenderCount.toLocaleString('fa-IR')} نویسنده از تاریخچه پیام‌های ایتا؛ فهرست پس از تکمیل خودکار تازه می‌شود.
+        </Alert>}
+        {props.senderResolutionState === 'failed' && props.unresolvedSenderCount > 0 && <Alert severity="warning">
+          نام برخی نویسندگان هنوز در نمایه محلی موجود نیست. شناسه فقط برای همین مواردِ حل‌نشده به‌عنوان جایگزین نمایش داده می‌شود.
+        </Alert>}
         <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Grid container spacing={2} alignItems="center">
             <Grid size={{ xs: 12, md: 6 }}>
@@ -146,7 +159,22 @@ export function MaterialIndexWorkbench(props: Props) {
                 <InputLabel>فرستنده</InputLabel>
                 <Select label="فرستنده" value={props.selectedSenderKey ?? ''} onChange={event => props.setSelectedSenderKey(String(event.target.value) || null)}>
                   <MenuItem value="">همه فرستنده‌ها</MenuItem>
-                  {props.senderFilterOptions.map(sender => <MenuItem key={sender} value={sender}>{sender === 'self' ? 'پیام‌های ارسالی من' : sender}</MenuItem>)}
+                  {props.senderFilterOptions.map(sender => <MenuItem key={sender.key} value={sender.key}>
+                    <Box sx={{ display: 'flex', minWidth: 0, width: '100%', alignItems: 'center', gap: 0.75 }}>
+                      <Typography
+                        component="span"
+                        noWrap
+                        fontWeight={sender.isEitaaContact ? 800 : 600}
+                        color={sender.isEitaaContact ? 'primary.main' : 'text.primary'}
+                      >
+                        {sender.label}
+                      </Typography>
+                      {sender.isEitaaContact && <Chip label="مخاطب ایتا" color="primary" size="small" variant="outlined" />}
+                      {sender.username && <Typography component="span" variant="caption" color="text.secondary" noWrap>
+                        @{sender.username}
+                      </Typography>}
+                    </Box>
+                  </MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>

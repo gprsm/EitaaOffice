@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from eitaa_core import DialogEntry, Message, Peer, PeerType, save_peer_file
+from eitaa_core.errors import RpcError
 
 from eitaa_bridge.application.api import BridgeApplicationApi
 from eitaa_bridge.facade import EitaaBridge
@@ -98,6 +99,84 @@ def test_api_message_list_returns_ui_text_and_usage(config_file, tmp_path, monke
     assert response.status == 200
     assert response.payload["messages"][0]["text"] == "متن واقعی پیام"
     assert response.payload["messages"][0]["usage"]["usage_state"] == "unused"
+
+
+def test_api_message_sender_names_prefer_eitaa_contacts_then_members(config_file, tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "sender-directory-channel.json"
+    save_peer_file(peer_file, PEER)
+
+    member_users = {
+        123: SimpleNamespace(display_name="نام نمایشی عضو", username="member-contact", is_contact=True),
+        456: SimpleNamespace(display_name="نام نمایشی ایتا", username="member-user", is_contact=False),
+    }
+
+    class FakeMembers:
+        @staticmethod
+        def get(peer, user_id):
+            assert peer.id == PEER.id
+            user = member_users.get(user_id)
+            return SimpleNamespace(user=user) if user else None
+
+    class FakeBridge:
+        core = SimpleNamespace(members=FakeMembers())
+
+        def application_messages(self, peer, *, limit, before_id):
+            return {
+                "site_key": "medical-site",
+                "peer": peer.safe_summary(),
+                "message_count": 5,
+                "messages": [
+                    {"id": 1, "sender_key": "user:123", "usage": {"used": False}},
+                    {"id": 2, "sender_key": "user:456", "usage": {"used": False}},
+                    {"id": 3, "sender_key": "user:789", "usage": {"used": False}},
+                    {"id": 4, "sender_key": "user:999", "usage": {"used": False}},
+                    {"id": 5, "sender_key": "self", "usage": {"used": False}},
+                ],
+            }
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api = BridgeApplicationApi(config_file)
+    api._contact_store.upsert_contact({
+        "first_name": "نام",
+        "last_name": "دفترچه مخاطبان",
+        "username": "saved-contact",
+        "eitaa_user_id": 123,
+        "source": "eitaa_contact_sync",
+        "phones": [],
+    })
+    api._sender_directory.upsert_users([
+        SimpleNamespace(
+            peer=Peer(id=789, type=PeerType.USER),
+            display_name="نام پاسخ تاریخچه",
+            username="history-user",
+            is_contact=False,
+        )
+    ])
+
+    response = api.dispatch("POST", "/api/v1/messages/list", body={
+        "site_key": "medical-site",
+        "peer_file": str(peer_file),
+        "limit": 25,
+    })
+
+    assert response.status == 200
+    messages = {item["sender_key"]: item for item in response.payload["messages"]}
+    assert messages["user:123"]["sender_display_name"] == "نام دفترچه مخاطبان"
+    assert messages["user:123"]["sender_is_eitaa_contact"] is True
+    assert messages["user:123"]["sender_resolution"] == "eitaa_contact"
+    assert messages["user:456"]["sender_display_name"] == "نام نمایشی ایتا"
+    assert messages["user:456"]["sender_is_eitaa_contact"] is False
+    assert messages["user:456"]["sender_resolution"] == "community_member"
+    assert messages["user:789"]["sender_display_name"] == "نام پاسخ تاریخچه"
+    assert messages["user:789"]["sender_resolution"] == "history_user"
+    assert messages["user:999"]["sender_display_name"] is None
+    assert messages["user:999"]["sender_resolution"] == "unknown"
+    assert messages["self"]["sender_display_name"] == "پیام‌های ارسالی من"
 
 
 def test_api_composition_preview_accepts_json_request(config_file, tmp_path, monkeypatch):
@@ -455,6 +534,45 @@ def test_api_archives_invalid_local_session_before_fresh_login(config_file, monk
     assert backups[0].read_text(encoding="utf-8") == "{invalid"
 
 
+def test_api_logout_archives_local_session_when_remote_login_is_already_invalid(
+    config_file, monkeypatch
+):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    config_payload = json.loads(config_file.read_text(encoding="utf-8"))
+    session_path = config_file.parent / config_payload["core"]["session_file"]
+    session_contents = json.dumps({"token": "expired-token", "imei": "abc__web"})
+    session_path.write_text(session_contents, encoding="utf-8")
+
+    class Account:
+        def logout(self, *, archive_local_session):
+            assert archive_local_session is True
+            raise RpcError(401, "INVALID_LOGIN")
+
+    class FakeBridge:
+        core = SimpleNamespace(account=Account())
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api = BridgeApplicationApi(config_file)
+
+    response = api.dispatch("POST", "/api/v1/auth/logout")
+
+    assert response.status == 200
+    assert response.payload["ok"] is True
+    assert response.payload["session_present"] is False
+    assert response.payload["login_ready"] is True
+    assert response.payload["logout"]["remote_ok"] is False
+    assert response.payload["logout"]["remote_session_already_invalid"] is True
+    assert response.payload["logout"]["local_session_archived"] is True
+    assert not session_path.exists()
+    backups = list(session_path.parent.glob(session_path.name + ".invalid.*.bak"))
+    assert len(backups) == 1
+    assert backups[0].read_text(encoding="utf-8") == session_contents
+
+
 def test_api_dialog_sync_uses_core_complete_collection_and_supergroup_kind(config_file, monkeypatch):
     from eitaa_core import DialogKind
 
@@ -582,6 +700,61 @@ def test_api_auth_status_probes_remote_session_before_workspace(config_file, mon
     assert response.payload["remote_warning"] is True
     assert response.payload["remote_error_type"] == "OSError"
     assert response.payload["fresh_login_available"] is False
+
+
+def test_api_auth_status_routes_rpc_401_to_session_recovery(config_file, monkeypatch):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    config_payload = json.loads(config_file.read_text(encoding="utf-8"))
+    session_path = config_file.parent / config_payload["core"]["session_file"]
+    session_path.write_text(
+        json.dumps({"token": "expired-token", "imei": "abc__web"}),
+        encoding="utf-8",
+    )
+
+    class FakeSession:
+        def safe_summary(self):
+            return {"token_present": True}
+
+    class Discovery:
+        def list_dialogs(self, **kwargs):
+            assert kwargs["limit"] == 1
+            raise RpcError(401, "INVALID_LOGIN")
+
+    class FakeCore:
+        session = FakeSession()
+        discovery = Discovery()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("eitaa_bridge.application.api.EitaaCore.open", lambda *a, **k: FakeCore())
+    api = BridgeApplicationApi(config_file)
+
+    response = api.dispatch("GET", "/api/v1/auth/status")
+
+    assert response.status == 200
+    assert response.payload["authenticated"] is False
+    assert response.payload["session_present"] is True
+    assert response.payload["session_error"] is True
+    assert response.payload["session_invalid"] is True
+    assert response.payload["session_error_code"] == "auth_session_invalid"
+    assert response.payload["remote_error_code"] == 401
+    assert response.payload["fresh_login_available"] is True
+
+
+def test_api_rpc_401_uses_stable_session_invalid_error_contract():
+    response = BridgeApplicationApi._error_response(RpcError(401, "INVALID_LOGIN"))
+
+    assert response.status == 401
+    assert response.payload["ok"] is False
+    assert response.payload["error"]["component"] == "authentication"
+    assert response.payload["error"]["error_code"] == "auth_session_invalid"
+    assert response.payload["error"]["safe_context"] == {
+        "error_type": "RpcError",
+        "remote_code": 401,
+        "recovery_available": True,
+    }
 
 
 def test_api_messages_read_marks_server_and_local_catalog(config_file, tmp_path, monkeypatch):

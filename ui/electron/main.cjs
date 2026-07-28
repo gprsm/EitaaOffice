@@ -37,6 +37,14 @@ function projectRoot() {
   if (app.isPackaged) return path.join(path.dirname(process.execPath), 'bridge-runtime')
   return path.resolve(__dirname, '..', '..')
 }
+function backendEnvironment(root) {
+  const environment = { ...process.env }
+  const sourcePackages = path.join(root, 'src')
+  if (fs.existsSync(path.join(sourcePackages, 'eitaa_bridge'))) {
+    environment.PYTHONPATH = [sourcePackages, environment.PYTHONPATH].filter(Boolean).join(path.delimiter)
+  }
+  return environment
+}
 function runtimeLogPath(name) {
   const directory = path.join(projectRoot(), 'runtime', 'logs')
   fs.mkdirSync(directory, { recursive: true })
@@ -138,7 +146,12 @@ function startApi() {
   const apiLogPath = runtimeLogPath('api.log')
   rotateLogFile(apiLogPath)
   apiLogFd = fs.openSync(apiLogPath, 'a')
-  const spawnOptions = { cwd: root, windowsHide: true, stdio: ['ignore', apiLogFd, apiLogFd] }
+  const spawnOptions = {
+    cwd: root,
+    env: backendEnvironment(root),
+    windowsHide: true,
+    stdio: ['ignore', apiLogFd, apiLogFd],
+  }
   if (fs.existsSync(exe)) apiProcess = spawn(exe, args, spawnOptions)
   else if (fs.existsSync(python)) apiProcess = spawn(python, ['-m', 'eitaa_bridge.interfaces.http_api', ...args], spawnOptions)
   else {

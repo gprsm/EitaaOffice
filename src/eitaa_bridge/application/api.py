@@ -38,7 +38,7 @@ from eitaa_core import (
     save_peer_file,
 )
 
-from eitaa_core.errors import EitaaCoreError
+from eitaa_core.errors import EitaaCoreError, RpcError
 
 from ..errors import (
     AuthenticationRuntimeError,
@@ -59,6 +59,7 @@ from ..infrastructure.composition_manifest import CompositionManifestLoader
 from ..infrastructure.content_index_store import SQLiteContentIndexStore
 from ..infrastructure.contact_store import SQLiteContactStore, normalize_phone
 from ..infrastructure.dialog_catalog import JsonDialogCatalog
+from ..infrastructure.eitaa.sender_directory import configure_sender_directory
 from ..infrastructure.config import BridgeConfigLoader, EnvLoader, WordPressSiteSettings
 from ..infrastructure.diagnostics import (
     BridgeDiagnosticManager,
@@ -136,6 +137,9 @@ class BridgeApplicationApi:
         )
         self._contact_store = SQLiteContactStore(
             self.base_directory / "data" / "contacts.sqlite3"
+        )
+        self._sender_directory = configure_sender_directory(
+            self.base_directory / "data" / "sender_directory.sqlite3"
         )
         self._contact_import_lock = threading.RLock()
         self._contact_import_jobs: dict[str, dict[str, Any]] = {}
@@ -667,6 +671,31 @@ class BridgeApplicationApi:
                 try:
                     core.discovery.list_dialogs(limit=1)
                 except Exception as exc:
+                    if self._is_invalid_session_error(exc):
+                        self._runtime_logger.emit(
+                            "auth_session_invalid_detected",
+                            level="warning",
+                            fields={
+                                "error_type": type(exc).__name__,
+                                "remote_code": 401,
+                                "recovery_available": True,
+                            },
+                        )
+                        return {
+                            "ok": True,
+                            "authenticated": False,
+                            "session_present": True,
+                            "session": session_summary,
+                            "session_error": True,
+                            "session_invalid": True,
+                            "session_error_code": "auth_session_invalid",
+                            "session_error_type": type(exc).__name__,
+                            "password_pending": False,
+                            "fresh_login_available": True,
+                            "remote_probe": False,
+                            "remote_warning": False,
+                            "remote_error_code": 401,
+                        }
                     return {
                         "ok": True, "authenticated": True, "session_present": True,
                         "session": session_summary, "password_pending": False,
@@ -807,13 +836,47 @@ class BridgeApplicationApi:
             return {"ok": True, "step": "completed", **result.safe_summary()}
 
     def _auth_logout(self) -> dict[str, Any]:
-        with self._eitaa_lock, self._open_bridge(
-            self.config_path, env_file=self.env_file, open_core=True
-        ) as bridge:
-            result = bridge.core.account.logout(archive_local_session=True)
-            summary = result.safe_summary()
+        try:
+            with self._eitaa_lock, self._open_bridge(
+                self.config_path, env_file=self.env_file, open_core=True
+            ) as bridge:
+                result = bridge.core.account.logout(archive_local_session=True)
+                summary = result.safe_summary()
+        except Exception as exc:
+            if not self._is_invalid_session_error(exc):
+                raise
+            # Remote logout cannot succeed after Eitaa has already invalidated
+            # the token. Preserve the unusable file as a backup and complete a
+            # local logout so the user is never trapped inside the workspace.
+            EitaaBridge.close_shared_cores()
+            recovery = self._auth_reset_local_session({"confirm": True})
+            self._runtime_logger.emit(
+                "auth_logout_local_fallback_completed",
+                level="warning",
+                fields={
+                    "error_type": type(exc).__name__,
+                    "remote_code": 401,
+                    "local_session_archived": bool(recovery.get("archived")),
+                },
+            )
+            return {
+                "ok": True,
+                "logout": {
+                    "remote_ok": False,
+                    "remote_session_already_invalid": True,
+                    "local_session_archived": bool(recovery.get("archived")),
+                    "archive_name": recovery.get("archive_name"),
+                },
+                "session_present": False,
+                "login_ready": True,
+            }
         EitaaBridge.close_shared_cores()
-        return {"ok": True, "logout": summary}
+        return {
+            "ok": True,
+            "logout": summary,
+            "session_present": False,
+            "login_ready": True,
+        }
 
     def _sites(self) -> dict[str, Any]:
         config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
@@ -1407,6 +1470,123 @@ class BridgeApplicationApi:
             raise CompositionValidationError("Dialog was not found.", code="api_dialog_not_found") from exc
         return {"ok": True, "dialog": entry}
 
+    @staticmethod
+    def _sender_contact_name(contact: Mapping[str, Any]) -> str:
+        joined = " ".join(
+            str(contact.get(field) or "").strip()
+            for field in ("first_name", "last_name")
+            if str(contact.get(field) or "").strip()
+        ).strip()
+        return joined or str(contact.get("username") or "").strip()
+
+    def _enrich_message_senders(
+        self,
+        bridge: Any,
+        peer: Peer,
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Attach local, human-readable sender metadata without another Eitaa RPC."""
+        messages = response.get("messages")
+        if not isinstance(messages, list):
+            return response
+        sender_ids = sorted({
+            int(sender_key.split(":", 1)[1])
+            for item in messages
+            if isinstance(item, Mapping)
+            and isinstance((sender_key := item.get("sender_key")), str)
+            and sender_key.startswith("user:")
+            and sender_key.split(":", 1)[1].isdigit()
+        })
+        profiles = self._sender_directory.profiles(sender_ids)
+
+        core = getattr(bridge, "core", None)
+        members = getattr(core, "members", None) if core is not None else None
+        if members is not None and peer.type in {PeerType.CHAT, PeerType.CHANNEL}:
+            try:
+                for user_id in sender_ids:
+                    if user_id in profiles:
+                        continue
+                    member = members.get(peer, user_id)
+                    if member is None:
+                        continue
+                    display_name = str(member.user.display_name or "").strip()
+                    profiles[user_id] = {
+                        "display_name": display_name if display_name != str(user_id) else None,
+                        "username": str(member.user.username or "").strip() or None,
+                        "is_eitaa_contact": bool(member.user.is_contact),
+                        "resolution": "community_member",
+                    }
+            except Exception as exc:
+                self._runtime_logger.emit(
+                    "message_sender_member_enrichment_failed",
+                    fields={"error_type": type(exc).__name__, "sender_count": len(sender_ids)},
+                )
+
+        try:
+            local_contacts: list[Mapping[str, Any]] = []
+            for start in range(0, len(sender_ids), 500):
+                local_contacts.extend(self._contact_store.find_contacts_by_eitaa_identity(
+                    eitaa_user_ids=sender_ids[start:start + 500],
+                ))
+            for contact in local_contacts:
+                user_id = contact.get("eitaa_user_id")
+                if user_id is None:
+                    continue
+                selected_id = int(user_id)
+                current = profiles.get(selected_id, {})
+                contact_name = self._sender_contact_name(contact)
+                source = str(contact.get("source") or "").strip()
+                profiles[selected_id] = {
+                    "display_name": contact_name or current.get("display_name"),
+                    "username": str(contact.get("username") or "").strip() or current.get("username"),
+                    "is_eitaa_contact": (
+                        source.startswith("eitaa_contact")
+                        or bool(current.get("is_eitaa_contact"))
+                    ),
+                    "resolution": (
+                        "eitaa_contact"
+                        if source.startswith("eitaa_contact")
+                        else "local_contact"
+                    ),
+                }
+        except Exception as exc:
+            self._runtime_logger.emit(
+                "message_sender_contact_enrichment_failed",
+                fields={"error_type": type(exc).__name__, "sender_count": len(sender_ids)},
+            )
+
+        for item in messages:
+            if not isinstance(item, dict):
+                continue
+            sender_key = item.get("sender_key")
+            if sender_key == "self":
+                item.update({
+                    "sender_display_name": "پیام‌های ارسالی من",
+                    "sender_username": None,
+                    "sender_is_eitaa_contact": False,
+                    "sender_resolution": "self",
+                })
+                continue
+            if not isinstance(sender_key, str) or not sender_key.startswith("user:"):
+                continue
+            raw_id = sender_key.split(":", 1)[1]
+            profile = profiles.get(int(raw_id)) if raw_id.isdigit() else None
+            item.update({
+                "sender_display_name": profile.get("display_name") if profile else None,
+                "sender_username": profile.get("username") if profile else None,
+                "sender_is_eitaa_contact": bool(profile and profile.get("is_eitaa_contact")),
+                "sender_resolution": profile.get("resolution") if profile else "unknown",
+            })
+        response["sender_resolution"] = {
+            "resolved": sum(bool(item.get("sender_display_name")) for item in messages if isinstance(item, Mapping)),
+            "unresolved": sum(
+                item.get("sender_resolution") == "unknown"
+                for item in messages
+                if isinstance(item, Mapping)
+            ),
+        }
+        return response
+
     def _messages_list(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         site_key = self._site_key(payload)
         peer = load_peer_file(self._peer_path(payload))
@@ -1432,16 +1612,18 @@ class BridgeApplicationApi:
                 self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
             ) as bridge:
                 if date_from and date_to:
-                    return {
+                    response = {
                         "ok": True,
                         **bridge.application_messages_by_date(
                             peer, date_from=date_from, date_to=date_to, limit=limit
                         ),
                     }
-                return {
-                    "ok": True,
-                    **bridge.application_messages(peer, limit=min(limit, 500), before_id=before_id),
-                }
+                else:
+                    response = {
+                        "ok": True,
+                        **bridge.application_messages(peer, limit=min(limit, 500), before_id=before_id),
+                    }
+                return self._enrich_message_senders(bridge, peer, response)
 
         return self._run_eitaa(
             priority=EitaaPriority.ACTIVE_MESSAGES,
@@ -4053,8 +4235,28 @@ class BridgeApplicationApi:
         return selected
 
     @staticmethod
+    def _is_invalid_session_error(exc: BaseException) -> bool:
+        """Return whether an exception chain proves that Eitaa rejected the login.
+
+        Network errors and other transient probe failures deliberately remain
+        outside this classification. Only an RPC 401 is strong enough evidence
+        to move the UI out of the authenticated workspace.
+        """
+        current: BaseException | None = exc
+        visited: set[int] = set()
+        while current is not None and id(current) not in visited:
+            visited.add(id(current))
+            if isinstance(current, RpcError) and current.code == 401:
+                return True
+            current = current.__cause__ or current.__context__
+        return False
+
+    @staticmethod
     def _error_response(exc: Exception) -> ApiResponse:
-        if isinstance(exc, CredentialError):
+        invalid_session = BridgeApplicationApi._is_invalid_session_error(exc)
+        if invalid_session:
+            status = 401
+        elif isinstance(exc, CredentialError):
             status = 401
         elif isinstance(exc, (CompositionCollisionError, CompositionBlockedError)):
             status = 409
@@ -4075,7 +4277,19 @@ class BridgeApplicationApi:
         else:
             status = 500
 
-        if isinstance(exc, BridgeError):
+        if invalid_session:
+            component = "authentication"
+            code = "auth_session_invalid"
+            message = (
+                "نشست ایتا دیگر معتبر نیست. از حساب محلی خارج شوید و دوباره وارد شوید."
+            )
+            safe_context = {
+                "error_type": type(exc).__name__,
+                "remote_code": 401,
+                "recovery_available": True,
+            }
+            debug_file = getattr(exc, "debug_file", None)
+        elif isinstance(exc, BridgeError):
             component = exc.component
             code = exc.code
             message = exc.message

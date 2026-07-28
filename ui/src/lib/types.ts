@@ -82,11 +82,23 @@ export interface MessageItem {
   } | null
   outgoing: boolean
   sender_key?: string | null
+  sender_display_name?: string | null
+  sender_username?: string | null
+  sender_is_eitaa_contact?: boolean
+  sender_resolution?: 'self' | 'eitaa_contact' | 'local_contact' | 'history_user' | 'community_member' | 'unknown'
   reply_to_message_id?: number | null
   grouped_id?: number | null
   album_size?: number
   index_predictions?: IndexPrediction[]
   usage: MessageUsage
+}
+
+export interface SenderFilterOption {
+  key: string
+  label: string
+  username?: string | null
+  isEitaaContact: boolean
+  resolution: NonNullable<MessageItem['sender_resolution']>
 }
 
 export interface IndexPrediction {

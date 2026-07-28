@@ -602,10 +602,18 @@ class RuntimeController:
         for candidate in candidates:
             if candidate.is_file():
                 environment = os.environ.copy()
+                search_paths: list[str] = []
+                source_packages = self.root / "src"
+                if (source_packages / "eitaa_bridge").is_dir():
+                    search_paths.append(str(source_packages))
                 if candidate == candidates[0]:
                     packages = self.root / "python-packages"
-                    existing = environment.get("PYTHONPATH", "")
-                    environment["PYTHONPATH"] = str(packages) + (os.pathsep + existing if existing else "")
+                    search_paths.append(str(packages))
+                existing = environment.get("PYTHONPATH", "")
+                if existing:
+                    search_paths.append(existing)
+                if search_paths:
+                    environment["PYTHONPATH"] = os.pathsep.join(search_paths)
                 return candidate, environment
         raise RuntimeFailure("Backend Python runtime was not found. Run install_app.bat first.")
 

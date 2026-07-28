@@ -203,6 +203,35 @@ def test_normal_setup_does_not_force_reinstall():
     assert "--force-reinstall" in repair_section
 
 
+def test_office_runtime_prefers_current_source_over_installed_package(tmp_path, monkeypatch):
+    project_root = Path(__file__).resolve().parents[1]
+    module = _load_office_runtime(project_root)
+    root = tmp_path / "app"
+    source_package = root / "src" / "eitaa_bridge"
+    source_package.mkdir(parents=True)
+    python = root / ".venv" / "Scripts" / "python.exe"
+    python.parent.mkdir(parents=True)
+    python.touch()
+    (root / "VERSION.txt").write_text("0.7.0-ui-mvp6.1.1-runtime3\n", encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", "existing-packages")
+
+    selected, environment = module.RuntimeController(root, port=18765).python_runtime()
+
+    assert selected == python
+    assert environment["PYTHONPATH"].split(os.pathsep) == [
+        str(root / "src"),
+        "existing-packages",
+    ]
+
+
+def test_electron_runtime_prefers_current_source_over_installed_package():
+    root = Path(__file__).resolve().parents[1]
+    content = (root / "ui" / "electron" / "main.cjs").read_text(encoding="utf-8")
+    assert "function backendEnvironment(root)" in content
+    assert "environment.PYTHONPATH = [sourcePackages, environment.PYTHONPATH]" in content
+    assert "env: backendEnvironment(root)" in content
+
+
 def test_edge_pid_handoff_uses_visible_owned_window(tmp_path, monkeypatch):
     project_root = Path(__file__).resolve().parents[1]
     module = _load_office_runtime(project_root)

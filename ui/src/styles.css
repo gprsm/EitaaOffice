@@ -413,7 +413,7 @@ input:focus, textarea:focus, select:focus { border-color: #55ad90; box-shadow: 0
 
 .messages-pane { border: 0; background: #dcebcf; }
 .messages-header { min-height: 66px; padding: 8px 13px; background: rgba(255,255,255,.98); border-bottom: 1px solid #dfe5e8; }
-.chat-identity h2 { font-size: 15px; color: #1d2a32; }
+.chat-identity h2 { font-size: 15px; color: #f9fcfd; }
 .chat-identity small { font-size: 11px; }
 .message-search { width: min(250px, 25vw); height: 36px; }
 .message-scroll { background: linear-gradient(rgba(226,239,213,.88),rgba(226,239,213,.88)), radial-gradient(circle at 20% 20%,rgba(91,130,73,.18) 1px,transparent 1.5px); background-size: auto, 27px 27px; }

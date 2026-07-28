@@ -2,12 +2,12 @@ import { FormEvent, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo,
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'react-toastify'
 import { Alert, Box, Button, ButtonBase, CircularProgress, Dialog, DialogContent, Paper, Skeleton, Stack, TextField, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { api, query } from './lib/api'
+import { api, AUTH_SESSION_INVALID_EVENT, query } from './lib/api'
 import { albumCaption, buildAlbumLookup } from './lib/groupedMedia'
 import type { MediaAlbum } from './lib/groupedMedia'
 import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isNearBottom, mergeMessagesById, shouldAutoFollow, stableMessageKey, updateTopPaginationGate } from './lib/scrollMath'
 import type { MessageScrollMemory, ScrollAnchor, TopPaginationGate } from './lib/scrollMath'
-import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, Site, Term } from './lib/types'
+import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, SenderFilterOption, Site, Term } from './lib/types'
 import { ContactDirectoryModal } from './ContactDirectoryModal'
 import { QuickSendBar } from './QuickSendBar'
 import { useColorMode } from './theme'
@@ -16,7 +16,7 @@ import { MessageIndexEditor } from './MessageIndexEditor'
 import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
 import { LoginAppearanceProvider, LoginAppearanceSettingsPanel, LoginSurface } from './LoginExperience'
 
-type AuthStatus = { authenticated: boolean; session_present: boolean; password_pending: boolean; session_error?: boolean; session_error_code?: string; session_error_type?: string; fresh_login_available?: boolean; remote_warning?: boolean; remote_error_type?: string; remote_error_code?: number | string }
+type AuthStatus = { authenticated: boolean; session_present: boolean; password_pending: boolean; session_error?: boolean; session_invalid?: boolean; session_error_code?: string; session_error_type?: string; fresh_login_available?: boolean; remote_warning?: boolean; remote_error_type?: string; remote_error_code?: number | string }
 type Tab = 'all' | 'channel' | 'group' | 'personal' | 'favorite'
 type BulkMode = 'members' | 'numbers' | 'invite'
 type ComposerResult = Record<string, any>
@@ -394,6 +394,11 @@ export default function App() {
   }, [])
   const handleAuthenticated = useCallback(async () => { setForceFreshLogin(false); await refreshStatus() }, [refreshStatus])
   useEffect(() => { void refreshStatus() }, [refreshStatus])
+  useEffect(() => {
+    const recoverInvalidSession = () => { void refreshStatus() }
+    window.addEventListener(AUTH_SESSION_INVALID_EVENT, recoverInvalidSession)
+    return () => window.removeEventListener(AUTH_SESSION_INVALID_EVENT, recoverInvalidSession)
+  }, [refreshStatus])
   let content: ReactNode
   if (fatal) content = <StartupError message={fatal} retry={refreshStatus} />
   else if (!status) content = <Splash />
@@ -430,6 +435,7 @@ function StartupError({ message, retry }: { message: string; retry: () => void }
 function SessionRecovery({ status, retry, onFreshLogin }: { status: AuthStatus; retry: () => Promise<void> | void; onFreshLogin: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const invalidSession = status.session_invalid || status.session_error_code === 'auth_session_invalid'
   const startFreshLogin = async () => {
     if (!confirm('نشست فعلی فقط بایگانی شود و صفحه ورود تازه باز شود؟ فایل پشتیبان حذف نخواهد شد.')) return
     setBusy(true); setError('')
@@ -443,8 +449,12 @@ function SessionRecovery({ status, retry, onFreshLogin }: { status: AuthStatus; 
   }
   return <LoginSurface><Stack spacing={2}>
     <Box className="brand-mark" alignSelf="center">!</Box>
-    <Typography variant="h5" textAlign="center">نشست ایتا موجود است</Typography>
-    <Typography color="text.secondary">برنامه نشست شما را حذف نکرده است، اما هسته نتوانست آن را باز کند. این حالت می‌تواند موقت باشد یا فایل نشست واقعاً نامعتبر شده باشد.</Typography>
+    <Typography variant="h5" textAlign="center">{invalidSession ? 'نشست ایتا نیاز به بررسی دارد' : 'نشست ایتا موجود است'}</Typography>
+    <Typography color="text.secondary">
+      {invalidSession
+        ? 'ایتا در آخرین بررسی این نشست را معتبر ندانست. می‌توانید دوباره بررسی کنید؛ اگر خطا باقی ماند، نشست قبلی را به‌صورت پشتیبان بایگانی کنید و دوباره وارد شوید.'
+        : 'برنامه نشست شما را حذف نکرده است، اما هسته نتوانست آن را باز کند. این حالت می‌تواند موقت باشد یا فایل نشست واقعاً نامعتبر شده باشد.'}
+    </Typography>
     <Alert severity="warning">کد: {status.session_error_code || 'auth_session_open_failed'}{status.session_error_type ? ` — ${status.session_error_type}` : ''}</Alert>
     {error && <Alert severity="error">{error}</Alert>}
     <Button variant="contained" disabled={busy} onClick={retry}>بررسی دوباره نشست</Button>
@@ -564,6 +574,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [showWordPressUsed, setShowWordPressUsed] = useState(true)
   const [selectedIndexLabel, setSelectedIndexLabel] = useState<number | null>(null)
   const [selectedSenderKey, setSelectedSenderKey] = useState<string | null>(null)
+  const [senderResolutionState, setSenderResolutionState] = useState<'idle' | 'syncing' | 'ready' | 'failed'>('idle')
   const [contentIndexResults, setContentIndexResults] = useState<Record<number, ContentIndexResult>>({})
   const [contentIndexLabels, setContentIndexLabels] = useState<Array<{ id: number; name: string }>>([])
   const [contentIndexJob, setContentIndexJob] = useState<ContentIndexJob | null>(null)
@@ -589,6 +600,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const activeMessagePeerRef = useRef<string | null>(null)
   const messageScrollMemoryRef = useRef<Map<string, MessageScrollMemory>>(new Map())
   const messageCacheRef = useRef<Map<string, MessageItem[]>>(new Map())
+  const senderSyncAttemptRef = useRef<Set<string>>(new Set())
   const [composerDocked, setComposerDocked] = useState(() => window.matchMedia('(min-width: 1500px)').matches)
   const [chatsDocked, setChatsDocked] = useState(() => window.matchMedia('(min-width: 821px)').matches)
   useEffect(() => {
@@ -642,6 +654,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     setContentIndexLabels([])
     setSelectedIndexLabel(null)
     setSelectedSenderKey(null)
+    setSenderResolutionState('idle')
     setContentIndexJob(null)
     setIndexEditor(null)
     setDateJump(null)
@@ -1361,10 +1374,94 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     }
     return [...labels].map(([id, name]) => ({ id, name })).sort((left, right) => left.name.localeCompare(right.name, 'fa'))
   }, [indexedMessages])
-  const senderFilterOptions = useMemo(() => (
-    [...new Set(indexedMessages.map(item => item.sender_key).filter((value): value is string => Boolean(value)))]
-      .sort((left, right) => left.localeCompare(right))
-  ), [indexedMessages])
+  const senderFilterOptions = useMemo<SenderFilterOption[]>(() => {
+    const options = new Map<string, SenderFilterOption>()
+    const resolutionRank: Record<SenderFilterOption['resolution'], number> = {
+      self: 5,
+      eitaa_contact: 4,
+      local_contact: 3,
+      history_user: 3,
+      community_member: 2,
+      unknown: 1,
+    }
+    for (const message of indexedMessages) {
+      const key = message.sender_key
+      if (!key) continue
+      const rawUserId = key.startsWith('user:') ? key.slice('user:'.length) : ''
+      const numericUserId = /^\d+$/.test(rawUserId) ? Number(rawUserId) : null
+      const resolution = message.sender_resolution || (key === 'self' ? 'self' : 'unknown')
+      const candidate: SenderFilterOption = {
+        key,
+        label: message.sender_display_name?.trim()
+          || (key === 'self'
+            ? 'پیام‌های ارسالی من'
+            : `کاربر ناشناس · شناسه ${numericUserId !== null ? numericUserId.toLocaleString('fa-IR') : rawUserId}`),
+        username: message.sender_username || null,
+        isEitaaContact: Boolean(message.sender_is_eitaa_contact),
+        resolution,
+      }
+      const current = options.get(key)
+      if (
+        !current
+        || (candidate.isEitaaContact && !current.isEitaaContact)
+        || resolutionRank[candidate.resolution] > resolutionRank[current.resolution]
+      ) options.set(key, candidate)
+    }
+    return [...options.values()].sort((left, right) => {
+      if (left.key === 'self') return -1
+      if (right.key === 'self') return 1
+      return left.label.localeCompare(right.label, 'fa')
+    })
+  }, [indexedMessages])
+  const unresolvedSenderCount = senderFilterOptions.filter(option => option.resolution === 'unknown').length
+
+  useEffect(() => {
+    const selected = dialog
+    if (
+      !contentFiltersOpen
+      || indexWorkbenchTab !== 'display'
+      || !selected
+      || selected.display_kind === 'personal'
+      || unresolvedSenderCount === 0
+    ) {
+      if (contentFiltersOpen && indexWorkbenchTab === 'display' && unresolvedSenderCount === 0) {
+        setSenderResolutionState('ready')
+      }
+      return
+    }
+    const attemptKey = `${siteKey}:${selected.peer_key}`
+    if (senderSyncAttemptRef.current.has(attemptKey)) return
+    senderSyncAttemptRef.current.add(attemptKey)
+    setSenderResolutionState('syncing')
+    const loadedMessageCount = messages.length
+
+    void (async () => {
+      try {
+        await api('POST', '/api/v1/messages/sync', {
+          site_key: siteKey,
+          peer_file: selected.peer_file,
+          pages: Math.min(50, Math.max(1, Math.ceil(loadedMessageCount / 100))),
+          page_size: 100,
+          offset_id: 0,
+          stop_when_unchanged: false,
+        })
+        await refreshLocalMessages(selected, Math.min(5000, Math.max(viewportPageSize, loadedMessageCount)))
+        setSenderResolutionState('ready')
+      } catch (error) {
+        setSenderResolutionState('failed')
+        toast.warning(error instanceof Error ? error.message : 'بازیابی نام نویسندگان ناموفق بود.')
+      }
+    })()
+  }, [
+    contentFiltersOpen,
+    dialog,
+    indexWorkbenchTab,
+    messages.length,
+    refreshLocalMessages,
+    siteKey,
+    unresolvedSenderCount,
+    viewportPageSize,
+  ])
   const contentIndexActive = Boolean(
     contentIndexJob && ['queued', 'running', 'cancelling'].includes(contentIndexJob.state),
   )
@@ -1640,6 +1737,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       setSelectedSenderKey={setSelectedSenderKey}
       indexFilterLabels={indexFilterLabels}
       senderFilterOptions={senderFilterOptions}
+      senderResolutionState={senderResolutionState}
+      unresolvedSenderCount={unresolvedSenderCount}
       filteredMessageCount={filteredMessages.length}
       contentIndexActive={contentIndexActive}
       contentIndexState={contentIndexJob?.state}
