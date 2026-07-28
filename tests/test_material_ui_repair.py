@@ -116,13 +116,27 @@ def test_legacy_operational_dialogs_are_contained_by_material_dialogs() -> None:
     assert 'className="material-legacy-dialog-content"' in app
 
 
-def test_contact_and_community_render_limits_are_safe() -> None:
+def test_contact_and_community_large_lists_use_incremental_virtual_rendering() -> None:
     app = read("App.tsx")
     contacts = read("ContactDirectoryModal.tsx")
-    assert "limit: 300" in app
+    assert "limit: 300" not in app
+    assert "requestMemberPage(offset, 200)" in app
+    assert "requestMemberPage(offset, 1_000)" in app
+    assert "memberVirtualizer.getVirtualItems()" in app
+    assert "سقف ۳۰۰ عضو حذف شده است" not in app
+    assert "snapshot_total_count" in app
+    assert "autoSyncAttemptedRef" in app
     assert "useState(250)" in contacts
     assert "setInterval(() =>" in contacts and "}, 1000)" in contacts
-    assert "max_pages: Math.min(250" in app
+    assert "Math.ceil(expectedTotal / 25) + 20" in app
+
+
+def test_member_management_button_keeps_readable_contrast() -> None:
+    app = read("App.tsx")
+    styles = read("styles.css")
+    assert "member-management-button" in app
+    assert ".community-actions .member-management-button" in styles
+    assert "color: var(--app-text);" in styles
 
 
 def test_index_editor_uses_a_real_checkbox_control() -> None:
