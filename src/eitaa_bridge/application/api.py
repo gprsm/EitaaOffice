@@ -31,6 +31,7 @@ from eitaa_core import (
     MemberSearchQuery,
     MemberRole,
     MemberState,
+    PhoneNumber,
     PhoneListResolveOptions,
     MembershipInviteOptions,
     SendKind,
@@ -2594,12 +2595,59 @@ class BridgeApplicationApi:
             with self._open_bridge(
                 self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
             ) as bridge:
-                resolution = bridge.core.contacts.add(
-                    phone, first_name=first_name, last_name=last_name
+                contacts = bridge.core.contacts
+                normalized_phone = PhoneNumber.parse(phone)
+                existing = contacts.find(normalized_phone, refresh=True)
+                existing_names = (
+                    (
+                        str(existing.user.first_name or "").strip(),
+                        str(existing.user.last_name or "").strip(),
+                    )
+                    if existing is not None
+                    else None
+                )
+                requested_names = (first_name, last_name)
+                if existing is not None and existing_names != requested_names:
+                    # ContactService.resolve() intentionally short-circuits for
+                    # an existing phone. That is correct for sending, but it
+                    # leaves placeholder names such as "Eitaa" unchanged.
+                    # Re-import the same phone explicitly: contacts.importContacts
+                    # is an upsert and updates the contact-book name without
+                    # creating a second Eitaa user/contact.
+                    imported = contacts.repository.import_contact(
+                        normalized_phone,
+                        first_name=first_name,
+                        last_name=last_name,
+                    )
+                    if imported.retry_client_ids:
+                        raise CompositionValidationError(
+                            "Eitaa requested a later retry while updating the contact name.",
+                            code="api_eitaa_contact_name_update_retry",
+                        )
+                    refreshed = contacts.find(normalized_phone, refresh=True)
+                    if refreshed is None:
+                        raise CompositionValidationError(
+                            "Eitaa did not return the contact after updating its name.",
+                            code="api_eitaa_contact_name_update_missing",
+                        )
+                    return {
+                        "contact": self._eitaa_contact_payload(refreshed),
+                        "contact_added": False,
+                        "contact_updated": True,
+                        "source": "existing_updated",
+                        "access_hash": getattr(refreshed.user.peer, "access_hash", None),
+                    }
+                resolution = contacts.resolve(
+                    normalized_phone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    import_if_missing=True,
+                    refresh_contacts=False,
                 )
                 return {
                     "contact": self._eitaa_contact_payload(resolution.contact),
                     "contact_added": bool(resolution.contact_added),
+                    "contact_updated": False,
                     "source": resolution.source.value,
                     "access_hash": getattr(resolution.contact.user.peer, "access_hash", None),
                 }
@@ -2616,8 +2664,10 @@ class BridgeApplicationApi:
             self._contact_validation(lambda: self._contact_store.upsert_contact(
                 {
                     "phones": [contact["phone"]] if contact.get("phone") else [phone],
-                    "first_name": contact.get("first_name") or first_name,
-                    "last_name": contact.get("last_name") or last_name,
+                    # The spreadsheet/manual name is authoritative. A stale
+                    # server response must never replace it with "Eitaa".
+                    "first_name": first_name,
+                    "last_name": last_name,
                     "username": contact.get("username") or "",
                     "eitaa_user_id": contact.get("user_id"),
                     "access_hash": str(result.get("access_hash") or ""),
@@ -2789,21 +2839,37 @@ class BridgeApplicationApi:
             )
 
         def runner(cancellation: threading.Event, update_progress: Any) -> dict[str, Any]:
-            added = existing = failed = skipped = processed = 0
-            update_progress({"total": len(selected), "eitaa_added": 0, "eitaa_existing": 0, "eitaa_failed": 0})
+            added = updated = existing = failed = skipped = processed = 0
+            update_progress({
+                "total": len(selected), "eitaa_added": 0, "eitaa_updated": 0,
+                "eitaa_existing": 0, "eitaa_failed": 0,
+            })
             for item in selected:
                 if cancellation.is_set():
                     return {
-                        "processed": processed, "eitaa_added": added, "eitaa_existing": existing,
-                        "eitaa_failed": failed, "skipped": skipped, "cancelled": True,
+                        "processed": processed, "eitaa_added": added,
+                        "eitaa_updated": updated, "eitaa_existing": existing,
+                        "eitaa_failed": failed, "skipped": skipped,
+                        "cancelled": True,
                     }
                 phones = list(item.get("phones") or [])
                 if not phones:
                     skipped += 1
                     processed += 1
                     continue
-                first_name = str(item.get("first_name") or "").strip() or "مخاطب"
+                first_name = str(item.get("first_name") or "").strip()
                 last_name = str(item.get("last_name") or "").strip()
+                if not first_name:
+                    skipped += 1
+                    processed += 1
+                    if processed % 5 == 0 or processed == len(selected):
+                        update_progress({
+                            "processed": processed, "eitaa_added": added,
+                            "eitaa_updated": updated, "eitaa_existing": existing,
+                            "eitaa_failed": failed,
+                            "skipped": skipped,
+                        })
+                    continue
                 phone = str(phones[0])
                 try:
                     result = self._eitaa_contacts_add({
@@ -2816,6 +2882,8 @@ class BridgeApplicationApi:
                     })
                     if result.get("contact_added"):
                         added += 1
+                    elif result.get("contact_updated"):
+                        updated += 1
                     else:
                         existing += 1
                 except Exception:
@@ -2823,11 +2891,13 @@ class BridgeApplicationApi:
                 processed += 1
                 if processed % 5 == 0 or processed == len(selected):
                     update_progress({
-                        "processed": processed, "eitaa_added": added, "eitaa_existing": existing,
+                        "processed": processed, "eitaa_added": added,
+                        "eitaa_updated": updated, "eitaa_existing": existing,
                         "eitaa_failed": failed, "skipped": skipped,
                     })
             return {
-                "processed": processed, "eitaa_added": added, "eitaa_existing": existing,
+                "processed": processed, "eitaa_added": added,
+                "eitaa_updated": updated, "eitaa_existing": existing,
                 "eitaa_failed": failed, "skipped": skipped, "cancelled": False,
             }
 
@@ -3014,6 +3084,11 @@ class BridgeApplicationApi:
             )
         category_ids = self._contact_ids(payload, "category_ids")
         add_to_eitaa = bool(payload.get("add_to_eitaa", False))
+        if add_to_eitaa and mapping.get("first_name") in (None, ""):
+            raise CompositionValidationError(
+                "Map a first-name column before adding spreadsheet rows to Eitaa.",
+                code="api_contact_import_first_name_mapping_required",
+            )
         site_key = self._site_key(payload)
         job_id = uuid.uuid4().hex
         cancellation = threading.Event()
@@ -3080,6 +3155,9 @@ class BridgeApplicationApi:
             result = self._contact_store.import_rows(
                 rows,
                 category_ids=category_ids,
+                duplicate_policy="update",
+                category_policy="merge",
+                status_policy="preserve",
                 cancel_event=cancellation,
                 progress=update_progress,
             )

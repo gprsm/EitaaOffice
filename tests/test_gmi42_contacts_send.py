@@ -82,6 +82,72 @@ def test_real_eitaa_contacts_can_sync_into_local_categories(config_file, monkeyp
     api.close()
 
 
+def test_adding_existing_placeholder_contact_updates_its_eitaa_name(
+    config_file, monkeypatch
+):
+    api = BridgeApplicationApi(config_file)
+    old_contact = Contact(user=User(
+        peer=Peer(id=440, type=PeerType.USER, access_hash=550),
+        first_name="Eitaa",
+        last_name="",
+        phone="+989121234567",
+        is_contact=True,
+    ))
+    updated_contact = Contact(user=User(
+        peer=Peer(id=440, type=PeerType.USER, access_hash=550),
+        first_name="علی",
+        last_name="احمدی",
+        phone="+989121234567",
+        is_contact=True,
+    ))
+    state = {"contact": old_contact}
+    imported = {}
+
+    class Repository:
+        @staticmethod
+        def import_contact(phone, *, first_name, last_name):
+            imported.update(
+                phone=str(phone),
+                first_name=first_name,
+                last_name=last_name,
+            )
+            state["contact"] = updated_contact
+            return SimpleNamespace(retry_client_ids=())
+
+    class Contacts:
+        repository = Repository()
+
+        @staticmethod
+        def find(phone, *, refresh):
+            return state["contact"]
+
+        @staticmethod
+        def resolve(*args, **kwargs):
+            raise AssertionError("an existing contact with a changed name must be re-imported")
+
+    fake_bridge = SimpleNamespace(core=SimpleNamespace(contacts=Contacts()))
+    monkeypatch.setattr(api, "_open_bridge", lambda *args, **kwargs: nullcontext(fake_bridge))
+    monkeypatch.setattr(api, "_run_eitaa", lambda *args, **kwargs: kwargs["callback"]())
+
+    response = api.dispatch("POST", "/api/v1/eitaa-contacts/add", body={
+        "site_key": "medical-site",
+        "phone": "09121234567",
+        "first_name": "علی",
+        "last_name": "احمدی",
+        "save_local": True,
+    })
+    assert response.status == 201
+    assert response.payload["contact_added"] is False
+    assert response.payload["contact_updated"] is True
+    assert imported["first_name"] == "علی"
+    assert imported["last_name"] == "احمدی"
+    local = api.dispatch("POST", "/api/v1/contacts/list", body={}).payload["contacts"]
+    assert len(local) == 1
+    assert local[0]["first_name"] == "علی"
+    assert local[0]["last_name"] == "احمدی"
+    api.close()
+
+
 def test_selected_eitaa_contacts_can_add_move_and_remove_local_categories(config_file, monkeypatch):
     api = BridgeApplicationApi(config_file)
     first_category = api.dispatch(

@@ -122,20 +122,26 @@ def map_contact_rows(
         phone = get("phone")
         if not phone:
             continue
-        result.append(
-            {
-                "first_name": get("first_name"),
-                "last_name": get("last_name"),
-                "phones": [phone],
-                "organization": get("organization"),
-                "notes": get("notes"),
-                "username": get("username"),
-                "category_names": [
-                    value.strip()
-                    for value in get("category").replace("؛", "،").split("،")
-                    if value.strip()
-                ],
-                "source": "xlsx" if str(mapping.get("_format") or "") == "xlsx" else "file",
-            }
-        )
+        contact: dict[str, Any] = {
+            "phones": [phone],
+            "category_names": [
+                value.strip()
+                for value in get("category").replace("؛", "،").split("،")
+                if value.strip()
+            ],
+            "source": "xlsx" if str(mapping.get("_format") or "") == "xlsx" else "file",
+        }
+        # Unmapped optional columns must be absent, not empty. This lets a
+        # repeated spreadsheet import update the supplied fields and merge
+        # categories without erasing names or notes saved by an earlier file.
+        for field in (
+            "first_name",
+            "last_name",
+            "organization",
+            "notes",
+            "username",
+        ):
+            if field in indexes:
+                contact[field] = get(field)
+        result.append(contact)
     return result

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
 from io import BytesIO
 import sqlite3
 import threading
+import time
 import zipfile
 
 import pytest
@@ -14,6 +16,17 @@ from eitaa_bridge.infrastructure.contact_store import (
     normalize_phone,
 )
 from eitaa_bridge.application.api import BridgeApplicationApi
+
+
+def _wait_for_import(api: BridgeApplicationApi, job_id: str) -> dict:
+    for _ in range(500):
+        job = api.dispatch(
+            "GET", f"/api/v1/contacts/import/status?job_id={job_id}"
+        ).payload["job"]
+        if job["state"] not in {"queued", "running", "cancelling"}:
+            return job
+        time.sleep(0.01)
+    raise AssertionError("contact import did not finish")
 
 
 def test_phone_normalization_and_multi_phone_deduplication(tmp_path) -> None:
@@ -99,6 +112,82 @@ def test_minimal_xlsx_mapping() -> None:
     mapped = map_contact_rows(headers, rows, {"first_name": 0, "phone": 1})
     assert mapped[0]["first_name"] == "سارا"
     assert mapped[0]["phones"] == ["09120000006"]
+
+
+def test_unmapped_optional_columns_are_not_emitted() -> None:
+    mapped = map_contact_rows(
+        ["نام", "شماره"],
+        [["سارا", "09120000006"]],
+        {"first_name": 0, "phone": 1},
+    )
+    assert mapped[0]["first_name"] == "سارا"
+    assert "last_name" not in mapped[0]
+    assert "notes" not in mapped[0]
+
+
+def test_repeated_file_import_updates_one_contact_and_merges_categories(
+    config_file,
+) -> None:
+    api = BridgeApplicationApi(config_file)
+    first_category = api.dispatch(
+        "POST", "/api/v1/contacts/categories/save", body={"name": "همکاران"}
+    ).payload["category"]
+    second_category = api.dispatch(
+        "POST", "/api/v1/contacts/categories/save", body={"name": "پروژه دوم"}
+    ).payload["category"]
+
+    def import_csv(first_name: str, category_id: int) -> dict:
+        content = f"نام,شماره\n{first_name},09121234567\n".encode("utf-8")
+        started = api.dispatch(
+            "POST",
+            "/api/v1/contacts/import/start",
+            body={
+                "site_key": "medical-site",
+                "file_name": "contacts.csv",
+                "content_base64": base64.b64encode(content).decode("ascii"),
+                "mapping": {"first_name": 0, "phone": 1},
+                "category_ids": [category_id],
+            },
+        )
+        assert started.status == 202
+        return _wait_for_import(api, started.payload["job"]["job_id"])
+
+    first = import_csv("نام اولیه", first_category["id"])
+    second = import_csv("نام به‌روزشده", second_category["id"])
+    assert first["progress"]["imported"] == 1
+    assert second["progress"]["updated"] == 1
+
+    listed = api.dispatch("POST", "/api/v1/contacts/list", body={}).payload
+    assert listed["total"] == 1
+    contact = listed["contacts"][0]
+    assert contact["first_name"] == "نام به‌روزشده"
+    assert {item["name"] for item in contact["categories"]} == {
+        "همکاران",
+        "پروژه دوم",
+    }
+    api.close()
+
+
+def test_eitaa_file_import_requires_first_name_mapping(config_file) -> None:
+    api = BridgeApplicationApi(config_file)
+    content = base64.b64encode("شماره\n09121234567\n".encode("utf-8")).decode("ascii")
+    response = api.dispatch(
+        "POST",
+        "/api/v1/contacts/import/start",
+        body={
+            "site_key": "medical-site",
+            "file_name": "contacts.csv",
+            "content_base64": content,
+            "mapping": {"phone": 0},
+            "add_to_eitaa": True,
+        },
+    )
+    assert response.status == 400
+    assert (
+        response.payload["error"]["error_code"]
+        == "api_contact_import_first_name_mapping_required"
+    )
+    api.close()
 
 
 def test_schema_rejects_newer_database_without_modifying_it(tmp_path) -> None:
