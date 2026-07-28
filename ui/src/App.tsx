@@ -19,6 +19,7 @@ import { LoginAppearanceProvider, LoginAppearanceSettingsPanel, LoginSurface } f
 type AuthStatus = { authenticated: boolean; session_present: boolean; password_pending: boolean; session_error?: boolean; session_invalid?: boolean; session_error_code?: string; session_error_type?: string; fresh_login_available?: boolean; remote_warning?: boolean; remote_error_type?: string; remote_error_code?: number | string }
 type Tab = 'all' | 'channel' | 'group' | 'personal' | 'favorite'
 type BulkMode = 'members' | 'numbers' | 'invite'
+type MemberScope = 'all_snapshot' | 'selected'
 type ComposerResult = Record<string, any>
 type IndexWorkbenchTab = 'index' | 'display'
 type IndexDefinitionKind = 'wordpress-category' | 'wordpress-tag' | 'custom'
@@ -562,6 +563,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkMode, setBulkMode] = useState<BulkMode>('members')
   const [bulkMemberIds, setBulkMemberIds] = useState<number[]>([])
+  const [bulkMemberScope, setBulkMemberScope] = useState<MemberScope>('all_snapshot')
   const [bulkInitialNumbers, setBulkInitialNumbers] = useState<string[]>([])
   const [membersOpen, setMembersOpen] = useState(false)
   const [railMenuOpen, setRailMenuOpen] = useState(false)
@@ -622,9 +624,10 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   useEffect(() => { if (siteKey) writeStored(STORAGE.siteKey, siteKey) }, [siteKey])
   useEffect(() => { if (dialog) writeStored(STORAGE.peerKey, dialog.peer_key) }, [dialog?.peer_key])
 
-  const openBulk = useCallback((mode: BulkMode, memberIds: number[] = [], numbers: string[] = []) => {
+  const openBulk = useCallback((mode: BulkMode, memberIds: number[] = [], numbers: string[] = [], memberScope: MemberScope = memberIds.length ? 'selected' : 'all_snapshot') => {
     setBulkMode(mode)
     setBulkMemberIds(memberIds)
+    setBulkMemberScope(memberScope)
     setBulkInitialNumbers(numbers)
     setBulkOpen(true)
   }, [])
@@ -1679,8 +1682,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       </Paper>
     </Box>
     {settingsOpen && <SettingsModal sites={sites} close={() => setSettingsOpen(false)} onChanged={loadSites} />}
-    {bulkOpen && <BulkOperationsModal siteKey={siteKey} dialog={dialog} initialMode={bulkMode} initialMemberIds={bulkMemberIds} initialNumbers={bulkInitialNumbers} close={() => setBulkOpen(false)} />}
-    {membersOpen && <CommunityMembersModal siteKey={siteKey} dialog={dialog} close={() => setMembersOpen(false)} openBulk={memberIds => { setMembersOpen(false); openBulk('members', memberIds) }} />}
+    {bulkOpen && <BulkOperationsModal siteKey={siteKey} dialog={dialog} initialMode={bulkMode} initialMemberIds={bulkMemberIds} initialMemberScope={bulkMemberScope} initialNumbers={bulkInitialNumbers} close={() => setBulkOpen(false)} />}
+    {membersOpen && <CommunityMembersModal siteKey={siteKey} dialog={dialog} dialogs={dialogs} close={() => setMembersOpen(false)} openBulk={selection => { setMembersOpen(false); openBulk('members', selection.memberIds, [], selection.scope) }} />}
     {manualOpen && <ManualDialogModal siteKey={siteKey} close={() => setManualOpen(false)} onAdded={item => { applyDialogs([item, ...dialogs.filter(d => d.peer_key !== item.peer_key)]); selectDialog(item); setManualOpen(false) }} />}
     {contactsOpen && <ContactDirectoryModal
       siteKey={siteKey}
@@ -2305,7 +2308,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
       <div className="community-summary"><div className="avatar small">{initials(titleFor(props.dialog))}</div><div><b>{titleFor(props.dialog)}</b><small>{props.dialog?.peer.username ? `@${props.dialog.peer.username}` : props.dialog ? `Peer ID: ${props.dialog.peer.id}` : 'گفتگویی انتخاب نشده'}</small></div></div>
       <div className="community-actions">
         <button type="button" className="btn btn-neutral btn-sm" onClick={() => props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')}>ارسال و دعوت گروهی</button>
-        <button type="button" className="btn btn-outline btn-sm" disabled={!props.dialog || props.dialog.display_kind === 'personal'} onClick={props.openMembers}>مدیریت اعضا</button>
+        <button type="button" className="btn btn-outline btn-sm member-management-button" disabled={!props.dialog || props.dialog.display_kind === 'personal'} onClick={props.openMembers}>مدیریت اعضا</button>
         <small>{!props.dialog ? 'ارسال به شماره‌ها در دسترس است؛ برای عملیات اعضا ابتدا یک گروه یا کانال را انتخاب کنید.' : props.dialog.display_kind === 'personal' ? 'در گفتگوی شخصی، ابزار یکپارچه روی ارسال به شماره‌ها باز می‌شود.' : 'اعضای گفتگو، شماره‌های جدید و دعوت شماره‌ها همگی در یک ابزار و سه تب مستقل قرار دارند.'}</small>
       </div>
     </section> : !props.wordpressReady ? <section className="wordpress-unavailable card"><Icon name="wordpress" size={38} /><h3>وردپرس هنوز آماده نیست</h3><p>تا زمانی که یک سایت با نام کاربری و رمز برنامه معتبر تعریف نشده، دریافت دسته‌ها و دکمه‌های ساخت نوشته غیرفعال می‌مانند.</p><button type="button" className="btn btn-neutral" onClick={props.openSettings}>بازکردن تنظیمات سایت‌ها</button></section> : <>
@@ -2448,22 +2451,57 @@ type CommunityMemberItem = {
   role: string
   state: string
   sendable: boolean
+  contact: {
+    state: 'eitaa' | 'local' | 'none'
+    is_eitaa_contact: boolean
+    is_local_contact: boolean
+    display_name?: string | null
+    local_contact_id?: number | null
+  }
 }
 
-function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: string; dialog: DialogItem | null; close: () => void; openBulk: (memberIds: number[]) => void }) {
+type MemberSelection = { scope: MemberScope; memberIds: number[] }
+
+function CommunityMembersModal({
+  siteKey,
+  dialog,
+  dialogs,
+  close,
+  openBulk,
+}: {
+  siteKey: string
+  dialog: DialogItem | null
+  dialogs: DialogItem[]
+  close: () => void
+  openBulk: (selection: MemberSelection) => void
+}) {
   const [members, setMembers] = useState<CommunityMemberItem[]>([])
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sendableOnly, setSendableOnly] = useState(false)
   const [includeBots, setIncludeBots] = useState(false)
   const [selected, setSelected] = useState<number[]>([])
   const [summary, setSummary] = useState<any>(null)
   const [syncSummary, setSyncSummary] = useState<any>(null)
+  const [mutationSummary, setMutationSummary] = useState<any>(null)
+  const [inviteTargetPeerFile, setInviteTargetPeerFile] = useState('')
+  const [nextOffset, setNextOffset] = useState<number | null>(null)
+  const [listBusy, setListBusy] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadAllProgress, setLoadAllProgress] = useState<{ loaded: number; total: number } | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [contactCategories, setContactCategories] = useState<Array<{ id: number; name: string }>>([])
   const [contactCategoryIds, setContactCategoryIds] = useState<number[]>([])
   const [contactImportJob, setContactImportJob] = useState<any>(null)
+  const memberListRef = useRef<HTMLDivElement>(null)
+  const memberQueryGenerationRef = useRef(0)
+  const autoSyncAttemptedRef = useRef(false)
   const contactImportActive = Boolean(contactImportJob && ['queued', 'running', 'cancelling'].includes(contactImportJob.state))
+  const invitationTargets = dialogs.filter(item => (
+    item.display_kind !== 'personal'
+    && item.peer_key !== dialog?.peer_key
+  ))
 
   const waitTask = async (taskId: string) => {
     for (let attempt = 0; attempt < 3600; attempt += 1) {
@@ -2471,34 +2509,104 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
       const response = await api<{ task: any }>('GET', query('/api/v1/background/status', { task_id: taskId }))
       if (response.task.status === 'failed') {
         const detail = response.task.error?.message || response.task.error?.error_code || response.task.error_type || 'خطای نامشخص'
-        throw new Error(`همگام‌سازی اعضا متوقف شد: ${detail}`)
+        throw new Error(`عملیات اعضا متوقف شد: ${detail}`)
       }
       if (response.task.status === 'completed') return response.task.result
     }
-    throw new Error('همگام‌سازی اعضا بیش از حد طول کشید؛ وضعیت در بخش پشتیبان حفظ شده است.')
+    throw new Error('عملیات اعضا بیش از حد طول کشید؛ وضعیت آن در بخش پشتیبان حفظ شده است.')
   }
 
-  const loadLocal = useCallback(async () => {
-    if (!dialog || dialog.display_kind === 'personal') return
-    setBusy(current => current || 'list'); setError('')
-    try {
-      const response = await api<{ page: any }>('POST', '/api/v1/community/members/list', {
-        site_key: siteKey,
-        peer_file: dialog.peer_file,
-        text: search.trim() || undefined,
-        sendable_only: sendableOnly,
-        include_bots: includeBots,
-        offset: 0,
-        limit: 300,
-      })
-      setMembers(response.page.members || [])
-      setSummary(response.page)
-      setSelected(current => current.filter(id => (response.page.members || []).some((item: CommunityMemberItem) => item.user.peer.id === id && item.sendable)))
-    } catch (e) { setError(e instanceof Error ? e.message : 'خواندن اعضای محلی ناموفق بود.') }
-    finally { setBusy(current => current === 'list' ? '' : current) }
-  }, [dialog?.peer_key, siteKey, search, sendableOnly, includeBots])
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
-  useEffect(() => { void loadLocal() }, [loadLocal])
+  useEffect(() => {
+    setSelected([])
+    setMutationSummary(null)
+    setInviteTargetPeerFile('')
+    autoSyncAttemptedRef.current = false
+  }, [dialog?.peer_key])
+
+  const requestMemberPage = useCallback(async (offset: number, limit: number) => {
+    if (!dialog || dialog.display_kind === 'personal') return
+    return api<{ page: any }>('POST', '/api/v1/community/members/list', {
+      site_key: siteKey,
+      peer_file: dialog.peer_file,
+      text: debouncedSearch || undefined,
+      sendable_only: sendableOnly,
+      include_bots: includeBots,
+      offset,
+      limit,
+    })
+  }, [dialog?.peer_key, siteKey, debouncedSearch, sendableOnly, includeBots])
+
+  const mergeMembers = (current: CommunityMemberItem[], incoming: CommunityMemberItem[]) => {
+    const merged = new Map(current.map(item => [item.user.peer.id, item]))
+    for (const item of incoming) merged.set(item.user.peer.id, item)
+    return [...merged.values()]
+  }
+
+  const loadMemberPage = useCallback(async (offset: number, append: boolean) => {
+    const generation = append ? memberQueryGenerationRef.current : ++memberQueryGenerationRef.current
+    if (append) setLoadingMore(true)
+    else { setListBusy(true); setError(''); setLoadAllProgress(null) }
+    try {
+      const response = await requestMemberPage(offset, 200)
+      if (!response || generation !== memberQueryGenerationRef.current) return
+      const incoming = (response.page.members || []) as CommunityMemberItem[]
+      setMembers(current => append ? mergeMembers(current, incoming) : incoming)
+      setSummary(response.page)
+      setNextOffset(response.page.next_offset ?? null)
+    } catch (e) {
+      if (generation === memberQueryGenerationRef.current) {
+        setError(e instanceof Error ? e.message : 'خواندن اعضای محلی ناموفق بود.')
+      }
+    } finally {
+      if (generation === memberQueryGenerationRef.current) {
+        setListBusy(false)
+        setLoadingMore(false)
+      }
+    }
+  }, [requestMemberPage])
+
+  useEffect(() => {
+    setMembers([])
+    setSummary(null)
+    setNextOffset(null)
+    void loadMemberPage(0, false)
+  }, [loadMemberPage])
+
+  const loadAllMembers = async () => {
+    const generation = ++memberQueryGenerationRef.current
+    setBusy('load-all'); setError(''); setLoadAllProgress({ loaded: 0, total: 0 })
+    try {
+      let offset = 0
+      let collected: CommunityMemberItem[] = []
+      while (true) {
+        const response = await requestMemberPage(offset, 1_000)
+        if (!response || generation !== memberQueryGenerationRef.current) return
+        collected = mergeMembers(collected, response.page.members || [])
+        setMembers(collected)
+        setSummary(response.page)
+        setLoadAllProgress({
+          loaded: collected.length,
+          total: Number(response.page.total_count || collected.length),
+        })
+        const following = response.page.next_offset
+        if (following === null || following === undefined) {
+          setNextOffset(null)
+          break
+        }
+        offset = Number(following)
+        setNextOffset(offset)
+        await new Promise(resolve => window.setTimeout(resolve, 0))
+      }
+      toast.success(`${collected.length.toLocaleString('fa-IR')} عضو مطابق فیلتر در نمای مجازی آماده شد.`)
+    } catch (e) { setError(e instanceof Error ? e.message : 'بارگذاری همه اعضا ناموفق بود.') }
+    finally { setBusy(''); setLoadAllProgress(null) }
+  }
+
   useEffect(() => {
     void api<{ categories: Array<{ id: number; name: string }> }>('GET', '/api/v1/contacts/categories')
       .then(response => setContactCategories(response.categories))
@@ -2513,6 +2621,7 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
           if (response.job.state === 'completed') {
             const progress = response.job.progress || {}
             toast.success(`${Number(progress.imported || 0).toLocaleString('fa-IR')} مخاطب جدید و ${Number(progress.updated || 0).toLocaleString('fa-IR')} مخاطب به‌روزشده در دفترچه ثبت شد.`)
+            void loadMemberPage(0, false)
           } else if (response.job.state === 'failed') {
             setError(response.job.error?.message || 'ورود اعضا به دفترچه ناموفق بود.')
           }
@@ -2520,7 +2629,7 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
         .catch(() => undefined)
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [contactImportActive, contactImportJob?.job_id])
+  }, [contactImportActive, contactImportJob?.job_id, loadMemberPage])
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy && !contactImportActive) close() }
     window.addEventListener('keydown', onKey)
@@ -2531,24 +2640,83 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
     if (!dialog || dialog.display_kind === 'personal') return
     setBusy('sync'); setError(''); setSyncSummary(null)
     try {
+      const expectedTotal = Number(dialog.participants_count || 0)
+      const maxPages = expectedTotal
+        ? Math.max(20, Math.min(10_000, Math.ceil(expectedTotal / 25) + 20))
+        : 200
       const started = await api<{ task: { task_id: string } }>('POST', '/api/v1/community/members/sync/start', {
         site_key: siteKey,
         peer_file: dialog.peer_file,
         page_size: 200,
-        max_pages: Math.min(250, Math.max(1, Math.ceil((dialog.participants_count || 50_000) / 200))),
-        expected_total: dialog.participants_count || undefined,
+        max_pages: maxPages,
+        expected_total: expectedTotal || undefined,
       })
       const completed = await waitTask(started.task.task_id)
-      setSyncSummary(completed?.sync || completed)
-      await loadLocal()
-      toast.success('Snapshot اعضای گفتگو به‌روزرسانی شد.')
+      const nextSummary = completed?.sync || completed
+      setSyncSummary(nextSummary)
+      await loadMemberPage(0, false)
+      if (nextSummary?.complete_snapshot) {
+        toast.success('فهرست اعضای گفتگو به‌طور کامل به‌روزرسانی شد.')
+      } else {
+        const fetched = Number(nextSummary?.fetched || 0).toLocaleString('fa-IR')
+        const expected = Number(nextSummary?.expected_total || expectedTotal || 0).toLocaleString('fa-IR')
+        toast.warning(`ایتا فقط ${fetched} عضو از ${expected} عضو گزارش‌شده را برگرداند؛ فهرست محلی ناقص است.`)
+      }
     } catch (e) { setError(e instanceof Error ? e.message : 'همگام‌سازی اعضا ناموفق بود.') }
     finally { setBusy('') }
   }
 
   const sendableMembers = members.filter(item => item.sendable)
-  const allVisibleSelected = sendableMembers.length > 0 && sendableMembers.every(item => selected.includes(item.user.peer.id))
-  const toggleAll = () => setSelected(allVisibleSelected ? [] : sendableMembers.map(item => item.user.peer.id))
+  const allLoadedSelected = sendableMembers.length > 0 && sendableMembers.every(item => selected.includes(item.user.peer.id))
+  const toggleAll = () => setSelected(current => {
+    const loadedIds = new Set(sendableMembers.map(item => item.user.peer.id))
+    return allLoadedSelected
+      ? current.filter(id => !loadedIds.has(id))
+      : [...new Set([...current, ...loadedIds])]
+  })
+  const contactCounts = members.reduce((counts, item) => {
+    counts[item.contact?.state || 'none'] += 1
+    return counts
+  }, { eitaa: 0, local: 0, none: 0 })
+  const expectedMemberCount = Number(dialog?.participants_count || 0)
+  const snapshotMemberCount = Number(summary?.snapshot_total_count ?? summary?.total_count ?? 0)
+  const snapshotIncomplete = Boolean(
+    expectedMemberCount
+    && summary
+    && snapshotMemberCount < expectedMemberCount
+  )
+
+  useEffect(() => {
+    if (
+      snapshotIncomplete
+      && !autoSyncAttemptedRef.current
+      && !busy
+      && !listBusy
+      && dialog?.peer_key
+    ) {
+      autoSyncAttemptedRef.current = true
+      void syncRemote()
+    }
+  }, [snapshotIncomplete, dialog?.peer_key, busy, listBusy])
+
+  const memberVirtualizer = useVirtualizer({
+    count: members.length,
+    getScrollElement: () => memberListRef.current,
+    estimateSize: () => 72,
+    overscan: 10,
+  })
+  const virtualMembers = memberVirtualizer.getVirtualItems()
+  const lastVirtualIndex = virtualMembers.at(-1)?.index ?? -1
+  useEffect(() => {
+    if (
+      lastVirtualIndex >= members.length - 20
+      && nextOffset !== null
+      && !loadingMore
+      && !listBusy
+      && !busy
+    ) void loadMemberPage(nextOffset, true)
+  }, [lastVirtualIndex, members.length, nextOffset, loadingMore, listBusy, busy, loadMemberPage])
+
   const startContactImport = async (memberIds?: number[]) => {
     if (!dialog || dialog.display_kind === 'personal') return
     setError('')
@@ -2565,6 +2733,48 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
     } catch (e) { setError(e instanceof Error ? e.message : 'شروع ورود اعضا ناموفق بود.') }
   }
 
+  const runMemberMutation = async (action: 'remove' | 'invite', allMembers: boolean) => {
+    if (!dialog || dialog.display_kind === 'personal') return
+    if (!allMembers && !selected.length) { setError('ابتدا دست‌کم یک عضو را انتخاب کنید.'); return }
+    const target = invitationTargets.find(item => item.peer_file === inviteTargetPeerFile)
+    if (action === 'invite' && !target) { setError('گفتگوی مقصد دعوت را انتخاب کنید.'); return }
+    const scopeText = allMembers ? 'همه اعضای قابل دعوت Snapshot کامل' : `${selected.length.toLocaleString('fa-IR')} عضو انتخاب‌شده`
+    const question = action === 'remove'
+      ? `آیا ${scopeText} از «${titleFor(dialog)}» حذف شوند؟ این تغییر روی ایتا انجام می‌شود.`
+      : `آیا ${scopeText} به «${titleFor(target || null)}» دعوت شوند؟ محدودیت‌ها و حریم خصوصی ایتا اعمال خواهد شد.`
+    if (!confirm(question)) return
+    setBusy(action); setError(''); setMutationSummary(null)
+    try {
+      const path = action === 'remove'
+        ? '/api/v1/community/members/remove/start'
+        : '/api/v1/community/members/invite/start'
+      const started = await api<{ task: { task_id: string } }>('POST', path, {
+        site_key: siteKey,
+        peer_file: action === 'remove' ? dialog.peer_file : undefined,
+        source_peer_file: action === 'invite' ? dialog.peer_file : undefined,
+        target_peer_file: action === 'invite' ? target?.peer_file : undefined,
+        member_ids: allMembers ? undefined : selected,
+        all_members: allMembers,
+        include_bots: includeBots,
+        delay_seconds: 2,
+        confirm: true,
+      })
+      const completed = await waitTask(started.task.task_id)
+      const report = completed?.report || completed
+      setMutationSummary(report)
+      if (action === 'remove') {
+        setSelected([])
+        await loadMemberPage(0, false)
+      }
+      if (report?.stopped || Number(report?.failed || 0)) {
+        toast.warning(`عملیات پایان یافت: ${Number(report?.succeeded || 0).toLocaleString('fa-IR')} موفق و ${Number(report?.failed || 0).toLocaleString('fa-IR')} ناموفق.`)
+      } else {
+        toast.success(`${Number(report?.succeeded || 0).toLocaleString('fa-IR')} عملیات عضویت با موفقیت ثبت شد.`)
+      }
+    } catch (e) { setError(e instanceof Error ? e.message : 'عملیات عضویت ناموفق بود.') }
+    finally { setBusy('') }
+  }
+
   return <MaterialLegacyDialog close={close} locked={Boolean(busy) || contactImportActive} maxWidth="lg">
     <section className="eb-dialog members-dialog card material-dialog-surface" aria-label="مدیریت اعضای گفتگو">
       <div className="section-title"><div><h2>مدیریت اعضای گفتگو</h2><small>{titleFor(dialog)} — Snapshot محلی و بدون نمایش Access Hash</small></div><button className="dialog-close" disabled={Boolean(busy)} onClick={close}><Icon name="close" /></button></div>
@@ -2573,30 +2783,57 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
           <div className="message-search"><Icon name="search" size={17} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="جست‌وجوی نام عضو" /></div>
           <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={sendableOnly} onChange={event => setSendableOnly(event.target.checked)} /> فقط قابل ارسال</label>
           <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={includeBots} onChange={event => setIncludeBots(event.target.checked)} /> شامل ربات‌ها</label>
-          <button className="btn btn-outline btn-sm" disabled={Boolean(busy)} onClick={() => void loadLocal()}>{busy === 'list' ? <span className="loading loading-dots loading-sm" /> : 'بازخوانی محلی'}</button>
+          <button className="btn btn-outline btn-sm" disabled={Boolean(busy) || listBusy} onClick={() => void loadMemberPage(0, false)}>{listBusy ? <span className="loading loading-dots loading-sm" /> : 'بازخوانی محلی'}</button>
+          <button className="btn btn-outline btn-sm" disabled={Boolean(busy) || listBusy || nextOffset === null} onClick={() => void loadAllMembers()}>{busy === 'load-all' ? <span className="loading loading-dots loading-sm" /> : 'بارگذاری همه'}</button>
           <button className="btn btn-neutral btn-sm" disabled={Boolean(busy)} onClick={() => void syncRemote()}>{busy === 'sync' ? <><span className="loading loading-dots loading-sm" /> همگام‌سازی</> : 'همگام‌سازی از ایتا'}</button>
         </div>
-        <div className="members-summary card"><span>نمایش: {members.length.toLocaleString('fa-IR')}</span><span>قابل ارسال: {sendableMembers.length.toLocaleString('fa-IR')}</span><span>انتخاب: {selected.length.toLocaleString('fa-IR')}</span>{summary?.total_count !== undefined && <span>کل Snapshot: {Number(summary.total_count).toLocaleString('fa-IR')}</span>}</div><div className="notice">برای حفظ سرعت، حداکثر ۳۰۰ عضو در هر نمای جست‌وجو نشان داده می‌شود؛ ارسال به همهٔ اعضای قابل ارسال همچنان در هسته انجام می‌شود.</div>
-        {syncSummary && <div className="notice">دریافت‌شده: {Number(syncSummary.fetched || 0).toLocaleString('fa-IR')} — جدید: {Number(syncSummary.inserted || 0).toLocaleString('fa-IR')} — به‌روزشده: {Number(syncSummary.updated || 0).toLocaleString('fa-IR')} — Snapshot کامل: {syncSummary.complete_snapshot ? 'بله' : 'خیر'}</div>}
-        <div className="members-select-row"><label><input className="checkbox checkbox-neutral" type="checkbox" checked={allVisibleSelected} onChange={toggleAll} /> انتخاب همه اعضای قابل ارسال در فهرست فعلی</label><button className="btn btn-sm btn-secondary" disabled={!selected.length} onClick={() => openBulk(selected)}>ارسال به {selected.length.toLocaleString('fa-IR')} عضو انتخاب‌شده</button><button className="btn btn-sm btn-outline" disabled={!sendableMembers.length} onClick={() => openBulk([])}>ارسال به همه اعضای قابل ارسال</button></div>
+        <div className="members-summary card"><span>بارگذاری‌شده: {members.length.toLocaleString('fa-IR')}</span><span>کل نتیجه: {Number(summary?.total_count || members.length).toLocaleString('fa-IR')}</span><span>قابل ارسالِ بارگذاری‌شده: {sendableMembers.length.toLocaleString('fa-IR')}</span><span>انتخاب پایدار: {selected.length.toLocaleString('fa-IR')}</span><span className="contact-eitaa">مخاطب ایتا: {contactCounts.eitaa.toLocaleString('fa-IR')}</span><span>دفترچه محلی: {contactCounts.local.toLocaleString('fa-IR')}</span><span>غیرمخاطب: {contactCounts.none.toLocaleString('fa-IR')}</span></div>
+        {snapshotIncomplete && <div className="alert alert-warning members-snapshot-warning">فهرست محلی فعلاً {snapshotMemberCount.toLocaleString('fa-IR')} عضو از {expectedMemberCount.toLocaleString('fa-IR')} عضو گزارش‌شده را دارد. {busy === 'sync' ? 'برنامه در حال تکمیل خودکار آن از ایتاست.' : 'برای تکمیل فهرست، «همگام‌سازی از ایتا» را دوباره اجرا کنید.'}</div>}
+        {loadAllProgress && <div className="operation-progress card"><div><b>در حال آماده‌سازی نمای کامل</b><span>{loadAllProgress.loaded.toLocaleString('fa-IR')} / {loadAllProgress.total.toLocaleString('fa-IR')}</span></div><progress className="progress progress-success" max={Math.max(1, loadAllProgress.total)} value={loadAllProgress.loaded} /></div>}
+        {syncSummary && <div className={syncSummary.complete_snapshot ? 'notice' : 'alert alert-warning members-snapshot-warning'}>دریافت‌شده: {Number(syncSummary.fetched || 0).toLocaleString('fa-IR')} — جدید: {Number(syncSummary.inserted || 0).toLocaleString('fa-IR')} — به‌روزشده: {Number(syncSummary.updated || 0).toLocaleString('fa-IR')} — وضعیت فهرست: {syncSummary.complete_snapshot ? 'کامل' : `ناقص؛ ${Number(syncSummary.missing_count || 0).toLocaleString('fa-IR')} عضو گزارش‌شده هنوز دریافت نشده`}</div>}
+        <div className="members-select-row"><label><input className="checkbox checkbox-neutral" type="checkbox" checked={allLoadedSelected} onChange={toggleAll} /> انتخاب همه اعضای قابل ارسالِ بارگذاری‌شده</label><button className="btn btn-sm btn-secondary" disabled={!selected.length} onClick={() => openBulk({ scope: 'selected', memberIds: selected })}>ارسال به {selected.length.toLocaleString('fa-IR')} عضو انتخاب‌شده</button><button className="btn btn-sm btn-outline" disabled={!Number(summary?.total_count || 0)} onClick={() => openBulk({ scope: 'all_snapshot', memberIds: [] })}>ارسال به همه اعضای قابل ارسال Snapshot</button></div>
+        <div className="member-mutation-actions card">
+          <div><b>مدیریت عضویت</b><small>حذف فقط برای منتخب‌ها فعال است. دعوت می‌تواند برای منتخب‌ها یا کل Snapshot کامل انجام شود و پیش از اجرا تأیید صریح می‌گیرد.</small></div>
+          <select className="select" value={inviteTargetPeerFile} onChange={event => setInviteTargetPeerFile(event.target.value)}>
+            <option value="">گفتگوی مقصد دعوت…</option>
+            {invitationTargets.map(item => <option key={item.peer_key} value={item.peer_file}>{titleFor(item)}</option>)}
+          </select>
+          <button className="btn btn-sm btn-outline" disabled={!selected.length || Boolean(busy)} onClick={() => void runMemberMutation('invite', false)}>دعوت منتخب‌ها</button>
+          <button className="btn btn-sm btn-outline" disabled={!inviteTargetPeerFile || !Number(summary?.total_count || 0) || Boolean(busy)} onClick={() => void runMemberMutation('invite', true)}>دعوت همه Snapshot</button>
+          <button className="btn btn-sm btn-ghost danger" disabled={!selected.length || Boolean(busy)} onClick={() => void runMemberMutation('remove', false)}>حذف منتخب‌ها از گفتگو</button>
+        </div>
+        {mutationSummary && <div className="operation-progress card"><div><b>{mutationSummary.action === 'remove' ? 'گزارش حذف اعضا' : 'گزارش دعوت اعضا'}</b><span>{mutationSummary.stopped ? 'متوقف‌شده' : 'پایان‌یافته'}</span></div><div className="operation-progress-counts"><span>موفق: {Number(mutationSummary.succeeded || 0).toLocaleString('fa-IR')}</span><span>ناموفق: {Number(mutationSummary.failed || 0).toLocaleString('fa-IR')}</span><span>ردشده: {Number(mutationSummary.skipped || 0).toLocaleString('fa-IR')}</span><span>پردازش: {Number(mutationSummary.processed || 0).toLocaleString('fa-IR')}</span></div>{mutationSummary.stop_reason && <small className="operation-stop-reason" dir="ltr">{mutationSummary.stop_reason}</small>}</div>}
         <div className="member-contact-import card">
           <div><b>افزودن به دفترچهٔ محلی</b><small>دادهٔ معتبر مستقیماً از Snapshot محلی خوانده می‌شود؛ Access Hash در UI نمایش داده نمی‌شود.</small></div>
           {contactCategories.length > 0 && <details><summary>دسته‌های مقصد ({contactCategoryIds.length.toLocaleString('fa-IR')})</summary><div className="contact-category-checks">{contactCategories.map(category => <label key={category.id}><input type="checkbox" className="checkbox checkbox-sm" checked={contactCategoryIds.includes(category.id)} onChange={event => setContactCategoryIds(current => event.target.checked ? [...current, category.id] : current.filter(id => id !== category.id))} /><span>{category.name}</span></label>)}</div></details>}
           <div className="member-contact-actions"><button className="btn btn-sm btn-neutral" disabled={!selected.length || contactImportActive || Boolean(busy)} onClick={() => void startContactImport(selected)}>افزودن {selected.length.toLocaleString('fa-IR')} منتخب</button><button className="btn btn-sm btn-outline" disabled={!members.length || contactImportActive || Boolean(busy)} onClick={() => void startContactImport()}>افزودن کل نمایه محلی</button>{contactImportActive && <button className="btn btn-sm btn-ghost danger" disabled={contactImportJob.state === 'cancelling'} onClick={() => void api<{ job: any }>('POST', '/api/v1/contacts/import/cancel', { job_id: contactImportJob.job_id }).then(response => setContactImportJob(response.job))}>لغو ایمن</button>}</div>
           {contactImportJob && <div className={`import-job state-${contactImportJob.state}`}><div><b>{contactImportJob.state === 'completed' ? 'ورود کامل شد' : contactImportJob.state === 'cancelled' ? 'ورود لغو شد' : contactImportJob.state === 'failed' ? 'ورود ناموفق بود' : 'در حال ورود محلی'}</b><span>{Number(contactImportJob.progress?.processed || 0).toLocaleString('fa-IR')} / {Number(contactImportJob.progress?.total || 0).toLocaleString('fa-IR')}</span></div><progress className="progress progress-success" max={Number(contactImportJob.progress?.total || 1)} value={Number(contactImportJob.progress?.processed || 0)} /><small>جدید: {Number(contactImportJob.progress?.imported || 0).toLocaleString('fa-IR')} · به‌روزشده: {Number(contactImportJob.progress?.updated || 0).toLocaleString('fa-IR')} · ردشده/خطا: {(Number(contactImportJob.progress?.skipped || 0) + Number(contactImportJob.progress?.errors || 0)).toLocaleString('fa-IR')}</small></div>}
         </div>
-        <div className="member-list" role="list">
-          {members.map(item => {
+        <div className="member-list" role="list" ref={memberListRef}>
+          <div className="member-list-virtual" style={{ height: `${memberVirtualizer.getTotalSize()}px` }}>
+          {virtualMembers.map(virtualRow => {
+            const item = members[virtualRow.index]
             const id = item.user.peer.id
             const checked = selected.includes(id)
-            return <label key={id} className={`member-row ${item.sendable ? '' : 'unsendable'}`} role="listitem">
+            const contactName = item.contact?.display_name?.trim()
+            return <label
+              key={id}
+              data-index={virtualRow.index}
+              ref={memberVirtualizer.measureElement}
+              className={`member-row ${item.sendable ? '' : 'unsendable'}`}
+              role="listitem"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
               <input className="checkbox checkbox-neutral" type="checkbox" disabled={!item.sendable} checked={checked} onChange={() => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} />
-              <span className="avatar small">{initials(item.user.display_name)}</span>
-              <span className="member-identity"><b>{item.user.display_name}</b><small>{item.user.phone || `User ID: ${id}`}</small></span>
+              <span className="avatar small">{initials(contactName || item.user.display_name)}</span>
+              <span className="member-identity"><b>{contactName || item.user.display_name}</b>{contactName && contactName !== item.user.display_name && <small>نام ایتا: {item.user.display_name}</small>}<small>{item.user.phone || `User ID: ${id}`}</small></span>
+              <span className={`member-contact badge state-${item.contact?.state || 'none'}`}>{item.contact?.state === 'eitaa' ? 'مخاطب ایتا' : item.contact?.state === 'local' ? 'دفترچه محلی' : 'غیرمخاطب'}</span>
               <span className="member-role badge">{item.role}</span>
               <span className={`member-sendable badge ${item.sendable ? 'ready' : ''}`}>{item.sendable ? 'قابل ارسال' : item.user.is_deleted ? 'حذف‌شده' : 'بدون Access Hash'}</span>
             </label>
           })}
+          </div>
+          {loadingMore && <div className="member-list-loading"><span className="loading loading-dots loading-sm" /> دریافت صفحهٔ بعد</div>}
           {!members.length && !busy && <div className="empty">عضوی در نمایه محلی پیدا نشد. «همگام‌سازی از ایتا» را اجرا کنید.</div>}
         </div>
       </>}
@@ -2606,9 +2843,10 @@ function CommunityMembersModal({ siteKey, dialog, close, openBulk }: { siteKey: 
   </MaterialLegacyDialog>
 }
 
-function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, initialNumbers, close }: { siteKey: string; dialog: DialogItem | null; initialMode: BulkMode; initialMemberIds: number[]; initialNumbers: string[]; close: () => void }) {
+function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, initialMemberScope, initialNumbers, close }: { siteKey: string; dialog: DialogItem | null; initialMode: BulkMode; initialMemberIds: number[]; initialMemberScope: MemberScope; initialNumbers: string[]; close: () => void }) {
   const [mode, setMode] = useState<BulkMode>(initialMode)
   const [memberIds] = useState<number[]>(initialMemberIds)
+  const [memberScope] = useState<MemberScope>(initialMemberScope)
   const [kind, setKind] = useState<'text' | 'photo' | 'file'>('text')
   const [text, setText] = useState('')
   const [caption, setCaption] = useState('')
@@ -2700,9 +2938,14 @@ function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, i
       }
       if (mode === 'members') {
         if (!dialog || dialog.display_kind === 'personal') throw new Error('برای ارسال به اعضا، یک گروه یا کانال را انتخاب کنید.')
-        const started = await api<{ task: { task_id: string } }>('POST', '/api/v1/community/members/sync/start', { site_key: siteKey, peer_file: dialog.peer_file, page_size: 200, max_pages: Math.min(250, Math.max(1, Math.ceil((dialog.participants_count || 50_000) / 200))), expected_total: dialog.participants_count || undefined })
-        await waitTask(started.task.task_id)
-        const response = await api<{ preview: any }>('POST', '/api/v1/community/bulk/preview', { site_key: siteKey, peer_file: dialog.peer_file, include_bots: false, member_ids: memberIds.length ? memberIds : undefined, test_limit: testLimit ? Number(testLimit) : undefined })
+        if (memberScope === 'selected' && !memberIds.length) throw new Error('هیچ عضو انتخاب‌شده‌ای به فرم منتقل نشده است.')
+        const started = await api<{ task: { task_id: string } }>('POST', '/api/v1/community/members/sync/start', { site_key: siteKey, peer_file: dialog.peer_file, page_size: 200, max_pages: 10_000, expected_total: dialog.participants_count || undefined })
+        const completed = await waitTask(started.task.task_id)
+        const sync = completed?.sync || completed
+        if (memberScope === 'all_snapshot' && sync && sync.complete_snapshot === false) {
+          throw new Error('Snapshot اعضا کامل نیست؛ برای جلوگیری از ارسال ناقص، عملیات «همه اعضا» متوقف شد.')
+        }
+        const response = await api<{ preview: any }>('POST', '/api/v1/community/bulk/preview', { site_key: siteKey, peer_file: dialog.peer_file, include_bots: false, member_scope: memberScope, member_ids: memberScope === 'selected' ? memberIds : undefined, test_limit: testLimit ? Number(testLimit) : undefined })
         setPreview(response.preview)
       } else {
         if (!sourceFile && !numbers.trim() && !listId) throw new Error('شماره‌ها را وارد کنید یا فایل TXT/CSV انتخاب کنید.')
@@ -2758,7 +3001,8 @@ function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, i
       let created: { job: any }
       if (mode === 'members') {
         if (!dialog) throw new Error('گفتگوی مقصد انتخاب نشده است.')
-        created = await api('POST', '/api/v1/community/bulk/create', { site_key: siteKey, peer_file: dialog.peer_file, include_bots: false, member_ids: memberIds.length ? memberIds : undefined, ...messagePayload() })
+        if (!preview) throw new Error('پیش‌نمایش گیرندگان را دوباره آماده کنید.')
+        created = await api('POST', '/api/v1/community/bulk/create', { site_key: siteKey, peer_file: dialog.peer_file, include_bots: false, member_scope: memberScope, member_ids: memberScope === 'selected' ? memberIds : undefined, ...messagePayload() })
         setJob(created.job)
         const started = await api<{ task: { task_id: string } }>('POST', '/api/v1/community/bulk/run', { site_key: siteKey, job_id: created.job.id, confirm: true })
         const completed = await waitTask(started.task.task_id, () => loadJobReport(created.job.id))
@@ -2814,7 +3058,7 @@ function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, i
       <div className="bulk-grid">
         <fieldset className={`fieldset rounded-box border p-4 bulk-recipient-fieldset ${mode === 'invite' ? 'bulk-recipient-fieldset--full' : ''}`}>
           <legend className="fieldset-legend">گیرندگان</legend>
-          {mode === 'members' ? <div className="notice">مقصد: <b>{titleFor(dialog)}</b><br/>{memberIds.length ? `${memberIds.length.toLocaleString('fa-IR')} عضو انتخاب‌شده از مدیریت اعضا` : 'اعضای قابل ارسال از نمایه محلی پس از همگام‌سازی انتخاب می‌شوند.'}</div> : <>
+          {mode === 'members' ? <div className="notice">مقصد: <b>{titleFor(dialog)}</b><br/>{memberScope === 'selected' ? `${memberIds.length.toLocaleString('fa-IR')} عضو انتخاب‌شده از مدیریت اعضا` : 'دامنه: همه اعضای قابل ارسال از فهرست کامل.'}</div> : <>
             {mode === 'invite' && <div className="notice invite-explainer"><b>دعوت مستقیم به {titleFor(dialog)}</b><br/>شماره‌ها ابتدا شناسایی می‌شوند و سپس هسته برای افزودن یا دعوت هر حساب به گفتگوی مقصد درخواست می‌فرستد. موفقیت به دسترسی افزودن عضو، نوع گروه/کانال، حریم خصوصی کاربر و محدودیت‌های سرور ایتا وابسته است؛ این عملیات صرفاً لینک دعوت ارسال نمی‌کند.</div>}
             {mode === 'numbers' && initialNumbers.length > 0 && <div className="notice"><b>{initialNumbers.length.toLocaleString('fa-IR')} گیرنده از سازنده فهرست هدف دفترچه منتقل شد.</b><br/>این انتقال به‌تنهایی هیچ پیامی ارسال نمی‌کند؛ شماره‌ها دوباره در هسته پاک‌سازی و شناسایی می‌شوند و پیش‌نمایش و تأیید صریح لازم است.</div>}
             <label className="label">نام فهرست</label><input className="input w-full" value={listName} onChange={e => setListName(e.target.value)} />

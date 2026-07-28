@@ -353,6 +353,10 @@ class BridgeApplicationApi:
                 return ApiResponse(200, self._community_members_list(payload))
             if selected_method == "POST" and path == "/api/v1/community/members/sync/start":
                 return ApiResponse(202, self._community_members_sync_start(payload))
+            if selected_method == "POST" and path == "/api/v1/community/members/remove/start":
+                return ApiResponse(202, self._community_members_remove_start(payload))
+            if selected_method == "POST" and path == "/api/v1/community/members/invite/start":
+                return ApiResponse(202, self._community_members_invite_start(payload))
             if selected_method == "POST" and path == "/api/v1/community/bulk/preview":
                 return ApiResponse(200, self._community_bulk_preview(payload))
             if selected_method == "POST" and path == "/api/v1/community/bulk/validate":
@@ -538,6 +542,8 @@ class BridgeApplicationApi:
                 {"method": "POST", "path": "/api/v1/community/members/sync"},
                 {"method": "POST", "path": "/api/v1/community/members/list"},
                 {"method": "POST", "path": "/api/v1/community/members/sync/start"},
+                {"method": "POST", "path": "/api/v1/community/members/remove/start"},
+                {"method": "POST", "path": "/api/v1/community/members/invite/start"},
                 {"method": "POST", "path": "/api/v1/community/bulk/preview"},
                 {"method": "POST", "path": "/api/v1/community/bulk/validate"},
                 {"method": "POST", "path": "/api/v1/community/bulk/create"},
@@ -3713,7 +3719,14 @@ class BridgeApplicationApi:
                 result = bridge.core.members.sync_all(
                     community, page_size=page_size, max_pages=max_pages, expected_total=expected
                 )
-                return {"ok": True, "sync": result.safe_summary()}
+                summary = result.safe_summary()
+                summary["expected_total"] = expected
+                summary["missing_count"] = (
+                    max(0, expected - int(summary.get("fetched", 0)))
+                    if expected is not None
+                    else 0
+                )
+                return {"ok": True, "sync": summary}
 
         return self._run_eitaa(
             priority=EitaaPriority.BACKGROUND, kind="community.members.sync", callback=operation
@@ -3734,7 +3747,14 @@ class BridgeApplicationApi:
                 result = bridge.core.members.sync_all(
                     community, page_size=page_size, max_pages=max_pages, expected_total=expected
                 )
-                return {"ok": True, "sync": result.safe_summary()}
+                summary = result.safe_summary()
+                summary["expected_total"] = expected
+                summary["missing_count"] = (
+                    max(0, expected - int(summary.get("fetched", 0)))
+                    if expected is not None
+                    else 0
+                )
+                return {"ok": True, "sync": summary}
 
         return self._start_background(
             kind="community.members.sync", callback=operation, priority=EitaaPriority.BACKGROUND
@@ -3762,11 +3782,63 @@ class BridgeApplicationApi:
                     limit=limit,
                 )
             )
+            # Keep snapshot health independent from the current search/filter.
+            # The UI uses this count to detect a partial local snapshot instead
+            # of presenting the final filtered page as "all members".
+            snapshot_page = bridge.core.members.search_local(
+                MemberSearchQuery(
+                    community=community,
+                    states=(MemberState.ACTIVE,),
+                    include_bots=True,
+                    offset=0,
+                    limit=1,
+                )
+            )
+            member_summaries = [item.safe_summary() for item in page.members]
+            user_ids = [int(item.user.peer.id) for item in page.members]
+            local_contacts = self._contact_store.find_contacts_by_eitaa_identity(
+                eitaa_user_ids=user_ids,
+            )
+            contacts_by_user_id = {
+                int(contact["eitaa_user_id"]): contact
+                for contact in local_contacts
+                if contact.get("eitaa_user_id") is not None
+            }
+            for member, summary in zip(page.members, member_summaries):
+                user_id = int(member.user.peer.id)
+                local_contact = contacts_by_user_id.get(user_id)
+                source = str(local_contact.get("source") or "") if local_contact else ""
+                is_eitaa_contact = bool(
+                    member.user.is_contact or source.startswith("eitaa_contact")
+                )
+                is_local_contact = local_contact is not None
+                summary["contact"] = {
+                    "state": (
+                        "eitaa"
+                        if is_eitaa_contact
+                        else "local"
+                        if is_local_contact
+                        else "none"
+                    ),
+                    "is_eitaa_contact": is_eitaa_contact,
+                    "is_local_contact": is_local_contact,
+                    "display_name": (
+                        self._sender_contact_name(local_contact)
+                        if local_contact is not None
+                        else None
+                    ),
+                    "local_contact_id": (
+                        int(local_contact["id"])
+                        if local_contact is not None
+                        else None
+                    ),
+                }
             return {
                 "ok": True,
                 "page": {
                     **page.safe_summary(),
-                    "members": [item.safe_summary() for item in page.members],
+                    "snapshot_total_count": snapshot_page.total_count,
+                    "members": member_summaries,
                 },
             }
 
@@ -3776,7 +3848,262 @@ class BridgeApplicationApi:
             return None
         if not isinstance(raw, list):
             raise CompositionValidationError("member_ids must be an array.", code="api_invalid_member_ids")
-        return [self._integer(item, "member_id", minimum=1) for item in raw]
+        selected = list(dict.fromkeys(
+            self._integer(item, "member_id", minimum=1) for item in raw
+        ))
+        if len(selected) > 100_000:
+            raise CompositionValidationError(
+                "Member selection exceeds 100000 entries.",
+                code="api_member_selection_too_large",
+            )
+        return selected
+
+    def _bulk_member_ids(self, payload: Mapping[str, Any]) -> list[int] | None:
+        """Resolve an explicit member scope without treating an empty selection as all."""
+        member_ids = self._member_ids(payload)
+        default_scope = "selected" if member_ids else "all_snapshot"
+        scope = str(payload.get("member_scope") or default_scope).strip()
+        if scope == "all_snapshot":
+            if member_ids:
+                raise CompositionValidationError(
+                    "all_snapshot scope cannot include member_ids.",
+                    code="api_conflicting_member_scope",
+                )
+            return None
+        if scope != "selected":
+            raise CompositionValidationError(
+                "Unsupported member_scope.",
+                code="api_invalid_member_scope",
+            )
+        if not member_ids:
+            raise CompositionValidationError(
+                "Selected member scope requires at least one member.",
+                code="api_member_selection_required",
+            )
+        return member_ids
+
+    @staticmethod
+    def _member_mutation_error_code(exc: BaseException) -> str:
+        if isinstance(exc, RpcError):
+            text = exc.text.upper().replace(" ", "_")
+            return f"RPC_{exc.code}_{text[:64]}"
+        return type(exc).__name__
+
+    @staticmethod
+    def _member_mutation_must_stop(exc: BaseException) -> bool:
+        if not isinstance(exc, RpcError):
+            return False
+        text = exc.text.upper()
+        return exc.code in {401, 420, 429} or any(
+            marker in text
+            for marker in (
+                "FLOOD",
+                "RATE",
+                "PEER_FLOOD",
+                "CHAT_ADMIN_REQUIRED",
+                "CHANNEL_PRIVATE",
+                "CHAT_WRITE_FORBIDDEN",
+            )
+        )
+
+    def _community_members_mutation_start(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        action: str,
+    ) -> dict[str, Any]:
+        if not bool(payload.get("confirm")):
+            raise CompositionValidationError(
+                "Explicit confirmation is required for member changes.",
+                code="api_member_mutation_confirmation_required",
+            )
+        site_key = self._site_key(payload)
+        source_payload = {
+            "peer_file": (
+                payload.get("source_peer_file")
+                if action == "invite"
+                else payload.get("peer_file")
+            )
+        }
+        source = load_peer_file(self._peer_path(source_payload))
+        if source.type not in {PeerType.CHAT, PeerType.CHANNEL}:
+            raise CompositionValidationError(
+                "Member source must be a group or channel.",
+                code="api_member_source_required",
+            )
+        member_ids = self._member_ids(payload)
+        all_members = bool(payload.get("all_members", False))
+        if action == "remove" and all_members:
+            raise CompositionValidationError(
+                "Removing all members is intentionally unsupported.",
+                code="api_remove_all_members_forbidden",
+            )
+        if not all_members and not member_ids:
+            raise CompositionValidationError(
+                "Select at least one member.",
+                code="api_member_selection_required",
+            )
+        if all_members and member_ids:
+            raise CompositionValidationError(
+                "all_members cannot be combined with member_ids.",
+                code="api_conflicting_member_scope",
+            )
+        target = source
+        if action == "invite":
+            target = load_peer_file(self._peer_path({
+                "peer_file": payload.get("target_peer_file"),
+            }))
+            if target.type not in {PeerType.CHAT, PeerType.CHANNEL}:
+                raise CompositionValidationError(
+                    "Invitation target must be a group or channel.",
+                    code="api_member_target_required",
+                )
+            if target.type is source.type and target.id == source.id:
+                raise CompositionValidationError(
+                    "Source and target conversations must differ.",
+                    code="api_member_target_matches_source",
+                )
+        delay_seconds = self._number(
+            payload.get("delay_seconds", 2.0),
+            "delay_seconds",
+            minimum=0,
+            maximum=3600,
+        )
+        include_bots = bool(payload.get("include_bots", False))
+
+        def operation() -> dict[str, Any]:
+            with self._open_bridge(
+                self.config_path,
+                env_file=self.env_file,
+                site_key=site_key,
+                open_core=True,
+            ) as bridge:
+                if action == "invite" and all_members:
+                    sync = bridge.core.members.sync_all(
+                        source,
+                        page_size=200,
+                        max_pages=10_000,
+                        expected_total=None,
+                    )
+                    if not sync.complete_snapshot:
+                        raise CompositionValidationError(
+                            "The source member snapshot is incomplete.",
+                            safe_context=sync.safe_summary(),
+                            code="api_member_snapshot_incomplete",
+                        )
+
+                candidates: list[Any] = []
+                if member_ids is not None:
+                    for user_id in member_ids:
+                        member = bridge.core.members.get(source, user_id)
+                        if member is not None:
+                            candidates.append(member)
+                else:
+                    offset = 0
+                    while True:
+                        page = bridge.core.members.search_local(
+                            MemberSearchQuery(
+                                community=source,
+                                states=(MemberState.ACTIVE,),
+                                include_bots=include_bots,
+                                offset=offset,
+                                limit=1_000,
+                            )
+                        )
+                        candidates.extend(page.members)
+                        if page.next_offset is None:
+                            break
+                        offset = page.next_offset
+
+                processed = succeeded = skipped = failed = 0
+                stop_reason: str | None = None
+                failures: list[dict[str, Any]] = []
+                remote = bridge.core.membership.remote
+                for member in candidates:
+                    if member.user.is_bot and not include_bots:
+                        skipped += 1
+                        continue
+                    user_peer = member.send_peer
+                    if user_peer is None:
+                        skipped += 1
+                        continue
+                    processed += 1
+                    try:
+                        if action == "remove":
+                            result = remote.remove_member(
+                                source,
+                                user_peer,
+                                revoke_history=False,
+                                release_channel_ban=True,
+                            )
+                            store = getattr(bridge.core.members, "store", None)
+                            if store is not None:
+                                store.mark_member_left(source, user_peer.id)
+                        else:
+                            result = remote.add_member(target, user_peer, fwd_limit=0)
+                        if result.accepted:
+                            succeeded += 1
+                        else:
+                            skipped += 1
+                    except EitaaCoreError as exc:
+                        code = self._member_mutation_error_code(exc)
+                        if isinstance(exc, RpcError) and any(
+                            marker in exc.text.upper()
+                            for marker in (
+                                "USER_ALREADY_PARTICIPANT",
+                                "USER_NOT_PARTICIPANT",
+                                "PARTICIPANT_ID_INVALID",
+                            )
+                        ):
+                            skipped += 1
+                        else:
+                            failed += 1
+                            if len(failures) < 100:
+                                failures.append({
+                                    "user_id": int(user_peer.id),
+                                    "error_code": code,
+                                })
+                        if self._member_mutation_must_stop(exc):
+                            stop_reason = code
+                            break
+                    if delay_seconds:
+                        time.sleep(delay_seconds)
+
+                report = {
+                    "action": action,
+                    "source": source.safe_summary(),
+                    "target": target.safe_summary() if action == "invite" else None,
+                    "candidate_count": len(candidates),
+                    "processed": processed,
+                    "succeeded": succeeded,
+                    "skipped": skipped,
+                    "failed": failed,
+                    "stopped": stop_reason is not None,
+                    "stop_reason": stop_reason,
+                    "failures": failures,
+                }
+                self._runtime_logger.emit(
+                    "community_member_mutation_completed",
+                    level="warning" if failed or stop_reason else "info",
+                    fields={
+                        key: value
+                        for key, value in report.items()
+                        if key not in {"failures"}
+                    },
+                )
+                return {"report": report}
+
+        return self._start_background(
+            kind=f"community.members.{action}",
+            callback=operation,
+            priority=EitaaPriority.BACKGROUND,
+        )
+
+    def _community_members_remove_start(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return self._community_members_mutation_start(payload, action="remove")
+
+    def _community_members_invite_start(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return self._community_members_mutation_start(payload, action="invite")
 
     def _member_roles(self, payload: Mapping[str, Any]) -> tuple[MemberRole, ...]:
         raw = payload.get("roles")
@@ -3865,7 +4192,7 @@ class BridgeApplicationApi:
         ) as bridge:
             result = bridge.core.bulk_send.preview(
                 community,
-                member_ids=self._member_ids(payload),
+                member_ids=self._bulk_member_ids(payload),
                 roles=self._member_roles(payload),
                 include_bots=bool(payload.get("include_bots", False)),
                 test_limit=self._optional_limit(payload),
@@ -3883,7 +4210,7 @@ class BridgeApplicationApi:
                 community,
                 self._bulk_spec(payload),
                 self._bulk_options(payload),
-                member_ids=self._member_ids(payload),
+                member_ids=self._bulk_member_ids(payload),
                 roles=self._member_roles(payload),
                 include_bots=bool(payload.get("include_bots", False)),
             )

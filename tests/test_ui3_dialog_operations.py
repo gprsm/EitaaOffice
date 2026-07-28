@@ -21,7 +21,11 @@ def test_members_modal_supports_sync_selection_and_targeted_send():
     assert "/api/v1/community/members/sync/start" in app
     assert "/api/v1/community/members/list" in app
     assert "ارسال به {selected.length.toLocaleString('fa-IR')} عضو انتخاب‌شده" in app
-    assert "member_ids: memberIds.length ? memberIds : undefined" in app
+    assert "member_scope: memberScope" in app
+    assert "memberScope === 'selected' ? memberIds : undefined" in app
+    assert "/api/v1/community/members/remove/start" in app
+    assert "/api/v1/community/members/invite/start" in app
+    assert "useVirtualizer" in app
 
 
 def test_bulk_file_path_has_preflight_progress_and_failure_details():

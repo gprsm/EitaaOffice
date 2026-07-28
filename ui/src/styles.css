@@ -1400,18 +1400,24 @@ button:focus-visible,
 .members-dialog { width: min(1080px, calc(100vw - 42px)); max-height: calc(100vh - 42px); overflow: auto; }
 .members-toolbar { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
 .members-toolbar .message-search { flex: 1 1 240px; }
-.members-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 11px 13px; background: #f5f2eb; border: 1px solid #ddd6c8; }
+.members-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 8px; padding: 11px 13px; background: #f5f2eb; border: 1px solid #ddd6c8; }
 .members-summary span { text-align: center; }
+.members-summary .contact-eitaa { color: #1976d2; font-weight: 800; }
 .members-select-row { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: space-between; }
 .members-select-row > label { display: inline-flex; align-items: center; gap: 8px; margin-inline-end: auto; }
+.member-mutation-actions { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(210px, 1fr) repeat(3, auto); gap: 8px; align-items: end; padding: 11px 13px; border: 1px solid #ddd6c8; background: #f5f2eb; }
+.member-mutation-actions > div { display: grid; gap: 3px; }
+.member-mutation-actions small { color: #6b645b; line-height: 1.65; }
 .member-contact-import { display: grid; gap: 9px; padding: 11px 13px; border: 1px solid #d6e4dd; background: #f5faf7; }
 .member-contact-import > div:first-child { display: grid; gap: 3px; }
 .member-contact-import small { color: #6b645b; }
 .member-contact-import summary { cursor: pointer; color: #315d4b; font-weight: 700; }
 .member-contact-import details .contact-category-checks { margin-top: 8px; }
 .member-contact-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.member-list { min-height: 160px; max-height: min(38vh, 420px); overflow: auto; border: 1px solid #ddd6c8; border-radius: 12px; background: #fff; }
-.member-row { display: grid; grid-template-columns: auto auto minmax(150px, 1fr) auto auto; gap: 10px; align-items: center; padding: 9px 11px; border-bottom: 1px solid #ece8df; cursor: pointer; }
+.member-list { position: relative; min-height: 160px; height: min(42vh, 520px); overflow: auto; border: 1px solid #ddd6c8; border-radius: 12px; background: #fff; }
+.member-list-virtual { position: relative; width: 100%; }
+.member-list-loading { position: sticky; z-index: 2; bottom: 6px; width: max-content; margin: 0 auto; padding: 6px 12px; border-radius: 999px; background: #302c28; color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.member-row { position: absolute; inset-inline: 0; top: 0; width: 100%; display: grid; grid-template-columns: auto auto minmax(150px, 1fr) auto auto auto; gap: 10px; align-items: center; min-height: 72px; padding: 9px 11px; border-bottom: 1px solid #ece8df; cursor: pointer; }
 .member-row:last-child { border-bottom: 0; }
 .member-row:hover { background: #faf8f3; }
 .member-row.unsendable { opacity: .67; cursor: default; }
@@ -1419,13 +1425,24 @@ button:focus-visible,
 .member-identity b, .member-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .member-identity small { color: #756e64; }
 .member-role { min-width: 72px; justify-content: center; }
+.member-contact { min-width: 88px; justify-content: center; }
+.member-contact.state-eitaa { color: #1976d2; background: rgba(25, 118, 210, .12); border-color: rgba(25, 118, 210, .45); font-weight: 800; }
+.member-contact.state-local { color: #27745b; background: #e1f1ea; }
+.member-contact.state-none { color: #6f6a62; background: transparent; }
 .member-sendable { min-width: 92px; justify-content: center; }
 .member-sendable.ready { background: #dcefe3; color: #1d6c3b; }
+.members-snapshot-warning {
+  color: #ffe0a3;
+  background: #342814;
+  border: 1px solid #765d27;
+}
 @media (max-width: 760px) {
   .community-actions { grid-template-columns: 1fr; }
   .operation-progress-counts, .members-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .member-mutation-actions { grid-template-columns: 1fr 1fr; }
+  .member-mutation-actions > div, .member-mutation-actions > .select { grid-column: 1 / -1; }
   .member-row { grid-template-columns: auto auto minmax(120px, 1fr); }
-  .member-role, .member-sendable { grid-column: 3; justify-self: start; }
+  .member-contact, .member-role, .member-sendable { grid-column: 3; justify-self: start; }
   .members-dialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
   .member-contact-actions .btn { flex: 1 1 180px; }
 }
@@ -2069,6 +2086,7 @@ body,
 .settings-form .settings-help,
 .selected-path,
 .community-actions small,
+.member-mutation-actions small,
 .member-contact-import small,
 .member-identity small,
 .bulk-summary span,
@@ -2095,6 +2113,7 @@ body,
 .file-preflight,
 .operation-progress,
 .members-summary,
+.member-mutation-actions,
 .bulk-summary,
 .member-contact-import,
 .import-job,
@@ -2113,6 +2132,19 @@ body,
 .member-sendable.ready {
   color: #a5d6a7;
   background: #173322;
+}
+.member-contact.state-eitaa {
+  color: #64b5f6;
+  background: rgba(33, 150, 243, .14);
+  border-color: rgba(100, 181, 246, .48);
+}
+.member-contact.state-local {
+  color: #80cbc4;
+  background: rgba(38, 166, 154, .14);
+}
+.member-contact.state-none {
+  color: var(--app-text-muted);
+  background: transparent;
 }
 .recipient-failures span { background: rgba(255, 255, 255, .04); }
 
@@ -2164,6 +2196,21 @@ body,
   color: var(--app-text);
   background: transparent;
   border-color: #526274;
+}
+.community-actions .member-management-button {
+  color: var(--app-text);
+  background: #202a35;
+  border-color: #607287;
+}
+.community-actions .member-management-button:hover:not(:disabled) {
+  color: #07131f;
+  background: var(--app-primary);
+  border-color: var(--app-primary);
+}
+.community-actions .member-management-button:disabled {
+  color: var(--app-text-disabled);
+  background: #121820;
+  border-color: #29323d;
 }
 .btn-ghost { color: var(--app-text-muted); background: transparent; border-color: transparent; }
 .btn-ghost:hover:not(:disabled) { color: var(--app-text); background: rgba(255, 255, 255, .055); }
