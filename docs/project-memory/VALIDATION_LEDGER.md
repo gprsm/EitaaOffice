@@ -1265,3 +1265,13 @@
 - commit تمیز=`fca3ea72c54c0b7226f4dbabc54b4684e1215513`، parent=`a4df3ecf2bcd4ab658c5361afdc287444694fcd2`، tree=`5a7f4067...` و subject=`chore(stabilization): complete G00-G09 offline acceptance`.
 - branch فعال=`codex/stabilization-g09` و tracked worktree clean است. GitHub push هنوز انجام نشده و main mutation=0.
 - رخداد ابزار: `rev-parse HEAD^{tree}` در PowerShell با parser error صرفاً خواندنی رد شد؛ `git show -s --format=%T HEAD` retry موفق و hash را تأیید کرد؛ product/data impact=0.
+
+### V-155 — push شاخهٔ مستقل و راستی‌آزمایی main
+
+- تاریخ: 2026-08-26
+- سطح: `GITHUB PRECHECK / BRANCH PUSH / REMOTE HASH VERIFICATION`
+- Run: `STAB-GIT-R01`
+- `origin=https://github.com/gprsm/EitaaDesktop.git` افزوده و remote محلی `legacy` حفظ شد.
+- pre-push: main=`a4df3ec...` و `codex/stabilization-g09` absent. push فقط شاخهٔ نام‌برده موفق و upstream تنظیم شد؛ force=false و main refspec ارسال نشد.
+- post-push: branch remote=`66f7beaca6a2cd0a67c54ec5705dcf5c381a8e9f` و main remote همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2`؛ نتیجه=`PASS / MAIN_UNCHANGED`.
+- یک commit مستندی متأخر برای نگهداری همین شاهد لازم است؛ پس از آن push عادی و verify نهایی روی همان branch انجام می‌شود. عملیات Provider/Live/data/Bale=0.

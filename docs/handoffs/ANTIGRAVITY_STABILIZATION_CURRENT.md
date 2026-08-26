@@ -10,6 +10,7 @@
 - `.gitignore` عضو release بود؛ archive میانی SHA=`187ea793...` تاریخی و دو archive canonical نهایی با SHA=`481ed1be...` و content-set=`43c67c2e...` ساخته شدند. privacy/determinism سبز و diff محتوایی فقط gitignore است؛ Ledger=`V-151/V-152`.
 - کنترل پیش از commit سبز است: full Backend=`656/656`، TypeScript و Observability PASS، package retry کنترل‌شده=`15/15` و تمام کنترل‌های اسناد PASS؛ Ledger=`V-153`. commit و push هنوز pending‌اند.
 - commit تمیز `fca3ea72...` با parent مستقیم GitHub main و tree آزموده‌شده=`5a7f4067...` ساخته شد؛ backup کامل `f4464ef8...` باقی است و شاخهٔ فعال=`codex/stabilization-g09`. فقط push pending است؛ Ledger=`V-154`.
+- push اولیهٔ `codex/stabilization-g09` موفق و remote hash=`66f7beac...` شد؛ GitHub main همچنان `a4df3ec...` است. commit مستندی final و verify دوم باقی است؛ Ledger=`V-155`.
 
 ## closure فنی G-09-E — مرجع جاری
 

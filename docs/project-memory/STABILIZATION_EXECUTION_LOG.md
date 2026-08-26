@@ -3379,3 +3379,28 @@ push: 0
 approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
 output_summary: چهار commit در یک commit تمیز با tree یکسان تجمیع؛ backup کامل و شاخهٔ انتشار مستقل حفظ شد.
 ```
+
+### STAB-GIT-R01-S07 — push اولیه و verify شاخهٔ GitHub
+
+```yaml
+event_id: STAB-GIT-R01-S07
+event: GITHUB_RELEASE_BRANCH_INITIAL_PUSH_AND_VERIFY
+started_at: 2026-08-26T22:44:00+03:30
+ended_at: 2026-08-26T22:46:27.9671454+03:30
+goal_id: GIT-PUBLISH
+run_id: STAB-GIT-R01
+state_before: CLEAN_COMMIT_CREATED_RELEASE_BRANCH_ACTIVE_PUSH_PENDING
+state_after: REMOTE_BRANCH_PUSH_VERIFIED_FINAL_LOG_COMMIT_PENDING
+actor: codex
+action_kind: USER_AUTHORIZED_GITHUB_BRANCH_PUSH
+cwd: <project-root>
+remotes: {origin: https://github.com/gprsm/EitaaDesktop.git, legacy_preserved: true}
+prepush_remote: {main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, release_branch: absent}
+push: {branch: codex/stabilization-g09, force: false, upstream_set: true, result: PASS, exit_code: 0}
+postpush_remote: {release_branch: 66f7beaca6a2cd0a67c54ec5705dcf5c381a8e9f, main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_unchanged: true}
+pull_request_url: https://github.com/gprsm/EitaaDesktop/pull/new/codex/stabilization-g09
+final_documentation_commit_required: true
+live_provider_or_operational_action: 0
+approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
+output_summary: شاخهٔ مستقل بدون force منتشر و hash آن زنده تأیید شد؛ main بدون تغییر باقی ماند.
+```

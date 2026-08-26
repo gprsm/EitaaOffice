@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-26  
 Run: `STAB-GIT-R01`  
-وضعیت: `IN_PROGRESS / CLEAN_COMMIT_CREATED / PUSH_PENDING`
+وضعیت: `PUSH_VERIFIED / FINAL_LOG_COMMIT_PENDING`
 
 ## مجوز و هدف
 
@@ -69,3 +69,11 @@ Artifactهای canonical تازه `artifacts/stabilization/GITPUBLISH_release_fi
 - commit تمیز=`fca3ea72c54c0b7226f4dbabc54b4684e1215513`، parent=`a4df3ec...`، message=`chore(stabilization): complete G00-G09 offline acceptance` و files=426 است.
 - شاخهٔ مستقل `codex/stabilization-g09` روی commit تمیز ساخته و فعال شد؛ `main` دست‌نخورده و push هنوز انجام نشده است.
 - lookup نخست tree با syntax دارای brace در PowerShell فقط با parser error شکست خورد؛ جایگزین فقط‌خواندنی `git show --format=%T` همان hash مورد انتظار را برگرداند و هیچ state تغییر نکرد.
+
+## انتشار GitHub و راستی‌آزمایی
+
+- remote تازهٔ `origin` به `https://github.com/gprsm/EitaaDesktop.git` افزوده شد؛ remote محلی `legacy` حفظ شد.
+- pre-push live check: GitHub main=`a4df3ec...` و branch مقصد absent بود.
+- فقط `codex/stabilization-g09` push و upstream همان شاخه تنظیم شد؛ push موفق بود و GitHub لینک ساخت Pull Request را برگرداند.
+- post-push live check: remote branch=`66f7beaca6a2cd0a67c54ec5705dcf5c381a8e9f` و main همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` است.
+- این بخش در commit مستندی پس از push ثبت می‌شود و سپس همان شاخه یک بار دیگر push/verify خواهد شد؛ hash نهایی remote به‌علت همین commit مستندی متأخر با مقدار بالا متفاوت خواهد بود و در خروجی closure گزارش می‌شود. هیچ force-push یا تغییر main انجام نمی‌شود.
