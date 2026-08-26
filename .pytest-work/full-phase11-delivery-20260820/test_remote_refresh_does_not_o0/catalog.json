@@ -1,0 +1,38 @@
+{
+  "dialogs": {
+    "channel:50": {
+      "active": true,
+      "broadcast": false,
+      "created_at": "2026-08-20T10:56:23.296115+00:00",
+      "display_kind": "group",
+      "display_kind_locked": true,
+      "favorite": false,
+      "folder_id": null,
+      "megagroup": false,
+      "participants_count": null,
+      "peer": {
+        "access_hash_present": true,
+        "id": 50,
+        "title": "سوپرگروه",
+        "title_present": true,
+        "type": "channel",
+        "username": null,
+        "username_present": false
+      },
+      "peer_file": "channel-50.json",
+      "peer_key": "channel:50",
+      "photo_cached_path": null,
+      "pinned": false,
+      "read_inbox_max_id": 0,
+      "source": "remote",
+      "technical_kind": "unknown",
+      "top_message_date": null,
+      "top_message_id": 100,
+      "unread_count": 0,
+      "unread_mark": false,
+      "unread_mentions_count": 0,
+      "updated_at": "2026-08-20T10:56:23.312020+00:00"
+    }
+  },
+  "schema_version": 2
+}

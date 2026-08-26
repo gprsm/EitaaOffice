@@ -1,0 +1,27 @@
+{
+  "records": {
+    "eitaa:legacy::legacy::medical-site::one": {
+      "category_ids": [],
+      "composition_key": "one",
+      "created_at": "2026-08-11T20:38:38.740182+00:00",
+      "excerpt": "",
+      "featured_media_id": null,
+      "featured_source_key": null,
+      "post_id": 1,
+      "post_slug": "one",
+      "post_url": null,
+      "site_key": "medical-site",
+      "source_hashes": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "source_keys": [
+        "channel:1:2"
+      ],
+      "status": "draft",
+      "tag_ids": [],
+      "title": "t",
+      "updated_at": "2026-08-11T20:38:38.751834+00:00"
+    }
+  },
+  "schema_version": 2
+}

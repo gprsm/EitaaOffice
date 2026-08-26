@@ -1,0 +1,71 @@
+{
+  "records": {
+    "eitaa:e499fdb7-0fc9-42ce-8666-d0669538e769::d0f1cb1f-a526-4c0b-be45-aa4a8cffd1da::main::same-composition": {
+      "category_ids": [],
+      "composition_key": "same-composition",
+      "created_at": "2026-08-13T10:43:52.089073+00:00",
+      "excerpt": "",
+      "featured_media_id": null,
+      "featured_source_key": null,
+      "post_id": 1,
+      "post_slug": "same-slug",
+      "post_url": null,
+      "site_key": "main",
+      "source_hashes": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "source_keys": [
+        "channel:77:9"
+      ],
+      "status": "draft",
+      "tag_ids": [],
+      "title": "first-a",
+      "updated_at": "2026-08-13T10:43:52.089232+00:00"
+    },
+    "eitaa:e499fdb7-0fc9-42ce-8666-d0669538e769::e6c03287-3389-4d5c-8d19-289fce9dc1da::main::same-composition": {
+      "category_ids": [],
+      "composition_key": "same-composition",
+      "created_at": "2026-08-13T10:43:52.092943+00:00",
+      "excerpt": "",
+      "featured_media_id": null,
+      "featured_source_key": null,
+      "post_id": 2,
+      "post_slug": "same-slug",
+      "post_url": null,
+      "site_key": "main",
+      "source_hashes": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "source_keys": [
+        "channel:77:9"
+      ],
+      "status": "draft",
+      "tag_ids": [],
+      "title": "first-b",
+      "updated_at": "2026-08-13T10:43:52.113799+00:00"
+    },
+    "eitaa:f1a9738a-2ed4-4ad9-9cc5-6ea66a6d5916::d0f1cb1f-a526-4c0b-be45-aa4a8cffd1da::main::same-composition": {
+      "category_ids": [],
+      "composition_key": "same-composition",
+      "created_at": "2026-08-13T10:43:52.118344+00:00",
+      "excerpt": "",
+      "featured_media_id": null,
+      "featured_source_key": null,
+      "post_id": 3,
+      "post_slug": "same-slug",
+      "post_url": null,
+      "site_key": "main",
+      "source_hashes": [
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "source_keys": [
+        "channel:77:9"
+      ],
+      "status": "draft",
+      "tag_ids": [],
+      "title": "second-a",
+      "updated_at": "2026-08-13T10:43:52.137689+00:00"
+    }
+  },
+  "schema_version": 2
+}

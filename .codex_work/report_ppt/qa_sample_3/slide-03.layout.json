@@ -1,0 +1,1126 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/79qj5h",
+    "id": "79qj5h",
+    "slide": 3,
+    "layoutId": "29386099-9c21-46c2-a189-30422cf63d87",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "9c9de482-ad7c-43ba-a0e3-0e59bfab6be1",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Tahoma"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "29386099-9c21-46c2-a189-30422cf63d87",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "9c9de482-ad7c-43ba-a0e3-0e59bfab6be1",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "9c9de482-ad7c-43ba-a0e3-0e59bfab6be1",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/8nuh87uh",
+      "id": "1",
+      "name": "eyebrow",
+      "bbox": [
+        650,
+        34,
+        588,
+        34
+      ],
+      "geometry": "rect",
+      "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "textPreview": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7mlgz2tw",
+      "id": "2",
+      "name": "slide-title",
+      "bbox": [
+        105,
+        72,
+        1133,
+        70
+      ],
+      "geometry": "rect",
+      "text": "اجرا کیفیت اولویت و حق‌القدم",
+      "textPreview": "اجرا کیفیت اولویت و حق‌القدم",
+      "resolvedFontSize": 49,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 49,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "اجرا کیفیت اولویت و حق‌القدم"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "اجرا کیفیت اولویت و حق‌القدم",
+          "resolvedTextStyle": {
+            "fontSize": 49,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "اجرا کیفیت اولویت و حق‌القدم",
+              "fontSize": 49,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mlcz6xcb",
+      "id": "3",
+      "name": "title-rule",
+      "bbox": [
+        42,
+        151,
+        1196,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C7CDD3",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "chart",
+      "scope": "slide",
+      "aid": "ch/dkj25cf2",
+      "id": "4",
+      "bbox": [
+        42,
+        182,
+        745,
+        405
+      ],
+      "chartType": "bar"
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kjux4nul",
+      "id": "5",
+      "name": "payment-total-panel",
+      "bbox": [
+        842,
+        182,
+        396,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zilgv2t0",
+      "id": "6",
+      "name": "payment-total-accent",
+      "bbox": [
+        1226,
+        182,
+        12,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yhcf2xcf",
+      "id": "7",
+      "name": "payment-total-number",
+      "bbox": [
+        884,
+        198,
+        318,
+        48
+      ],
+      "geometry": "rect",
+      "text": "۲۷٫۵",
+      "textPreview": "۲۷٫۵",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۲۷٫۵"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۲۷٫۵",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۲۷٫۵",
+              "fontSize": 38,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/xgjytsbu",
+      "id": "8",
+      "name": "payment-total-label",
+      "bbox": [
+        884,
+        249,
+        318,
+        28
+      ],
+      "geometry": "rect",
+      "text": "مدعو ائمه حق‌القدم مجموع",
+      "textPreview": "مدعو ائمه حق‌القدم مجموع",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "مدعو ائمه حق‌القدم مجموع"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "مدعو ائمه حق‌القدم مجموع",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "مدعو ائمه حق‌القدم مجموع",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/cfax0nu9",
+      "id": "9",
+      "name": "payment-total-detail",
+      "bbox": [
+        884,
+        280,
+        318,
+        22
+      ],
+      "geometry": "rect",
+      "text": "اداره چهار در | تومان میلیون",
+      "textPreview": "اداره چهار در | تومان میلیون",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.96,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "اداره چهار در | تومان میلیون"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "اداره چهار در | تومان میلیون",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "اداره چهار در | تومان میلیون",
+              "fontSize": 19,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/iloze5cr",
+      "id": "10",
+      "name": "employee-imams-panel",
+      "bbox": [
+        842,
+        324,
+        396,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jmxg7atc",
+      "id": "11",
+      "name": "employee-imams-accent",
+      "bbox": [
+        1226,
+        324,
+        12,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4n6hgfux",
+      "id": "12",
+      "name": "employee-imams-number",
+      "bbox": [
+        884,
+        340,
+        318,
+        48
+      ],
+      "geometry": "rect",
+      "text": "۲",
+      "textPreview": "۲",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۲"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۲",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۲",
+              "fontSize": 38,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5ofy9kbi",
+      "id": "13",
+      "name": "employee-imams-label",
+      "bbox": [
+        884,
+        391,
+        318,
+        28
+      ],
+      "geometry": "rect",
+      "text": "حق‌القدم بدون",
+      "textPreview": "حق‌القدم بدون",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "حق‌القدم بدون"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "حق‌القدم بدون",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "حق‌القدم بدون",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ux4fa5cv",
+      "id": "14",
+      "name": "employee-imams-detail",
+      "bbox": [
+        884,
+        422,
+        318,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۶ و ۱ ادارات | همکار جماعت امام",
+      "textPreview": "۶ و ۱ ادارات | همکار جماعت امام",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.96,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۶ و ۱ ادارات | همکار جماعت امام"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۶ و ۱ ادارات | همکار جماعت امام",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۶ و ۱ ادارات | همکار جماعت امام",
+              "fontSize": 19,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vydg3qtg",
+      "id": "15",
+      "name": "next-actions-panel",
+      "bbox": [
+        842,
+        466,
+        396,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/wzmxcvul",
+      "id": "16",
+      "name": "next-actions-accent",
+      "bbox": [
+        1226,
+        466,
+        12,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#F59E0B",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hkvy50b6",
+      "id": "17",
+      "name": "next-actions-number",
+      "bbox": [
+        884,
+        482,
+        318,
+        48
+      ],
+      "geometry": "rect",
+      "text": "۳",
+      "textPreview": "۳",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۳"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۳",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۳",
+              "fontSize": 38,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mtkf6lcj",
+      "id": "18",
+      "name": "next-actions-label",
+      "bbox": [
+        884,
+        533,
+        318,
+        28
+      ],
+      "geometry": "rect",
+      "text": "اجرا کیفیت و داده تثبیت",
+      "textPreview": "اجرا کیفیت و داده تثبیت",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "اجرا کیفیت و داده تثبیت"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "اجرا کیفیت و داده تثبیت",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "اجرا کیفیت و داده تثبیت",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7udgzqt4",
+      "id": "19",
+      "name": "next-actions-detail",
+      "bbox": [
+        884,
+        564,
+        318,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل",
+      "textPreview": "۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.96,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل",
+              "fontSize": 19,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/by9w7m9w",
+      "id": "20",
+      "name": "close-message",
+      "bbox": [
+        42,
+        606,
+        1196,
+        39
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF8FD",
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ax0vyhsb",
+      "id": "21",
+      "name": "close-message-text",
+      "bbox": [
+        66,
+        614,
+        1148,
+        23
+      ],
+      "geometry": "rect",
+      "text": "است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی",
+      "textPreview": "است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی",
+      "resolvedFontSize": 17.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 17.51,
+        "typeface": "Tahoma",
+        "color": "#174F72",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی",
+          "resolvedTextStyle": {
+            "fontSize": 17.51,
+            "typeface": "Tahoma",
+            "color": "#174F72",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی",
+              "fontSize": 17.51,
+              "typeface": "Tahoma",
+              "color": "#174F72",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/x0re9wr2",
+      "id": "22",
+      "name": "slide-number-3",
+      "bbox": [
+        41,
+        662,
+        48,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۳",
+      "textPreview": "۳",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 14,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "left",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۳"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۳",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۳",
+              "fontSize": 14,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

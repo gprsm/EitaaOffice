@@ -1,0 +1,56 @@
+{"kind":"slide","id":"sl/5i583q","slide":1,"title":"توسعه قابل روایی نمونه","textShapes":5}
+{"kind":"textbox","id":"sh/nat03ixs","slide":1,"name":"cover-kicker","text":"توسعه قابل روایی نمونه","textPreview":"توسعه قابل روایی نمونه","textChars":22,"textLines":1,"bbox":[810,44,428,34]}
+{"kind":"textbox","id":"sh/ob2hcned","slide":1,"name":"cover-title","text":"وضعیت گزارش\nتابعه ادارات نمازخانه‌های","textPreview":"وضعیت گزارش | تابعه ادارات نمازخانه‌های","textChars":37,"textLines":2,"bbox":[220,225,1018,245]}
+{"kind":"shape","id":"sh/pcbi58fy","slide":1,"name":"cover-rule","bbox":[590,505,648,0]}
+{"kind":"textbox","id":"sh/adkjedwj","slide":1,"name":"cover-subtitle","text":"نماز اقامه انتظام و زیرساخت حضور، | اداره شش","textPreview":"نماز اقامه انتظام و زیرساخت حضور، | اداره شش","textChars":44,"textLines":1,"bbox":[490,536,748,52]}
+{"kind":"textbox","id":"sh/bet07ix4","slide":1,"name":"cover-source","text":"میدانی بازدیدهای و ادارات اعلامی اطلاعات پایه بر","textPreview":"میدانی بازدیدهای و ادارات اعلامی اطلاعات پایه بر","textChars":48,"textLines":1,"bbox":[665,618,573,30]}
+{"kind":"textbox","id":"sh/cf21gne9","slide":1,"name":"slide-number-1","text":"۱","textPreview":"۱","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"notes","id":"nt/5i583q","slide":1,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]"}
+{"kind":"slide","id":"sl/q6wj6z","slide":2,"title":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textShapes":13}
+{"kind":"textbox","id":"sh/gzyt43ix","slide":2,"name":"eyebrow","text":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textPreview":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textChars":37,"textLines":1,"bbox":[650,34,588,34]}
+{"kind":"textbox","id":"sh/fypcbyhc","slide":2,"name":"slide-title","text":"نمازگزاران تعداد مکمل مشارکت؛","textPreview":"نمازگزاران تعداد مکمل مشارکت؛","textChars":29,"textLines":1,"bbox":[105,72,1133,70]}
+{"kind":"shape","id":"sh/uxgb2d0r","slide":2,"name":"title-rule","bbox":[42,151,1196,0]}
+{"kind":"shape","id":"sh/43yd8nit","slide":2,"name":"participation-top-panel","bbox":[842,184,396,131]}
+{"kind":"shape","id":"sh/32pcfih8","slide":2,"name":"participation-top-accent","bbox":[1226,184,12,131]}
+{"kind":"textbox","id":"sh/21gv6d0n","slide":2,"name":"participation-top-number","text":"۷۰٪","textPreview":"۷۰٪","textChars":3,"textLines":1,"bbox":[884,200,318,48]}
+{"kind":"textbox","id":"sh/l8nu5oza","slide":2,"name":"participation-top-label","text":"مشارکت نسبت بالاترین","textPreview":"مشارکت نسبت بالاترین","textChars":20,"textLines":1,"bbox":[884,251,318,28]}
+{"kind":"textbox","id":"sh/k7etwjip","slide":2,"name":"participation-top-detail","text":"همکار جماعت امام ۶؛ اداره","textPreview":"همکار جماعت امام ۶؛ اداره","textChars":25,"textLines":1,"bbox":[884,282,318,22]}
+{"kind":"shape","id":"sh/edsfehg3","slide":2,"name":"participation-mid-panel","bbox":[842,326,396,131]}
+{"kind":"shape","id":"sh/fe1w7mho","slide":2,"name":"participation-mid-accent","bbox":[1226,326,12,131]}
+{"kind":"textbox","id":"sh/gzaxgry9","slide":2,"name":"participation-mid-number","text":"۵۰٪+","textPreview":"۵۰٪+","textChars":4,"textLines":1,"bbox":[884,342,318,48]}
+{"kind":"textbox","id":"sh/103e9czu","slide":2,"name":"participation-mid-label","text":"اداره سه در","textPreview":"اداره سه در","textChars":11,"textLines":1,"bbox":[884,393,318,28]}
+{"kind":"textbox","id":"sh/21cfihgf","slide":2,"name":"participation-mid-detail","text":"۶ و ۴ ۳، ادارات","textPreview":"۶ و ۴ ۳، ادارات","textChars":15,"textLines":1,"bbox":[884,424,318,22]}
+{"kind":"shape","id":"sh/32lwbmhk","slide":2,"name":"participation-low-panel","bbox":[842,468,396,131]}
+{"kind":"shape","id":"sh/o3uxkry5","slide":2,"name":"participation-low-accent","bbox":[1226,468,12,131]}
+{"kind":"textbox","id":"sh/p43ydwzq","slide":2,"name":"participation-low-number","text":"۳۰٪","textPreview":"۳۰٪","textChars":3,"textLines":1,"bbox":[884,484,318,48]}
+{"kind":"textbox","id":"sh/q5cfm1gb","slide":2,"name":"participation-low-label","text":"ثبت‌شده نسبت کمترین","textPreview":"ثبت‌شده نسبت کمترین","textChars":19,"textLines":1,"bbox":[884,535,318,28]}
+{"kind":"textbox","id":"sh/b6lgf6hw","slide":2,"name":"participation-low-detail","text":"امام نامنظم حضور با همراه ۲؛ اداره","textPreview":"امام نامنظم حضور با همراه ۲؛ اداره","textChars":34,"textLines":1,"bbox":[884,566,318,22]}
+{"kind":"shape","id":"sh/na5w36d4","slide":2,"name":"ratio-note","bbox":[42,606,1196,39]}
+{"kind":"textbox","id":"sh/m9wva1wj","slide":2,"name":"ratio-note-text","text":"شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های","textPreview":"شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های","textChars":72,"textLines":1,"bbox":[66,614,1148,23]}
+{"kind":"textbox","id":"sh/9wne5gvu","slide":2,"name":"slide-number-2","text":"۲","textPreview":"۲","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"chart","id":"ch/l4vedoj2","slide":2,"name":"","chartType":"bar","title":"اداره هر در ثبت‌شده مشارکت نسبت","bbox":[42,184,760,405]}
+{"kind":"notes","id":"nt/q6wj6z","slide":2,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]"}
+{"kind":"slide","id":"sl/79qj5h","slide":3,"title":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textShapes":13}
+{"kind":"textbox","id":"sh/8nuh87uh","slide":3,"name":"eyebrow","text":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textPreview":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textChars":37,"textLines":1,"bbox":[650,34,588,34]}
+{"kind":"textbox","id":"sh/7mlgz2tw","slide":3,"name":"slide-title","text":"اجرا کیفیت اولویت و حق‌القدم","textPreview":"اجرا کیفیت اولویت و حق‌القدم","textChars":28,"textLines":1,"bbox":[105,72,1133,70]}
+{"kind":"shape","id":"sh/mlcz6xcb","slide":3,"name":"title-rule","bbox":[42,151,1196,0]}
+{"kind":"shape","id":"sh/kjux4nul","slide":3,"name":"payment-total-panel","bbox":[842,182,396,131]}
+{"kind":"shape","id":"sh/zilgv2t0","slide":3,"name":"payment-total-accent","bbox":[1226,182,12,131]}
+{"kind":"textbox","id":"sh/yhcf2xcf","slide":3,"name":"payment-total-number","text":"۲۷٫۵","textPreview":"۲۷٫۵","textChars":4,"textLines":1,"bbox":[884,198,318,48]}
+{"kind":"textbox","id":"sh/xgjytsbu","slide":3,"name":"payment-total-label","text":"مدعو ائمه حق‌القدم مجموع","textPreview":"مدعو ائمه حق‌القدم مجموع","textChars":24,"textLines":1,"bbox":[884,249,318,28]}
+{"kind":"textbox","id":"sh/cfax0nu9","slide":3,"name":"payment-total-detail","text":"اداره چهار در | تومان میلیون","textPreview":"اداره چهار در | تومان میلیون","textChars":28,"textLines":1,"bbox":[884,280,318,22]}
+{"kind":"shape","id":"sh/iloze5cr","slide":3,"name":"employee-imams-panel","bbox":[842,324,396,131]}
+{"kind":"shape","id":"sh/jmxg7atc","slide":3,"name":"employee-imams-accent","bbox":[1226,324,12,131]}
+{"kind":"textbox","id":"sh/4n6hgfux","slide":3,"name":"employee-imams-number","text":"۲","textPreview":"۲","textChars":1,"textLines":1,"bbox":[884,340,318,48]}
+{"kind":"textbox","id":"sh/5ofy9kbi","slide":3,"name":"employee-imams-label","text":"حق‌القدم بدون","textPreview":"حق‌القدم بدون","textChars":13,"textLines":1,"bbox":[884,391,318,28]}
+{"kind":"textbox","id":"sh/ux4fa5cv","slide":3,"name":"employee-imams-detail","text":"۶ و ۱ ادارات | همکار جماعت امام","textPreview":"۶ و ۱ ادارات | همکار جماعت امام","textChars":31,"textLines":1,"bbox":[884,422,318,22]}
+{"kind":"shape","id":"sh/vydg3qtg","slide":3,"name":"next-actions-panel","bbox":[842,466,396,131]}
+{"kind":"shape","id":"sh/wzmxcvul","slide":3,"name":"next-actions-accent","bbox":[1226,466,12,131]}
+{"kind":"textbox","id":"sh/hkvy50b6","slide":3,"name":"next-actions-number","text":"۳","textPreview":"۳","textChars":1,"textLines":1,"bbox":[884,482,318,48]}
+{"kind":"textbox","id":"sh/mtkf6lcj","slide":3,"name":"next-actions-label","text":"اجرا کیفیت و داده تثبیت","textPreview":"اجرا کیفیت و داده تثبیت","textChars":23,"textLines":1,"bbox":[884,533,318,28]}
+{"kind":"textbox","id":"sh/7udgzqt4","slide":3,"name":"next-actions-detail","text":"۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل","textPreview":"۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل","textChars":33,"textLines":1,"bbox":[884,564,318,22]}
+{"kind":"shape","id":"sh/by9w7m9w","slide":3,"name":"close-message","bbox":[42,606,1196,39]}
+{"kind":"textbox","id":"sh/ax0vyhsb","slide":3,"name":"close-message-text","text":"است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی","textPreview":"است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی","textChars":104,"textLines":1,"bbox":[66,614,1148,23]}
+{"kind":"textbox","id":"sh/x0re9wr2","slide":3,"name":"slide-number-3","text":"۳","textPreview":"۳","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"chart","id":"ch/dkj25cf2","slide":3,"name":"","chartType":"bar","title":"تومان میلیون — اداره تفکیک به جماعت امام حق‌القدم","bbox":[42,182,745,405]}
+{"kind":"notes","id":"nt/79qj5h","slide":3,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]\n\nمبالغ حق‌القدم بر حسب میلیون تومان است؛ مبلغ ائمه جماعت همکار صفر است."}

@@ -1,0 +1,9 @@
+const fs = require('fs');
+
+let code = fs.readFileSync('ui/src/App.tsx', 'utf8');
+
+const faultyLineRegex = /return <Box key=\{key\} data-index=\{row\.index\} data-message-key=\{key\} ref=\{virtualizer\.measureElement\} sx=\{\{ position: 'absolute', top: 0, right: 0, width: '100%', py: isAlbumFollower \? 0 : \(timelineGroup === 'middle' \|\| timelineGroup === 'end' \? 0\.2 : 0\.75\), height: isAlbumFollower \? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isAlbumFollower \? 'strict' : 'layout style', pointerEvents: isAlbumFollower \? 'none' : undefined, transform: \`translateY\(\$\{row\.start\}px\)\`, '& > article': message\.id === props\.focusMessageId \? \{ outline: '3px solid', outlineColor: 'primary\.main', boxShadow: theme => \`0 0 0 7px \$\{theme\.palette\.action\.selected\}\` \} : undefined \} \}> article': message.id === props.focusMessageId \? \{ outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => \`0 0 0 7px \$\{theme\.palette\.action\.selected\}\` \} : undefined \}\}>/;
+
+code = code.replace(faultyLineRegex, `return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isAlbumFollower ? 0 : (timelineGroup === 'middle' || timelineGroup === 'end' ? 0.2 : 0.75), height: isAlbumFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isAlbumFollower ? 'strict' : 'layout style', pointerEvents: isAlbumFollower ? 'none' : undefined, transform: \`translateY(\$\{row.start\}px)\`, '& > article': message.id === props.focusMessageId ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => \`0 0 0 7px \$\{theme.palette.action.selected\}\` } : undefined }}>`);
+
+fs.writeFileSync('ui/src/App.tsx', code);

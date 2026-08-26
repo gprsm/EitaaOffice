@@ -1,0 +1,1262 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/bpsuet",
+    "id": "bpsuet",
+    "slide": 1,
+    "layoutId": "34f77eee-e994-4ab5-b406-e37be84f5112",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "41d6c7cd-da7d-4d0f-bb5a-1d20d9d50b65",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Tahoma"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "34f77eee-e994-4ab5-b406-e37be84f5112",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "41d6c7cd-da7d-4d0f-bb5a-1d20d9d50b65",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "41d6c7cd-da7d-4d0f-bb5a-1d20d9d50b65",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z290ru18",
+      "id": "1",
+      "name": "eyebrow",
+      "bbox": [
+        650,
+        34,
+        588,
+        34
+      ],
+      "geometry": "rect",
+      "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "textPreview": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/03i10z2t",
+      "id": "2",
+      "name": "slide-title",
+      "bbox": [
+        105,
+        72,
+        1133,
+        70
+      ],
+      "geometry": "rect",
+      "text": "انتظام و مشارکت بر تمرکز مناسب؛ زیرساخت",
+      "textPreview": "انتظام و مشارکت بر تمرکز مناسب؛ زیرساخت",
+      "resolvedFontSize": 49,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 49,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "انتظام و مشارکت بر تمرکز مناسب؛ زیرساخت"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "انتظام و مشارکت بر تمرکز مناسب؛ زیرساخت",
+          "resolvedTextStyle": {
+            "fontSize": 49,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "انتظام و مشارکت بر تمرکز مناسب؛ زیرساخت",
+              "fontSize": 49,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l4rit4je",
+      "id": "3",
+      "name": "title-rule",
+      "bbox": [
+        42,
+        151,
+        1196,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C7CDD3",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qxgzu5kr",
+      "id": "4",
+      "name": "summary-copy",
+      "bbox": [
+        205,
+        188,
+        1033,
+        88
+      ],
+      "geometry": "rect",
+      "text": "است. شده ثبت فرهنگی فعالیت و اذان منظم پخش اداره ۶ هر در\nاست. شده گزارش گاه‌به‌گاه اداره یک در و مستمر اداره ۵ در مدیران حضور",
+      "textPreview": "است. شده ثبت فرهنگی فعالیت و اذان منظم پخش اداره ۶ هر در | است. شده گزارش گاه‌به‌گاه اداره یک در و مستمر اداره ۵ در مدیران حضور",
+      "resolvedFontSize": 24,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 24,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "است. شده ثبت فرهنگی فعالیت و اذان منظم پخش اداره ۶ هر در"
+          },
+          {
+            "index": 2,
+            "text": "است. شده گزارش گاه‌به‌گاه اداره یک در و مستمر اداره ۵ در مدیران حضور"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "است. شده ثبت فرهنگی فعالیت و اذان منظم پخش اداره ۶ هر در",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "است. شده ثبت فرهنگی فعالیت و اذان منظم پخش اداره ۶ هر در",
+              "fontSize": 24,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "است. شده گزارش گاه‌به‌گاه اداره یک در و مستمر اداره ۵ در مدیران حضور",
+          "resolvedTextStyle": {
+            "fontSize": 24,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "است. شده گزارش گاه‌به‌گاه اداره یک در و مستمر اداره ۵ در مدیران حضور",
+              "fontSize": 24,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ry90na1c",
+      "id": "5",
+      "name": "metric-panel-42",
+      "bbox": [
+        42,
+        328,
+        374,
+        280
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/czihwf2h",
+      "id": "6",
+      "name": "metric-accent-42",
+      "bbox": [
+        42,
+        328,
+        374,
+        10
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d0ripkj2",
+      "id": "7",
+      "name": "metric-number-42",
+      "bbox": [
+        70,
+        364,
+        318,
+        78
+      ],
+      "geometry": "rect",
+      "text": "۶۰",
+      "textPreview": "۶۰",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 54,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۶۰"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۶۰",
+          "resolvedTextStyle": {
+            "fontSize": 54,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۶۰",
+              "fontSize": 54,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/atkj690v",
+      "id": "8",
+      "name": "metric-headline-42",
+      "bbox": [
+        70,
+        454,
+        318,
+        44
+      ],
+      "geometry": "rect",
+      "text": "نمازخانه فضای میانگین مترمربع؛",
+      "textPreview": "نمازخانه فضای میانگین مترمربع؛",
+      "resolvedFontSize": 20.77,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.9,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "نمازخانه فضای میانگین مترمربع؛"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "نمازخانه فضای میانگین مترمربع؛",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "نمازخانه فضای میانگین مترمربع؛",
+              "fontSize": 23,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vut0ze1g",
+      "id": "9",
+      "name": "metric-detail-42",
+      "bbox": [
+        70,
+        510,
+        318,
+        70
+      ],
+      "geometry": "rect",
+      "text": "مترمربع ۸۰ تا ۵۰ ثبت‌شده: دامنه",
+      "textPreview": "مترمربع ۸۰ تا ۵۰ ثبت‌شده: دامنه",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "مترمربع ۸۰ تا ۵۰ ثبت‌شده: دامنه"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "مترمربع ۸۰ تا ۵۰ ثبت‌شده: دامنه",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "مترمربع ۸۰ تا ۵۰ ثبت‌شده: دامنه",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/repc7ulk",
+      "id": "10",
+      "name": "metric-panel-453",
+      "bbox": [
+        453,
+        328,
+        374,
+        280
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/qdgbep4z",
+      "id": "11",
+      "name": "metric-accent-453",
+      "bbox": [
+        453,
+        328,
+        374,
+        10
+      ],
+      "geometry": "rect",
+      "fillColor": "#F59E0B",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/dg7u943q",
+      "id": "12",
+      "name": "metric-number-453",
+      "bbox": [
+        481,
+        364,
+        318,
+        78
+      ],
+      "geometry": "rect",
+      "text": "۴",
+      "textPreview": "۴",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 54,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۴"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۴",
+          "resolvedTextStyle": {
+            "fontSize": 54,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۴",
+              "fontSize": 54,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sfytgzm5",
+      "id": "13",
+      "name": "metric-headline-453",
+      "bbox": [
+        481,
+        454,
+        318,
+        44
+      ],
+      "geometry": "rect",
+      "text": "روزانه حضور با اداره\nجماعت امام",
+      "textPreview": "روزانه حضور با اداره | جماعت امام",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.8,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "روزانه حضور با اداره"
+          },
+          {
+            "index": 2,
+            "text": "جماعت امام"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "روزانه حضور با اداره",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "روزانه حضور با اداره",
+              "fontSize": 23,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "جماعت امام",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "جماعت امام",
+              "fontSize": 23,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fipcbulw",
+      "id": "14",
+      "name": "metric-detail-453",
+      "bbox": [
+        481,
+        510,
+        318,
+        70
+      ],
+      "geometry": "rect",
+      "text": "نامنظم ۲: اداره\nگاه‌به‌گاه ۶: اداره",
+      "textPreview": "نامنظم ۲: اداره | گاه‌به‌گاه ۶: اداره",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "نامنظم ۲: اداره"
+          },
+          {
+            "index": 2,
+            "text": "گاه‌به‌گاه ۶: اداره"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "نامنظم ۲: اداره",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "نامنظم ۲: اداره",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "گاه‌به‌گاه ۶: اداره",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "گاه‌به‌گاه ۶: اداره",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ehgbi94b",
+      "id": "15",
+      "name": "metric-panel-864",
+      "bbox": [
+        864,
+        328,
+        374,
+        280
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/14rud43m",
+      "id": "16",
+      "name": "metric-accent-864",
+      "bbox": [
+        864,
+        328,
+        374,
+        10
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0jydkzmh",
+      "id": "17",
+      "name": "metric-number-864",
+      "bbox": [
+        892,
+        364,
+        318,
+        78
+      ],
+      "geometry": "rect",
+      "text": "۴",
+      "textPreview": "۴",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 54,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۴"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۴",
+          "resolvedTextStyle": {
+            "fontSize": 54,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۴",
+              "fontSize": 54,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/n69cfels",
+      "id": "18",
+      "name": "metric-headline-864",
+      "bbox": [
+        892,
+        454,
+        318,
+        44
+      ],
+      "geometry": "rect",
+      "text": "مدعو جماعت امام",
+      "textPreview": "مدعو جماعت امام",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "مدعو جماعت امام"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "مدعو جماعت امام",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "مدعو جماعت امام",
+              "fontSize": 23,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/250vm947",
+      "id": "19",
+      "name": "metric-detail-864",
+      "bbox": [
+        892,
+        510,
+        318,
+        70
+      ],
+      "geometry": "rect",
+      "text": "حق‌القدم بدون همکار امام ۲\nحق‌القدم با مدعو امام ۴",
+      "textPreview": "حق‌القدم بدون همکار امام ۲ | حق‌القدم با مدعو امام ۴",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "حق‌القدم بدون همکار امام ۲"
+          },
+          {
+            "index": 2,
+            "text": "حق‌القدم با مدعو امام ۴"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "حق‌القدم بدون همکار امام ۲",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "حق‌القدم بدون همکار امام ۲",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "حق‌القدم با مدعو امام ۴",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "حق‌القدم با مدعو امام ۴",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/y1kfedof",
+      "id": "20",
+      "name": "method-footer",
+      "bbox": [
+        105,
+        651,
+        1090,
+        28
+      ],
+      "geometry": "rect",
+      "text": "میدانی بازدیدهای با همراه تابعه، ادارات اعلامی اطلاعات گزارش: مبنای",
+      "textPreview": "میدانی بازدیدهای با همراه تابعه، ادارات اعلامی اطلاعات گزارش: مبنای",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 14,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "میدانی بازدیدهای با همراه تابعه، ادارات اعلامی اطلاعات گزارش: مبنای"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "میدانی بازدیدهای با همراه تابعه، ادارات اعلامی اطلاعات گزارش: مبنای",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "میدانی بازدیدهای با همراه تابعه، ادارات اعلامی اطلاعات گزارش: مبنای",
+              "fontSize": 14,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/z2tw7i50",
+      "id": "21",
+      "name": "slide-number-1",
+      "bbox": [
+        41,
+        662,
+        48,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۱",
+      "textPreview": "۱",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 14,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "left",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۱"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۱",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۱",
+              "fontSize": 14,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

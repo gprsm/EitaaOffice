@@ -1,0 +1,2 @@
+{"at": "2026-08-11T20:25:36.108+00:00", "component": "wordpress", "event": "request_network_error", "fields": {"attempt": 1, "error_type": "ConnectionError", "method": "GET", "path": "/wp-json/", "retry_safe": true}, "level": "warning", "run_id": "dfb5fd5d3f7b"}
+{"at": "2026-08-11T20:25:36.109+00:00", "component": "wordpress", "event": "request_network_error", "fields": {"attempt": 2, "error_type": "ConnectionError", "method": "GET", "path": "/wp-json/", "retry_safe": true}, "level": "error", "run_id": "dfb5fd5d3f7b"}

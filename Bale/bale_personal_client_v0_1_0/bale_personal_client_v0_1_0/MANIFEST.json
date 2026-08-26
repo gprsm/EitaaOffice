@@ -1,0 +1,21 @@
+{
+  "name": "bale_personal_client",
+  "version": "0.1.0",
+  "language": "Python 3.11+",
+  "architecture": [
+    "independent protobuf wire codec",
+    "grpc-web authentication transport",
+    "encrypted session vault",
+    "websocket rpc/update transport",
+    "typed core feature codecs",
+    "raw rpc laboratory",
+    "command-line interface",
+    "tkinter test laboratory"
+  ],
+  "offline_tests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "live_integration_tested": false,
+  "reason_live_not_tested": "No authorized Bale account, OTP, or user session is available in the build environment."
+}

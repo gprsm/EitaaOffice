@@ -1,0 +1,18 @@
+{
+  "component_files": {},
+  "run_id": "7e7540d8810b",
+  "schema_version": 1,
+  "security": {
+    "access_hashes_written": false,
+    "authorization_headers_written": false,
+    "eitaa_imeis_written": false,
+    "eitaa_tokens_written": false,
+    "message_or_post_content_written": false,
+    "phone_numbers_written": false,
+    "raw_requests_written": false,
+    "raw_responses_written": false,
+    "sqlite_contents_written": false,
+    "wordpress_credentials_written": false
+  },
+  "sharing_rule": "Share only the component file named by an error."
+}

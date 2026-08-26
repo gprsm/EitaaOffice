@@ -1,0 +1,30 @@
+[
+  {
+    "field": 1,
+    "type": "message",
+    "value": [
+      {"field": 1, "type": "int32", "value": 1},
+      {"field": 2, "type": "int64", "value": 123456789}
+    ]
+  },
+  {"field": 2, "type": "int64", "value": 112233445566},
+  {
+    "field": 3,
+    "type": "message",
+    "value": [
+      {
+        "field": 15,
+        "type": "message",
+        "value": [{"field": 1, "type": "string", "value": "سلام آزمایشی"}]
+      }
+    ]
+  },
+  {
+    "field": 6,
+    "type": "message",
+    "value": [
+      {"field": 1, "type": "int32", "value": 1},
+      {"field": 2, "type": "int64", "value": 123456789}
+    ]
+  }
+]

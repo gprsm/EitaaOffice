@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "default_site_key": "site-one",
+  "bridge": {
+    "diagnostics_root": "diagnostics/bridge",
+    "diagnostics_enabled": true,
+    "composition_state_file": "data/bridge_compositions.json"
+  },
+  "deployment": {
+    "schema_version": 1,
+    "mode": "desktop_loopback",
+    "bind": {
+      "host": "127.0.0.1",
+      "port": 8765
+    },
+    "allowed_hosts": [
+      "127.0.0.1:8765",
+      "localhost:8765"
+    ],
+    "allowed_origins": [
+      "http://127.0.0.1:8765",
+      "http://localhost:8765"
+    ],
+    "allowed_private_client_cidrs": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "cleartext_http_risk_acknowledgement": null,
+    "private_lan_only_acknowledgement": null,
+    "bootstrap_admin_loopback_only": true,
+    "same_origin_only": true,
+    "remote_messenger_auth": {
+      "enabled": false,
+      "cleartext_http_risk_acknowledgement": null
+    }
+  },
+  "features": {
+    "app_user_auth": {
+      "enabled": false,
+      "idle_timeout_minutes": 30,
+      "absolute_timeout_hours": 12,
+      "max_failed_attempts": 5,
+      "lockout_minutes": 15
+    },
+    "multi_session": {
+      "enabled": false,
+      "legacy_default_messenger_account_id": null
+    },
+    "worker_process": {
+      "schema_version": 1,
+      "enabled": false,
+      "startup_timeout_seconds": 15,
+      "request_timeout_seconds": 60,
+      "heartbeat_interval_seconds": 5,
+      "heartbeat_timeout_seconds": 15,
+      "heartbeat_failure_threshold": 3,
+      "restart_window_seconds": 300,
+      "max_restarts": 3,
+      "backoff_initial_seconds": 2,
+      "backoff_max_seconds": 60,
+      "quarantine_seconds": 300
+    }
+  },
+  "core": {
+    "session_file": ".eitaa_session.json",
+    "database_file": "data/eitaa_messages.sqlite3",
+    "media_directory": "data/media",
+    "diagnostics_root": "diagnostics/core",
+    "diagnostics_enabled": true,
+    "timeout_seconds": 30.0
+  },
+  "wordpress_sites": [
+    {
+      "site_key": "site-one",
+      "base_url": "https://site-one.example.com",
+      "default_status": "draft",
+      "default_category_id": null,
+      "timeout_seconds": 30.0,
+      "verify_tls": true,
+      "retry_attempts": 2,
+      "username_env": "EITAA_BRIDGE_WP_SITE_ONE_USERNAME",
+      "application_password_env": "EITAA_BRIDGE_WP_SITE_ONE_APP_PASSWORD"
+    },
+    {
+      "site_key": "site-two",
+      "base_url": "https://site-two.example.com",
+      "default_status": "draft",
+      "default_category_id": null,
+      "timeout_seconds": 30.0,
+      "verify_tls": true,
+      "retry_attempts": 2,
+      "username_env": "EITAA_BRIDGE_WP_SITE_TWO_USERNAME",
+      "application_password_env": "EITAA_BRIDGE_WP_SITE_TWO_APP_PASSWORD"
+    }
+  ]
+}

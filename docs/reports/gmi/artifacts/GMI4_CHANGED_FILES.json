@@ -1,0 +1,241 @@
+{
+  "base": "eitaa_bridge_v0_7_ui_mvp6_1_1_gmi3_index_contacts_lab_WORKING.zip",
+  "version": "0.7.0-ui-mvp6.1.1-gmi4",
+  "changed_file_count": 39,
+  "files": [
+    {
+      "path": "BUILD_OFFICE_SETUP_EXE.bat",
+      "status": "modified",
+      "bytes": 6440,
+      "sha256": "369ca36d2baf52521032e0b365af55c130bd425ffb310c279bbc2e1e99ee914f"
+    },
+    {
+      "path": "docs/reports/gmi/GMI4_ARCHITECTURE_AND_SCOPE.md",
+      "status": "added",
+      "bytes": 2319,
+      "sha256": "11b44e9ee0121bf54e833da30de0d92ffb3c3463445fad39a7648b5e539e7d00"
+    },
+    {
+      "path": "docs/reports/gmi/GMI4_INVARIANTS_REPORT.md",
+      "status": "added",
+      "bytes": 1194,
+      "sha256": "9f532f073ee4dd743b80902f799e6ee0044d63f92792df29854d0a48c6d02d5a"
+    },
+    {
+      "path": "docs/reports/gmi/GMI4_MIGRATION_REPORT.md",
+      "status": "added",
+      "bytes": 1461,
+      "sha256": "1c6fba453675ff64f01dda3b729f9521bb10d79a792e21b76ac4fc36348db116"
+    },
+    {
+      "path": "docs/reports/gmi/GMI4_PRIVACY_SCAN.md",
+      "status": "added",
+      "bytes": 742,
+      "sha256": "4047567e7585bd5fe839b5e8771a8eb0d20483c215a984b4356114b7bac1a724"
+    },
+    {
+      "path": "docs/reports/gmi/GMI4_REVIEW_README.md",
+      "status": "added",
+      "bytes": 937,
+      "sha256": "1d8ed0b2727058a2755b746303652afdf06519c54c42523099ac72c28c7dc1cd"
+    },
+    {
+      "path": "docs/reports/gmi/GMI4_VALIDATION_REPORT.md",
+      "status": "added",
+      "bytes": 1857,
+      "sha256": "fe274354048a4856b30c30304bcb9052f262fa296c45f5517bd1130a70ca48d2"
+    },
+    {
+      "path": "docs/checklists/GMI4_WINDOWS_ACCEPTANCE_CHECKLIST.md",
+      "status": "added",
+      "bytes": 2747,
+      "sha256": "2f5fe2c0f88303ffcf34d72b67d353a5366d00f8ab316ab064d1492bbed22436"
+    },
+    {
+      "path": "README.md",
+      "status": "modified",
+      "bytes": 20720,
+      "sha256": "6a7fd7cba7d6641d6ccac04dc7d8a5fcdec4682a082fbeb39939abd81168c24f"
+    },
+    {
+      "path": "RELEASE_MANIFEST.json",
+      "status": "modified",
+      "bytes": 3092,
+      "sha256": "40df2ad30453b4faf5b13e8bb8726e29133a6ab81af6a20b352fb4aa4581ed53"
+    },
+    {
+      "path": "VERSION.txt",
+      "status": "modified",
+      "bytes": 202,
+      "sha256": "bfb2681b43b0117d3d93fe62428620eabed355db65bf1ecbd6cc0165516855f0"
+    },
+    {
+      "path": "dist/eitaa_bridge-0.7.0.dev29-py3-none-any.whl",
+      "status": "added",
+      "bytes": 119415,
+      "sha256": "503395e0039ae5e9b255af6c6652c906480b5de0220815bc8b67a293ba29a854"
+    },
+    {
+      "path": "pyproject.toml",
+      "status": "modified",
+      "bytes": 904,
+      "sha256": "75ce778ba4d5a62b78f5f8c44f9e2bf94ff9af3dbf1ab85be333f61b1a8b447c"
+    },
+    {
+      "path": "runtime/backend-owner.token",
+      "status": "added",
+      "bytes": 45,
+      "sha256": "0766daaaecc0b36e1602b766143fcb071b174a2f76ab293da0d55b5d78ee1054"
+    },
+    {
+      "path": "runtime/install-id.txt",
+      "status": "added",
+      "bytes": 34,
+      "sha256": "879279b9deffc9be0a90fb64d0ee4375cf3cd5b8d096474f2159ee9de5a2838f"
+    },
+    {
+      "path": "scripts/build_gmi3_release.py",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "scripts/build_gmi4_release.py",
+      "status": "added",
+      "bytes": 8560,
+      "sha256": "3288b124394fe8cbcc8dc401068e3097cf10ca1ca3b4331edb1c871dd2b29176"
+    },
+    {
+      "path": "scripts/build_wheel_stdlib.py",
+      "status": "modified",
+      "bytes": 2439,
+      "sha256": "98ce42d41243cb0deb0826ec548574e877cfb35d4ec90687c05200b63ca10a4f"
+    },
+    {
+      "path": "scripts/check_gmi3_invariants.py",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "scripts/check_gmi4_invariants.py",
+      "status": "added",
+      "bytes": 1884,
+      "sha256": "a2a2135e7c86b68e7f781cbe644e55aa1d30374f43e14bab8b9e391dbe59bea6"
+    },
+    {
+      "path": "scripts/check_runtime_environment.py",
+      "status": "modified",
+      "bytes": 1999,
+      "sha256": "3e874731ac312b32d672cc4156b824ff1a3558c0f964374b2bf2eed30595d993"
+    },
+    {
+      "path": "scripts/gmi3_smoke.py",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "scripts/gmi4_smoke.py",
+      "status": "added",
+      "bytes": 14464,
+      "sha256": "3140bd052f7d14a003c4eb062417e836b21c1aa63500b08cefa16f3ffd80b034"
+    },
+    {
+      "path": "setup_venv.bat",
+      "status": "modified",
+      "bytes": 3201,
+      "sha256": "73f0f82557d6b57a62abeb3d072b751d4d34c852f922a6d968416899b8912640"
+    },
+    {
+      "path": "src/eitaa_bridge/application/api.py",
+      "status": "modified",
+      "bytes": 167839,
+      "sha256": "adefabc1bb5342beca112c7cda79ab7f952a937eb4f680f3b989c2e1a97fa84a"
+    },
+    {
+      "path": "src/eitaa_bridge/infrastructure/contact_store.py",
+      "status": "modified",
+      "bytes": 25346,
+      "sha256": "3d6d6c46a189a1fd2894b43700d6d114b29700d1ba6bbdc8d81fa43308fe5852"
+    },
+    {
+      "path": "src/eitaa_bridge/version.py",
+      "status": "modified",
+      "bytes": 39,
+      "sha256": "62e81e763cf7f03dd4c822110e29f3eeed8ceba473d531de732d26c318f368c5"
+    },
+    {
+      "path": "tests/test_contact_sources_handoff.py",
+      "status": "added",
+      "bytes": 6289,
+      "sha256": "4d89b47db9b64ab5e3346b02ae1c38689af387e46bb42db252d8f454b14a1a1f"
+    },
+    {
+      "path": "ui/dist/assets/index-B37vyN_l.css",
+      "status": "added",
+      "bytes": 82218,
+      "sha256": "4eb2ca019c4ab674b051f6c6e3996561e9527d41de705eb3d0ac3e524ecd8194"
+    },
+    {
+      "path": "ui/dist/assets/index-BRKPFAIl.css",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "ui/dist/assets/index-CWug8ypA.js",
+      "status": "removed",
+      "bytes": 0,
+      "sha256": null
+    },
+    {
+      "path": "ui/dist/assets/index-E30BuyCM.js",
+      "status": "added",
+      "bytes": 406073,
+      "sha256": "e5a58fc94a2b772d8202805a2d8306eccdeb74555482d830a10f366c426b0d63"
+    },
+    {
+      "path": "ui/dist/index.html",
+      "status": "modified",
+      "bytes": 517,
+      "sha256": "e28c136015c52b31342961d970fb9d5198c530f26e0ef0f8ddb9f9ca6870809a"
+    },
+    {
+      "path": "ui/electron/main.cjs",
+      "status": "modified",
+      "bytes": 10140,
+      "sha256": "19b9a82b0558acbe6902723e60c371a544a2132836a8a0f86141d1aa077911b9"
+    },
+    {
+      "path": "ui/package-lock.json",
+      "status": "modified",
+      "bytes": 163313,
+      "sha256": "649e84ddfd6a64bb7ff12e63e0888476f3f598a43e6ce0472555bb0f8d77a1b7"
+    },
+    {
+      "path": "ui/package.json",
+      "status": "modified",
+      "bytes": 1287,
+      "sha256": "3b9cb78ffc84d15db16d0005f24ed0129a56eb52e573e18f18d3fb847e2f31b0"
+    },
+    {
+      "path": "ui/src/App.tsx",
+      "status": "modified",
+      "bytes": 199726,
+      "sha256": "d542bbecebd31df3692a201e6bc3a8ec5a5d9306959eae523f78fead61539e8f"
+    },
+    {
+      "path": "ui/src/ContactDirectoryModal.tsx",
+      "status": "modified",
+      "bytes": 25960,
+      "sha256": "71ac2e82acca567649924462c5580066894615d5dbca5a9465b469f80f244b38"
+    },
+    {
+      "path": "ui/src/styles.css",
+      "status": "modified",
+      "bytes": 80179,
+      "sha256": "92d755494789de5346211b7804eee371ba59ad014a7f548c74a4e274ac8e7787"
+    }
+  ]
+}

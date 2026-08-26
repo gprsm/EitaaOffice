@@ -1,0 +1,11 @@
+{"kind":"deck","id":"pr/tlj3ym","name":"Deck"}
+{"kind":"layout","layoutId":"3ba4a194-c2ca-48ad-9512-d6e3789819cb","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"6b1cfa3f-a4aa-4cfe-b6ef-29744a377aa0","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/cqw2i2","slide":1,"title":"توسعه قابل روایی نمونه","textShapes":5}
+{"kind":"textbox","id":"sh/cvyl8ry1","slide":1,"name":"cover-kicker","text":"توسعه قابل روایی نمونه","textPreview":"توسعه قابل روایی نمونه","textChars":22,"textLines":1,"bbox":[810,44,428,34]}
+{"kind":"textbox","id":"sh/bap4f6hg","slide":1,"name":"cover-title","text":"وضعیت گزارش\nتابعه ادارات نمازخانه‌های","textPreview":"وضعیت گزارش | تابعه ادارات نمازخانه‌های","textChars":37,"textLines":2,"bbox":[220,225,1018,245]}
+{"kind":"shape","id":"sh/a9g361gv","slide":1,"name":"cover-rule","bbox":[590,505,648,0]}
+{"kind":"textbox","id":"sh/p872dwza","slide":1,"name":"cover-subtitle","text":"نماز اقامه انتظام و زیرساخت حضور، | اداره شش","textPreview":"نماز اقامه انتظام و زیرساخت حضور، | اداره شش","textChars":44,"textLines":1,"bbox":[490,536,748,52]}
+{"kind":"textbox","id":"sh/o7el4ryp","slide":1,"name":"cover-source","text":"میدانی بازدیدهای و ادارات اعلامی اطلاعات پایه بر","textPreview":"میدانی بازدیدهای و ادارات اعلامی اطلاعات پایه بر","textChars":48,"textLines":1,"bbox":[665,618,573,30]}
+{"kind":"textbox","id":"sh/n65kbmh4","slide":1,"name":"slide-number-1","text":"۱","textPreview":"۱","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"notes","id":"nt/cqw2i2","slide":1,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]"}

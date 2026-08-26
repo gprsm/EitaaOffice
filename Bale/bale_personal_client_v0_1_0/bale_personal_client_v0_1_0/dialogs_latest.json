@@ -1,0 +1,12 @@
+[
+  {
+    "field": 1,
+    "type": "int",
+    "value": -1
+  },
+  {
+    "field": 2,
+    "type": "int",
+    "value": 20
+  }
+]

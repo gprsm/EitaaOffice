@@ -1,0 +1,2325 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/lfomd6",
+    "id": "lfomd6",
+    "slide": 2,
+    "layoutId": "34f77eee-e994-4ab5-b406-e37be84f5112",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "41d6c7cd-da7d-4d0f-bb5a-1d20d9d50b65",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Tahoma"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "34f77eee-e994-4ab5-b406-e37be84f5112",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "41d6c7cd-da7d-4d0f-bb5a-1d20d9d50b65",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "41d6c7cd-da7d-4d0f-bb5a-1d20d9d50b65",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/29knuh03",
+      "id": "1",
+      "name": "eyebrow",
+      "bbox": [
+        650,
+        34,
+        588,
+        34
+      ],
+      "geometry": "rect",
+      "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "textPreview": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pwb65czu",
+      "id": "2",
+      "name": "slide-title",
+      "bbox": [
+        105,
+        72,
+        1133,
+        70
+      ],
+      "geometry": "rect",
+      "text": "پیگیری نقاط و ادارات مقایسه",
+      "textPreview": "پیگیری نقاط و ادارات مقایسه",
+      "resolvedFontSize": 49,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 49,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "پیگیری نقاط و ادارات مقایسه"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "پیگیری نقاط و ادارات مقایسه",
+          "resolvedTextStyle": {
+            "fontSize": 49,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "پیگیری نقاط و ادارات مقایسه",
+              "fontSize": 49,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4v25w7i9",
+      "id": "3",
+      "name": "title-rule",
+      "bbox": [
+        42,
+        151,
+        1196,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C7CDD3",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f69oz2hs",
+      "id": "4",
+      "name": "table-intro",
+      "bbox": [
+        240,
+        165,
+        998,
+        42
+      ],
+      "geometry": "rect",
+      "text": "تعدیل‌اند. نیازمند نهایی مقایسه برای علامت‌دار مقادیر است؛ تصمیم‌ساز شاخص‌های بر جدول تمرکز",
+      "textPreview": "تعدیل‌اند. نیازمند نهایی مقایسه برای علامت‌دار مقادیر است؛ تصمیم‌ساز شاخص‌های بر جدول تمرکز",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "تعدیل‌اند. نیازمند نهایی مقایسه برای علامت‌دار مقادیر است؛ تصمیم‌ساز شاخص‌های بر جدول تمرکز"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "تعدیل‌اند. نیازمند نهایی مقایسه برای علامت‌دار مقادیر است؛ تصمیم‌ساز شاخص‌های بر جدول تمرکز",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "تعدیل‌اند. نیازمند نهایی مقایسه برای علامت‌دار مقادیر است؛ تصمیم‌ساز شاخص‌های بر جدول تمرکز",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "table",
+      "scope": "slide",
+      "aid": "tb/n6lgrahc",
+      "id": "5",
+      "bbox": [
+        42,
+        220,
+        1096,
+        350
+      ],
+      "text": "حق‌القدم | امام انتظام | امام نوع | (م²) فضا | مشارکت | نمازگزار | اداره\n۰ | روز هر | همکار | ۶۰ | ۴۰٪ | ۱۵ | ۱\n۱۰٫۵ | نامنظم | مدعو | ۸۰ | ۳۰٪ | ۴* | ۲\n۶ | روز هر | مدعو | ۵۰ | ۵۰٪ | ۲۰ | ۳\n۶ | روز هر | مدعو | ۶۰ | ۶۰٪ | ۳۰* | ۴\n۵ | روز هر | مدعو | ۶۰ | ۳۵٪ | ۲۵ | ۵\n۰ | (۴) گاهی | همکار | ۵۰ | ۷۰٪ | ۲۵ | ۶",
+      "textPreview": "حق‌القدم | امام انتظام | امام نوع | (م²) فضا | مشارکت | نمازگزار | اداره | ۰ | روز هر | همکار | ۶۰ | ۴۰٪ | ۱۵ | ۱ | ۱۰٫۵ | نامنظم | مدعو ...",
+      "rows": 7,
+      "cols": 7,
+      "cells": [
+        {
+          "index": 1,
+          "row": 1,
+          "column": 1,
+          "bbox": [
+            42,
+            220,
+            155,
+            50
+          ],
+          "text": "حق‌القدم",
+          "textPreview": "حق‌القدم",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "حق‌القدم",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "حق‌القدم",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 2,
+          "row": 1,
+          "column": 2,
+          "bbox": [
+            197,
+            220,
+            186,
+            50
+          ],
+          "text": "امام انتظام",
+          "textPreview": "امام انتظام",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "امام انتظام",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "امام انتظام",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 3,
+          "row": 1,
+          "column": 3,
+          "bbox": [
+            383,
+            220,
+            150,
+            50
+          ],
+          "text": "امام نوع",
+          "textPreview": "امام نوع",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "امام نوع",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "امام نوع",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 4,
+          "row": 1,
+          "column": 4,
+          "bbox": [
+            533,
+            220,
+            150,
+            50
+          ],
+          "text": "(م²) فضا",
+          "textPreview": "(م²) فضا",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "(م²) فضا",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "(م²) فضا",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 5,
+          "row": 1,
+          "column": 5,
+          "bbox": [
+            683,
+            220,
+            160,
+            50
+          ],
+          "text": "مشارکت",
+          "textPreview": "مشارکت",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "مشارکت",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "مشارکت",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 6,
+          "row": 1,
+          "column": 6,
+          "bbox": [
+            843,
+            220,
+            170,
+            50
+          ],
+          "text": "نمازگزار",
+          "textPreview": "نمازگزار",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "نمازگزار",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "نمازگزار",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 7,
+          "row": 1,
+          "column": 7,
+          "bbox": [
+            1013,
+            220,
+            125,
+            50
+          ],
+          "text": "اداره",
+          "textPreview": "اداره",
+          "fillColor": "#101820",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "اداره",
+              "resolvedTextStyle": {
+                "fontSize": 18,
+                "typeface": "Tahoma",
+                "color": "#FFFFFF",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "اداره",
+                  "fontSize": 18,
+                  "typeface": "Tahoma",
+                  "color": "#FFFFFF",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 8,
+          "row": 2,
+          "column": 1,
+          "bbox": [
+            42,
+            270,
+            155,
+            50
+          ],
+          "text": "۰",
+          "textPreview": "۰",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 9,
+          "row": 2,
+          "column": 2,
+          "bbox": [
+            197,
+            270,
+            186,
+            50
+          ],
+          "text": "روز هر",
+          "textPreview": "روز هر",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "روز هر",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "روز هر",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 10,
+          "row": 2,
+          "column": 3,
+          "bbox": [
+            383,
+            270,
+            150,
+            50
+          ],
+          "text": "همکار",
+          "textPreview": "همکار",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "همکار",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "همکار",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 11,
+          "row": 2,
+          "column": 4,
+          "bbox": [
+            533,
+            270,
+            150,
+            50
+          ],
+          "text": "۶۰",
+          "textPreview": "۶۰",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 12,
+          "row": 2,
+          "column": 5,
+          "bbox": [
+            683,
+            270,
+            160,
+            50
+          ],
+          "text": "۴۰٪",
+          "textPreview": "۴۰٪",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۴۰٪",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۴۰٪",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 13,
+          "row": 2,
+          "column": 6,
+          "bbox": [
+            843,
+            270,
+            170,
+            50
+          ],
+          "text": "۱۵",
+          "textPreview": "۱۵",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۱۵",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۱۵",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 14,
+          "row": 2,
+          "column": 7,
+          "bbox": [
+            1013,
+            270,
+            125,
+            50
+          ],
+          "text": "۱",
+          "textPreview": "۱",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۱",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۱",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 15,
+          "row": 3,
+          "column": 1,
+          "bbox": [
+            42,
+            320,
+            155,
+            50
+          ],
+          "text": "۱۰٫۵",
+          "textPreview": "۱۰٫۵",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۱۰٫۵",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۱۰٫۵",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 16,
+          "row": 3,
+          "column": 2,
+          "bbox": [
+            197,
+            320,
+            186,
+            50
+          ],
+          "text": "نامنظم",
+          "textPreview": "نامنظم",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "نامنظم",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "نامنظم",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 17,
+          "row": 3,
+          "column": 3,
+          "bbox": [
+            383,
+            320,
+            150,
+            50
+          ],
+          "text": "مدعو",
+          "textPreview": "مدعو",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "مدعو",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "مدعو",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 18,
+          "row": 3,
+          "column": 4,
+          "bbox": [
+            533,
+            320,
+            150,
+            50
+          ],
+          "text": "۸۰",
+          "textPreview": "۸۰",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۸۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۸۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 19,
+          "row": 3,
+          "column": 5,
+          "bbox": [
+            683,
+            320,
+            160,
+            50
+          ],
+          "text": "۳۰٪",
+          "textPreview": "۳۰٪",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۳۰٪",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۳۰٪",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 20,
+          "row": 3,
+          "column": 6,
+          "bbox": [
+            843,
+            320,
+            170,
+            50
+          ],
+          "text": "۴*",
+          "textPreview": "۴*",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۴*",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۴*",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 21,
+          "row": 3,
+          "column": 7,
+          "bbox": [
+            1013,
+            320,
+            125,
+            50
+          ],
+          "text": "۲",
+          "textPreview": "۲",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۲",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۲",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 22,
+          "row": 4,
+          "column": 1,
+          "bbox": [
+            42,
+            370,
+            155,
+            50
+          ],
+          "text": "۶",
+          "textPreview": "۶",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 23,
+          "row": 4,
+          "column": 2,
+          "bbox": [
+            197,
+            370,
+            186,
+            50
+          ],
+          "text": "روز هر",
+          "textPreview": "روز هر",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "روز هر",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "روز هر",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 24,
+          "row": 4,
+          "column": 3,
+          "bbox": [
+            383,
+            370,
+            150,
+            50
+          ],
+          "text": "مدعو",
+          "textPreview": "مدعو",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "مدعو",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "مدعو",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 25,
+          "row": 4,
+          "column": 4,
+          "bbox": [
+            533,
+            370,
+            150,
+            50
+          ],
+          "text": "۵۰",
+          "textPreview": "۵۰",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۵۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۵۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 26,
+          "row": 4,
+          "column": 5,
+          "bbox": [
+            683,
+            370,
+            160,
+            50
+          ],
+          "text": "۵۰٪",
+          "textPreview": "۵۰٪",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۵۰٪",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۵۰٪",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 27,
+          "row": 4,
+          "column": 6,
+          "bbox": [
+            843,
+            370,
+            170,
+            50
+          ],
+          "text": "۲۰",
+          "textPreview": "۲۰",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۲۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۲۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 28,
+          "row": 4,
+          "column": 7,
+          "bbox": [
+            1013,
+            370,
+            125,
+            50
+          ],
+          "text": "۳",
+          "textPreview": "۳",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۳",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۳",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 29,
+          "row": 5,
+          "column": 1,
+          "bbox": [
+            42,
+            420,
+            155,
+            50
+          ],
+          "text": "۶",
+          "textPreview": "۶",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 30,
+          "row": 5,
+          "column": 2,
+          "bbox": [
+            197,
+            420,
+            186,
+            50
+          ],
+          "text": "روز هر",
+          "textPreview": "روز هر",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "روز هر",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "روز هر",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 31,
+          "row": 5,
+          "column": 3,
+          "bbox": [
+            383,
+            420,
+            150,
+            50
+          ],
+          "text": "مدعو",
+          "textPreview": "مدعو",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "مدعو",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "مدعو",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 32,
+          "row": 5,
+          "column": 4,
+          "bbox": [
+            533,
+            420,
+            150,
+            50
+          ],
+          "text": "۶۰",
+          "textPreview": "۶۰",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 33,
+          "row": 5,
+          "column": 5,
+          "bbox": [
+            683,
+            420,
+            160,
+            50
+          ],
+          "text": "۶۰٪",
+          "textPreview": "۶۰٪",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶۰٪",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶۰٪",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 34,
+          "row": 5,
+          "column": 6,
+          "bbox": [
+            843,
+            420,
+            170,
+            50
+          ],
+          "text": "۳۰*",
+          "textPreview": "۳۰*",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۳۰*",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۳۰*",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 35,
+          "row": 5,
+          "column": 7,
+          "bbox": [
+            1013,
+            420,
+            125,
+            50
+          ],
+          "text": "۴",
+          "textPreview": "۴",
+          "fillColor": "#FFF3D6",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۴",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۴",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 36,
+          "row": 6,
+          "column": 1,
+          "bbox": [
+            42,
+            470,
+            155,
+            50
+          ],
+          "text": "۵",
+          "textPreview": "۵",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۵",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۵",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 37,
+          "row": 6,
+          "column": 2,
+          "bbox": [
+            197,
+            470,
+            186,
+            50
+          ],
+          "text": "روز هر",
+          "textPreview": "روز هر",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "روز هر",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "روز هر",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 38,
+          "row": 6,
+          "column": 3,
+          "bbox": [
+            383,
+            470,
+            150,
+            50
+          ],
+          "text": "مدعو",
+          "textPreview": "مدعو",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "مدعو",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "مدعو",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 39,
+          "row": 6,
+          "column": 4,
+          "bbox": [
+            533,
+            470,
+            150,
+            50
+          ],
+          "text": "۶۰",
+          "textPreview": "۶۰",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 40,
+          "row": 6,
+          "column": 5,
+          "bbox": [
+            683,
+            470,
+            160,
+            50
+          ],
+          "text": "۳۵٪",
+          "textPreview": "۳۵٪",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۳۵٪",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۳۵٪",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 41,
+          "row": 6,
+          "column": 6,
+          "bbox": [
+            843,
+            470,
+            170,
+            50
+          ],
+          "text": "۲۵",
+          "textPreview": "۲۵",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۲۵",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۲۵",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 42,
+          "row": 6,
+          "column": 7,
+          "bbox": [
+            1013,
+            470,
+            125,
+            50
+          ],
+          "text": "۵",
+          "textPreview": "۵",
+          "fillColor": "#FFFFFF",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۵",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۵",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 43,
+          "row": 7,
+          "column": 1,
+          "bbox": [
+            42,
+            520,
+            155,
+            50
+          ],
+          "text": "۰",
+          "textPreview": "۰",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 44,
+          "row": 7,
+          "column": 2,
+          "bbox": [
+            197,
+            520,
+            186,
+            50
+          ],
+          "text": "(۴) گاهی",
+          "textPreview": "(۴) گاهی",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "(۴) گاهی",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "(۴) گاهی",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 45,
+          "row": 7,
+          "column": 3,
+          "bbox": [
+            383,
+            520,
+            150,
+            50
+          ],
+          "text": "همکار",
+          "textPreview": "همکار",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "همکار",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "همکار",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 46,
+          "row": 7,
+          "column": 4,
+          "bbox": [
+            533,
+            520,
+            150,
+            50
+          ],
+          "text": "۵۰",
+          "textPreview": "۵۰",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۵۰",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۵۰",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 47,
+          "row": 7,
+          "column": 5,
+          "bbox": [
+            683,
+            520,
+            160,
+            50
+          ],
+          "text": "۷۰٪",
+          "textPreview": "۷۰٪",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۷۰٪",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۷۰٪",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 48,
+          "row": 7,
+          "column": 6,
+          "bbox": [
+            843,
+            520,
+            170,
+            50
+          ],
+          "text": "۲۵",
+          "textPreview": "۲۵",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۲۵",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۲۵",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "index": 49,
+          "row": 7,
+          "column": 7,
+          "bbox": [
+            1013,
+            520,
+            125,
+            50
+          ],
+          "text": "۶",
+          "textPreview": "۶",
+          "fillColor": "#F7F8F9",
+          "paragraphs": [
+            {
+              "index": 1,
+              "text": "۶",
+              "resolvedTextStyle": {
+                "fontSize": 17,
+                "typeface": "Tahoma",
+                "color": "#101820",
+                "bold": true,
+                "alignment": "center"
+              },
+              "runs": [
+                {
+                  "index": 1,
+                  "text": "۶",
+                  "fontSize": 17,
+                  "typeface": "Tahoma",
+                  "color": "#101820",
+                  "bold": true,
+                  "alignment": "center"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/h8b61czy",
+      "id": "6",
+      "name": "table-caveat",
+      "bbox": [
+        42,
+        590,
+        1196,
+        52
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFF3D6",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/g725s7id",
+      "id": "7",
+      "name": "table-caveat-text",
+      "bbox": [
+        65,
+        599,
+        1150,
+        34
+      ],
+      "geometry": "rect",
+      "text": "شود. تعدیل نماز بازه در حاضر کارکنان با نهایی مقایسه برای ۴ و ۲ ادارات اعداد ستاره: علامت",
+      "textPreview": "شود. تعدیل نماز بازه در حاضر کارکنان با نهایی مقایسه برای ۴ و ۲ ادارات اعداد ستاره: علامت",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "Tahoma",
+        "color": "#7A4B00",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "شود. تعدیل نماز بازه در حاضر کارکنان با نهایی مقایسه برای ۴ و ۲ ادارات اعداد ستاره: علامت"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "شود. تعدیل نماز بازه در حاضر کارکنان با نهایی مقایسه برای ۴ و ۲ ادارات اعداد ستاره: علامت",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "typeface": "Tahoma",
+            "color": "#7A4B00",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "شود. تعدیل نماز بازه در حاضر کارکنان با نهایی مقایسه برای ۴ و ۲ ادارات اعداد ستاره: علامت",
+              "fontSize": 16,
+              "typeface": "Tahoma",
+              "color": "#7A4B00",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/729ovihg",
+      "id": "8",
+      "name": "method-footer",
+      "bbox": [
+        105,
+        651,
+        1090,
+        28
+      ],
+      "geometry": "rect",
+      "text": "میدانی بازدیدهای و تابعه ادارات اعلامی اطلاعات مبنا: | تومان میلیون حسب بر حق‌القدم",
+      "textPreview": "میدانی بازدیدهای و تابعه ادارات اعلامی اطلاعات مبنا: | تومان میلیون حسب بر حق‌القدم",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 14,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "میدانی بازدیدهای و تابعه ادارات اعلامی اطلاعات مبنا: | تومان میلیون حسب بر حق‌القدم"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "میدانی بازدیدهای و تابعه ادارات اعلامی اطلاعات مبنا: | تومان میلیون حسب بر حق‌القدم",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "میدانی بازدیدهای و تابعه ادارات اعلامی اطلاعات مبنا: | تومان میلیون حسب بر حق‌القدم",
+              "fontSize": 14,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/610nmx0b",
+      "id": "9",
+      "name": "slide-number-2",
+      "bbox": [
+        41,
+        662,
+        48,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۲",
+      "textPreview": "۲",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 14,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "left",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۲"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۲",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۲",
+              "fontSize": 14,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

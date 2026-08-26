@@ -1,0 +1,2 @@
+{"at": "2026-08-13T16:39:31.907+00:00", "component": "wordpress", "event": "request_completed", "fields": {"attempt": 1, "form_body": null, "method": "GET", "path": "/wp-json/wp/v2/media?context=edit&slug=eitaa-media&per_page=10", "request_body": {"present": false, "redacted": true}, "request_summary": null, "retry_safe": true, "status": 200}, "level": "info", "run_id": "d191d04f569c"}
+{"at": "2026-08-13T16:39:31.909+00:00", "component": "wordpress", "event": "media_found_by_slug", "fields": {"count": 1, "slug": "eitaa-media"}, "level": "info", "run_id": "d191d04f569c"}

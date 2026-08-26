@@ -1,0 +1,1 @@
+{"at": "2026-08-12T01:26:34.934+00:00", "component": "wordpress", "event": "request_completed", "fields": {"attempt": 1, "form_body": null, "method": "GET", "path": "/wp-json/", "request_body": {"present": false, "redacted": true}, "request_summary": null, "retry_safe": true, "status": 200}, "level": "info", "run_id": "e74cb44819ba"}

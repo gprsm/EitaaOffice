@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const source = name => readFileSync(resolve(here, '..', name), 'utf8')
+let passed = 0
+const check = (name, callback) => {
+  callback()
+  passed += 1
+  process.stdout.write(`ok ${passed} - ${name}\n`)
+}
+
+const gate = source('src/MessengerAccountGate.tsx')
+const api = source('../src/eitaa_bridge/application/api.py')
+const providers = source('../src/eitaa_bridge/providers/registry.py')
+const baleSlot = source('../src/eitaa_bridge/providers/bale/slot.py')
+const store = source('../src/eitaa_bridge/infrastructure/coordinator/store.py')
+
+check('UI provider contract is descriptor-driven rather than a fixed union', () => {
+  assert.match(gate, /provider: string/)
+  assert.match(gate, /runtime_enabled: boolean/)
+  assert.match(gate, /onboarding_enabled: boolean/)
+  assert.doesNotMatch(gate, /provider: 'eitaa' \| 'bale'/)
+})
+
+check('add-account dialog posts only provider, private phone and optional label', () => {
+  assert.match(gate, /type OnboardingInput = \{ provider: string; phone: string; label: string \}/)
+  assert.match(gate, /api<OnboardingResponse>\('POST', '\/api\/v2\/messenger-accounts', input\)/)
+  assert.match(api, /allowed_keys = \{"provider", "phone", "label"\}/)
+})
+
+check('private identity is cleared after submit and is not browser-persisted', () => {
+  assert.match(gate, /finally \{[\s\S]*setPhone\(''\)/)
+  assert.match(gate, /autoComplete="off"/)
+  assert.doesNotMatch(gate, /localStorage[\s\S]{0,120}phone/)
+})
+
+check('server owns identifiers and filesystem choices', () => {
+  assert.match(store, /messenger_account_id = _new_uuid\(\)/)
+  assert.match(store, /phone_account_id = _new_uuid\(\)/)
+  assert.match(api, /messenger_account_onboarding_fields_rejected/)
+  assert.doesNotMatch(gate, /type OnboardingInput = \{[^\n]*(session_path|storage_path|phone_account_id)/)
+})
+
+check('Eitaa is onboardable while Bale remains explicit and unguessed', () => {
+  assert.match(providers, /provider="eitaa"[\s\S]*onboarding_enabled=True/)
+  assert.match(baleSlot, /provider="bale"[\s\S]*onboarding_enabled=False/)
+  assert.match(baleSlot, /provider_adapter_not_configured/)
+})
+
+check('account switching and runnable state use provider capabilities', () => {
+  assert.match(gate, /isRunnable\(item, next\.provider_adapters\)/)
+  assert.match(gate, /adapters\[account\.provider\]\?\.runtime_enabled/)
+})
+
+check('dialog has bounded responsive width and an explicit privacy notice', () => {
+  assert.match(gate, /<Dialog open=\{open\}[\s\S]*fullWidth maxWidth="sm"/)
+  assert.match(gate, /شماره فقط برای ساخت هویت رمزگذاری‌شده/)
+})
+
+process.stdout.write(`# ${passed}/${passed} Phase 11 onboarding assertions passed\n`)

@@ -1,0 +1,38 @@
+[
+  {
+    "field": 1,
+    "type": "message",
+    "value": [
+      {
+        "field": 1,
+        "type": "int",
+        "value": 1
+      },
+      {
+        "field": 2,
+        "type": "int",
+        "value": 1676834845
+      },
+      {
+        "field": 3,
+        "type": "int",
+        "value": 1676834845
+      }
+    ]
+  },
+  {
+    "field": 2,
+    "type": "int",
+    "value": -1
+  },
+  {
+    "field": 4,
+    "type": "int",
+    "value": 2
+  },
+  {
+    "field": 5,
+    "type": "int",
+    "value": 5
+  }
+]

@@ -1,0 +1,38 @@
+{
+  "dialogs": {
+    "channel:77": {
+      "active": true,
+      "broadcast": false,
+      "created_at": "2026-08-11T20:32:00.796646+00:00",
+      "display_kind": "channel",
+      "display_kind_locked": false,
+      "favorite": false,
+      "folder_id": null,
+      "megagroup": false,
+      "participants_count": null,
+      "peer": {
+        "access_hash_present": true,
+        "id": 77,
+        "title": "نمونه",
+        "title_present": true,
+        "type": "channel",
+        "username": null,
+        "username_present": false
+      },
+      "peer_file": "channel-77.json",
+      "peer_key": "channel:77",
+      "photo_cached_path": null,
+      "pinned": false,
+      "read_inbox_max_id": 0,
+      "source": "remote",
+      "technical_kind": "unknown",
+      "top_message_date": null,
+      "top_message_id": 20,
+      "unread_count": 0,
+      "unread_mark": false,
+      "unread_mentions_count": 0,
+      "updated_at": "2026-08-11T20:32:00.800052+00:00"
+    }
+  },
+  "schema_version": 2
+}

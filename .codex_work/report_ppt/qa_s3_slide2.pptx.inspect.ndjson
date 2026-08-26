@@ -1,0 +1,27 @@
+{"kind":"deck","id":"pr/laanzb","name":"Deck"}
+{"kind":"layout","layoutId":"b5881179-0c98-4fee-905e-8028ccd0882d","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"c200adf5-e528-4059-a8c8-e5e07c929411","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/cm3wy5","slide":1,"title":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textShapes":13}
+{"kind":"textbox","id":"sh/uts7itov","slide":1,"name":"eyebrow","text":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textPreview":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textChars":37,"textLines":1,"bbox":[650,34,588,34]}
+{"kind":"textbox","id":"sh/hgjqtonm","slide":1,"name":"slide-title","text":"نمازگزاران تعداد مکمل مشارکت؛","textPreview":"نمازگزاران تعداد مکمل مشارکت؛","textChars":29,"textLines":1,"bbox":[105,72,1133,70]}
+{"kind":"shape","id":"sh/gfapkj61","slide":1,"name":"title-rule","bbox":[42,151,1196,0]}
+{"kind":"shape","id":"sh/ihs7mto7","slide":1,"name":"participation-top-panel","bbox":[842,184,396,131]}
+{"kind":"shape","id":"sh/5k3qx8ni","slide":1,"name":"participation-top-accent","bbox":[1226,184,12,131]}
+{"kind":"textbox","id":"sh/4jupo36x","slide":1,"name":"participation-top-number","text":"۷۰٪","textPreview":"۷۰٪","textChars":3,"textLines":1,"bbox":[884,200,318,48]}
+{"kind":"textbox","id":"sh/rml8zy5o","slide":1,"name":"participation-top-label","text":"مشارکت نسبت بالاترین","textPreview":"مشارکت نسبت بالاترین","textChars":20,"textLines":1,"bbox":[884,251,318,28]}
+{"kind":"textbox","id":"sh/qlc7qd43","slide":1,"name":"participation-top-detail","text":"همکار جماعت امام ۶؛ اداره","textPreview":"همکار جماعت امام ۶؛ اداره","textChars":25,"textLines":1,"bbox":[884,282,318,22]}
+{"kind":"shape","id":"sh/grqtobad","slide":1,"name":"participation-mid-panel","bbox":[842,326,396,131]}
+{"kind":"shape","id":"sh/hszuxwry","slide":1,"name":"participation-mid-accent","bbox":[1226,326,12,131]}
+{"kind":"textbox","id":"sh/up8bm1s7","slide":1,"name":"participation-mid-number","text":"۵۰٪+","textPreview":"۵۰٪+","textChars":4,"textLines":1,"bbox":[884,342,318,48]}
+{"kind":"textbox","id":"sh/fqhcv69s","slide":1,"name":"participation-mid-label","text":"اداره سه در","textPreview":"اداره سه در","textChars":11,"textLines":1,"bbox":[884,393,318,28]}
+{"kind":"textbox","id":"sh/4vqdsba9","slide":1,"name":"participation-mid-detail","text":"۶ و ۴ ۳، ادارات","textPreview":"۶ و ۴ ۳، ادارات","textChars":15,"textLines":1,"bbox":[884,424,318,22]}
+{"kind":"shape","id":"sh/pwju1gru","slide":1,"name":"participation-low-panel","bbox":[842,468,396,131]}
+{"kind":"shape","id":"sh/2t8bq1s3","slide":1,"name":"participation-low-accent","bbox":[1226,468,12,131]}
+{"kind":"textbox","id":"sh/3uhcz69o","slide":1,"name":"participation-low-number","text":"۳۰٪","textPreview":"۳۰٪","textChars":3,"textLines":1,"bbox":[884,484,318,48]}
+{"kind":"textbox","id":"sh/cjadwvql","slide":1,"name":"participation-low-label","text":"ثبت‌شده نسبت کمترین","textPreview":"ثبت‌شده نسبت کمترین","textChars":19,"textLines":1,"bbox":[884,535,318,28]}
+{"kind":"textbox","id":"sh/dkju5grq","slide":1,"name":"participation-low-detail","text":"امام نامنظم حضور با همراه ۲؛ اداره","textPreview":"امام نامنظم حضور با همراه ۲؛ اداره","textChars":34,"textLines":1,"bbox":[884,566,318,22]}
+{"kind":"shape","id":"sh/14v2twfy","slide":1,"name":"ratio-note","bbox":[42,606,1196,39]}
+{"kind":"textbox","id":"sh/03ml0red","slide":1,"name":"ratio-note-text","text":"شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های","textPreview":"شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های","textChars":72,"textLines":1,"bbox":[66,614,1148,23]}
+{"kind":"textbox","id":"sh/z2dkrmxs","slide":1,"name":"slide-number-2","text":"۲","textPreview":"۲","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"chart","id":"ch/3etsfuho","slide":1,"name":"","chartType":"bar","title":"اداره هر در ثبت‌شده مشارکت نسبت","bbox":[42,184,760,405]}
+{"kind":"notes","id":"nt/cm3wy5","slide":1,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]"}

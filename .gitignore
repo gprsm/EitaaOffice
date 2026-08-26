@@ -1,0 +1,50 @@
+# Local credentials and account state
+.env
+.env.local
+.env.*.local
+bridge.json
+.eitaa_session.json*
+selected_user.json
+selected_private_channel.json
+
+# Runtime data, browser profiles, diagnostics, and backups
+runtime/
+data/
+/diagnostics/
+backups/
+catalog/
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.bak
+*.bak.*
+*.log
+
+# Python environments and generated files
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest-audit-temp/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Node, Vite, TypeScript, and Electron outputs
+node_modules/
+.vite/
+*.tsbuildinfo
+release/
+
+# Local editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+/ui/node_modules/
+
+# Local stabilization recovery artifacts (verified receipts are documented separately)
+artifacts/stabilization/

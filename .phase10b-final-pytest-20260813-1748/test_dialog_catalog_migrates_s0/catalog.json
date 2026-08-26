@@ -1,0 +1,38 @@
+{
+  "dialogs": {
+    "channel:88": {
+      "active": true,
+      "broadcast": false,
+      "created_at": "2026-08-13T13:50:01.320068+00:00",
+      "display_kind": "group",
+      "display_kind_locked": true,
+      "favorite": true,
+      "folder_id": null,
+      "megagroup": true,
+      "participants_count": null,
+      "peer": {
+        "access_hash_present": true,
+        "id": 88,
+        "title": "قدیمی",
+        "title_present": true,
+        "type": "channel",
+        "username": null,
+        "username_present": false
+      },
+      "peer_file": "channel-88.json",
+      "peer_key": "channel:88",
+      "photo_cached_path": null,
+      "pinned": false,
+      "read_inbox_max_id": 0,
+      "source": "remote",
+      "technical_kind": "supergroup",
+      "top_message_date": 100,
+      "top_message_id": 20,
+      "unread_count": 3,
+      "unread_mark": false,
+      "unread_mentions_count": 0,
+      "updated_at": "2026-08-13T13:50:01.320068+00:00"
+    }
+  },
+  "schema_version": 2
+}

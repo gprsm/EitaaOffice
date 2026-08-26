@@ -1,0 +1,24 @@
+{"kind":"slide","id":"sl/c9t7ib","slide":1,"title":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textShapes":13}
+{"kind":"textbox","id":"sh/kzatcnet","slide":1,"name":"eyebrow","text":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textPreview":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textChars":37,"textLines":1,"bbox":[650,34,588,34]}
+{"kind":"textbox","id":"sh/jy1sjixo","slide":1,"name":"slide-title","text":"نگاه یک در تابعه اداره ۶ نمازخانه‌های وضعیت","textPreview":"نگاه یک در تابعه اداره ۶ نمازخانه‌های وضعیت","textChars":43,"textLines":1,"bbox":[105,72,1133,70]}
+{"kind":"shape","id":"sh/yx8badw3","slide":1,"name":"title-rule","bbox":[42,151,1196,0]}
+{"kind":"shape","id":"sh/8natgne5","slide":1,"name":"attendance-summary-panel","bbox":[842,172,396,131]}
+{"kind":"shape","id":"sh/7m1sn2dk","slide":1,"name":"attendance-summary-accent","bbox":[1226,172,12,131]}
+{"kind":"textbox","id":"sh/6lsbexwz","slide":1,"name":"attendance-summary-number","text":"۱۱۹","textPreview":"۱۱۹","textChars":3,"textLines":1,"bbox":[884,188,318,48]}
+{"kind":"textbox","id":"sh/hs3atcvm","slide":1,"name":"attendance-summary-label","text":"ثبت‌شده حضور مجموع","textPreview":"ثبت‌شده حضور مجموع","textChars":18,"textLines":1,"bbox":[884,239,318,28]}
+{"kind":"textbox","id":"sh/grutk7e1","slide":1,"name":"attendance-summary-detail","text":"نفر ۲۰ حدود اداره: هر میانگین | نفر","textPreview":"نفر ۲۰ حدود اداره: هر میانگین | نفر","textChars":35,"textLines":1,"bbox":[884,270,318,22]}
+{"kind":"shape","id":"sh/upkridsr","slide":1,"name":"participation-summary-panel","bbox":[842,314,396,131]}
+{"kind":"shape","id":"sh/vqt8bi9w","slide":1,"name":"participation-summary-accent","bbox":[1226,314,12,131]}
+{"kind":"textbox","id":"sh/wr29knah","slide":1,"name":"participation-summary-number","text":"۴۷٫۵٪","textPreview":"۴۷٫۵٪","textChars":5,"textLines":1,"bbox":[884,330,318,48]}
+{"kind":"textbox","id":"sh/hsbqd8r2","slide":1,"name":"participation-summary-label","text":"مشارکت نسبت میانگین","textPreview":"مشارکت نسبت میانگین","textChars":19,"textLines":1,"bbox":[884,381,318,28]}
+{"kind":"textbox","id":"sh/itkrmd8n","slide":1,"name":"participation-summary-detail","text":"۷۰٪ با ۶ اداره نسبت: بالاترین","textPreview":"۷۰٪ با ۶ اداره نسبت: بالاترین","textChars":29,"textLines":1,"bbox":[884,412,318,22]}
+{"kind":"shape","id":"sh/jut8fi98","slide":1,"name":"payment-summary-panel","bbox":[842,456,396,131]}
+{"kind":"shape","id":"sh/4f29onqt","slide":1,"name":"payment-summary-accent","bbox":[1226,456,12,131]}
+{"kind":"textbox","id":"sh/5gvqhsre","slide":1,"name":"payment-summary-number","text":"۲۷٫۵","textPreview":"۲۷٫۵","textChars":4,"textLines":1,"bbox":[884,472,318,48]}
+{"kind":"textbox","id":"sh/yx07atsj","slide":1,"name":"payment-summary-label","text":"مدعو ائمه حق‌القدم مجموع","textPreview":"مدعو ائمه حق‌القدم مجموع","textChars":24,"textLines":1,"bbox":[884,523,318,28]}
+{"kind":"textbox","id":"sh/zy983y94","slide":1,"name":"payment-summary-detail","text":"صفر همکار: ائمه | تومان میلیون","textPreview":"صفر همکار: ائمه | تومان میلیون","textChars":30,"textLines":1,"bbox":[884,554,318,22]}
+{"kind":"shape","id":"sh/3qlwvqlk","slide":1,"name":"caveat-panel","bbox":[42,602,1196,43]}
+{"kind":"textbox","id":"sh/2pcfml4z","slide":1,"name":"attendance-caveat","text":"دارد. تعدیل به نیاز نهایی مقایسه برای سازمانی، سرکشی و کاری مأموریت‌های دلیل به است؛ تقریبی ۴ و ۲ ادارات نمازگزاران تعداد","textPreview":"دارد. تعدیل به نیاز نهایی مقایسه برای سازمانی، سرکشی و کاری مأموریت‌های دلیل به است؛ تقریبی ۴ و ۲ ادارات نمازگزاران تعداد","textChars":121,"textLines":1,"bbox":[64,611,1152,25]}
+{"kind":"textbox","id":"sh/psnex03q","slide":1,"name":"slide-number-1","text":"۱","textPreview":"۱","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"chart","id":"ch/h87mdgfa","slide":1,"name":"","chartType":"bar","title":"ثبت‌شده نمازگزاران تعداد","bbox":[42,172,745,410]}
+{"kind":"notes","id":"nt/c9t7ib","slide":1,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]\n\nمبالغ حق‌القدم بر حسب میلیون تومان است."}

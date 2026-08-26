@@ -1,0 +1,2 @@
+eitaa-core==0.6.0.dev19
+requests>=2.31,<3

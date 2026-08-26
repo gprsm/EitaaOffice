@@ -1,0 +1,31 @@
+{
+  "composition_key": "medical-roundup-2026-07-17",
+  "site_key": "medical-site",
+  "title": "عنوان نوشته ترکیبی",
+  "excerpt": "چکیده‌ای که در فیلد Excerpt وردپرس ذخیره می‌شود.",
+  "post_status": "draft",
+  "confirm_publish": false,
+  "category_ids": [
+    12
+  ],
+  "tag_ids": [
+    4,
+    9
+  ],
+  "featured_source_index": 0,
+  "include_featured_in_body": true,
+  "sources": [
+    {
+      "peer_file": "selected_private_channel.json",
+      "message_id": 11795
+    },
+    {
+      "peer_file": "selected_private_channel.json",
+      "message_id": 11803
+    },
+    {
+      "peer_file": "selected_private_channel.json",
+      "message_id": 11817
+    }
+  ]
+}

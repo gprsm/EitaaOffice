@@ -1,0 +1,27 @@
+{"kind":"deck","id":"pr/nt1j37","name":"Deck"}
+{"kind":"layout","layoutId":"c2064333-93db-4749-bff5-ba8fcc9c01ce","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"921225af-83ca-44f6-9bce-b59960fe58b0","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/n6alky","slide":1,"title":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textShapes":13}
+{"kind":"textbox","id":"sh/do7q5cvy","slide":1,"name":"eyebrow","text":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textPreview":"تابعه ادارات نمازخانه‌های وضعیت گزارش","textChars":37,"textLines":1,"bbox":[650,34,588,34]}
+{"kind":"textbox","id":"sh/qlg7ahw7","slide":1,"name":"slide-title","text":"اجرا کیفیت اولویت و حق‌القدم","textPreview":"اجرا کیفیت اولویت و حق‌القدم","textChars":28,"textLines":1,"bbox":[105,72,1133,70]}
+{"kind":"shape","id":"sh/bmp83mds","slide":1,"name":"title-rule","bbox":[42,151,1196,0]}
+{"kind":"shape","id":"sh/lcrq9wvu","slide":1,"name":"payment-total-panel","bbox":[842,182,396,131]}
+{"kind":"shape","id":"sh/ypg7ehw3","slide":1,"name":"payment-total-accent","bbox":[1226,182,12,131]}
+{"kind":"textbox","id":"sh/zqp87mdo","slide":1,"name":"payment-total-number","text":"۲۷٫۵","textPreview":"۲۷٫۵","textChars":4,"textLines":1,"bbox":[884,198,318,48]}
+{"kind":"textbox","id":"sh/8fi9kbel","slide":1,"name":"payment-total-label","text":"مدعو ائمه حق‌القدم مجموع","textPreview":"مدعو ائمه حق‌القدم مجموع","textChars":24,"textLines":1,"bbox":[884,249,318,28]}
+{"kind":"textbox","id":"sh/9grqdwvq","slide":1,"name":"payment-total-detail","text":"اداره چهار در | تومان میلیون","textPreview":"اداره چهار در | تومان میلیون","textChars":28,"textLines":1,"bbox":[884,280,318,22]}
+{"kind":"shape","id":"sh/1oba94ve","slide":1,"name":"employee-imams-panel","bbox":[842,324,396,131]}
+{"kind":"shape","id":"sh/0n2t0jet","slide":1,"name":"employee-imams-accent","bbox":[1226,324,12,131]}
+{"kind":"textbox","id":"sh/zmts7edo","slide":1,"name":"employee-imams-number","text":"۲","textPreview":"۲","textChars":1,"textLines":1,"bbox":[884,340,318,48]}
+{"kind":"textbox","id":"sh/elkry9w3","slide":1,"name":"employee-imams-label","text":"حق‌القدم بدون","textPreview":"حق‌القدم بدون","textChars":13,"textLines":1,"bbox":[884,391,318,28]}
+{"kind":"textbox","id":"sh/9cvadovq","slide":1,"name":"employee-imams-detail","text":"۶ و ۱ ادارات | همکار جماعت امام","textPreview":"۶ و ۱ ادارات | همکار جماعت امام","textChars":31,"textLines":1,"bbox":[884,422,318,22]}
+{"kind":"shape","id":"sh/obmt4je5","slide":1,"name":"next-actions-panel","bbox":[842,466,396,131]}
+{"kind":"shape","id":"sh/nqdsbedk","slide":1,"name":"next-actions-accent","bbox":[1226,466,12,131]}
+{"kind":"textbox","id":"sh/mp4b29wz","slide":1,"name":"next-actions-number","text":"۳","textPreview":"۳","textChars":1,"textLines":1,"bbox":[884,482,318,48]}
+{"kind":"textbox","id":"sh/pgra1kv6","slide":1,"name":"next-actions-label","text":"اجرا کیفیت و داده تثبیت","textPreview":"اجرا کیفیت و داده تثبیت","textChars":23,"textLines":1,"bbox":[884,533,318,28]}
+{"kind":"textbox","id":"sh/4fi9szel","slide":1,"name":"next-actions-detail","text":"۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل","textPreview":"۶ و ۲ در امام انتظام ۴؛ و ۲ تعدیل","textChars":33,"textLines":1,"bbox":[884,564,318,22]}
+{"kind":"shape","id":"sh/gzmt8zmh","slide":1,"name":"close-message","bbox":[42,606,1196,39]}
+{"kind":"textbox","id":"sh/h0vah4n2","slide":1,"name":"close-message-text","text":"است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی","textPreview":"است. نماز اقامه انتظام ارتقای و حضور سنجش مبنای تثبیت اولویت، است؛ فراهم عمومی زیرساخت مدیریتی: جمع‌بندی","textChars":104,"textLines":1,"bbox":[66,614,1148,23]}
+{"kind":"textbox","id":"sh/ux4b6p4r","slide":1,"name":"slide-number-3","text":"۳","textPreview":"۳","textChars":1,"textLines":1,"bbox":[41,662,48,22]}
+{"kind":"chart","id":"ch/kbylw3id","slide":1,"name":"","chartType":"bar","title":"تومان میلیون — اداره تفکیک به جماعت امام حق‌القدم","bbox":[42,182,745,405]}
+{"kind":"notes","id":"nt/n6alky","slide":1,"text":"[Sources]\n- Report.xlsx — Sheet1!A1:J7 — داده‌های ارائه‌شده توسط کاربر.\n[/Sources]\n\nمبالغ حق‌القدم بر حسب میلیون تومان است؛ مبلغ ائمه جماعت همکار صفر است."}

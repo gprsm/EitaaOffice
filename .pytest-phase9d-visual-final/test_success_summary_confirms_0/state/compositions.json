@@ -1,0 +1,31 @@
+{
+  "records": {
+    "eitaa:legacy::legacy::medical-site::roundup-1": {
+      "category_ids": [],
+      "composition_key": "roundup-1",
+      "created_at": "2026-08-12T01:25:20.789439+00:00",
+      "excerpt": "",
+      "featured_media_id": null,
+      "featured_source_key": null,
+      "post_id": 596,
+      "post_slug": "eitaa-composition-roundup-1-ea1fd5f442",
+      "post_url": "https://example.test/?p=596",
+      "site_key": "medical-site",
+      "source_hashes": [
+        "0000000000000000000000000000000000000000000000000000000000002e13",
+        "0000000000000000000000000000000000000000000000000000000000002e29",
+        "0000000000000000000000000000000000000000000000000000000000002e7c"
+      ],
+      "source_keys": [
+        "channel:14394054:11795",
+        "channel:14394054:11817",
+        "channel:14394054:11900"
+      ],
+      "status": "draft",
+      "tag_ids": [],
+      "title": "عنوان تکمیل‌شده",
+      "updated_at": "2026-08-12T01:25:20.830421+00:00"
+    }
+  },
+  "schema_version": 2
+}

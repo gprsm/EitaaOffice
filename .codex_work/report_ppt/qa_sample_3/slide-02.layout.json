@@ -1,0 +1,1126 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/q6wj6z",
+    "id": "q6wj6z",
+    "slide": 2,
+    "layoutId": "29386099-9c21-46c2-a189-30422cf63d87",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "9c9de482-ad7c-43ba-a0e3-0e59bfab6be1",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Tahoma"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "29386099-9c21-46c2-a189-30422cf63d87",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "9c9de482-ad7c-43ba-a0e3-0e59bfab6be1",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "9c9de482-ad7c-43ba-a0e3-0e59bfab6be1",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gzyt43ix",
+      "id": "1",
+      "name": "eyebrow",
+      "bbox": [
+        650,
+        34,
+        588,
+        34
+      ],
+      "geometry": "rect",
+      "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "textPreview": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "Tahoma",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "typeface": "Tahoma",
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "تابعه ادارات نمازخانه‌های وضعیت گزارش",
+              "fontSize": 18,
+              "typeface": "Tahoma",
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fypcbyhc",
+      "id": "2",
+      "name": "slide-title",
+      "bbox": [
+        105,
+        72,
+        1133,
+        70
+      ],
+      "geometry": "rect",
+      "text": "نمازگزاران تعداد مکمل مشارکت؛",
+      "textPreview": "نمازگزاران تعداد مکمل مشارکت؛",
+      "resolvedFontSize": 49,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 49,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "نمازگزاران تعداد مکمل مشارکت؛"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "نمازگزاران تعداد مکمل مشارکت؛",
+          "resolvedTextStyle": {
+            "fontSize": 49,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "نمازگزاران تعداد مکمل مشارکت؛",
+              "fontSize": 49,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/uxgb2d0r",
+      "id": "3",
+      "name": "title-rule",
+      "bbox": [
+        42,
+        151,
+        1196,
+        0
+      ],
+      "geometry": "line",
+      "lineColor": "#C7CDD3",
+      "lineWidth": 1
+    },
+    {
+      "order": 4,
+      "kind": "chart",
+      "scope": "slide",
+      "aid": "ch/l4vedoj2",
+      "id": "4",
+      "bbox": [
+        42,
+        184,
+        760,
+        405
+      ],
+      "chartType": "bar"
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/43yd8nit",
+      "id": "5",
+      "name": "participation-top-panel",
+      "bbox": [
+        842,
+        184,
+        396,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/32pcfih8",
+      "id": "6",
+      "name": "participation-top-accent",
+      "bbox": [
+        1226,
+        184,
+        12,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/21gv6d0n",
+      "id": "7",
+      "name": "participation-top-number",
+      "bbox": [
+        884,
+        200,
+        318,
+        48
+      ],
+      "geometry": "rect",
+      "text": "۷۰٪",
+      "textPreview": "۷۰٪",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۷۰٪"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۷۰٪",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۷۰٪",
+              "fontSize": 38,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/l8nu5oza",
+      "id": "8",
+      "name": "participation-top-label",
+      "bbox": [
+        884,
+        251,
+        318,
+        28
+      ],
+      "geometry": "rect",
+      "text": "مشارکت نسبت بالاترین",
+      "textPreview": "مشارکت نسبت بالاترین",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "مشارکت نسبت بالاترین"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "مشارکت نسبت بالاترین",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "مشارکت نسبت بالاترین",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/k7etwjip",
+      "id": "9",
+      "name": "participation-top-detail",
+      "bbox": [
+        884,
+        282,
+        318,
+        22
+      ],
+      "geometry": "rect",
+      "text": "همکار جماعت امام ۶؛ اداره",
+      "textPreview": "همکار جماعت امام ۶؛ اداره",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.96,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "همکار جماعت امام ۶؛ اداره"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "همکار جماعت امام ۶؛ اداره",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "همکار جماعت امام ۶؛ اداره",
+              "fontSize": 19,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/edsfehg3",
+      "id": "10",
+      "name": "participation-mid-panel",
+      "bbox": [
+        842,
+        326,
+        396,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fe1w7mho",
+      "id": "11",
+      "name": "participation-mid-accent",
+      "bbox": [
+        1226,
+        326,
+        12,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gzaxgry9",
+      "id": "12",
+      "name": "participation-mid-number",
+      "bbox": [
+        884,
+        342,
+        318,
+        48
+      ],
+      "geometry": "rect",
+      "text": "۵۰٪+",
+      "textPreview": "۵۰٪+",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۵۰٪+"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۵۰٪+",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۵۰٪+",
+              "fontSize": 38,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/103e9czu",
+      "id": "13",
+      "name": "participation-mid-label",
+      "bbox": [
+        884,
+        393,
+        318,
+        28
+      ],
+      "geometry": "rect",
+      "text": "اداره سه در",
+      "textPreview": "اداره سه در",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "اداره سه در"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "اداره سه در",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "اداره سه در",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/21cfihgf",
+      "id": "14",
+      "name": "participation-mid-detail",
+      "bbox": [
+        884,
+        424,
+        318,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۶ و ۴ ۳، ادارات",
+      "textPreview": "۶ و ۴ ۳، ادارات",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.96,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۶ و ۴ ۳، ادارات"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۶ و ۴ ۳، ادارات",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۶ و ۴ ۳، ادارات",
+              "fontSize": 19,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/32lwbmhk",
+      "id": "15",
+      "name": "participation-low-panel",
+      "bbox": [
+        842,
+        468,
+        396,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#EEF1F3",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/o3uxkry5",
+      "id": "16",
+      "name": "participation-low-accent",
+      "bbox": [
+        1226,
+        468,
+        12,
+        131
+      ],
+      "geometry": "rect",
+      "fillColor": "#F59E0B",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p43ydwzq",
+      "id": "17",
+      "name": "participation-low-number",
+      "bbox": [
+        884,
+        484,
+        318,
+        48
+      ],
+      "geometry": "rect",
+      "text": "۳۰٪",
+      "textPreview": "۳۰٪",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 2,
+        "fontSize": 38,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "middle",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۳۰٪"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۳۰٪",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۳۰٪",
+              "fontSize": 38,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/q5cfm1gb",
+      "id": "18",
+      "name": "participation-low-label",
+      "bbox": [
+        884,
+        535,
+        318,
+        28
+      ],
+      "geometry": "rect",
+      "text": "ثبت‌شده نسبت کمترین",
+      "textPreview": "ثبت‌شده نسبت کمترین",
+      "resolvedFontSize": 21.51,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21.51,
+        "typeface": "Tahoma",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "ثبت‌شده نسبت کمترین"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "ثبت‌شده نسبت کمترین",
+          "resolvedTextStyle": {
+            "fontSize": 21.51,
+            "typeface": "Tahoma",
+            "color": "#101820",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "ثبت‌شده نسبت کمترین",
+              "fontSize": 21.51,
+              "typeface": "Tahoma",
+              "color": "#101820",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/b6lgf6hw",
+      "id": "19",
+      "name": "participation-low-detail",
+      "bbox": [
+        884,
+        566,
+        318,
+        22
+      ],
+      "geometry": "rect",
+      "text": "امام نامنظم حضور با همراه ۲؛ اداره",
+      "textPreview": "امام نامنظم حضور با همراه ۲؛ اداره",
+      "resolvedFontSize": 18.33,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 0.96,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "امام نامنظم حضور با همراه ۲؛ اداره"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "امام نامنظم حضور با همراه ۲؛ اداره",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "امام نامنظم حضور با همراه ۲؛ اداره",
+              "fontSize": 19,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/na5w36d4",
+      "id": "20",
+      "name": "ratio-note",
+      "bbox": [
+        42,
+        606,
+        1196,
+        39
+      ],
+      "geometry": "rect",
+      "fillColor": "#FFF3D6",
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/m9wva1wj",
+      "id": "21",
+      "name": "ratio-note-text",
+      "bbox": [
+        66,
+        614,
+        1148,
+        23
+      ],
+      "geometry": "rect",
+      "text": "شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های",
+      "textPreview": "شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 17,
+        "typeface": "Tahoma",
+        "color": "#7A4B00",
+        "bold": true,
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "typeface": "Tahoma",
+            "color": "#7A4B00",
+            "bold": true,
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "شود. محاسبه دوباره حاضر، کارکنان شمارش تثبیت از پس ۴ و ۲ ادارات نسبت‌های",
+              "fontSize": 17,
+              "typeface": "Tahoma",
+              "color": "#7A4B00",
+              "bold": true,
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/9wne5gvu",
+      "id": "22",
+      "name": "slide-number-2",
+      "bbox": [
+        41,
+        662,
+        48,
+        22
+      ],
+      "geometry": "rect",
+      "text": "۲",
+      "textPreview": "۲",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 3,
+        "fontSize": 14,
+        "typeface": "Tahoma",
+        "color": "#56616D",
+        "alignment": "left",
+        "verticalAlignment": "bottom",
+        "wrap": "square",
+        "autoFit": "shrinkText",
+        "autoFitScale": 1,
+        "insets": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "۲"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "۲",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "typeface": "Tahoma",
+            "color": "#56616D",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "۲",
+              "fontSize": 14,
+              "typeface": "Tahoma",
+              "color": "#56616D",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}
