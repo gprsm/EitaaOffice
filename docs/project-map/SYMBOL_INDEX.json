@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "7598f53583ef98d6",
+  "source_fingerprint": "930b9912607f599c",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -9980,322 +9980,322 @@
         {
           "name": "RuntimeOwnership",
           "kind": "class",
-          "line": 73
+          "line": 74
         },
         {
           "name": "RuntimeOwnership.authorized",
           "kind": "method",
-          "line": 82
+          "line": 83
         },
         {
           "name": "RuntimeOwnership.heartbeat",
           "kind": "method",
-          "line": 85
+          "line": 86
         },
         {
           "name": "RuntimeOwnership.identity",
           "kind": "method",
-          "line": 88
+          "line": 89
         },
         {
           "name": "RuntimeOwnership.write_state",
           "kind": "method",
-          "line": 104
+          "line": 105
         },
         {
           "name": "RuntimeOwnership.clear_state",
           "kind": "method",
-          "line": 112
+          "line": 113
         },
         {
           "name": "DeploymentRequestContext",
           "kind": "class",
-          "line": 126
+          "line": 127
         },
         {
           "name": "DeploymentRequestPolicy",
           "kind": "class",
-          "line": 133
+          "line": 134
         },
         {
           "name": "DeploymentRequestPolicy.rejection_code",
           "kind": "method",
-          "line": 139
+          "line": 140
         },
         {
           "name": "DeploymentRequestPolicy.evaluate",
           "kind": "method",
-          "line": 166
+          "line": 167
         },
         {
           "name": "TrustedLanAbuseLimiter",
           "kind": "class",
-          "line": 295
+          "line": 296
         },
         {
           "name": "TrustedLanAbuseLimiter.__init__",
           "kind": "method",
-          "line": 298
+          "line": 299
         },
         {
           "name": "TrustedLanAbuseLimiter.allow",
           "kind": "method",
-          "line": 303
+          "line": 304
         },
         {
           "name": "ServerLifecycleState",
           "kind": "class",
-          "line": 337
+          "line": 338
         },
         {
           "name": "ServerLifecycleState.mark_ready",
           "kind": "method",
-          "line": 344
+          "line": 345
         },
         {
           "name": "ServerLifecycleState.mark_not_ready",
           "kind": "method",
-          "line": 349
+          "line": 350
         },
         {
           "name": "ServerLifecycleState.snapshot",
           "kind": "method",
-          "line": 355
+          "line": 356
         },
         {
           "name": "_network_authority",
           "kind": "function",
-          "line": 371
+          "line": 372
         },
         {
           "name": "_request_authority",
           "kind": "function",
-          "line": 381
+          "line": 382
         },
         {
           "name": "_request_origin",
           "kind": "function",
-          "line": 411
+          "line": 412
         },
         {
           "name": "_ApiHandler",
           "kind": "class",
-          "line": 439
+          "line": 440
         },
         {
           "name": "_ApiHandler.api",
           "kind": "method",
-          "line": 444
+          "line": 445
         },
         {
           "name": "_ApiHandler.deployment_policy",
           "kind": "method",
-          "line": 448
+          "line": 449
         },
         {
           "name": "_ApiHandler.do_GET",
           "kind": "method",
-          "line": 451
+          "line": 452
         },
         {
           "name": "_ApiHandler.do_POST",
           "kind": "method",
-          "line": 464
+          "line": 465
         },
         {
           "name": "_ApiHandler.do_HEAD",
           "kind": "method",
-          "line": 477
+          "line": 478
         },
         {
           "name": "_ApiHandler.do_OPTIONS",
           "kind": "method",
-          "line": 491
+          "line": 492
         },
         {
           "name": "_ApiHandler.runtime_ownership",
           "kind": "method",
-          "line": 503
+          "line": 504
         },
         {
           "name": "_ApiHandler._runtime_authorized",
           "kind": "method",
-          "line": 506
+          "line": 507
         },
         {
           "name": "_ApiHandler._runtime_identity",
           "kind": "method",
-          "line": 542
+          "line": 543
         },
         {
           "name": "_ApiHandler._runtime_heartbeat",
           "kind": "method",
-          "line": 548
+          "line": 549
         },
         {
           "name": "_ApiHandler._runtime_shutdown",
           "kind": "method",
-          "line": 563
+          "line": 564
         },
         {
           "name": "_ApiHandler._dispatch",
           "kind": "method",
-          "line": 578
+          "line": 579
         },
         {
           "name": "_ApiHandler._serve_media_cache",
           "kind": "method",
-          "line": 622
+          "line": 623
         },
         {
           "name": "_ApiHandler._upload_file",
           "kind": "method",
-          "line": 721
+          "line": 722
         },
         {
           "name": "_ApiHandler._serve_static",
           "kind": "method",
-          "line": 835
+          "line": 836
         },
         {
           "name": "_ApiHandler._read_json",
           "kind": "method",
-          "line": 877
+          "line": 882
         },
         {
           "name": "_ApiHandler._app_session_token",
           "kind": "method",
-          "line": 907
+          "line": 912
         },
         {
           "name": "_ApiHandler._client_kind",
           "kind": "method",
-          "line": 919
+          "line": 924
         },
         {
           "name": "_ApiHandler._single_header",
           "kind": "method",
-          "line": 923
+          "line": 928
         },
         {
           "name": "_ApiHandler._enforce_deployment_policy",
           "kind": "method",
-          "line": 931
+          "line": 936
         },
         {
           "name": "_ApiHandler._write_rate_limit_error",
           "kind": "method",
-          "line": 992
+          "line": 997
         },
         {
           "name": "_ApiHandler._send_security_headers",
           "kind": "method",
-          "line": 1011
+          "line": 1016
         },
         {
           "name": "_ApiHandler._write_json",
           "kind": "method",
-          "line": 1034
+          "line": 1039
         },
         {
           "name": "_ApiHandler.send_error",
           "kind": "method",
-          "line": 1049
+          "line": 1054
         },
         {
           "name": "_ApiHandler.log_message",
           "kind": "method",
-          "line": 1071
+          "line": 1076
         },
         {
           "name": "_RequestError",
           "kind": "class",
-          "line": 1089
+          "line": 1094
         },
         {
           "name": "_RequestError.__init__",
           "kind": "method",
-          "line": 1090
+          "line": 1095
         },
         {
           "name": "BridgeApiHttpServer",
           "kind": "class",
-          "line": 1097
+          "line": 1102
         },
         {
           "name": "BridgeApiHttpServer.__init__",
           "kind": "method",
-          "line": 1101
+          "line": 1106
         },
         {
           "name": "BridgeApiHttpServer.get_request",
           "kind": "method",
-          "line": 1135
+          "line": 1140
         },
         {
           "name": "BridgeApiHttpServer.process_request_thread",
           "kind": "method",
-          "line": 1140
+          "line": 1145
         },
         {
           "name": "BridgeApiHttpServer._wait_for_request_drain",
           "kind": "method",
-          "line": 1150
+          "line": 1155
         },
         {
           "name": "BridgeApiHttpServer.set_not_ready",
           "kind": "method",
-          "line": 1160
+          "line": 1165
         },
         {
           "name": "BridgeApiHttpServer.readiness_response",
           "kind": "method",
-          "line": 1163
+          "line": 1168
         },
         {
           "name": "BridgeApiHttpServer.shutdown",
           "kind": "method",
-          "line": 1169
+          "line": 1174
         },
         {
           "name": "BridgeApiHttpServer._watch_runtime_heartbeat",
           "kind": "method",
-          "line": 1173
+          "line": 1178
         },
         {
           "name": "BridgeApiHttpServer.server_close",
           "kind": "method",
-          "line": 1186
+          "line": 1191
         },
         {
           "name": "_is_loopback",
           "kind": "function",
-          "line": 1196
+          "line": 1201
         },
         {
           "name": "build_parser",
           "kind": "function",
-          "line": 1205
+          "line": 1210
         },
         {
           "name": "_resolve_server_bind",
           "kind": "function",
-          "line": 1229
+          "line": 1234
         },
         {
           "name": "_http_url_host",
           "kind": "function",
-          "line": 1251
+          "line": 1256
         },
         {
           "name": "_bind_error_code",
           "kind": "function",
-          "line": 1259
+          "line": 1264
         },
         {
           "name": "main",
           "kind": "function",
-          "line": 1265
+          "line": 1270
         }
       ]
     },
@@ -15614,32 +15614,37 @@
         {
           "name": "test_wordpress_success_exposes_only_verified_committed_source_keys",
           "kind": "function",
-          "line": 13
+          "line": 15
         },
         {
           "name": "test_runtime_patch_is_loaded_before_frozen_application_bundle_and_is_reproducible",
           "kind": "function",
-          "line": 30
+          "line": 32
+        },
+        {
+          "name": "test_runtime_patch_build_uses_content_hash_cache_busting",
+          "kind": "function",
+          "line": 49
         },
         {
           "name": "test_reading_position_is_local_bounded_throttled_and_idle_persisted",
           "kind": "function",
-          "line": 42
+          "line": 58
         },
         {
           "name": "test_unread_point_overrides_remembered_position_and_saved_location_remains_available",
           "kind": "function",
-          "line": 57
+          "line": 73
         },
         {
           "name": "test_saved_reading_position_never_rewrites_the_latest_message_request",
           "kind": "function",
-          "line": 68
+          "line": 84
         },
         {
           "name": "test_runtime_patch_does_not_add_network_writes_for_reading_positions",
           "kind": "function",
-          "line": 78
+          "line": 94
         }
       ]
     },

@@ -587,7 +587,7 @@
 
 ### F-049 — runtime patch پنجرهٔ گروه منتخب را به checkpoint قدیمی منحرف می‌کرد
 
-- وضعیت: `CLOSED / G-10_FIXED_AND_FULLY_TESTED / VISUAL_RECHECK_PENDING`
+- وضعیت: `SUPERSEDED / G-10_SOURCE_FIX_CORRECT_BUT_BROWSER_DELIVERY_STALE / F-050`
 - تاریخ: 2026-08-26
 - شدت: زیاد
 - دامنه: fetch wrapper موقعیت مطالعه در `ui/src/ui33-runtime-patch.js` و قرارداد متناظر.
@@ -596,5 +596,21 @@
 - RED: قرارداد منع بازنویسی request روی pre-image برابر `1 failed / 5 passed` بود.
 - اصلاح: body و pagination دیگر تغییر نمی‌کنند و fetch اصلی با `input/init` دست‌نخورده اجرا می‌شود؛ metadata WordPress و scroll restoration در سطح نمایش حفظ شده‌اند.
 - GREEN: contract=`1/1`، targeted runtime/mobile=`11/11`، full Backend=`657/657` بدون failure/error/skip، تمام runnerهای UI، TypeScript و build سبزند؛ source/dist hash یکسان=`6de1ad483e2c97af76fd070abca34464d5ff158094ba7e0634d470620efc9893`.
+- بازگشایی پس از گزارش کاربر: کاربر پس از انتشار G-10 اعلام کرد نمایش همچنان قدیمی است. ممیزی G-11 ثابت کرد اصلاح source درست بوده، اما مرورگر به‌علت cache immutable یک‌سالهٔ URL ثابت patch، pre-image قدیمی را اجرا می‌کرد؛ بنابراین ادعای اثر عملیاتی G-10 زودهنگام بود و با F-050 جایگزین شد.
 - اثر عملیاتی: پیام/login/OTP/Provider write/Bale صفر. مشاهدهٔ بصری به‌علت شکست زیرساخت Computer Use پیش از input اجرا نشد و باید پس از راه‌اندازی build تازه توسط کاربر تأیید شود.
 - Trigger ابطال: بازگشت هرگونه بازنویسی `messages/list` با checkpoint، تغییر قرارداد pagination یا تغییر معماری scroll restoration.
+
+### F-050 — runtime patch اصلاح‌شده زیر URL ثابت با cache یک‌ساله تحویل نمی‌شد
+
+- وضعیت: `CLOSED_CODE_AND_AUTOMATED_ACCEPTANCE / G-11 / USER_VISUAL_RECHECK_PENDING`
+- تاریخ: 2026-08-27
+- شدت: زیاد
+- دامنه: `ui/scripts/finalize-ui-build.mjs`، cache policy فایل‌های UI در `src/eitaa_bridge/interfaces/http_api.py` و قراردادهای build/HTTP.
+- شاهد ماسک‌شده: نمونهٔ اعلام‌شدهٔ کاربر در storage قدیمی 420 پیام و آخرین تاریخ ۶ مرداد داشت، اما حساب جاری همان peer را با 674 پیام و آخرین تاریخ ۴ شهریور نگه می‌داشت؛ 254 پیام پس از checkpoint قدیمی حاضر بود. عنوان، شناسهٔ peer/account و متن پیام ثبت نشد.
+- علت ریشه‌ای: finalizer patch را همیشه با نام ثابت `/assets/ui33-runtime-patch.js` کپی می‌کرد و HTTP server همهٔ assetهای غیر-index را یک سال `immutable` می‌فرستاد. مرورگر pre-image G-09/G-10 را بدون revalidation نگه می‌داشت؛ restart Backend یا وجود فایل تازه روی دیسک این URL cached را عوض نمی‌کرد.
+- RED: قرارداد hash نام فایل، استفادهٔ finalizer از SHA-256 و منع immutable برای asset ثابت در مجموع `3 failed / 6 passed` بود.
+- اصلاح: نام patch از ۱۶ نویسهٔ نخست SHA-256 محتوا ساخته می‌شود؛ tag قدیمی و assetهای patch پیشین هنگام build حذف می‌شوند؛ server فقط asset مستقیم دارای نام hashدار را immutable و فایل ثابت/index را `no-store` می‌فرستد.
+- GREEN: قرارداد هدفمند=`9/9`، regression مرتبط=`54/54`، full Backend نهایی=`658/658` با skip صفر، همهٔ ۹ runner UI، TypeScript و build سبزند. full نخست فقط به‌علت drift مورد انتظار wheel/source برابر `657/658` بود؛ wheel دوبار بایت‌یکسان بازسازی و parity برابر 90/0 شد.
+- انتشار آفلاین: wheel SHA=`ba05c810...`، دو archive canonical پس از ثبت ADR-40 با 282 فایل و SHA بایت‌یکسان=`08c5d5dd...` و content-set=`4ec774ed...`، verifier/privacy داخلی PASS و fresh venv فقط با wheelهای محلی و `--no-index` سبز است.
+- محدودیت شاهد: برنامه هنگام validation نهایی HTTP اجرا نبود و اتصال loopback رد شد؛ برنامه بدون اجازه راه‌اندازی نشد. تأیید بصری پس از بستن و اجرای دوبارهٔ برنامه هنوز بر عهدهٔ کاربر است و تا آن زمان ادعای Live-verified ثبت نمی‌شود.
+- Trigger ابطال: URL ثابت برای runtime patch، cache immutable روی asset بدون content hash، تغییر finalizer/static serving یا گزارش تکرار نمایش تاریخ قدیمی پس از restart.

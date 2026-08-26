@@ -3561,3 +3561,82 @@ excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operatio
 next_action: documentation_closure_commit_normal_push_and_final_remote_verify
 output_summary: commit اصلی G-10 روی شاخهٔ کاری منتشر و با حفظ کامل main زنده تأیید شد.
 ```
+
+### STAB-G11-R01-S01 — تشخیص storage جاری/تاریخی و علت cache
+
+```yaml
+event_id: STAB-G11-R01-S01
+event: MASKED_SELECTED_GROUP_CURRENT_HISTORICAL_MAPPING_AND_CACHE_ROOT_CAUSE
+started_at: 2026-08-26T23:26:00+03:30
+ended_at: 2026-08-27T00:05:00+03:30
+goal_id: G-11
+run_id: STAB-G11-R01
+state_before: G10_PUBLISHED_USER_REPORTS_PROBLEM_UNRESOLVED
+state_after: CACHE_DELIVERY_ROOT_CAUSE_CONFIRMED_RED_VERIFIED
+actor: codex
+action_kind: READ_ONLY_DIAGNOSIS_AND_CONTROLLED_TEST
+cwd: <project-root>
+masked_storage: {historical_messages: 420, historical_latest: 6_mordad, current_messages: 674, current_latest: 4_shahrivar, messages_after_historical_checkpoint: 254, current_catalog_top_matches_db: true}
+root_cause: fixed_url_runtime_patch_served_with_one_year_immutable_cache
+red: {passed: 6, failed: 3, expected_failure: true}
+tool_events:
+  - {scope: peer_file_mapping, attempt_a: FALSE_MISMATCH_WRONG_FIELD_NAME, retry: PASS_CANONICAL_LOADER, state_change: 0}
+  - {scope: computer_use, attempts: 2, reset: 1, result: BLOCKED_BEFORE_INPUT, error: kernel_assets_path_not_found}
+  - {scope: broad_runtime_scan, result: TERMINATED_AFTER_60_SECONDS, state_change: 0}
+  - {scope: network_parser_path_probe_leveldb_identity_header, result: INVOCATION_ERRORS_CORRECTED_OR_NONESSENTIAL, state_change: 0}
+privacy: {raw_title: not_recorded, peer_or_account_id: not_recorded, message_text: not_recorded}
+operational_effect: 0
+message_send_count: 0
+output_summary: دادهٔ جاری تا ۴ شهریور حاضر بود؛ مرورگر به‌علت URL ثابت و cache immutable، pre-image منتهی به ۶ مرداد را اجرا می‌کرد.
+```
+
+### STAB-G11-R01-S02 — اصلاح build/cache و پذیرش کامل خودکار
+
+```yaml
+event_id: STAB-G11-R01-S02
+event: CONTENT_HASH_RUNTIME_PATCH_AND_STATIC_CACHE_POLICY_REPAIR
+started_at: 2026-08-27T00:05:00+03:30
+ended_at: 2026-08-27T00:35:00+03:30
+goal_id: G-11
+run_id: STAB-G11-R01
+state_before: CACHE_DELIVERY_ROOT_CAUSE_CONFIRMED_RED_VERIFIED
+state_after: FULL_AUTOMATED_ACCEPTANCE_GREEN
+actor: codex
+action_kind: WRITE_TEST_BUILD_PACKAGE
+cwd: <project-root>
+product_change: {runtime_patch_filename: sha256_first_16, fixed_asset_cleanup: true, immutable_only_for_hashed_assets: true, fixed_and_index_cache: no_store}
+targeted: {first_green: 8/9, regex_contract_retry: 9/9, related: 54/54}
+ui: {runners: 9/9, typescript: PASS, build: PASS, modules: 1015, patch_sha256: 6de1ad483e2c97af76fd070abca34464d5ff158094ba7e0634d470620efc9893}
+backend_attempt_a: {passed: 657, failed: 1, total: 658, only_failure: expected_wheel_source_parity_drift}
+wheel: {builds: 2, byte_identical: true, sha256: ba05c810792fe695a96b90ce4b313ef3b5e15e7b9ef70032518c96923e295e7a, source_files: 90, missing: 0, mismatched: 0, extra: 0}
+backend_retry: {passed: 658, failed: 0, errors: 0, skipped: 0, collected_files: 74}
+external_effect: controlled_test_temp_ui_dist_wheel_artifacts
+operational_data_write: 0
+output_summary: cache-busting محتوایی و policy امن cache پیاده شد؛ کل Backend/UI پس از wheel reconciliation سبز است.
+```
+
+### STAB-G11-R01-S03 — archive، fresh-install و مستندسازی پیش از انتشار
+
+```yaml
+event_id: STAB-G11-R01-S03
+event: REPRODUCIBLE_ARCHIVE_OFFLINE_FRESH_INSTALL_AND_DOCUMENTATION_ALIGNMENT
+started_at: 2026-08-27T00:35:00+03:30
+ended_at: 2026-08-27T01:05:00+03:30
+goal_id: G-11
+run_id: STAB-G11-R01
+state_before: FULL_AUTOMATED_ACCEPTANCE_GREEN
+state_after: TESTED_DOCUMENTED_READY_FOR_GIT_PUBLICATION
+actor: codex
+action_kind: PACKAGE_OFFLINE_INSTALL_DOCUMENT
+cwd: <project-root>
+archive: {count: 2, byte_identical: true, files: 282, sha256: 08c5d5dd132f2c4d7a41c27f0cd26d084630d747a542a8c7383296e906a2c61c, content_set: 4ec774ed765b932bb93fece08596108524608c18dc926be0d13b63a09e6c731e, internal_verification: PASS, rebuilt_after_adr40: true}
+fresh_install: {network: 0, pip_no_index: true, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103}
+live_http_attempt: {result: CONNECTION_REFUSED_APPLICATION_NOT_RUNNING, application_started_by_agent: false, product_failure: false}
+tool_event: {scope: receipt_privacy_property_probe, attempt_a: WRONG_ABSENT_PROPERTY_COUNT, retry: CANONICAL_VERIFICATION_PASS, state_change: 0}
+documentation_scope: [F-049, F-050, V-160, V-161, ADR-40, G10-correction, G11-report, baseline, handoff, release-manifest]
+documentation_checks: {refresh: PASS, integrity: PASS, stale: PASS, links: PASS, report_index_line: 185, release_manifest_json: PASS, release_manifest_sha256: b89f4c2a592a9dc12f8f12cdd115fa05b5a686498f5f9cf4c450dc927f6d8f9c}
+final_package_dry_run: {files: 282, content_set: 4ec774ed765b932bb93fece08596108524608c18dc926be0d13b63a09e6c731e, output_write: 0}
+privacy_and_operational_effect: {raw_title_or_ids_logged: false, message_send: 0, provider_action: 0, data_write: 0}
+next_action: documentation_checks_then_standing_authorized_working_branch_commit_push_verify
+output_summary: artifact و نصب آفلاین G-11 سبز؛ تأیید زنده پس از restart کاربر pending و انتشار Git پس از کنترل اسناد انجام می‌شود.
+```

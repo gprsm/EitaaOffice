@@ -1,7 +1,7 @@
 # فهرست گزارش‌ها و اسناد دسته‌بندی‌شده
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
-تعداد کل اسناد فهرست‌شده: 175
+تعداد کل اسناد فهرست‌شده: 176
 
 
 ## گزارش فازها
@@ -182,6 +182,7 @@
 - [`G09C_OFFLINE_FRESH_INSTALL_ACCEPTANCE_REPORT_2026-08-26.md`](reports/stabilization/G09C_OFFLINE_FRESH_INSTALL_ACCEPTANCE_REPORT_2026-08-26.md)
 - [`G09D_FULL_UI_BUILD_AND_BACKEND_ACCEPTANCE_REPORT_2026-08-26.md`](reports/stabilization/G09D_FULL_UI_BUILD_AND_BACKEND_ACCEPTANCE_REPORT_2026-08-26.md)
 - [`G10_SELECTED_GROUP_STALE_TIMELINE_REPAIR_REPORT_2026-08-26.md`](reports/stabilization/G10_SELECTED_GROUP_STALE_TIMELINE_REPAIR_REPORT_2026-08-26.md)
+- [`G11_RUNTIME_PATCH_CACHE_BUSTING_REPAIR_REPORT_2026-08-27.md`](reports/stabilization/G11_RUNTIME_PATCH_CACHE_BUSTING_REPAIR_REPORT_2026-08-27.md)
 - [`GIT_PUBLISH_CLEANUP_AND_PUSH_REPORT_2026-08-26.md`](reports/stabilization/GIT_PUBLISH_CLEANUP_AND_PUSH_REPORT_2026-08-26.md)
 
 ## Handoffها

@@ -1,13 +1,15 @@
 # وضعیت پایهٔ فعلی پروژه
 
 تاریخ مبنا: ۲۰۲۶-۰۸-۲۵  
-آخرین همسان‌سازی: G-10 و اصلاح timeline گروه منتخب در ۲۰۲۶-۰۸-۲۶  
+آخرین همسان‌سازی: G-11 و اصلاح تحویل cache-busted رابط در ۲۰۲۶-۰۸-۲۷  
 وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-158، F-039 تا F-049 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+منابع شاهد جاری: V-103، V-108 تا V-161، F-039 تا F-050 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
 
 Milestone تثبیت 2026-08-25: G-00 یک baseline deterministic و قابل‌بازگشت از 613 فایل امن با receipt/SHA-256 ایجاد و repository ریشه را به تاریخچهٔ محلی `legacy/main` متصل کرد. هیچ stage/commit انجام نشده است. V-103 روی snapshot منتقل‌شده Backend=`587 collected / 585 passed / 2 failed` و دو contract شکستهٔ UI را ثبت کرد؛ بنابراین نتیجه‌های قدیمی `590/590` وضعیت جاری را اثبات نمی‌کنند.
 
 Milestone G-02: Bale registration اکنون با حفظ مرجع تصمیم F-046 به‌طور صریح fail-closed است؛ هیچ factory/capability/auth step فعال ندارد و full Backend پس از اصلاح `599/599` است. این شاهد آفلاین است و هیچ Live acceptance برای Bale نمی‌سازد.
+
+Milestone G-11: گزارش تداوم timeline قدیمی پس از G-10 نشان داد دادهٔ جاری تا ۴ شهریور موجود است، اما runtime patch تحت URL ثابت با cache یک‌سالهٔ immutable از pre-image مرورگر اجرا می‌شود. build اکنون نام patch را از hash محتوا می‌سازد و HTTP فقط asset نام‌هش‌دار را immutable می‌فرستد. RED=`3 failed / 6 passed`، targeted=`9/9`، related=`54/54`، full Backend نهایی=`658/658`، همهٔ UI runnerها/TypeScript/build، wheel parity 90/0، archive deterministic و fresh-install آفلاین سبزند. برنامه هنگام بررسی نهایی اجرا نبود؛ تأیید بصری کاربر پس از restart همچنان pending است.
 
 Milestone G-04-A: قرارداد متأخر نمایش کامل هویت canonical در مرز مجاز محصول با آزمون مستقل سبز شد، اما دو RED کنترل‌شده باقی است: دو تست تاریخی هنوز placeholder هستند و redaction عمومی کلیدهای `phone_hint`/`display_hint` را نمی‌شناسد. اجرای هدفمند `1/3 passed` و `2/3 failed` است؛ بنابراین G-04 و F-044 باز و پروژه تا دستور G-04-B متوقف‌اند. هیچ کد محصول، دادهٔ عملیاتی یا رفتار Bale تغییر نکرد.
 
@@ -195,7 +197,7 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 - React Error Boundary و global error/rejection handlers فعال‌اند و payload خصوصی ارسال نمی‌کنند.
 - client diagnostic route و IPC هر دو allowlist و rate limit دارند.
 - raw query/fragment و شناسه‌های حساس route در Desktop log ثبت نمی‌شوند.
-- آخرین full suite سبز Backend برای snapshot G-09-D برابر `656/656` و skip صفر است. TypeScript، همهٔ ۹ runner UI، UI/Electron Observability و build محلی 1015-module در همان پذیرش جاری سبزند. نتیجه‌های `590/590` تا `643/643` شواهد تاریخی مراحل قبلی‌اند.
+- آخرین full suite سبز Backend برای snapshot G-11 برابر `658/658` و skip صفر است. TypeScript، همهٔ ۹ runner UI، UI/Electron Observability و build محلی 1015-module نیز سبزند. نتیجه‌های `590/590` تا `657/657` شواهد تاریخی مراحل قبلی‌اند.
 - G-03 کامل و F-041 بسته است: clean-install Legacy/multi-session، bootstrap خالی، challenge binding و adversarial/restart، startup تکراری و installer config-copy rehearsal همگی آفلاین سبزند؛ Backend نهایی `610/610` است. این closure فقط G-03 است و release readiness عمومی را اعلام نمی‌کند.
 - G-04-B دو RED مرحلهٔ A را بسته است: تست خالی باقی نمانده و identity hintها در observability redacted می‌شوند. جداسازی token در C و Support Bundle scan در D نیز بسته‌اند.
 - G-04-C جداسازی token را بسته است: public onboarding فقط هویت تلفنی E.164 دارد و Phase 11 onboarding سبز است. اسکن جامع چهار کانال privacy نیز در G-04-D بسته شد.
@@ -205,6 +207,8 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 - G-07 allowlist/manifest، wheel parity و fresh-install را بست و F-042 را با full Backend=`643/643` خاتمه داد. گزارش نهایی در `../reports/stabilization/G07_RELEASE_PACKAGING_AND_FRESH_INSTALL_STABILIZATION_FINAL_REPORT_2026-08-26.md` است.
 - G-08 scanner چندحسابی، lifecycle/background، logger health، retention/disk و Support Bundle را بست و F-048 را با full Backend=`656/656` خاتمه داد. گزارش نهایی در `../reports/stabilization/G08_OBSERVABILITY_COMPLETION_FINAL_REPORT_2026-08-26.md` است.
 - G-09 archive نهایی deterministic، fresh-install آفلاین، full Backend/UI/build و handoff را پذیرفت و کاربر در V-148 closure را صریحاً تأیید کرد. گزارش نهایی در `../reports/stabilization/G09_FINAL_ACCEPTANCE_AND_HANDOFF_REPORT_2026-08-26.md` است؛ طبقه‌بندی snapshot=`USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE` است.
+- G-10 بازنویسی checkpoint روی request آخرین پیام‌ها را حذف کرد، اما browser delivery آن به‌علت URL ثابت/immutable کهنه باقی ماند؛ گزارش G-10 با G-11 تصحیح شده است.
+- G-11 cache-busting محتوایی runtime patch و policy تفکیک‌شدهٔ static asset را تکمیل و F-050 را در سطح کد/آزمون/بسته بست. گزارش نهایی در `../reports/stabilization/G11_RUNTIME_PATCH_CACHE_BUSTING_REPAIR_REPORT_2026-08-27.md` است؛ `USER_VISUAL_RECHECK_PENDING` باقی می‌ماند.
 - ادامهٔ Live متوقف است: حساب دوم Eitaa و هر عملیات Bale به تأیید همان لحظه نیاز دارند. code-sign، Windows visual، real-user installer و Git commit/tag نیز دروازهٔ مستقل‌اند و Production release مجاز اعلام نشده است.
 - retention/disk health محلی در دامنهٔ مصنوعی G-08 بسته است؛ Web metrics همچنان deployment-dependent و deferred است.
 

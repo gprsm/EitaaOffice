@@ -1,14 +1,15 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
-## closure فنی G-10 — timeline قدیمی گروه منتخب
+## closure فنی G-11 — تحویل cache-busted پیام‌های تازه
 
-- گزارش کاربر دربارهٔ نمایش پیام‌های حدود یک ماه قبل بررسی شد. catalog و SQLite به‌صورت فقط‌خواندنی و بدون ثبت عنوان/شناسه/متن نشان دادند sync و persistence تا همان روز جاری‌اند؛ پس مشکل Provider یا «منتخب» نبود.
-- علت F-049 در `ui/src/ui33-runtime-patch.js` بود: checkpoint موقعیت مطالعه، `before_id/limit` درخواست عادی صفحهٔ نخست را بازنویسی می‌کرد. این بازنویسی حذف شد و request اکنون با `originalFetch(input, init)` دست‌نخورده ارسال می‌شود؛ scroll restoration صرفاً concern نمایشی باقی ماند.
-- RED=`1 failed / 5 passed`، contract GREEN=`1/1`، targeted=`11/11`، full Backend=`657/657` با skip صفر، تمام ۹ runner UI، TypeScript و build 1015-module سبزند. source/dist patch SHA یکسان=`6de1ad48...` است.
-- archiveهای محلی نهایی G-10 بایت‌یکسان، 282فایلی و دارای SHA=`077d316d...`، content-set=`36012dbb...` و privacy finding صفرند.
-- Computer Use پیش از انتخاب پنجره/input سه بار با خطای زیرساختی path-not-found شکست خورد؛ تأیید بصری کاربر باقی است. هیچ پیام آزمایشی، login/OTP، WordPress، Bale یا write دادهٔ عملیاتی انجام نشد.
-- commit اصلی=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` روی `codex/stabilization-g09` push و remote hash برابر تأیید شد؛ GitHub main=`a4df3ecf...` بدون تغییر است. commit مستندی closure با push عادی همین شاخه دنبال می‌شود.
-- مرجع: `docs/reports/stabilization/G10_SELECTED_GROUP_STALE_TIMELINE_REPAIR_REPORT_2026-08-26.md`؛ Ledger=`V-158`؛ Run=`STAB-G10-R01`.
+- گزارش پس از G-10 ثابت کرد گروه نمونه در UI هنوز ۶ مرداد را نشان می‌دهد، در حالی که storage جاری همان peer 674 پیام تا ۴ شهریور و 254 پیام پس از checkpoint قدیمی دارد. storage تاریخی دقیقاً روی ۶ مرداد متوقف بود؛ عنوان، شناسه و متن پیام در لاگ مهندسی ثبت نشد.
+- G-10 source را درست اصلاح کرده بود، اما build patch را با URL ثابت منتشر و Backend آن را یک سال immutable cache می‌کرد؛ مرورگر pre-image قدیمی را بدون revalidation اجرا می‌کرد. F-049 به‌عنوان source-fix تاریخی با F-050/G-11 تکمیل شد.
+- finalizer اکنون asset را با ۱۶ نویسهٔ نخست SHA-256 محتوا نام‌گذاری و نسخهٔ ثابت/قدیمی را حذف می‌کند. static server فقط asset نام‌هش‌دار را immutable و index/fixed-name را `no-store` می‌فرستد؛ ADR-40 این قرارداد را canonical کرده است.
+- RED=`3 failed / 6 passed`، GREEN=`9/9`، related=`54/54`، full Backend نهایی=`658/658` با skip صفر، تمام ۹ runner UI، TypeScript و build 1015-module سبزند. wheel دوبار بایت‌یکسان و parity 90/0 است.
+- archiveهای canonical G-11 پس از ثبت ADR-40 بایت‌یکسان، 282فایلی، SHA=`08c5d5dd...` و content-set=`4ec774ed...` هستند؛ internal verifier/privacy و fresh venv آفلاین با `--no-index` سبز است. archive hash قبلی فقط checkpoint پیش از هم‌ترازی معماری بود و با `--force` جایگزین شد.
+- Computer Use پیش از input شکست خورد و برنامه هنگام loopback check اجرا نبود؛ Agent آن را بدون اجازه start نکرد. پذیرش Live فقط نیازمند بستن/اجرای دوبارهٔ برنامه و بازکردن گروه نمونه توسط کاربر است؛ پاک‌کردن cache/data لازم نیست.
+- هیچ پیام آزمایشی، login/OTP، WordPress، Bale یا write دادهٔ عملیاتی انجام نشد. commit/push G-11 پس از کنترل اسناد روی همان شاخهٔ کاری انجام و در V-162 ثبت می‌شود.
+- مرجع: `docs/reports/stabilization/G11_RUNTIME_PATCH_CACHE_BUSTING_REPAIR_REPORT_2026-08-27.md`؛ Ledger=`V-160/V-161`؛ Run=`STAB-G11-R01`.
 
 ## دستور دائمی انتشار سناریوهای نهایی
 
@@ -106,12 +107,12 @@
 
 وضعیت: `G-09 COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE`  
 آخرین ازسرگیری: 2026-08-26T18:03:00+03:30  
-آخرین checkpoint: 2026-08-26T21:54:16.9907168+03:30  
+آخرین checkpoint: 2026-08-27T01:05:00+03:30  
 Agent نویسنده: `Codex`  
-آخرین Run بسته: `STAB-G09-R01`  
-Run جاری: `NONE`  
-آخرین زیرمرحلهٔ بسته: `G-09 / USER_ACCEPTED / FINAL_CLOSURE`  
-Goal فعال: `NONE / EXTERNAL_RELEASE_GATES_ONLY`
+آخرین Run بسته: `STAB-G10-R01`  
+Run جاری: `STAB-G11-R01 / GIT_PUBLICATION_PENDING`  
+آخرین زیرمرحلهٔ بسته: `G-11 / CODE_AND_AUTOMATED_ACCEPTANCE_COMPLETE`  
+Goal فعال: `G-11 PUBLICATION / USER_VISUAL_RECHECK_PENDING`
 
 ## دستور کاربر
 

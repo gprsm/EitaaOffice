@@ -1319,3 +1319,32 @@
 - commit اصلی=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` با پیام دقیق `fix(ui): show latest messages for selected groups` و 12 فایل آزموده‌شده/مستند ساخته شد.
 - push عادی فقط به `codex/stabilization-g09` موفق بود؛ post-push remote branch دقیقاً=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` و main بدون تغییر ماند.
 - force/merge/main push/ref deletion=0؛ secret scan نامزد=0؛ operational data/message/Provider action=0. commit مستندی همین verify پس از ثبت با push عادی منتشر می‌شود.
+
+### V-160 — تشخیص ماسک‌شدهٔ باقی‌ماندن timeline قدیمی پس از G-10
+
+- تاریخ: 2026-08-26 تا 2026-08-27
+- سطح: `MASKED LIVE STORAGE READ / BUILD-SERVING AUDIT / CONTROLLED RED`
+- Run: `STAB-G11-R01`
+- Trigger: کاربر پس از G-10 اعلام کرد گروه نمونه هنوز ۶ مرداد را به‌جای آخرین پیام واقعی ۴ شهریور نشان می‌دهد؛ بنابراین شاهد G-10 برای اثر عملیاتی منقضی شد.
+- storage تاریخی برای peer ماسک‌شده 420 پیام تا ۶ مرداد داشت؛ storage حساب جاری 674 پیام تا ۴ شهریور و 254 پیام پس از checkpoint تاریخی داشت. catalog top با max جاری برابر، unread صفر و read boundary برابر top بود. عنوان، peer/account id و متن پیام ثبت نشد.
+- peer probe نخست به‌علت مقایسهٔ فیلد حدسی `id` به‌جای `peer_id` mismatch کاذب داد؛ retry با loader رسمی تمام مؤلفه‌های peer را منطبق نشان داد. product/data state change=0.
+- علت قطعی: build patch را روی URL ثابت منتشر و HTTP server همان asset را یک سال immutable می‌کرد؛ Edge pre-image قدیمی را بدون revalidation اجرا می‌کرد.
+- RED هدفمند=`3 failed / 6 passed`: نام patch hashدار نبود، finalizer SHA-256 نداشت و fixed-name asset اشتباهاً immutable بود.
+- Computer Use در reset/دو initialize پیش از window/input با خطای kernel-assets متوقف شد. اسکن گستردهٔ بیش از 60 ثانیه terminate و چند invocation خواندنی parser/path/header/LevelDB با retry محدود اصلاح شدند؛ write/input/send=0.
+- پذیرش=`G11_ROOT_CAUSE_AND_RED_CONFIRMED`; F-049 به source-fix تاریخی و F-050 به finding تحویل/cache تبدیل شد.
+
+### V-161 — G-11 اصلاح cache، full regression، release و fresh-install
+
+- تاریخ: 2026-08-27
+- سطح: `RED-GREEN / FULL BACKEND+UI / DETERMINISTIC WHEEL+ARCHIVE / OFFLINE FRESH INSTALL`
+- Run: `STAB-G11-R01`
+- اصلاح: finalizer نام patch را از ۱۶ نویسهٔ نخست SHA-256 می‌سازد و نسخه‌های fixed/قدیمی را حذف می‌کند؛ static server فقط asset مستقیم با نام hashدار را immutable و index/fixed-name را `no-store` می‌فرستد.
+- GREEN نخست=`8/9` و یک failure به‌علت regex بیش‌ازحد باز بود؛ پس از محدودسازی قرارداد=`9/9`. regression مرتبط=`54/54`.
+- UI: تمام ۹ runner، TypeScript و build 1015-module PASS؛ patch hash/full SHA=`6de1ad483e2c97af.../6de1ad483e2c97af76fd070abca34464d5ff158094ba7e0634d470620efc9893`.
+- full Backend نخست=`657/658` و تنها failure wheel/source drift مورد انتظار بود. wheel دوبار بایت‌یکسان با SHA=`ba05c810792fe695a96b90ce4b313ef3b5e15e7b9ef70032518c96923e295e7a` ساخته و parity 90/0 شد؛ full retry=`658/658`، failure/error/skip=0 و collect-only=74 فایل/658 تست.
+- archiveهای canonical A/B پس از ثبت ADR-40: file_count=282، SHA یکسان=`08c5d5dd132f2c4d7a41c27f0cd26d084630d747a542a8c7383296e906a2c61c`، content-set=`4ec774ed765b932bb93fece08596108524608c18dc926be0d13b63a09e6c731e` و internal reopen/hash/path/manifest/privacy verification=PASS. hash قبلی checkpoint پیش از هم‌ترازی architecture بود و artifact نام‌یکسان با `--force` جایگزین شد.
+- fresh venv فقط از wheelهای محلی با `--no-index`: install PASS، runtime checker ok/failures0، pip check PASS، isolated import PASS و Event Catalog=103.
+- loopback validation نهایی به‌علت اجرا نبودن برنامه `connection refused` شد؛ برنامه بدون اجازه start نشد. این failure محیطی است و Live visual acceptance همچنان pending است.
+- receipt probe نخست property ناموجود را مانند یک finding شمرد؛ schema canonical با `verification` خوانده و success داخلی تأیید شد. product/package failure=false.
+- کنترل اسناد: refresh، integrity، stale و link check همگی PASS؛ گزارش در سطر 185 `REPORTS_INDEX.md` قابل‌کشف است. package dry-run نهایی=282/content-set=`4ec774ed...`/write0 و Release Manifest JSON=PASS با SHA=`b89f4c2a592a9dc12f8f12cdd115fa05b5a686498f5f9cf4c450dc927f6d8f9c`.
+- پذیرش=`G11_CODE_AND_AUTOMATED_ACCEPTANCE_COMPLETE / USER_VISUAL_RECHECK_PENDING / GIT_PUBLICATION_PENDING`; پیام/Provider/Login/OTP/WordPress/Bale/data write=0.

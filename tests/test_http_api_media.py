@@ -39,6 +39,10 @@ def test_loopback_server_serves_ui_and_accepts_browser_file_upload(config_file, 
     ui_root = tmp_path / "ui"
     ui_root.mkdir()
     (ui_root / "index.html").write_text("<html>bridge-ui</html>", encoding="utf-8")
+    assets = ui_root / "assets"
+    assets.mkdir()
+    (assets / "ui33-runtime-patch.js").write_text("legacy", encoding="utf-8")
+    (assets / "ui33-runtime-patch-deadbeefcafebabe.js").write_text("hashed", encoding="utf-8")
     uploads = tmp_path / "uploads"
     server = BridgeApiHttpServer(("127.0.0.1", 0), api, ui_root=ui_root, upload_root=uploads)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -50,6 +54,16 @@ def test_loopback_server_serves_ui_and_accepts_browser_file_upload(config_file, 
             assert b"bridge-ui" in response.read()
             assert "default-src 'self'" in response.headers["Content-Security-Policy"]
             assert response.headers["X-Frame-Options"] == "DENY"
+            assert response.headers["Cache-Control"].startswith("no-store")
+        with urlopen(f"http://{host}:{port}/assets/ui33-runtime-patch.js", timeout=3) as response:
+            assert response.read() == b"legacy"
+            assert response.headers["Cache-Control"].startswith("no-store")
+        with urlopen(
+            f"http://{host}:{port}/assets/ui33-runtime-patch-deadbeefcafebabe.js",
+            timeout=3,
+        ) as response:
+            assert response.read() == b"hashed"
+            assert response.headers["Cache-Control"] == "public, max-age=31536000, immutable"
         request = Request(
             f"http://{host}:{port}/api/v1/files/upload",
             data=b"office-file",

@@ -357,3 +357,10 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - Pilot واقعی حساب دوم Eitaa، Login/OTP/Session/Send، WordPress publish، Bale، Firewall/Proxy/Port و نصب سیستم/کاربر از پذیرش آفلاین استنتاج نمی‌شوند و تأیید همان لحظه می‌خواهند.
 - هر تغییر source/test/UI/package/installer پس از receipt نهایی، hash archive و شواهد parity/fresh-install/full regression مرتبط را منقضی می‌کند.
 - Git commit/tag/push بخشی از پذیرش فنی نیست و فقط با دستور صریح مستقل انجام می‌شود؛ worktree dirty با reset/normalize پنهان نمی‌شود.
+
+## ۴۰. cache immutable فقط برای asset دارای نام محتوایی
+
+- فایل UI فقط وقتی می‌تواند `Cache-Control: public, max-age=31536000, immutable` بگیرد که مستقیماً زیر `assets` باشد و نام آن یک بخش hash حداقل هشت‌نویسه‌ای پیش از پسوند داشته باشد. `index.html` و هر asset با نام ثابت باید `no-store` باشند.
+- runtime patch سازگاری بخشی از رفتار اجرایی محصول است، نه فایل تزئینی. build نام آن را از ۱۶ نویسهٔ نخست SHA-256 محتوای source می‌سازد، نسخه‌های ثابت/قدیمی همان patch را از `dist/assets` حذف و دقیقاً همان نام را پیش از bundle اصلی در index تزریق می‌کند.
+- برابری source/dist، انطباق hash نام فایل با محتوا، نبود URL ثابت و cache header هر دو نوع asset قرارداد آزموده‌شده‌اند. تغییر finalizer، static server یا نام‌گذاری asset این شواهد را منقضی می‌کند.
+- restart یا refresh نباید سازوکار اصلی invalidation باشد؛ هر تغییر محتوای runtime patch باید URL تازه بسازد. راه‌اندازی برنامه و تأیید بصری کاربر همچنان برای پذیرش Live مستقل است.

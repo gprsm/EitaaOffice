@@ -37,6 +37,7 @@ _TRUSTED_LAN_REQUESTS_PER_MINUTE = 240
 _TRUSTED_LAN_UPLOADS_PER_MINUTE = 12
 _TRUSTED_LAN_RATE_WINDOW_SECONDS = 60.0
 _SAFE_UPLOAD_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
+_HASHED_UI_ASSET_NAME = re.compile(r"^.+-[A-Za-z0-9_]{8,}-?\.[A-Za-z0-9]+$")
 _RUNTIME_PROTOCOL = "1"
 _UI_CONTENT_SECURITY_POLICY = (
     "default-src 'self'; "
@@ -859,11 +860,15 @@ class _ApiHandler(BaseHTTPRequestHandler):
                 content_type + ("; charset=utf-8" if content_type.startswith("text/") else ""),
             )
             self.send_header("Content-Length", str(size))
+            immutable_asset = bool(
+                candidate.parent == (ui_root / "assets").resolve()
+                and _HASHED_UI_ASSET_NAME.fullmatch(candidate.name)
+            )
             self._send_security_headers(
                 cache_control=(
-                    "no-store, max-age=0"
-                    if candidate.name == "index.html"
-                    else "public, max-age=31536000, immutable"
+                    "public, max-age=31536000, immutable"
+                    if immutable_asset
+                    else "no-store, max-age=0"
                 ),
                 content_security_policy=_UI_CONTENT_SECURITY_POLICY,
             )

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PATCH_SOURCE = ROOT / "ui" / "src" / "ui33-runtime-patch.js"
-PATCH_DIST = ROOT / "ui" / "dist" / "assets" / "ui33-runtime-patch.js"
 INDEX = ROOT / "ui" / "dist" / "index.html"
+FINALIZER = ROOT / "ui" / "scripts" / "finalize-ui-build.mjs"
 DOMAIN = ROOT / "src" / "eitaa_bridge" / "domain" / "composer.py"
 WORKFLOW = ROOT / "src" / "eitaa_bridge" / "application" / "workflows" / "compose_wordpress_post.py"
 
@@ -29,14 +31,28 @@ def test_wordpress_success_exposes_only_verified_committed_source_keys():
 
 def test_runtime_patch_is_loaded_before_frozen_application_bundle_and_is_reproducible():
     source = PATCH_SOURCE.read_bytes()
-    dist = PATCH_DIST.read_bytes()
     index = INDEX.read_text(encoding="utf-8")
+    match = re.search(r'ui33-runtime-patch-([0-9a-f]{16})\.js', index)
 
+    assert match is not None
+    dist = (ROOT / "ui" / "dist" / "assets" / match.group(0)).read_bytes()
     assert source == dist
     assert source
-    patch_position = index.index("ui33-runtime-patch.js")
+    assert match.group(1) == hashlib.sha256(source).hexdigest()[:16]
+    assert "ui33-runtime-patch.js" not in index
+    assert not (ROOT / "ui" / "dist" / "assets" / "ui33-runtime-patch.js").exists()
+    patch_position = index.index(match.group(0))
     main_position = index.index('type="module"')
     assert patch_position < main_position
+
+
+def test_runtime_patch_build_uses_content_hash_cache_busting():
+    finalizer = FINALIZER.read_text(encoding="utf-8")
+
+    assert "createHash('sha256')" in finalizer
+    assert "ui33-runtime-patch-${patchHash}.js" in finalizer
+    assert "const distPatch = path.join(assetsDir, 'ui33-runtime-patch.js')" not in finalizer
+    assert 'src="./assets/ui33-runtime-patch.js"' not in finalizer
 
 
 def test_reading_position_is_local_bounded_throttled_and_idle_persisted():
