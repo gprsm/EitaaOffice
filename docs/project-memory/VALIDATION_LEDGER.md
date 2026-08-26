@@ -1254,3 +1254,14 @@
 - package targeted attempt A بدون basetemp: سه test به نتیجه رسیدند و 12 setup error از `PermissionError` روی temp سراسری ویندوز رخ داد؛ product failure=false. retry با basetemp=`artifacts/stabilization/GITPUBLISH_package_retry_20260826`: `15/15 PASS`، exit0؛ full suite نیز همین 15 تست را پوشش داد.
 - package dry-run=282/content-set=`43c67c2e...`/write0؛ Release Manifest JSON=PASS و SHA=`e3a5b606f8f95910f80de93299d38884a8c7371aa1632e6e4517434096744a27`.
 - refresh، memory integrity، generated stale check و link check همگی PASS. اثر بیرونی فقط test temp کنترل‌شده و اسناد؛ GitHub/main هنوز تغییر نکرده‌اند.
+
+### V-154 — تجمیع بازیابی‌پذیر تاریخچه و ساخت commit تمیز
+
+- تاریخ: 2026-08-26
+- سطح: `TREE HASH CONTINUITY / SOFT RESET / CLEAN COMMIT / RELEASE BRANCH`
+- Run: `STAB-GIT-R01`
+- pre-reset tree=`5a7f4067fe4c0b5b0348a8c1d1fa9de79b400b7d`؛ reset نرم تا `a4df3ec...` و post-reset tree دقیقاً برابر بود. candidate=426 و unstaged tracked=0؛ local delete=0.
+- تاریخچهٔ چهار commit قبلی از backup ref=`codex/backup-pycharm-f4464ef` و رأس=`f4464ef8...` حفظ است.
+- commit تمیز=`fca3ea72c54c0b7226f4dbabc54b4684e1215513`، parent=`a4df3ecf2bcd4ab658c5361afdc287444694fcd2`، tree=`5a7f4067...` و subject=`chore(stabilization): complete G00-G09 offline acceptance`.
+- branch فعال=`codex/stabilization-g09` و tracked worktree clean است. GitHub push هنوز انجام نشده و main mutation=0.
+- رخداد ابزار: `rev-parse HEAD^{tree}` در PowerShell با parser error صرفاً خواندنی رد شد؛ `git show -s --format=%T HEAD` retry موفق و hash را تأیید کرد؛ product/data impact=0.

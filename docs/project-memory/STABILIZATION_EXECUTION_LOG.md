@@ -3350,3 +3350,32 @@ push: 0
 approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
 output_summary: full Backend و UI سبز؛ خطای صرفاً محیطی temp در retry کنترل‌شده 15/15 بسته و با شناسهٔ مستقل ثبت شد.
 ```
+
+### STAB-GIT-R01-S06 — reset نرم، commit تمیز و شاخهٔ انتشار
+
+```yaml
+event_id: STAB-GIT-R01-S06
+event: RECOVERABLE_HISTORY_SQUASH_AND_CLEAN_COMMIT
+started_at: 2026-08-26T22:40:30+03:30
+ended_at: 2026-08-26T22:43:45.4064736+03:30
+goal_id: GIT-PUBLISH
+run_id: STAB-GIT-R01
+state_before: PRECOMMIT_VALIDATION_GREEN_COMMIT_PENDING
+state_after: CLEAN_COMMIT_CREATED_RELEASE_BRANCH_ACTIVE_PUSH_PENDING
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_MUTATION
+cwd: <project-root>
+backup_ref: {name: codex/backup-pycharm-f4464ef, commit: f4464ef8bc971462ffdc61c82d0b158a1d3f3660, preserved: true}
+github_base: a4df3ecf2bcd4ab658c5361afdc287444694fcd2
+tree_continuity: {before_soft_reset: 5a7f4067fe4c0b5b0348a8c1d1fa9de79b400b7d, after_soft_reset: 5a7f4067fe4c0b5b0348a8c1d1fa9de79b400b7d, equal: true}
+reset: {mode: soft, local_delete: 0, hard_reset: false}
+clean_commit: {hash: fca3ea72c54c0b7226f4dbabc54b4684e1215513, parent: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, tree: 5a7f4067fe4c0b5b0348a8c1d1fa9de79b400b7d, files: 426, subject: "chore(stabilization): complete G00-G09 offline acceptance"}
+release_branch: codex/stabilization-g09
+tool_events:
+  - {attempt_id: STAB-GIT-R01-S06-A01, scope: tree_lookup_with_braces_in_powershell, result: POWERSHELL_PARSE_ERROR, state_change: 0, product_failure: false}
+  - {attempt_id: STAB-GIT-R01-S06-A02, retry_of: STAB-GIT-R01-S06-A01, scope: tree_lookup_via_git_show_format, result: PASS, tree: 5a7f4067fe4c0b5b0348a8c1d1fa9de79b400b7d}
+main_branch_mutation: 0
+push: 0
+approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
+output_summary: چهار commit در یک commit تمیز با tree یکسان تجمیع؛ backup کامل و شاخهٔ انتشار مستقل حفظ شد.
+```

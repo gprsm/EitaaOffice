@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-26  
 Run: `STAB-GIT-R01`  
-وضعیت: `IN_PROGRESS / INDEX_CLEAN / COMMIT_AND_PUSH_PENDING`
+وضعیت: `IN_PROGRESS / CLEAN_COMMIT_CREATED / PUSH_PENDING`
 
 ## مجوز و هدف
 
@@ -60,3 +60,12 @@ Artifactهای canonical تازه `artifacts/stabilization/GITPUBLISH_release_fi
 - تست‌های بسته‌بندی در اجرای فرعی نخست به‌علت `PermissionError` پوشهٔ temp سراسری ویندوز پیش از اجرای testها متوقف شدند؛ این رخداد محصولی نبود. retry با basetemp داخل `artifacts/stabilization` برابر `15/15 PASS` شد و همین 15 تست در full suite نیز سبز بودند.
 - refresh اسناد، memory integrity، stale check، link check، JSON parse و package dry-run همگی PASS؛ dry-run همچنان 282 فایل و content-set=`43c67c2e...` است.
 - هیچ عملیات Live، Provider، Bale، ارسال پیام، دادهٔ عملیاتی یا تغییر `main` انجام نشد.
+
+## commit تمیز و حفاظت تاریخچه
+
+- snapshot پیش از reset نرم با tree=`5a7f4067fe4c0b5b0348a8c1d1fa9de79b400b7d` ثبت شد.
+- reset فقط `--soft` تا GitHub base=`a4df3ecf2bcd4ab658c5361afdc287444694fcd2` بود؛ tree پس از reset نیز دقیقاً `5a7f4067...` ماند و unstaged tracked file صفر بود.
+- چهار commit محلی قبلی همچنان از `codex/backup-pycharm-f4464ef` با رأس `f4464ef8...` قابل بازیابی‌اند؛ هیچ ref پشتیبان، لاگ یا فایل محلی حذف نشد.
+- commit تمیز=`fca3ea72c54c0b7226f4dbabc54b4684e1215513`، parent=`a4df3ec...`، message=`chore(stabilization): complete G00-G09 offline acceptance` و files=426 است.
+- شاخهٔ مستقل `codex/stabilization-g09` روی commit تمیز ساخته و فعال شد؛ `main` دست‌نخورده و push هنوز انجام نشده است.
+- lookup نخست tree با syntax دارای brace در PowerShell فقط با parser error شکست خورد؛ جایگزین فقط‌خواندنی `git show --format=%T` همان hash مورد انتظار را برگرداند و هیچ state تغییر نکرد.
