@@ -3404,3 +3404,31 @@ live_provider_or_operational_action: 0
 approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
 output_summary: شاخهٔ مستقل بدون force منتشر و hash آن زنده تأیید شد؛ main بدون تغییر باقی ماند.
 ```
+
+### STAB-GIT-R01-S08 — verify دوم و closure مستند انتشار
+
+```yaml
+event_id: STAB-GIT-R01-S08
+event: FINAL_DOCUMENTATION_PUSH_VERIFY_AND_GIT_PUBLICATION_CLOSURE
+started_at: 2026-08-26T22:46:30+03:30
+ended_at: 2026-08-26T22:48:46.4453207+03:30
+goal_id: GIT-PUBLISH
+run_id: STAB-GIT-R01
+state_before: REMOTE_BRANCH_PUSH_VERIFIED_FINAL_LOG_COMMIT_PENDING
+state_after: COMPLETE_PUSH_VERIFIED_MAIN_UNCHANGED
+actor: codex
+action_kind: USER_AUTHORIZED_GITHUB_BRANCH_PUSH_AND_READ_VERIFY
+cwd: <project-root>
+documentation_commit: {hash: 1f0f546b7532c5d856f82552f1abd69f8e337a10, subject: "docs(git): record GitHub push verification"}
+push: {branch: codex/stabilization-g09, force: false, result: PASS, exit_code: 0}
+live_verify: {release_branch: 1f0f546b7532c5d856f82552f1abd69f8e337a10, main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true, main_unchanged: true}
+tracking: {remote: origin, merge: refs/heads/codex/stabilization-g09, status_clean_and_synchronized: true}
+tool_events:
+  - {attempt_id: STAB-GIT-R01-S08-A01, scope: upstream_lookup_with_at_brace_shorthand, result: POWERSHELL_PARSE_ERROR, state_change: 0, product_failure: false}
+  - {attempt_id: STAB-GIT-R01-S08-A02, retry_of: STAB-GIT-R01-S08-A01, scope: upstream_lookup_via_config_and_status, result: PASS}
+backup_ref_preserved: {name: codex/backup-pycharm-f4464ef, commit: f4464ef8bc971462ffdc61c82d0b158a1d3f3660}
+final_closure_commit_requires_normal_push: true
+live_provider_or_operational_action: 0
+approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
+output_summary: push دوم و tracking تأیید، main ثابت و Run کامل شد؛ hash commit closure پس از push نهایی در تحویل گفتگو ثبت می‌شود.
+```

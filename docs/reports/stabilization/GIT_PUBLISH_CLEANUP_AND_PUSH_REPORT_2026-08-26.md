@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-26  
 Run: `STAB-GIT-R01`  
-وضعیت: `PUSH_VERIFIED / FINAL_LOG_COMMIT_PENDING`
+وضعیت: `COMPLETE / PUSH_VERIFIED / MAIN_UNCHANGED`
 
 ## مجوز و هدف
 
@@ -77,3 +77,11 @@ Artifactهای canonical تازه `artifacts/stabilization/GITPUBLISH_release_fi
 - فقط `codex/stabilization-g09` push و upstream همان شاخه تنظیم شد؛ push موفق بود و GitHub لینک ساخت Pull Request را برگرداند.
 - post-push live check: remote branch=`66f7beaca6a2cd0a67c54ec5705dcf5c381a8e9f` و main همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` است.
 - این بخش در commit مستندی پس از push ثبت می‌شود و سپس همان شاخه یک بار دیگر push/verify خواهد شد؛ hash نهایی remote به‌علت همین commit مستندی متأخر با مقدار بالا متفاوت خواهد بود و در خروجی closure گزارش می‌شود. هیچ force-push یا تغییر main انجام نمی‌شود.
+
+## closure انتشار
+
+- commit ثبت نتیجهٔ push=`1f0f546b7532c5d856f82552f1abd69f8e337a10` به‌صورت push عادی منتشر و live remote روی همان hash تأیید شد؛ main همچنان `a4df3ec...` بود.
+- tracking محلی به‌طور مستقل از config تأیید شد: remote=`origin` و merge ref=`refs/heads/codex/stabilization-g09`؛ tracked worktree clean است.
+- lookup اختیاری upstream با shorthand=`@{u}` به‌علت PowerShell hash-literal parser error بدون state change رد شد؛ retry از config و status موفق بود.
+- نتیجهٔ Run: cleanup، backup، archive reconciliation، full validation، commit تمیز، push و verify کامل است. شاخهٔ backup محلی حفظ شده، artifactهای تاریخی حذف نشده‌اند، main تغییر نکرده و هیچ force-push انجام نشده است.
+- commit همین closure پس از کنترل اسناد روی همان شاخه push می‌شود؛ hash نهایی آن در تحویل کاربر اعلام خواهد شد تا خودارجاعی hash داخل commit ایجاد نشود.

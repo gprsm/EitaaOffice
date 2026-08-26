@@ -1275,3 +1275,13 @@
 - pre-push: main=`a4df3ec...` و `codex/stabilization-g09` absent. push فقط شاخهٔ نام‌برده موفق و upstream تنظیم شد؛ force=false و main refspec ارسال نشد.
 - post-push: branch remote=`66f7beaca6a2cd0a67c54ec5705dcf5c381a8e9f` و main remote همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2`؛ نتیجه=`PASS / MAIN_UNCHANGED`.
 - یک commit مستندی متأخر برای نگهداری همین شاهد لازم است؛ پس از آن push عادی و verify نهایی روی همان branch انجام می‌شود. عملیات Provider/Live/data/Bale=0.
+
+### V-156 — verify دوم، tracking و closure انتشار Git
+
+- تاریخ: 2026-08-26
+- سطح: `POST-DOCUMENTATION PUSH / REMOTE VERIFY / TRACKING / CLOSURE`
+- Run: `STAB-GIT-R01`
+- commit مستندی=`1f0f546b7532c5d856f82552f1abd69f8e337a10` با push عادی منتشر شد؛ live remote branch دقیقاً همان hash و main همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` بود.
+- tracking config: remote=`origin` و merge=`refs/heads/codex/stabilization-g09`؛ status هیچ ahead/behind یا tracked worktree change نشان نداد.
+- shorthand اختیاری `@{u}` در PowerShell parser error داد؛ retry فقط‌خواندنی config/status PASS، state change=0 و product failure=false.
+- closure=`COMPLETE / PUSH_VERIFIED / MAIN_UNCHANGED / BACKUP_PRESERVED`. commit همین closure باید با push عادی منتشر و hash آن در handoff گفتگو verify شود؛ خودارجاعی hash داخل همان commit ممکن نیست.

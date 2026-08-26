@@ -11,6 +11,7 @@
 - کنترل پیش از commit سبز است: full Backend=`656/656`، TypeScript و Observability PASS، package retry کنترل‌شده=`15/15` و تمام کنترل‌های اسناد PASS؛ Ledger=`V-153`. commit و push هنوز pending‌اند.
 - commit تمیز `fca3ea72...` با parent مستقیم GitHub main و tree آزموده‌شده=`5a7f4067...` ساخته شد؛ backup کامل `f4464ef8...` باقی است و شاخهٔ فعال=`codex/stabilization-g09`. فقط push pending است؛ Ledger=`V-154`.
 - push اولیهٔ `codex/stabilization-g09` موفق و remote hash=`66f7beac...` شد؛ GitHub main همچنان `a4df3ec...` است. commit مستندی final و verify دوم باقی است؛ Ledger=`V-155`.
+- commit مستندی دوم=`1f0f546b...` push و live verify شد؛ tracking با origin برقرار، worktree tracked clean، main=`a4df3ec...` ثابت و Run انتشار Git بسته است. فقط commit همین closure با push عادی و اعلام hash در گفت‌وگو باقی می‌ماند؛ Ledger=`V-156`.
 
 ## closure فنی G-09-E — مرجع جاری
 
