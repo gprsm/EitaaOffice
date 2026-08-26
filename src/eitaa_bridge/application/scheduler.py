@@ -43,16 +43,17 @@ class _ScheduledTask:
 class EitaaOperationScheduler:
     """Serialize Eitaa calls with priority and delayed low-priority work."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, worker_name: str = "eitaa-operation-scheduler") -> None:
         self._condition = threading.Condition(threading.RLock())
         self._queue: list[_ScheduledTask] = []
         self._sequence = itertools.count()
         self._active_priority: int | None = None
         self._active_kind: str | None = None
         self._closed = False
+        self._worker_name = worker_name
         self._worker = threading.Thread(
             target=self._run,
-            name="eitaa-operation-scheduler",
+            name=worker_name,
             daemon=True,
         )
         self._worker.start()
@@ -113,16 +114,27 @@ class EitaaOperationScheduler:
                     continue
                 counts[task.kind] = counts.get(task.kind, 0) + 1
             return {
+                "worker_name": self._worker_name,
                 "active_kind": self._active_kind,
                 "active_priority": self._active_priority,
                 "queued_count": sum(counts.values()),
                 "queued_by_kind": counts,
             }
 
+    def is_worker_thread(self) -> bool:
+        return threading.current_thread() is self._worker
+
     def close(self) -> None:
         with self._condition:
+            if self._closed:
+                return
             self._closed = True
+            for task in self._queue:
+                task.future.cancel()
+            self._queue.clear()
             self._condition.notify_all()
+        if threading.current_thread() is not self._worker:
+            self._worker.join(timeout=5.0)
 
     def _pop_ready_task(self) -> _ScheduledTask | None:
         while self._queue:

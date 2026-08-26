@@ -9,6 +9,8 @@ from typing import Any
 
 from eitaa_core import Peer, PeerType
 
+from ..infrastructure.eitaa.sender_directory import current_sender_directory
+
 from .content_index import (
     DEFAULT_SCORE_THRESHOLD,
     IndexLabel,
@@ -40,6 +42,21 @@ def _text_hash(text: str) -> str:
     return hashlib.sha256(PersianNormalizer.normalize(text).encode("utf-8")).hexdigest()
 
 
+def _inject_sender_context(message: Any, text: str) -> str:
+    if message.from_peer and message.from_peer.type.value == "user":
+        store = current_sender_directory()
+        if store:
+            profiles = store.profiles([message.from_peer.id])
+            profile = profiles.get(message.from_peer.id)
+            if profile:
+                display_name = profile.get("display_name")
+                username = profile.get("username")
+                context = " ".join(filter(None, [display_name, username]))
+                if context:
+                    return f"{text}\n\n[sender: {context}]"
+    return text
+
+
 class LocalContentIndexService:
     """Build a transient model, index local messages and persist suggestions."""
 
@@ -68,9 +85,10 @@ class LocalContentIndexService:
                 message = bridge.core.messages.get(peer, message_id)
                 if message is None or not message.text.strip():
                     continue
+                injected_text = _inject_sender_context(message, message.text)
                 current = evidence.setdefault(
                     source_key,
-                    {"text": message.text, "positive": set(), "negative": set(), "source": "wordpress"},
+                    {"text": injected_text, "positive": set(), "negative": set(), "source": "wordpress"},
                 )
                 current["positive"].update(positive)
 
@@ -88,9 +106,10 @@ class LocalContentIndexService:
             message = bridge.core.messages.get(peer, message_id)
             if message is None or not message.text.strip():
                 continue
+            injected_text = _inject_sender_context(message, message.text)
             current = evidence.setdefault(
                 source_key,
-                {"text": message.text, "positive": set(), "negative": set(), "source": "feedback"},
+                {"text": injected_text, "positive": set(), "negative": set(), "source": "feedback"},
             )
             current["source"] = "feedback"
             if item["decision"] == "accept":
@@ -184,8 +203,9 @@ class LocalContentIndexService:
                 text = message.text.strip()
                 predictions = ()
                 if text:
+                    injected_text = _inject_sender_context(message, text)
                     summary["text_messages"] = int(summary["text_messages"]) + 1
-                    predictions = classifier.predict(text)
+                    predictions = classifier.predict(injected_text)
                 safe_predictions = [item.safe_summary() for item in predictions]
                 if safe_predictions:
                     summary["indexed_messages"] = int(summary["indexed_messages"]) + 1

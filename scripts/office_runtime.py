@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import hashlib
+import ipaddress
 import json
 import os
 import secrets
@@ -68,6 +69,36 @@ def read_json(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def desktop_deployment_bind(root: Path) -> tuple[str, int]:
+    """Resolve the desktop endpoint from installation Config without reading secrets."""
+
+    config_path = root / "bridge.json"
+    if not config_path.is_file():
+        return DEFAULT_HOST, DEFAULT_PORT
+    payload = read_json(config_path)
+    if payload is None:
+        raise RuntimeFailure("Desktop deployment configuration could not be read safely.")
+    selected = payload.get("deployment")
+    if selected is None:
+        return DEFAULT_HOST, DEFAULT_PORT
+    if not isinstance(selected, dict) or selected.get("mode") != "desktop_loopback":
+        raise RuntimeFailure("The Office launcher requires desktop_loopback deployment mode.")
+    bind = selected.get("bind")
+    if not isinstance(bind, dict):
+        raise RuntimeFailure("Desktop deployment bind configuration is incomplete.")
+    host = str(bind.get("host") or "").strip().lower()
+    port = bind.get("port")
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError as exc:
+        raise RuntimeFailure("Desktop deployment bind host is invalid.") from exc
+    if not address.is_loopback:
+        raise RuntimeFailure("Desktop deployment must remain on Loopback.")
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise RuntimeFailure("Desktop deployment bind port is invalid.")
+    return address.compressed, port
 
 
 def ensure_secret_file(path: Path, factory) -> str:
@@ -542,11 +573,28 @@ def http_json(
 
 
 class RuntimeController:
-    def __init__(self, root: Path, *, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> None:
+    def __init__(
+        self,
+        root: Path,
+        *,
+        host: str | None = None,
+        port: int | None = None,
+    ) -> None:
         self.root = root.expanduser().resolve()
-        self.host = host
-        self.port = port
-        self.base_url = f"http://{host}:{port}"
+        configured_host, configured_port = desktop_deployment_bind(self.root)
+        if host is not None and host != configured_host:
+            raise RuntimeFailure("Office host override does not match deployment Config.")
+        if port is not None and port != configured_port and (self.root / "bridge.json").is_file():
+            raise RuntimeFailure("Office port override does not match deployment Config.")
+        self.host = host or configured_host
+        self.port = port or configured_port
+        selected_address = ipaddress.ip_address(self.host)
+        rendered_host = (
+            f"[{selected_address.compressed}]"
+            if selected_address.version == 6
+            else selected_address.compressed
+        )
+        self.base_url = f"http://{rendered_host}:{self.port}"
         self.runtime = self.root / "runtime"
         self.logs = self.runtime / "logs"
         self.logs.mkdir(parents=True, exist_ok=True)
@@ -628,10 +676,6 @@ class RuntimeController:
             "eitaa_bridge.interfaces.http_api",
             "--config",
             str(self.root / "bridge.json"),
-            "--host",
-            self.host,
-            "--port",
-            str(self.port),
             "--ui-root",
             str(self.root / "ui" / "dist"),
             "--runtime-install-id",
@@ -974,8 +1018,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Own and control the lightweight Eitaa Bridge Office runtime.")
     parser.add_argument("action", choices=["launch", "stop", "prepare-install", "status"])
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--host", default=DEFAULT_HOST)
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--host")
+    parser.add_argument("--port", type=int)
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--allow-legacy-owned", action="store_true")
     return parser

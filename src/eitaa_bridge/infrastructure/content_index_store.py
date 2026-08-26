@@ -9,9 +9,10 @@ import sqlite3
 from typing import Iterable, Mapping, Sequence
 
 from ..errors import LocalContentIndexStoreError
+from .data_scope import DataScopeError, ProviderAccountScope
 
 
-CONTENT_INDEX_SCHEMA = 2
+CONTENT_INDEX_SCHEMA = 3
 
 
 def _now() -> str:
@@ -21,8 +22,14 @@ def _now() -> str:
 class SQLiteContentIndexStore:
     """Thread-safe-by-connection store that never contains raw message text."""
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        scope: ProviderAccountScope | None = None,
+    ) -> None:
         self.path = Path(path).expanduser().resolve()
+        self.scope = scope or ProviderAccountScope.legacy()
 
     def initialize(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,7 +103,14 @@ class SQLiteContentIndexStore:
                         );
                         CREATE INDEX idx_index_staging_job
                             ON index_staging_results(job_id, message_id);
-                        PRAGMA user_version = 2;
+                        CREATE TABLE content_index_scopes (
+                            scope_key TEXT PRIMARY KEY,
+                            provider TEXT NOT NULL,
+                            messenger_account_id TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            UNIQUE(provider,messenger_account_id)
+                        );
+                        PRAGMA user_version = 3;
                         COMMIT;
                         """
                     )
@@ -125,6 +139,11 @@ class SQLiteContentIndexStore:
                         COMMIT;
                         """
                     )
+                    self._upgrade_scope_schema(connection, source_version=2)
+                elif version == 2:
+                    self._backup_connection(connection, version=2)
+                    self._upgrade_scope_schema(connection, source_version=2)
+                self._register_scope(connection)
         except LocalContentIndexStoreError:
             raise
         except (OSError, sqlite3.Error) as exc:
@@ -151,6 +170,8 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 now = _now()
+                scoped_job_id = self._job_key(job_id)
+                scoped_site_key = self._site_key(site_key)
                 connection.executemany(
                     """
                     INSERT INTO index_staging_results (
@@ -165,8 +186,8 @@ class SQLiteContentIndexStore:
                     """,
                     [
                         (
-                            job_id,
-                            site_key,
+                            scoped_job_id,
+                            scoped_site_key,
                             peer_type,
                             peer_id,
                             int(row["message_id"]),
@@ -205,13 +226,15 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
+                scoped_job_id = self._job_key(job_id)
+                scoped_site_key = self._site_key(site_key)
                 staged = int(
                     connection.execute(
                         """
                         SELECT COUNT(*) FROM index_staging_results
                         WHERE job_id=? AND site_key=? AND peer_type=? AND peer_id=?
                         """,
-                        (job_id, site_key, peer_type, peer_id),
+                        (scoped_job_id, scoped_site_key, peer_type, peer_id),
                     ).fetchone()[0]
                 )
                 connection.execute(
@@ -219,7 +242,7 @@ class SQLiteContentIndexStore:
                     DELETE FROM index_results
                     WHERE site_key=? AND peer_type=? AND peer_id=?
                     """,
-                    (site_key, peer_type, peer_id),
+                    (scoped_site_key, peer_type, peer_id),
                 )
                 connection.execute(
                     """
@@ -232,10 +255,10 @@ class SQLiteContentIndexStore:
                     FROM index_staging_results
                     WHERE job_id=? AND site_key=? AND peer_type=? AND peer_id=?
                     """,
-                    (job_id, site_key, peer_type, peer_id),
+                    (scoped_job_id, scoped_site_key, peer_type, peer_id),
                 )
                 connection.execute(
-                    "DELETE FROM index_staging_results WHERE job_id=?", (job_id,)
+                    "DELETE FROM index_staging_results WHERE job_id=?", (scoped_job_id,)
                 )
                 connection.execute(
                     """
@@ -248,7 +271,7 @@ class SQLiteContentIndexStore:
                         model_version,
                         json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
                         _now(),
-                        job_id,
+                        scoped_job_id,
                     ),
                 )
                 connection.commit()
@@ -263,7 +286,8 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 connection.execute(
-                    "DELETE FROM index_staging_results WHERE job_id=?", (job_id,)
+                    "DELETE FROM index_staging_results WHERE job_id=?",
+                    (self._job_key(job_id),),
                 )
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
@@ -286,6 +310,7 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 now = _now()
+                scoped_site_key = self._site_key(site_key)
                 connection.executemany(
                     """
                     INSERT INTO index_results (
@@ -300,7 +325,7 @@ class SQLiteContentIndexStore:
                     """,
                     [
                         (
-                            site_key,
+                            scoped_site_key,
                             peer_type,
                             peer_id,
                             int(row["message_id"]),
@@ -335,6 +360,7 @@ class SQLiteContentIndexStore:
             raise ValueError("Content-index result limit must be between 1 and 50000.")
         try:
             with self._connect() as connection:
+                scoped_site_key = self._site_key(site_key)
                 rows = connection.execute(
                     """
                     SELECT message_id,text_hash,model_version,predictions_json,indexed_at
@@ -343,7 +369,7 @@ class SQLiteContentIndexStore:
                     ORDER BY message_id DESC
                     LIMIT ?
                     """,
-                    (site_key, peer_type, peer_id, limit),
+                    (scoped_site_key, peer_type, peer_id, limit),
                 ).fetchall()
             return tuple(
                 {
@@ -360,6 +386,51 @@ class SQLiteContentIndexStore:
                 "Content-index results could not be read.",
                 safe_context={"error_type": type(exc).__name__},
             ) from exc
+
+    def list_auto_index_targets(self) -> tuple[dict[str, object], ...]:
+        try:
+            with self._connect() as connection:
+                rows = connection.execute(
+                    """
+                    SELECT DISTINCT site_key, peer_type, peer_id
+                    FROM index_results
+                    WHERE peer_type != 'user'
+                    """
+                ).fetchall()
+            return tuple(
+                {
+                    "site_key": self.scope.strip("content-site", str(row["site_key"])),
+                    "peer_type": str(row["peer_type"]),
+                    "peer_id": int(row["peer_id"]),
+                }
+                for row in rows
+            )
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Content-index targets could not be read.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def get_latest_run_labels(
+        self, *, site_key: str, peer_type: str, peer_id: int
+    ) -> Sequence[Mapping[str, object]] | None:
+        try:
+            with self._connect() as connection:
+                row = connection.execute(
+                    """
+                    SELECT labels_json
+                    FROM index_runs
+                    WHERE site_key=? AND peer_type=? AND peer_id=?
+                    ORDER BY started_at DESC
+                    LIMIT 1
+                    """,
+                    (self._site_key(site_key), peer_type, peer_id),
+                ).fetchone()
+            if row is None:
+                return None
+            return list(json.loads(str(row["labels_json"])))
+        except (json.JSONDecodeError, sqlite3.Error):
+            return None
 
     def add_feedback(
         self,
@@ -380,7 +451,14 @@ class SQLiteContentIndexStore:
                         site_key,source_key,label_id,label_name,decision,created_at
                     ) VALUES (?,?,?,?,?,?)
                     """,
-                    (site_key, source_key, label_id, label_name, decision, _now()),
+                    (
+                        self._site_key(site_key),
+                        self._source_key(source_key),
+                        label_id,
+                        label_name,
+                        decision,
+                        _now(),
+                    ),
                 )
                 return int(cursor.lastrowid)
         except sqlite3.Error as exc:
@@ -405,9 +483,17 @@ class SQLiteContentIndexStore:
                     ORDER BY feedback_id {order}
                     LIMIT ?
                     """,
-                    (site_key, limit),
+                    (self._site_key(site_key), limit),
                 ).fetchall()
-            return tuple(dict(row) for row in rows)
+            return tuple(
+                {
+                    **dict(row),
+                    "source_key": self.scope.strip(
+                        "content-source", str(row["source_key"])
+                    ),
+                }
+                for row in rows
+            )
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
                 "Content-index feedback could not be read.",
@@ -434,8 +520,8 @@ class SQLiteContentIndexStore:
                     ) VALUES (?,?,?,?,?,?,?,?,?,NULL)
                     """,
                     (
-                        job_id,
-                        site_key,
+                        self._job_key(job_id),
+                        self._site_key(site_key),
                         peer_type,
                         peer_id,
                         "running",
@@ -472,7 +558,7 @@ class SQLiteContentIndexStore:
                         model_version,
                         json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
                         _now(),
-                        job_id,
+                        self._job_key(job_id),
                     ),
                 )
         except sqlite3.Error as exc:
@@ -506,3 +592,129 @@ class SQLiteContentIndexStore:
                     "backup_file_name": backup_path.name,
                 },
             ) from exc
+
+    def _upgrade_scope_schema(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        source_version: int,
+    ) -> None:
+        """Atomically namespace pre-Phase-8 rows to the opening account."""
+
+        if source_version != 2:
+            raise LocalContentIndexStoreError(
+                "The content-index scope migration source is unsupported.",
+                safe_context={"database_version": source_version},
+            )
+        site_prefix = self.scope.prefix("content-site")
+        source_prefix = self.scope.prefix("content-source")
+        job_prefix = self.scope.prefix("content-job")
+        try:
+            connection.execute("PRAGMA foreign_keys=OFF")
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                CREATE TABLE content_index_scopes (
+                    scope_key TEXT PRIMARY KEY,
+                    provider TEXT NOT NULL,
+                    messenger_account_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(provider,messenger_account_id)
+                )
+                """
+            )
+            for table in (
+                "index_results",
+                "index_feedback",
+                "index_runs",
+                "index_staging_results",
+            ):
+                connection.execute(
+                    f"UPDATE {table} SET site_key=? || site_key",
+                    (site_prefix,),
+                )
+            connection.execute(
+                "UPDATE index_feedback SET source_key=? || source_key",
+                (source_prefix,),
+            )
+            # Child rows are updated before the parent while FK checks are
+            # disabled; the complete transaction is validated after commit.
+            connection.execute(
+                "UPDATE index_staging_results SET job_id=? || job_id",
+                (job_prefix,),
+            )
+            connection.execute(
+                "UPDATE index_runs SET job_id=? || job_id",
+                (job_prefix,),
+            )
+            connection.execute(
+                """
+                INSERT INTO content_index_scopes(
+                    scope_key,provider,messenger_account_id,created_at
+                ) VALUES(?,?,?,?)
+                """,
+                (
+                    self.scope.scope_key,
+                    self.scope.provider,
+                    self.scope.messenger_account_id,
+                    _now(),
+                ),
+            )
+            connection.execute(f"PRAGMA user_version={CONTENT_INDEX_SCHEMA}")
+            connection.commit()
+        except sqlite3.Error:
+            connection.rollback()
+            raise
+        finally:
+            connection.execute("PRAGMA foreign_keys=ON")
+        violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise LocalContentIndexStoreError(
+                "The content-index scope migration violated repository integrity.",
+                safe_context={"violation_count": len(violations)},
+            )
+
+    def _register_scope(self, connection: sqlite3.Connection) -> None:
+        try:
+            connection.execute(
+                """
+                INSERT INTO content_index_scopes(
+                    scope_key,provider,messenger_account_id,created_at
+                ) VALUES(?,?,?,?)
+                ON CONFLICT(scope_key) DO NOTHING
+                """,
+                (
+                    self.scope.scope_key,
+                    self.scope.provider,
+                    self.scope.messenger_account_id,
+                    _now(),
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT provider,messenger_account_id
+                FROM content_index_scopes WHERE scope_key=?
+                """,
+                (self.scope.scope_key,),
+            ).fetchone()
+            if row is None or (
+                str(row["provider"]), str(row["messenger_account_id"])
+            ) != (self.scope.provider, self.scope.messenger_account_id):
+                raise DataScopeError(
+                    "The content-index scope registry is inconsistent.",
+                    code="content_index_scope_mismatch",
+                )
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "The content-index account scope could not be registered.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def _site_key(self, site_key: str) -> str:
+        return self.scope.key("content-site", str(site_key))
+
+    def _source_key(self, source_key: str) -> str:
+        return self.scope.key("content-source", str(source_key))
+
+    def _job_key(self, job_id: str) -> str:
+        return self.scope.key("content-job", str(job_id))

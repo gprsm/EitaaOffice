@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
 import atexit
 import base64
+import binascii
+from contextlib import contextmanager, nullcontext
+from contextvars import ContextVar
 import hmac
 import mimetypes
 import os
+import re
+import shutil
+import sqlite3
 import threading
 import time
+import unicodedata
 import uuid
 from datetime import datetime, timezone
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 from urllib.parse import parse_qs, urlsplit
 
 from eitaa_core import (
@@ -39,7 +47,7 @@ from eitaa_core import (
     save_peer_file,
 )
 
-from eitaa_core.errors import EitaaCoreError, RpcError
+from eitaa_core.errors import EitaaCoreError, NetworkError, RpcError
 
 from ..errors import (
     AuthenticationRuntimeError,
@@ -49,7 +57,13 @@ from ..errors import (
     CompositionCollisionError,
     CompositionValidationError,
     ContactDirectoryError,
+    CoordinatorAuthenticationError,
+    CoordinatorAuthorizationError,
+    CoordinatorAuthRateLimitError,
+    CoordinatorConflictError,
+    CoordinatorSchemaError,
     CredentialError,
+    EitaaRuntimeError,
     LocalContentIndexError,
     WordPressAuthenticationError,
     WordPressConnectionError,
@@ -57,27 +71,204 @@ from ..errors import (
 )
 from ..facade import EitaaBridge
 from ..infrastructure.composition_manifest import CompositionManifestLoader
-from ..infrastructure.content_index_store import SQLiteContentIndexStore
-from ..infrastructure.contact_store import SQLiteContactStore, normalize_phone
-from ..infrastructure.dialog_catalog import JsonDialogCatalog
-from ..infrastructure.eitaa.sender_directory import configure_sender_directory
-from ..infrastructure.config import BridgeConfigLoader, EnvLoader, WordPressSiteSettings
+from ..infrastructure.contact_store import (
+    ContactMutationContext,
+    SQLiteContactStore,
+    normalize_phone,
+)
+from ..infrastructure.config import (
+    BridgeConfigLoader,
+    DeploymentPortSettings,
+    EnvLoader,
+    WordPressSiteSettings,
+)
+from ..infrastructure.coordinator import (
+    AccountExecutionPolicyService,
+    AppAuthPolicy,
+    AuthorizedAppSession,
+    CoordinatorAppAuth,
+    CoordinatorDatabase,
+    IssuedAppSession,
+    PersistentOperationJobService,
+    ProviderOperationReceiptStore,
+    PhoneProtector,
+    SafeCoordinatorAuditService,
+    WindowsDpapiPhoneProtector,
+    classify_failure,
+    masked_phone,
+    validate_canonical_e164,
+)
 from ..infrastructure.diagnostics import (
     BridgeDiagnosticManager,
     RuntimeLogger,
+    catalog_payload,
+    enforce_runtime_log_retention,
+    observability_disk_health,
     prune_old_diagnostic_runs,
+)
+from ..providers.registry import default_provider_registry
+from ..providers.contracts import (
+    ProviderAccountContext,
+    ProviderContactMutationReceipt,
+    ProviderContactPage,
+    ProviderContactSummary,
+    ProviderContactUpsertRequest,
+    ProviderDialogPage,
+    ProviderDialogSummary,
+    ProviderMessagePage,
+    ProviderMessageSummary,
+    ProviderMediaReadReceipt,
+    ProviderMediaReadRequest,
+    ProviderPeerReference,
+    ProviderSendReceipt,
+    ProviderSendStatus,
+    ProviderSendTextRequest,
+    SensitiveProviderValue,
+)
+from ..providers.eitaa import (
+    EitaaCompatibilityOperations,
+    EitaaProviderApplicationAdapter,
 )
 from ..version import __version__
 from .content_index import DEFAULT_SCORE_THRESHOLD, IndexLabel
 from .content_index_service import LocalContentIndexService
 from .contact_import import map_contact_rows, parse_tabular
-from .scheduler import EitaaOperationScheduler, EitaaPriority
+from .account_auth import AccountAuthChallenge, LegacyAuthChallenge
+from .account_runtime import EitaaAccountRuntime, EitaaRuntimeRegistry
+from .process_runtime import EitaaProcessRuntime
+from .provider_adapter import provider_adapter_catalog
+from .provider_capabilities import (
+    ProviderCapabilityService,
+    provider_capability_for_route,
+)
+from .provider_orchestration import (
+    ProviderApplicationOrchestrator,
+    ProviderOperationActor,
+)
+from .scheduler import EitaaPriority
+
+
+_LOCALIZED_LOGIN_CODE_DIGITS = str.maketrans(
+    "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩",
+    "01234567890123456789",
+)
+_LOGIN_CODE_DIRECTION_MARKS = frozenset(
+    "\u200c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+)
+
+
+def _normalize_login_code(value: Any) -> str:
+    normalized = unicodedata.normalize("NFKC", str(value or ""))
+    translated = normalized.translate(_LOCALIZED_LOGIN_CODE_DIGITS)
+    return "".join(
+        character
+        for character in translated
+        if not character.isspace() and character not in _LOGIN_CODE_DIRECTION_MARKS
+    )
+
+
+def _provider_login_code_failure(error: RpcError) -> tuple[str, str, str, str]:
+    provider_text = str(getattr(error, "text", "") or "").upper()
+    if "PHONE_CODE_EXPIRED" in provider_text or "PHONE_CODE_HASH" in provider_text:
+        return (
+            "expired",
+            "provider_code_expired",
+            "auth_provider_code_expired",
+            "کد ورود منقضی شده است. یک کد تازه دریافت کنید.",
+        )
+    if "PHONE_CODE_INVALID" in provider_text or "PHONE_CODE_EMPTY" in provider_text:
+        return (
+            "invalid",
+            "provider_code_invalid",
+            "auth_provider_code_invalid",
+            "کد ورود صحیح نیست. کد تازهٔ ایتا را دوباره وارد کنید.",
+        )
+    if "FLOOD" in provider_text:
+        return (
+            "rate_limited",
+            "provider_code_rate_limited",
+            "auth_provider_code_rate_limited",
+            "تعداد تلاش‌ها زیاد بوده است. کمی بعد یک کد تازه دریافت کنید.",
+        )
+    return (
+        "rejected",
+        "provider_code_rejected",
+        "auth_provider_code_rejected",
+        "ایتا کد ورود را نپذیرفت. یک کد تازه دریافت و دوباره تلاش کنید.",
+    )
 
 
 @dataclass(slots=True, frozen=True)
 class ApiResponse:
     status: int
     payload: dict[str, Any]
+    headers: dict[str, str] = field(default_factory=dict)
+
+
+APP_USER_SESSION_COOKIE = "eitaa_bridge_app_session"
+_APP_USER_UPDATE_ROUTE = re.compile(
+    r"^/api/v2/app-users/(?P<app_user_id>[0-9a-fA-F-]{36})/update$"
+)
+_APP_USER_REVOKE_SESSIONS_ROUTE = re.compile(
+    r"^/api/v2/app-users/(?P<app_user_id>[0-9a-fA-F-]{36})/revoke-sessions$"
+)
+_PHONE_ACCOUNT_MEMBERSHIPS_ROUTE = re.compile(
+    r"^/api/v2/phone-accounts/(?P<phone_account_id>[0-9a-fA-F-]{36})/memberships$"
+)
+_APP_INTEGRATION_UPDATE_ROUTE = re.compile(
+    r"^/api/v2/app-integrations/(?P<integration_id>[0-9a-fA-F-]{36})/update$"
+)
+_APP_SESSION_REVOKE_ROUTE = re.compile(
+    r"^/api/v2/app-auth/sessions/(?P<session_id>[0-9a-fA-F-]{36})/revoke$"
+)
+_MESSENGER_ACCOUNT_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})$"
+)
+_MESSENGER_ACCOUNT_CAPABILITIES_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/capabilities$"
+)
+_MESSENGER_ACCOUNT_WORKER_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/worker/(?P<action>start|stop)$"
+)
+_MESSENGER_ACCOUNT_DIALOG_QUERY_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/dialogs/query$"
+)
+_MESSENGER_ACCOUNT_HISTORY_QUERY_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/history/query$"
+)
+_MESSENGER_ACCOUNT_SEND_TEXT_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/messages/send-text$"
+)
+_MESSENGER_ACCOUNT_MEDIA_READ_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/media/read$"
+)
+_MESSENGER_ACCOUNT_CONTACT_QUERY_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/contacts/query$"
+)
+_MESSENGER_ACCOUNT_CONTACT_UPSERT_ROUTE = re.compile(
+    r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/contacts/upsert$"
+)
+_SAFE_LOG_ROUTE_SEGMENT = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+_SAFE_CLIENT_ERROR_TYPE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,80}$")
+_CLIENT_DIAGNOSTIC_EVENTS = frozenset(
+    {
+        "renderer_render_error",
+        "renderer_unhandled_error",
+        "renderer_unhandled_rejection",
+    }
+)
+
+
+def _safe_log_path(path: str) -> str:
+    """Keep route shape while excluding identifiers or attacker-supplied secrets."""
+
+    segments: list[str] = []
+    for segment in str(path or "/").split("/"):
+        if not segment:
+            continue
+        lowered = segment.lower()
+        segments.append(lowered if _SAFE_LOG_ROUTE_SEGMENT.fullmatch(lowered) else "{redacted}")
+    return "/" + "/".join(segments)
 
 
 class BridgeApplicationApi:
@@ -96,111 +287,739 @@ class BridgeApplicationApi:
         *,
         env_file: str | Path | None = None,
         bearer_token: str | None = None,
+        phone_protector: PhoneProtector | None = None,
     ) -> None:
         self.config_path = Path(config_path).expanduser().resolve()
         self.env_file = Path(env_file).expanduser().resolve() if env_file else None
         config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
+        self.config = config
         EnvLoader.load(config.env_file)
         configured_token = bearer_token if bearer_token is not None else os.getenv("EITAA_BRIDGE_API_TOKEN")
         self.bearer_token = configured_token.strip() if configured_token and configured_token.strip() else None
         self.base_directory = config.source_file.parent
-        self._diagnostics = BridgeDiagnosticManager(
+        self._provider_registry = default_provider_registry()
+        coordinator_database = (
+            self.base_directory / "data" / "coordinator" / "coordinator.sqlite3"
+        )
+        self.app_user_auth_enabled = config.features.app_user_auth.enabled
+        self.app_user_self_registration_enabled = bool(
+            self.app_user_auth_enabled
+            and config.features.app_user_auth.self_registration_enabled
+            and config.deployment.mode in {"desktop_loopback", "trusted_lan_http"}
+        )
+        self._app_auth: CoordinatorAppAuth | None = None
+        clean_install_bootstrap = False
+        if self.app_user_auth_enabled:
+            coordinator_store = CoordinatorDatabase(coordinator_database)
+            coordinator_store.initialize()
+            coordinator_counts = coordinator_store.safe_summary()["counts"]
+            clean_install_bootstrap = all(
+                int(coordinator_counts[key]) == 0
+                for key in ("app_users", "phone_accounts", "messenger_accounts")
+            )
+            policy = config.features.app_user_auth
+            app_auth_kwargs: dict[str, object] = {
+                "policy": AppAuthPolicy(
+                    idle_timeout_minutes=policy.idle_timeout_minutes,
+                    absolute_timeout_hours=policy.absolute_timeout_hours,
+                    max_failed_attempts=policy.max_failed_attempts,
+                    lockout_minutes=policy.lockout_minutes,
+                )
+            }
+            if phone_protector is not None:
+                app_auth_kwargs["phone_protector"] = phone_protector
+            self._app_auth = CoordinatorAppAuth(
+                coordinator_database,
+                **app_auth_kwargs,
+            )
+            self._app_auth.initialize()
+        self._application_diagnostics = BridgeDiagnosticManager(
             config.diagnostics.root, enabled=config.diagnostics.enabled
         )
-        self._runtime_logger = RuntimeLogger(
-            self.base_directory / "runtime" / "logs" / "application.jsonl"
+        self._application_logger = RuntimeLogger(
+            self.base_directory / "runtime" / "logs" / "application.jsonl",
+            source="application",
         )
-        self._media_cache_lock = threading.RLock()
-        self._media_cache_files: dict[str, tuple[Path, str, float]] = {}
-        self._avatar_source_cache_lock = threading.RLock()
-        self._avatar_source_cache: dict[str, tuple[float, dict[str, tuple[Any, Any]]]] = {}
-        self._avatar_source_cache_ttl_seconds = 300.0
+        runtime_registry: EitaaRuntimeRegistry | None = None
+        try:
+            runtime_registry = EitaaRuntimeRegistry(
+                config,
+                application_diagnostics=self._application_diagnostics,
+                application_logger=self._application_logger,
+                coordinator_database=coordinator_database,
+                allow_empty_bootstrap=clean_install_bootstrap,
+            )
+            if config.features.multi_session.enabled:
+                if clean_install_bootstrap:
+                    selected_runtime = runtime_registry.legacy_runtime
+                else:
+                    try:
+                        selected_runtime = runtime_registry.resolve_v1()
+                    except EitaaRuntimeError as exc:
+                        if exc.code != "eitaa_runtime_account_not_runnable":
+                            raise
+                        if config.features.worker_process.enabled:
+                            raise
+                        selected_runtime = runtime_registry.legacy_runtime
+            else:
+                selected_runtime = runtime_registry.legacy_runtime
+        except Exception as exc:
+            if runtime_registry is not None:
+                runtime_registry.close()
+            self._application_logger.emit(
+                "application_start_failed",
+                level="error",
+                reason_code="application_runtime_initialization_failed",
+                fields={"error_type": type(exc).__name__},
+            )
+            self._application_logger.close()
+            raise
+        self._runtime_registry = runtime_registry
+        self._coordinator: CoordinatorDatabase | None = None
+        self._persistent_job_service: PersistentOperationJobService | None = None
+        self._execution_policy: AccountExecutionPolicyService | None = None
+        self._coordinator_audit: SafeCoordinatorAuditService | None = None
+        self._provider_capability_service: ProviderCapabilityService | None = None
+        self._provider_receipt_store: ProviderOperationReceiptStore | None = None
+        self._persistent_job_worker_id = str(uuid.uuid4())
+        self._persistent_job_lease_lock = threading.RLock()
+        self._persistent_job_lease_stops: dict[str, threading.Event] = {}
+        if coordinator_database.is_file():
+            self._coordinator = CoordinatorDatabase(coordinator_database)
+            provider_reconciliation = self._coordinator.reconcile_provider_registrations(
+                self._provider_registry.persistence_catalog()
+            )
+            if provider_reconciliation["created"] or provider_reconciliation["updated"]:
+                self._application_logger.emit(
+                    "provider_registry_reconciled",
+                    result="succeeded",
+                    fields=provider_reconciliation,
+                )
+            self._provider_capability_service = ProviderCapabilityService(
+                self._coordinator,
+                self._provider_registry,
+            )
+            self._coordinator.reconcile_wordpress_integrations(
+                [
+                    {
+                        "integration_key": site.site_key,
+                        "display_name": f"WordPress ({site.site_key})",
+                    }
+                    for site in config.wordpress_sites
+                ]
+            )
+            self._persistent_job_service = PersistentOperationJobService(
+                self._coordinator
+            )
+            self._provider_receipt_store = ProviderOperationReceiptStore(
+                self._coordinator
+            )
+            self._execution_policy = AccountExecutionPolicyService(
+                self._coordinator
+            )
+            self._coordinator_audit = SafeCoordinatorAuditService(
+                self._coordinator
+            )
+            recovery = self._persistent_job_service.recover_expired_jobs()
+            if any(recovery.safe_summary().values()):
+                self._application_logger.emit(
+                    "persistent_jobs_recovered", fields=recovery.safe_summary()
+                )
+        self._request_runtime: ContextVar[
+            EitaaAccountRuntime | EitaaProcessRuntime | None
+        ] = ContextVar(
+            f"eitaa_bridge_request_runtime_{id(self)}",
+            default=None,
+        )
+        self._request_actor_app_user_id: ContextVar[str | None] = ContextVar(
+            f"eitaa_bridge_request_actor_{id(self)}",
+            default=None,
+        )
+        self._request_actor_global_role: ContextVar[str | None] = ContextVar(
+            f"eitaa_bridge_request_actor_role_{id(self)}",
+            default=None,
+        )
+        self._provider_operation_site_key: ContextVar[str | None] = ContextVar(
+            f"eitaa_bridge_provider_operation_site_{id(self)}",
+            default=None,
+        )
+        eitaa_provider = self._provider_registry.registration("eitaa").manifest.provider
+        self._provider_application_adapter_factories = {
+            eitaa_provider: self._create_eitaa_application_adapter,
+        }
+        self._provider_orchestrator = ProviderApplicationOrchestrator(
+            authorize_account=self._authorize_provider_operation_account,
+            resolve_account_context=self._provider_operation_account_context,
+            require_capability=lambda account_id, capability: (
+                self._require_provider_capability_service().require(
+                    account_id, capability
+                )
+            ),
+            resolve_adapter=self._resolve_provider_application_adapter,
+            logger=self._application_logger,
+            receipt_store=self._provider_receipt_store,
+        )
+        self._client_diagnostic_lock = threading.RLock()
+        self._client_diagnostic_windows: dict[str, list[float]] = {}
+        self._bind_runtime(selected_runtime)
+        self._media_token_scope_lock = threading.RLock()
+        self._media_token_accounts: dict[str, str | None] = {}
         threading.Thread(
             target=self._prune_diagnostics,
             name="bridge-diagnostics-prune",
             daemon=True,
         ).start()
-        self._auth_lock = threading.RLock()
-        # The HTTP adapter is threaded, but every Eitaa RPC shares one mutable
-        # session. A single priority scheduler serializes remote operations and
-        # lets active-message work outrank background discovery and read receipts.
-        self._eitaa_lock = threading.RLock()
-        self._scheduler = EitaaOperationScheduler()
-        self._jobs_lock = threading.RLock()
-        self._dialog_sync_jobs: dict[str, dict[str, Any]] = {}
-        self._active_dialog_sync_job: str | None = None
-        self._content_index_lock = threading.RLock()
-        self._content_index_jobs: dict[str, dict[str, Any]] = {}
-        self._content_index_active: dict[str, str] = {}
-        self._content_index_cancellations: dict[str, threading.Event] = {}
-        self._content_index_store = SQLiteContentIndexStore(
-            self.base_directory / "data" / "content_index.sqlite3"
+        self._application_logger.emit(
+            "content_auto_index_scheduler_skipped",
+            result="rejected",
+            reason_code="content_auto_index_scheduler_disabled_safe_default",
+            correlation_id=RuntimeLogger.correlation_id(),
+            fields={
+                "manual_index_available": True,
+                "mode": "disabled_safe_default",
+            },
         )
         self._contact_store = SQLiteContactStore(
             self.base_directory / "data" / "contacts.sqlite3"
         )
-        self._sender_directory = configure_sender_directory(
-            self.base_directory / "data" / "sender_directory.sqlite3"
+        self._contact_store.reconcile_provider_registrations(
+            self._provider_registry.persistence_catalog()
         )
-        self._contact_import_lock = threading.RLock()
-        self._contact_import_jobs: dict[str, dict[str, Any]] = {}
-        self._contact_import_cancellations: dict[str, threading.Event] = {}
-        # The server contact book is fetched through one serialized Eitaa RPC.
-        # Keep a short-lived, process-local safe-summary cache so UI paging and
-        # searches do not refetch or reserialize thousands of contacts.
-        self._eitaa_contacts_cache_lock = threading.RLock()
-        self._eitaa_contacts_cache: dict[str, tuple[float, tuple[dict[str, Any], ...], bool]] = {}
-        self._eitaa_contacts_cache_ttl_seconds = 300.0
-        self._background_tasks: dict[str, dict[str, Any]] = {}
-        self._read_queue_lock = threading.RLock()
-        self._pending_read_receipts: dict[str, dict[str, Any]] = {}
-        self._read_worker_active = False
-        self._read_receipt_delay_seconds = 3.0
-        self._auth_runtime: EitaaAuth | None = None
-        self._auth_challenge: Any | None = None
-        self.dialog_catalog = JsonDialogCatalog(
-            self.base_directory / "data" / "ui-peers" / "catalog.json",
-            base_directory=self.base_directory,
+        self._application_logger.emit(
+            "application_started",
+            result="succeeded",
+            fields={
+                "deployment_mode": self.config.deployment.mode,
+                "app_user_auth_enabled": self.app_user_auth_enabled,
+                "multi_session_enabled": self.config.features.multi_session.enabled,
+                "clean_install_bootstrap": clean_install_bootstrap,
+            },
         )
         atexit.register(self.close)
+
+    def _bind_runtime(
+        self,
+        runtime: EitaaAccountRuntime | EitaaProcessRuntime,
+    ) -> None:
+        """Bind API v1 compatibility fields to one explicit runtime owner."""
+
+        self._v1_runtime = runtime
+
+    @property
+    def _runtime(self) -> EitaaAccountRuntime | EitaaProcessRuntime:
+        selected = self._request_runtime.get()
+        return selected if selected is not None else self._v1_runtime
+
+    def _scoped_cache_key(self, namespace: str, *parts: object) -> str:
+        return self._runtime.data_scope.key(namespace, *parts)
+
+    def __getattr__(self, name: str) -> Any:
+        runtime_fields = {
+            "_diagnostics": "diagnostics",
+            "_runtime_logger": "logger",
+            "_media_cache_lock": "media_cache_lock",
+            "_media_cache_files": "media_cache_files",
+            "_avatar_source_cache_lock": "avatar_source_cache_lock",
+            "_avatar_source_cache": "avatar_source_cache",
+            "_avatar_source_cache_ttl_seconds": "avatar_source_cache_ttl_seconds",
+            "_auth_lock": "auth_lock",
+            "_eitaa_lock": "eitaa_lock",
+            "_scheduler": "scheduler",
+            "_jobs_lock": "jobs_lock",
+            "_dialog_sync_jobs": "dialog_sync_jobs",
+            "_content_index_lock": "content_index_lock",
+            "_content_index_jobs": "content_index_jobs",
+            "_content_index_active": "content_index_active",
+            "_content_index_cancellations": "content_index_cancellations",
+            "_content_index_store": "content_index_store",
+            "_sender_directory": "sender_directory",
+            "_contact_import_lock": "contact_import_lock",
+            "_contact_import_jobs": "contact_import_jobs",
+            "_contact_import_cancellations": "contact_import_cancellations",
+            "_eitaa_contacts_cache_lock": "eitaa_contacts_cache_lock",
+            "_eitaa_contacts_cache": "eitaa_contacts_cache",
+            "_eitaa_contacts_cache_ttl_seconds": "eitaa_contacts_cache_ttl_seconds",
+            "_background_tasks": "background_tasks",
+            "_read_queue_lock": "read_queue_lock",
+            "_pending_read_receipts": "pending_read_receipts",
+            "_read_receipt_delay_seconds": "read_receipt_delay_seconds",
+            "dialog_catalog": "dialog_catalog",
+        }
+        selected = runtime_fields.get(name)
+        if selected is None:
+            raise AttributeError(name)
+        return getattr(self._runtime, selected)
+
+    @property
+    def upload_root(self) -> Path:
+        """Upload staging root owned by the v1-selected runtime."""
+
+        return self._runtime.upload_directory
+
+    @property
+    def _active_dialog_sync_job(self) -> str | None:
+        return self._runtime.active_dialog_sync_job
+
+    @_active_dialog_sync_job.setter
+    def _active_dialog_sync_job(self, value: str | None) -> None:
+        self._runtime.active_dialog_sync_job = value
+
+    @property
+    def _read_worker_active(self) -> bool:
+        return self._runtime.read_worker_active
+
+    @_read_worker_active.setter
+    def _read_worker_active(self, value: bool) -> None:
+        self._runtime.read_worker_active = value
+
+    @property
+    def _auth_runtime(self) -> EitaaAuth | None:
+        return self._runtime.auth_runtime
+
+    @_auth_runtime.setter
+    def _auth_runtime(self, value: EitaaAuth | None) -> None:
+        self._runtime.auth_runtime = value
+
+    @property
+    def _auth_challenge(self) -> Any | None:
+        return self._runtime.auth_challenge
+
+    @_auth_challenge.setter
+    def _auth_challenge(self, value: Any | None) -> None:
+        self._runtime.auth_challenge = value
 
     def register_media_cache_file(self, path: Path, mime_type: str) -> str:
         """Register a cached UI media file under an unguessable process-local token."""
         resolved = path.expanduser().resolve()
+        if self._runtime.ownership.account_data_directory is not None:
+            media_root = self._runtime.ownership.core.media_directory.resolve()
+            try:
+                resolved.relative_to(media_root)
+            except ValueError as exc:
+                raise CompositionValidationError(
+                    "The media cache file is outside the selected account.",
+                    code="api_media_cache_account_boundary",
+                ) from exc
         token = uuid.uuid4().hex
         with self._media_cache_lock:
             now = time.monotonic()
-            self._media_cache_files[token] = (resolved, mime_type, now)
+            self._media_cache_files[token] = (
+                resolved,
+                mime_type,
+                now,
+                self._runtime.data_scope.scope_key,
+            )
+            with self._media_token_scope_lock:
+                self._media_token_accounts[token] = (
+                    self._runtime.ownership.messenger_account_id
+                )
             if len(self._media_cache_files) > 256:
                 oldest = sorted(self._media_cache_files.items(), key=lambda item: item[1][2])[:64]
                 for key, _ in oldest:
                     self._media_cache_files.pop(key, None)
+                    with self._media_token_scope_lock:
+                        self._media_token_accounts.pop(key, None)
         return token
 
-    def resolve_media_cache_file(self, token: str) -> tuple[Path, str] | None:
+    def resolve_media_cache_file(
+        self,
+        token: str,
+        *,
+        messenger_account_id: str | None = None,
+    ) -> tuple[Path, str] | None:
+        context_token = None
+        selected_runtime: EitaaAccountRuntime | EitaaProcessRuntime | None = None
+        if messenger_account_id:
+            selected_runtime = self._runtime_registry.runtime_for_account(
+                messenger_account_id
+            )
+            context_token = self._request_runtime.set(selected_runtime)
         if len(token) != 32 or any(character not in "0123456789abcdef" for character in token):
+            if context_token is not None:
+                self._request_runtime.reset(context_token)
             return None
-        with self._media_cache_lock:
-            item = self._media_cache_files.get(token)
-            if item is None:
+        try:
+            if isinstance(selected_runtime, EitaaProcessRuntime):
                 return None
-            path, mime_type, _ = item
-            if not path.is_file():
-                self._media_cache_files.pop(token, None)
+            with self._media_cache_lock:
+                item = self._media_cache_files.get(token)
+                if item is None:
+                    return None
+                path, mime_type, _, stored_scope = item
+                if stored_scope != self._runtime.data_scope.scope_key:
+                    return None
+                if not path.is_file():
+                    self._media_cache_files.pop(token, None)
+                    with self._media_token_scope_lock:
+                        self._media_token_accounts.pop(token, None)
+                    return None
+                self._media_cache_files[token] = (
+                    path,
+                    mime_type,
+                    time.monotonic(),
+                    stored_scope,
+                )
+                return path, mime_type
+        finally:
+            if context_token is not None:
+                self._request_runtime.reset(context_token)
+
+    def read_remote_media_cache_chunk(
+        self,
+        token: str,
+        *,
+        messenger_account_id: str | None,
+        offset: int,
+        max_bytes: int = 192 * 1024,
+    ) -> tuple[bytes, str, int, int, bool] | None:
+        """Read one bounded child-owned media chunk without exposing its path."""
+
+        if (
+            not messenger_account_id
+            or not re.fullmatch(r"[0-9a-f]{32}", str(token or ""))
+            or isinstance(offset, bool)
+            or not isinstance(offset, int)
+            or offset < 0
+            or isinstance(max_bytes, bool)
+            or not isinstance(max_bytes, int)
+            or not 1 <= max_bytes <= 192 * 1024
+        ):
+            return None
+        runtime = self._runtime_registry.runtime_for_account(
+            messenger_account_id
+        )
+        if not isinstance(runtime, EitaaProcessRuntime):
+            return None
+        try:
+            payload = runtime.provider_operation_request(
+                "eitaa.provider.media.read_chunk",
+                {
+                    "cache_reference": f"cache:{token}",
+                    "offset": offset,
+                    "max_bytes": max_bytes,
+                },
+                timeout_seconds=30.0,
+            )
+        except EitaaRuntimeError as exc:
+            if exc.code in {
+                "provider_media_content_not_found",
+                "provider_media_content_reference_invalid",
+            }:
+                with self._media_token_scope_lock:
+                    self._media_token_accounts.pop(token, None)
                 return None
-            self._media_cache_files[token] = (path, mime_type, time.monotonic())
-            return path, mime_type
+            raise
+        try:
+            content_reference = str(payload.get("content_reference") or "")
+            mime_type = str(payload.get("mime_type") or "")
+            total = int(payload.get("total_bytes"))
+            returned_offset = int(payload.get("offset"))
+            next_offset = int(payload.get("next_offset"))
+            eof = payload.get("eof")
+            encoded = payload.get("data_base64")
+            if not isinstance(encoded, str) or not isinstance(eof, bool):
+                raise ValueError("shape")
+            data = base64.b64decode(encoded.encode("ascii"), validate=True)
+        except (TypeError, ValueError, UnicodeError, binascii.Error) as exc:
+            raise EitaaRuntimeError(
+                "The Eitaa Child media chunk result is invalid.",
+                code="eitaa_process_provider_result_invalid",
+            ) from exc
+        if (
+            content_reference != f"cache:{token}"
+            or not re.fullmatch(
+                r"[a-z0-9][a-z0-9.+-]{0,63}/[a-z0-9][a-z0-9.+-]{0,63}",
+                mime_type.lower(),
+            )
+            or not 0 <= total <= 512 * 1024 * 1024
+            or returned_offset != offset
+            or next_offset != offset + len(data)
+            or next_offset > total
+            or len(data) > max_bytes
+            or (not data and next_offset < total)
+            or eof != (next_offset >= total)
+        ):
+            raise EitaaRuntimeError(
+                "The Eitaa Child media chunk result is invalid.",
+                code="eitaa_process_provider_result_invalid",
+            )
+        return data, mime_type.lower(), total, next_offset, eof
+
+    def upload_root_for_account(self, messenger_account_id: str | None) -> Path:
+        if not messenger_account_id:
+            return self.upload_root
+        return self._runtime_registry.runtime_for_account(
+            messenger_account_id
+        ).upload_directory
 
     def _prune_diagnostics(self) -> None:
         result = prune_old_diagnostic_runs(
-            self._diagnostics.root,
-            protected_run_ids={self._diagnostics.run_id},
+            self._application_diagnostics.root,
+            protected_run_ids={self._application_diagnostics.run_id},
             keep_newest=50,
             max_age_days=30,
         )
         if result["removed"] or result["failed"]:
-            self._runtime_logger.emit("diagnostics_pruned", fields=result)
+            self._application_logger.emit("diagnostics_pruned", fields=result)
+        runtime_logs = enforce_runtime_log_retention(self.base_directory)
+        disk = observability_disk_health(self.base_directory)
+        degraded = bool(
+            result["failed"]
+            or runtime_logs["failed"]
+            or disk["status"] != "healthy"
+        )
+        self._application_logger.emit(
+            "observability_maintenance_completed",
+            level="warning" if degraded else "info",
+            result="degraded" if degraded else "succeeded",
+            reason_code="observability_maintenance_degraded" if degraded else None,
+            fields={"diagnostics": result, "runtime_logs": runtime_logs, "disk": disk},
+        )
 
+    def _runtime_bound_target(self, callback: Any) -> Any:
+        """Capture the current account for work that continues on another thread."""
+
+        runtime = self._runtime
+        correlation_id = RuntimeLogger.current_correlation_id()
+        actor_app_user_id = self._request_actor_app_user_id.get()
+        actor_global_role = self._request_actor_global_role.get()
+
+        def bound(*args: Any, **kwargs: Any) -> Any:
+            token = self._request_runtime.set(runtime)
+            actor_token = self._request_actor_app_user_id.set(actor_app_user_id)
+            role_token = self._request_actor_global_role.set(actor_global_role)
+            correlation_token = RuntimeLogger.bind_correlation_id(correlation_id)
+            try:
+                return callback(*args, **kwargs)
+            finally:
+                RuntimeLogger.reset_correlation_id(correlation_token)
+                self._request_actor_app_user_id.reset(actor_token)
+                self._request_actor_global_role.reset(role_token)
+                self._request_runtime.reset(token)
+
+        return bound
+
+    def _persistent_job_create(
+        self,
+        operation: str,
+        *,
+        recipient_ref_hashes: tuple[str, ...] = (),
+    ) -> str:
+        service = self._persistent_job_service
+        actor_id = self._request_actor_app_user_id.get()
+        actor_role = self._request_actor_global_role.get()
+        account_id = self._runtime.ownership.messenger_account_id
+        if service is None or not actor_id or not actor_role or not account_id:
+            return uuid.uuid4().hex
+        created = service.create_job(
+            actor_app_user_id=actor_id,
+            actor_global_role=actor_role,
+            messenger_account_id=account_id,
+            operation=operation,
+            idempotency_key=f"job:{uuid.uuid4().hex}",
+            safe_payload_ref=f"api:{operation}",
+            recipient_ref_hashes=recipient_ref_hashes,
+        )
+        return created.job.job_id
+
+    def _persistent_job_begin(self, job_id: str) -> None:
+        service = self._persistent_job_service
+        if service is None or len(job_id) != 36:
+            return
+        record = service.get_job(job_id)
+        if self._execution_policy is not None:
+            permit = self._execution_policy.acquire(
+                messenger_account_id=record.messenger_account_id,
+                operation_scope=record.operation,
+                claim_id=job_id,
+            )
+            if not permit.allowed:
+                raise EitaaRuntimeError(
+                    "The selected MessengerAccount operation is temporarily deferred.",
+                    code="account_execution_deferred",
+                    safe_context={
+                        "retry_after_ms": permit.retry_after_ms,
+                        "blocked_reason": permit.blocked_reason,
+                        "circuit_state": permit.circuit_state,
+                    },
+                )
+        service.lease_job(
+            job_id,
+            worker_id=self._persistent_job_worker_id,
+            worker_generation=1,
+            lease_seconds=300,
+        )
+        service.start_attempt(
+            job_id,
+            worker_id=self._persistent_job_worker_id,
+            worker_generation=1,
+        )
+        stop = threading.Event()
+        with self._persistent_job_lease_lock:
+            self._persistent_job_lease_stops[job_id] = stop
+
+        def renew() -> None:
+            while not stop.wait(90):
+                try:
+                    service.renew_lease(
+                        job_id,
+                        worker_id=self._persistent_job_worker_id,
+                        worker_generation=1,
+                        lease_seconds=300,
+                    )
+                except BridgeError as exc:
+                    self._application_logger.emit(
+                        "persistent_job_lease_renew_failed",
+                        level="error",
+                        fields={"job_id": job_id, "error_code": exc.code},
+                    )
+                    stop.set()
+                except Exception as exc:
+                    self._application_logger.emit(
+                        "persistent_job_lease_renew_failed",
+                        level="error",
+                        reason_code="persistent_job_lease_renew_unexpected_error",
+                        fields={"job_id": job_id, "error_type": type(exc).__name__},
+                    )
+                    stop.set()
+
+        threading.Thread(
+            target=renew,
+            name=f"persistent-job-lease-{job_id[:8]}",
+            daemon=True,
+        ).start()
+
+    def _persistent_job_finish(
+        self,
+        job_id: str,
+        *,
+        state: str,
+        error_code: str | None = None,
+    ) -> None:
+        service = self._persistent_job_service
+        if service is None or len(job_id) != 36:
+            return
+        with self._persistent_job_lease_lock:
+            stop = self._persistent_job_lease_stops.pop(job_id, None)
+        if stop is not None:
+            stop.set()
+        result = {
+            "completed": "succeeded",
+            "succeeded": "succeeded",
+            "cancelled": "cancelled",
+            "failed": "failed",
+        }.get(state, "uncertain")
+        selected_code = str(error_code or "").strip().lower()
+        if not re.fullmatch(r"[a-z][a-z0-9_.-]{0,80}", selected_code):
+            selected_code = "operation_failed" if result == "failed" else ""
+        try:
+            record = service.get_job(job_id)
+            if record.status != "running":
+                return
+            retry_after_ms = None
+            error_class = None
+            if result == "failed" and self._execution_policy is not None:
+                classified = classify_failure(selected_code or "operation_failed")
+                decision = self._execution_policy.record_failure(
+                    messenger_account_id=record.messenger_account_id,
+                    operation_scope=record.operation,
+                    claim_id=job_id,
+                    failure=classified,
+                )
+                retry_after_ms = decision.retry_after_ms
+                error_class = decision.error_class.value
+                selected_code = decision.error_code
+                result = decision.job_result
+            elif result == "uncertain" and self._execution_policy is not None:
+                classified = classify_failure(
+                    selected_code or "operation_effect_uncertain",
+                    effect_may_have_occurred=True,
+                )
+                decision = self._execution_policy.record_failure(
+                    messenger_account_id=record.messenger_account_id,
+                    operation_scope=record.operation,
+                    claim_id=job_id,
+                    failure=classified,
+                )
+                error_class = decision.error_class.value
+                selected_code = decision.error_code
+            service.complete_attempt(
+                job_id,
+                worker_id=self._persistent_job_worker_id,
+                worker_generation=1,
+                result=result,
+                error_class=error_class,
+                error_code=selected_code or None,
+                retry_after_ms=retry_after_ms,
+            )
+            if result == "succeeded" and self._execution_policy is not None:
+                self._execution_policy.record_success(
+                    messenger_account_id=record.messenger_account_id,
+                    operation_scope=record.operation,
+                    claim_id=job_id,
+                )
+        except BridgeError as exc:
+            self._application_logger.emit(
+                "persistent_job_completion_failed",
+                level="error",
+                fields={"job_id": job_id, "error_code": exc.code},
+            )
+
+    def _persistent_job_cancel(self, job_id: str) -> None:
+        service = self._persistent_job_service
+        actor_id = self._request_actor_app_user_id.get()
+        actor_role = self._request_actor_global_role.get()
+        if service is None or len(job_id) != 36 or not actor_id or not actor_role:
+            return
+        service.request_cancel(
+            job_id,
+            actor_app_user_id=actor_id,
+            actor_global_role=actor_role,
+        )
+
+    def _persistent_job_snapshot(
+        self,
+        job_id: str,
+        *,
+        kind: str,
+        identifier_field: str = "job_id",
+        state_field: str = "state",
+    ) -> dict[str, Any] | None:
+        service = self._persistent_job_service
+        if service is None or len(job_id) != 36:
+            return None
+        try:
+            record = service.get_job(job_id)
+        except BridgeError:
+            return None
+        if (
+            record.actor_app_user_id != self._request_actor_app_user_id.get()
+            or record.messenger_account_id
+            != self._runtime.ownership.messenger_account_id
+        ):
+            return None
+        state = {
+            "pending": "queued",
+            "leased": "queued",
+            "running": "running",
+            "succeeded": "completed",
+            "failed": "failed",
+            "cancelled": "cancelled",
+            "uncertain": "uncertain",
+        }[record.status]
+        return {
+            identifier_field: record.job_id,
+            "kind": kind,
+            state_field: state,
+            "persistent": True,
+            "attempt_count": record.attempt_count,
+            "cancel_requested": record.cancel_requested_at is not None,
+            "completed_at": record.completed_at,
+            "last_error_class": record.last_error_class,
+            "last_error_code": record.last_error_code,
+        }
+
+    @contextmanager
     def _open_bridge(
         self,
         config_path: str | Path,
@@ -209,36 +1028,74 @@ class BridgeApplicationApi:
         site_key: str | None = None,
         open_core: bool = False,
         wordpress_session: Any | None = None,
-    ) -> EitaaBridge:
+        runtime: EitaaAccountRuntime | EitaaProcessRuntime | None = None,
+    ) -> Iterator[EitaaBridge]:
+        selected_runtime = runtime or self._runtime
+        actor_app_user_id = self._request_actor_app_user_id.get()
+        if actor_app_user_id and self._coordinator is not None:
+            self._coordinator.require_app_integration_access(
+                app_user_id=actor_app_user_id,
+                integration_type="wordpress",
+                integration_key=site_key or self.config.default_site_key,
+                operation="use",
+            )
+        if isinstance(selected_runtime, EitaaProcessRuntime):
+            raise EitaaRuntimeError(
+                "This provider operation has not been migrated to a DTO-based Child RPC.",
+                code="eitaa_process_operation_ipc_required",
+            )
         # The shared Core owns a thread-affine SQLite connection.  Reuse it only
         # on the scheduler worker that created and serializes it; ordinary HTTP
         # request threads receive a short-lived owned Core instead.
         reuse_core = bool(
-            open_core and threading.current_thread().name == "eitaa-operation-scheduler"
+            open_core and selected_runtime.scheduler.is_worker_thread()
         )
-        return EitaaBridge.open(
-            config_path,
-            env_file=env_file,
-            site_key=site_key,
-            open_core=open_core,
-            wordpress_session=wordpress_session,
-            diagnostics=self._diagnostics,
-            reuse_core=reuse_core,
-        )
+        scope = selected_runtime.operation_scope() if open_core else nullcontext()
+        with scope:
+            opened = EitaaBridge.open(
+                config_path,
+                env_file=env_file,
+                site_key=site_key,
+                open_core=open_core,
+                wordpress_session=wordpress_session,
+                diagnostics=selected_runtime.diagnostics,
+                reuse_core=reuse_core,
+                core_config_override=selected_runtime.ownership.core,
+                data_scope=selected_runtime.data_scope,
+                actor_app_user_id=actor_app_user_id,
+            )
+            with opened as bridge:
+                yield bridge
 
     def close(self) -> None:
-        with self._content_index_lock:
-            for cancellation in self._content_index_cancellations.values():
-                cancellation.set()
-        with self._auth_lock:
-            if self._auth_runtime is not None:
-                try:
-                    self._auth_runtime.close()
-                except Exception:
-                    pass
-                self._auth_runtime = None
-        EitaaBridge.close_shared_cores()
-        self._runtime_logger.close()
+        self._application_logger.emit(
+            "application_stopping",
+            result="started",
+            fields={"reason_code": "application_close_requested"},
+        )
+        with self._persistent_job_lease_lock:
+            lease_stops = tuple(self._persistent_job_lease_stops.values())
+            self._persistent_job_lease_stops.clear()
+        for stop in lease_stops:
+            stop.set()
+        try:
+            self._runtime_registry.close()
+        except Exception as exc:
+            self._application_logger.emit(
+                "application_stop_failed",
+                level="error",
+                reason_code="application_runtime_close_failed",
+                fields={"error_type": type(exc).__name__},
+            )
+            raise
+        else:
+            self._application_logger.emit(
+                "application_stopped",
+                result="succeeded",
+                fields={"reason_code": "application_close_completed"},
+            )
+        finally:
+            self._application_logger.close()
 
     def dispatch(
         self,
@@ -247,32 +1104,81 @@ class BridgeApplicationApi:
         *,
         body: Mapping[str, Any] | None = None,
         authorization: str | None = None,
+        app_session_token: str | None = None,
+        csrf_token: str | None = None,
+        client_kind: str = "api",
+        client_address: str | None = None,
+        messenger_account_id: str | None = None,
+        correlation_id: str | None = None,
     ) -> ApiResponse:
         started = time.perf_counter()
-        request_id = self._runtime_logger.request_id()
+        request_id = self._application_logger.correlation_id(correlation_id)
         parsed = urlsplit(raw_path)
         path = parsed.path.rstrip("/") or "/"
         selected_method = method.upper().strip()
+        runtime_token = self._request_runtime.set(None)
+        actor_token = self._request_actor_app_user_id.set(None)
+        role_token = self._request_actor_global_role.set(None)
+        correlation_token = RuntimeLogger.bind_correlation_id(request_id)
         try:
             response = self._dispatch_inner(
-                method, raw_path, body=body, authorization=authorization
+                method,
+                raw_path,
+                body=body,
+                authorization=authorization,
+                app_session_token=app_session_token,
+                csrf_token=csrf_token,
+                client_kind=client_kind,
+                client_address=client_address,
+                request_id=request_id,
+                messenger_account_id=messenger_account_id,
             )
         except Exception as exc:
             response = self._error_response(exc)
-        error = response.payload.get("error") if isinstance(response.payload, dict) else None
-        self._runtime_logger.emit(
-            "api_request",
-            level="error" if response.status >= 500 else ("warning" if response.status >= 400 else "info"),
-            fields={
+        try:
+            error = response.payload.get("error") if isinstance(response.payload, dict) else None
+            selected_runtime = self._runtime
+            request_fields = {
                 "request_id": request_id,
                 "method": selected_method,
-                "path": path,
+                "path": _safe_log_path(path),
                 "status": response.status,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
                 "error_code": error.get("error_code") if isinstance(error, dict) else None,
-            },
-        )
-        return response
+                "messenger_account_id": selected_runtime.ownership.messenger_account_id,
+                "app_user_id": self._request_actor_app_user_id.get(),
+            }
+            level = "error" if response.status >= 500 else ("warning" if response.status >= 400 else "info")
+            result = "failed" if response.status >= 500 else ("rejected" if response.status >= 400 else "succeeded")
+            self._application_logger.emit(
+                "api_request",
+                level=level,
+                result=result,
+                reason_code=(
+                    str(request_fields["error_code"] or "api_request_failed")
+                    if response.status >= 400
+                    else None
+                ),
+                fields=request_fields,
+            )
+            if selected_runtime.logger is not self._application_logger:
+                selected_runtime.logger.emit(
+                    "account_api_request",
+                    level=level,
+                    result=result,
+                    reason_code=(
+                        str(request_fields["error_code"] or "api_request_failed")
+                        if response.status >= 400
+                        else None
+                    ),
+                    fields=request_fields,
+                )
+            return response
+        finally:
+            RuntimeLogger.reset_correlation_id(correlation_token)
+            self._request_actor_app_user_id.reset(actor_token)
+            self._request_actor_global_role.reset(role_token)
+            self._request_runtime.reset(runtime_token)
 
     def _dispatch_inner(
         self,
@@ -281,6 +1187,12 @@ class BridgeApplicationApi:
         *,
         body: Mapping[str, Any] | None = None,
         authorization: str | None = None,
+        app_session_token: str | None = None,
+        csrf_token: str | None = None,
+        client_kind: str = "api",
+        client_address: str | None = None,
+        request_id: str | None = None,
+        messenger_account_id: str | None = None,
     ) -> ApiResponse:
         try:
             self._authorize(authorization)
@@ -289,29 +1201,378 @@ class BridgeApplicationApi:
             path = parsed.path.rstrip("/") or "/"
             query = {key: values[-1] for key, values in parse_qs(parsed.query, keep_blank_values=True).items()}
             payload = dict(body or {})
+            forged_account_fields = self._untrusted_account_context_fields(
+                {"body": payload, "query": query}
+            )
+            if path.startswith("/api/v1/") and forged_account_fields:
+                raise CompositionValidationError(
+                    "Account context is selected by the authenticated server request only.",
+                    code=(
+                        "api_contact_target_account_not_trusted"
+                        if path.startswith("/api/v1/contacts/")
+                        else "api_account_context_not_writable"
+                    ),
+                    safe_context={"rejected_fields": sorted(forged_account_fields)},
+                )
 
             if selected_method == "GET" and path == "/api/v1/health":
                 return ApiResponse(200, self._health())
+            if selected_method == "GET" and path == "/api/v1/readiness":
+                return ApiResponse(200, self._readiness())
             if selected_method == "GET" and path == "/api/v1/schema":
                 return ApiResponse(200, self._schema())
+            if selected_method == "GET" and path == "/api/v2/app-auth/status":
+                return self._app_auth_status(
+                    app_session_token,
+                    request_id=request_id,
+                )
+            if selected_method == "POST" and path == "/api/v2/app-auth/setup":
+                return self._app_auth_setup(
+                    payload,
+                    client_kind=client_kind,
+                    request_id=request_id,
+                )
+            if selected_method == "POST" and path == "/api/v2/app-auth/login":
+                return self._app_auth_login(
+                    payload,
+                    client_kind=client_kind,
+                    client_address=(
+                        client_address
+                        if self.config.deployment.mode
+                        in {"trusted_lan_http", "web_reverse_proxy"}
+                        else None
+                    ),
+                    request_id=request_id,
+                )
+            if selected_method == "POST" and path == "/api/v2/app-auth/register":
+                return self._app_auth_register(
+                    payload,
+                    client_kind=client_kind,
+                    request_id=request_id,
+                )
+
+            app_session = None
+            if self.app_user_auth_enabled:
+                app_auth = self._require_app_auth_service()
+                app_session = app_auth.authorize(
+                    app_session_token,
+                    csrf_token=csrf_token,
+                    require_csrf=selected_method not in {"GET", "HEAD", "OPTIONS"},
+                    request_id=request_id,
+                )
+                self._request_actor_app_user_id.set(
+                    app_session.principal.app_user_id
+                )
+                self._request_actor_global_role.set(
+                    app_session.principal.global_role
+                )
+
+            if selected_method == "GET" and path == "/api/v2/app-auth/me":
+                return self._app_auth_me(app_session)
+            if selected_method == "GET" and path == "/api/v2/observability/events":
+                return ApiResponse(200, {"ok": True, "catalog": catalog_payload()})
+            if selected_method == "GET" and path == "/api/v2/observability/health":
+                return ApiResponse(200, self._observability_health())
+            if selected_method == "POST" and path == "/api/v2/client-diagnostics":
+                return self._client_diagnostics_report(
+                    app_session,
+                    payload,
+                    client_kind=client_kind,
+                    request_id=request_id,
+                )
+            if selected_method == "GET" and path == "/api/v2/audit":
+                return self._audit_query(app_session, query)
+            if selected_method == "POST" and path == "/api/v2/audit/export":
+                return self._audit_export(app_session, payload)
+            if selected_method == "POST" and path == "/api/v2/app-auth/logout":
+                return self._app_auth_logout(app_session, request_id=request_id)
+            if selected_method == "POST" and path == "/api/v2/app-auth/logout-all":
+                return self._app_auth_logout_all(app_session, request_id=request_id)
+            if selected_method == "GET" and path == "/api/v2/app-auth/sessions":
+                return self._app_auth_sessions_list(app_session)
+            session_revoke_match = _APP_SESSION_REVOKE_ROUTE.fullmatch(path)
+            if selected_method == "POST" and session_revoke_match:
+                return self._app_auth_session_revoke(
+                    app_session,
+                    session_revoke_match.group("session_id"),
+                    request_id=request_id,
+                )
+            if selected_method == "POST" and path == "/api/v2/app-auth/change-password":
+                return self._app_auth_change_password(
+                    app_session,
+                    payload,
+                    request_id=request_id,
+                )
+            if selected_method == "GET" and path == "/api/v2/app-users":
+                return self._app_users_list(app_session)
+            if selected_method == "POST" and path == "/api/v2/app-users":
+                return self._app_users_create(
+                    app_session,
+                    payload,
+                    request_id=request_id,
+                )
+            user_update_match = _APP_USER_UPDATE_ROUTE.fullmatch(path)
+            if selected_method == "POST" and user_update_match:
+                return self._app_users_update(
+                    app_session,
+                    user_update_match.group("app_user_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            user_revoke_match = _APP_USER_REVOKE_SESSIONS_ROUTE.fullmatch(path)
+            if selected_method == "POST" and user_revoke_match:
+                return self._app_users_revoke_sessions(
+                    app_session,
+                    user_revoke_match.group("app_user_id"),
+                    request_id=request_id,
+                )
+            if selected_method == "GET" and path == "/api/v2/phone-accounts":
+                return self._phone_accounts_list(app_session)
+            membership_match = _PHONE_ACCOUNT_MEMBERSHIPS_ROUTE.fullmatch(path)
+            if selected_method == "POST" and membership_match:
+                return self._phone_account_membership_update(
+                    app_session,
+                    membership_match.group("phone_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            if selected_method == "GET" and path == "/api/v2/app-integrations":
+                return self._app_integrations_list(app_session)
+            integration_match = _APP_INTEGRATION_UPDATE_ROUTE.fullmatch(path)
+            if selected_method == "POST" and integration_match:
+                return self._app_integration_update(
+                    app_session,
+                    integration_match.group("integration_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            if selected_method == "GET" and path == "/api/v2/messenger-accounts":
+                return self._messenger_accounts_list(app_session)
+            if selected_method == "POST" and path == "/api/v2/messenger-accounts":
+                return self._messenger_account_onboard(
+                    app_session,
+                    body or {},
+                    request_id=request_id,
+                )
+            account_match = _MESSENGER_ACCOUNT_ROUTE.fullmatch(path)
+            if selected_method == "GET" and account_match:
+                return self._messenger_account_status(
+                    app_session,
+                    account_match.group("messenger_account_id"),
+                )
+            capabilities_match = _MESSENGER_ACCOUNT_CAPABILITIES_ROUTE.fullmatch(path)
+            if selected_method == "GET" and capabilities_match:
+                return self._messenger_account_capabilities(
+                    app_session,
+                    capabilities_match.group("messenger_account_id"),
+                )
+            worker_match = _MESSENGER_ACCOUNT_WORKER_ROUTE.fullmatch(path)
+            if selected_method == "POST" and worker_match:
+                return self._messenger_account_worker_action(
+                    app_session,
+                    worker_match.group("messenger_account_id"),
+                    action=worker_match.group("action"),
+                    request_id=request_id,
+                )
+            dialog_query_match = _MESSENGER_ACCOUNT_DIALOG_QUERY_ROUTE.fullmatch(path)
+            if selected_method == "POST" and dialog_query_match:
+                return self._provider_dialog_query(
+                    app_session,
+                    dialog_query_match.group("messenger_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            history_query_match = _MESSENGER_ACCOUNT_HISTORY_QUERY_ROUTE.fullmatch(path)
+            if selected_method == "POST" and history_query_match:
+                return self._provider_history_query(
+                    app_session,
+                    history_query_match.group("messenger_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            send_text_match = _MESSENGER_ACCOUNT_SEND_TEXT_ROUTE.fullmatch(path)
+            if selected_method == "POST" and send_text_match:
+                return self._provider_send_text(
+                    app_session,
+                    send_text_match.group("messenger_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            media_read_match = _MESSENGER_ACCOUNT_MEDIA_READ_ROUTE.fullmatch(path)
+            if selected_method == "POST" and media_read_match:
+                return self._provider_media_read(
+                    app_session,
+                    media_read_match.group("messenger_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            contact_query_match = _MESSENGER_ACCOUNT_CONTACT_QUERY_ROUTE.fullmatch(path)
+            if selected_method == "POST" and contact_query_match:
+                return self._provider_contact_query(
+                    app_session,
+                    contact_query_match.group("messenger_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+            contact_upsert_match = _MESSENGER_ACCOUNT_CONTACT_UPSERT_ROUTE.fullmatch(path)
+            if selected_method == "POST" and contact_upsert_match:
+                return self._provider_contact_upsert(
+                    app_session,
+                    contact_upsert_match.group("messenger_account_id"),
+                    payload,
+                    request_id=request_id,
+                )
+
+            if path.startswith("/api/v1/"):
+                if self.config.features.multi_session.enabled:
+                    selected_account_id = (
+                        str(messenger_account_id or "").strip()
+                        or self.config.features.multi_session.legacy_default_messenger_account_id
+                    )
+                    if not selected_account_id:
+                        raise CoordinatorAuthorizationError(
+                            "Select a messaging account before using the workspace.",
+                            code="messenger_account_selection_required",
+                        )
+                    if app_session is not None:
+                        self._require_app_auth_service().require_messenger_account_access(
+                            app_session.principal,
+                            selected_account_id,
+                            operation="operate",
+                        )
+                    elif messenger_account_id:
+                        raise CoordinatorAuthenticationError(
+                            "AppUser authentication is required for account selection.",
+                            code="app_auth_required",
+                        )
+                    required_capability = provider_capability_for_route(
+                        selected_method, path
+                    )
+                    if required_capability is not None:
+                        try:
+                            self._require_provider_capability_service().require(
+                                selected_account_id,
+                                required_capability,
+                            )
+                        except BridgeError as exc:
+                            self._application_logger.emit(
+                                "provider_capability_check_rejected",
+                                level="warning",
+                                result="rejected",
+                                reason_code=exc.code,
+                                correlation_id=request_id,
+                                fields={
+                                    "messenger_account_id": selected_account_id,
+                                    "capability": required_capability.value,
+                                },
+                            )
+                            raise
+                    selected_runtime = self._runtime_registry.runtime_for_account(
+                        selected_account_id
+                    )
+                    self._request_runtime.set(selected_runtime)
+                    if (
+                        isinstance(selected_runtime, EitaaProcessRuntime)
+                        and not (
+                            selected_method == "GET"
+                            and path == "/api/v1/scheduler/status"
+                        )
+                    ):
+                        raise EitaaRuntimeError(
+                            "This API route has not been migrated to a DTO-based Child RPC.",
+                            code="eitaa_process_operation_ipc_required",
+                        )
+                else:
+                    if messenger_account_id:
+                        raise CoordinatorAuthorizationError(
+                            "Account selection is not enabled.",
+                            code="multi_session_account_selector_disabled",
+                        )
+                    if (
+                        app_session is not None
+                        and not self._require_app_auth_service().can_use_legacy_workspace(
+                            app_session.principal
+                        )
+                    ):
+                        raise CoordinatorAuthorizationError(
+                            "This AppUser has no messaging account access.",
+                            code="app_auth_legacy_workspace_forbidden",
+                        )
             if selected_method == "GET" and path == "/api/v1/scheduler/status":
                 return ApiResponse(200, {"ok": True, "scheduler": self._scheduler.snapshot()})
             if selected_method == "GET" and path == "/api/v1/auth/status":
-                return ApiResponse(200, self._auth_status())
+                return ApiResponse(
+                    200,
+                    self._auth_status(app_session=app_session, request_id=request_id),
+                )
             if selected_method == "POST" and path == "/api/v1/auth/request-code":
-                return ApiResponse(200, self._auth_request_code(payload))
+                return ApiResponse(
+                    200,
+                    self._auth_request_code(
+                        payload,
+                        app_session=app_session,
+                        request_id=request_id,
+                    ),
+                )
             if selected_method == "POST" and path == "/api/v1/auth/submit-code":
-                return ApiResponse(200, self._auth_submit_code(payload))
+                return ApiResponse(
+                    200,
+                    self._auth_submit_code(
+                        payload,
+                        app_session=app_session,
+                        request_id=request_id,
+                    ),
+                )
             if selected_method == "POST" and path == "/api/v1/auth/submit-password":
-                return ApiResponse(200, self._auth_submit_password(payload))
+                return ApiResponse(
+                    200,
+                    self._auth_submit_password(
+                        payload,
+                        app_session=app_session,
+                        request_id=request_id,
+                    ),
+                )
             if selected_method == "POST" and path == "/api/v1/auth/logout":
-                return ApiResponse(200, self._auth_logout())
+                return ApiResponse(
+                    200,
+                    self._auth_logout(app_session=app_session, request_id=request_id),
+                )
             if selected_method == "POST" and path == "/api/v1/auth/reset-local-session":
-                return ApiResponse(200, self._auth_reset_local_session(payload))
+                return ApiResponse(
+                    200,
+                    self._auth_reset_local_session(
+                        payload,
+                        app_session=app_session,
+                        request_id=request_id,
+                    ),
+                )
+            if selected_method == "POST" and path == "/api/v1/auth/recover-phone-identity":
+                return ApiResponse(
+                    200,
+                    self._auth_recover_phone_identity(
+                        payload,
+                        app_session=app_session,
+                        request_id=request_id,
+                    ),
+                )
             if selected_method == "GET" and path == "/api/v1/sites":
                 return ApiResponse(200, self._sites())
             if selected_method == "GET" and path == "/api/v1/settings/sites":
                 return ApiResponse(200, self._settings_sites())
+            if selected_method == "GET" and path == "/api/v2/settings/deployment":
+                return ApiResponse(
+                    200,
+                    self._settings_deployment(app_session=app_session),
+                )
+            if selected_method == "POST" and path == "/api/v2/settings/deployment/port":
+                return ApiResponse(
+                    200,
+                    self._settings_deployment_port_update(
+                        payload,
+                        app_session=app_session,
+                        request_id=request_id,
+                    ),
+                )
             if selected_method == "POST" and path == "/api/v1/settings/sites/upsert":
                 return ApiResponse(200, self._settings_site_upsert(payload))
             if selected_method == "POST" and path == "/api/v1/settings/sites/default":
@@ -334,6 +1595,8 @@ class BridgeApplicationApi:
                 return ApiResponse(200, self._wordpress_post(payload))
             if selected_method == "POST" and path == "/api/v1/dialogs/list":
                 return ApiResponse(200, self._dialogs_list(payload))
+            if selected_method == "POST" and path == "/api/v1/dialogs/live-sync":
+                return ApiResponse(200, self._dialogs_live_sync(payload))
             if selected_method == "POST" and path == "/api/v1/dialogs/sync":
                 return ApiResponse(200, self._dialogs_sync(payload))
             if selected_method == "POST" and path == "/api/v1/dialogs/sync/start":
@@ -432,8 +1695,12 @@ class BridgeApplicationApi:
                 return ApiResponse(200, self._eitaa_contacts_categorize(payload))
             if selected_method == "POST" and path == "/api/v1/eitaa-contacts/import-local/start":
                 return ApiResponse(202, self._eitaa_contacts_import_local_start(payload))
+            if selected_method == "POST" and path == "/api/v1/contacts/add-to-messenger/start":
+                return ApiResponse(202, self._contacts_add_to_messenger_start(payload))
             if selected_method == "POST" and path == "/api/v1/contacts/list":
                 return ApiResponse(200, self._contacts_list(payload))
+            if selected_method == "POST" and path == "/api/v1/contacts/audit":
+                return ApiResponse(200, self._contacts_audit(payload))
             if selected_method == "POST" and path == "/api/v1/contacts/upsert":
                 return ApiResponse(200, self._contacts_upsert(payload))
             if selected_method == "POST" and path == "/api/v1/contacts/archive":
@@ -483,6 +1750,2047 @@ class BridgeApplicationApi:
         except Exception as exc:  # centralized safe conversion for HTTP callers
             return self._error_response(exc)
 
+    def authorize_local_resource(
+        self,
+        method: str,
+        *,
+        authorization: str | None = None,
+        app_session_token: str | None = None,
+        csrf_token: str | None = None,
+        client_kind: str = "api",
+        messenger_account_id: str | None = None,
+    ) -> ApiResponse:
+        """Authorize uploads and cached media served outside JSON routing."""
+        try:
+            self._authorize(authorization)
+            if not self.app_user_auth_enabled:
+                if messenger_account_id:
+                    raise CoordinatorAuthorizationError(
+                        "Account selection is not enabled.",
+                        code="multi_session_account_selector_disabled",
+                    )
+                return ApiResponse(204, {"ok": True, "messenger_account_id": None})
+            session = self._require_app_auth_service().authorize(
+                app_session_token,
+                csrf_token=csrf_token,
+                require_csrf=method.upper().strip() not in {"GET", "HEAD", "OPTIONS"},
+            )
+            if self.config.features.multi_session.enabled:
+                selected_id = (
+                    str(messenger_account_id or "").strip()
+                    or self.config.features.multi_session.legacy_default_messenger_account_id
+                )
+                if not selected_id:
+                    raise CoordinatorAuthorizationError(
+                        "Select a messaging account before accessing local files.",
+                        code="messenger_account_selection_required",
+                    )
+                self._require_app_auth_service().require_messenger_account_access(
+                    session.principal,
+                    selected_id,
+                    operation="operate",
+                )
+                self._runtime_registry.runtime_for_account(selected_id)
+                return ApiResponse(
+                    204,
+                    {"ok": True, "messenger_account_id": selected_id},
+                )
+            if messenger_account_id:
+                raise CoordinatorAuthorizationError(
+                    "Account selection is not enabled.",
+                    code="multi_session_account_selector_disabled",
+                )
+            if not self._require_app_auth_service().can_use_legacy_workspace(
+                session.principal
+            ):
+                raise CoordinatorAuthorizationError(
+                    "This AppUser has no messaging account access.",
+                    code="app_auth_legacy_workspace_forbidden",
+                )
+            return ApiResponse(204, {"ok": True, "messenger_account_id": None})
+        except Exception as exc:
+            return self._error_response(exc)
+
+    def authorize_media_cache_token(
+        self,
+        token: str,
+        *,
+        authorization: str | None = None,
+        app_session_token: str | None = None,
+        client_kind: str = "api",
+    ) -> ApiResponse:
+        """Resolve account context from an opaque token, never from URL input."""
+
+        with self._media_token_scope_lock:
+            known = token in self._media_token_accounts
+            account_id = self._media_token_accounts.get(token)
+        if not known:
+            return ApiResponse(
+                404,
+                {
+                    "ok": False,
+                    "error": {
+                        "component": "api",
+                        "error_code": "api_media_cache_not_found",
+                        "message": "The media cache item was not found.",
+                        "safe_context": {},
+                        "debug_file": None,
+                    },
+                },
+            )
+        return self.authorize_local_resource(
+            "GET",
+            authorization=authorization,
+            app_session_token=app_session_token,
+            client_kind=client_kind,
+            messenger_account_id=account_id,
+        )
+
+    def _require_app_auth_service(self) -> CoordinatorAppAuth:
+        if not self.app_user_auth_enabled or self._app_auth is None:
+            raise CoordinatorAuthenticationError(
+                "ورود کاربران نرم‌افزار فعال نیست.",
+                code="app_auth_disabled",
+            )
+        return self._app_auth
+
+    def _require_coordinator_audit(self) -> SafeCoordinatorAuditService:
+        if self._coordinator_audit is None:
+            raise CoordinatorAuthorizationError(
+                "Coordinator audit is unavailable.", code="coordinator_audit_unavailable"
+            )
+        return self._coordinator_audit
+
+    def _require_coordinator(self) -> CoordinatorDatabase:
+        if self._coordinator is None:
+            raise CoordinatorAuthorizationError(
+                "Coordinator is unavailable.", code="coordinator_unavailable"
+            )
+        return self._coordinator
+
+    def _require_provider_capability_service(self) -> ProviderCapabilityService:
+        if self._provider_capability_service is None:
+            raise CoordinatorAuthorizationError(
+                "Provider capability service is unavailable.",
+                code="provider_capability_service_unavailable",
+            )
+        return self._provider_capability_service
+
+    def _authorize_provider_operation_account(
+        self,
+        actor: ProviderOperationActor,
+        messenger_account_id: str,
+        operation: str,
+    ) -> None:
+        coordinator = self._require_coordinator()
+        try:
+            coordinator.require_messenger_account_access(
+                messenger_account_id,
+                app_user_id=actor.app_user_id,
+                global_role=actor.global_role,
+                operation=operation,
+            )
+        except CoordinatorSchemaError as exc:
+            if exc.code in {
+                "messenger_account_access_denied",
+                "messenger_account_actor_inactive",
+            }:
+                raise CoordinatorAuthorizationError(
+                    "You cannot operate the selected messaging account.",
+                    safe_context={"messenger_account_id": str(messenger_account_id)},
+                    code="messenger_account_access_denied",
+                ) from exc
+            raise
+
+    def _provider_operation_account_context(
+        self,
+        messenger_account_id: str,
+    ) -> ProviderAccountContext:
+        record = self._require_coordinator().messenger_account_runtime(
+            messenger_account_id
+        )
+        return ProviderAccountContext(
+            messenger_account_id=record.messenger_account_id,
+            phone_account_id=record.phone_account_id,
+            provider=record.provider,
+            storage_revision=record.storage_revision,
+            session_generation=record.session_generation,
+        )
+
+    def _resolve_provider_application_adapter(
+        self,
+        account: ProviderAccountContext,
+    ) -> Any:
+        factory = self._provider_application_adapter_factories.get(account.provider)
+        if factory is None:
+            raise BridgeConfigurationError(
+                "The provider application adapter is not configured.",
+                safe_context={"provider": account.provider},
+                code="provider_application_adapter_not_configured",
+            )
+        return factory(account)
+
+    def _create_eitaa_application_adapter(
+        self,
+        account: ProviderAccountContext,
+    ) -> EitaaProviderApplicationAdapter:
+        return EitaaProviderApplicationAdapter(
+            account,
+            self._provider_registry.registration(account.provider).manifest,
+            EitaaCompatibilityOperations(
+                list_dialogs=self._eitaa_provider_dialogs,
+                load_history=self._eitaa_provider_history,
+                send_text=self._eitaa_provider_send_text,
+                read_media=self._eitaa_provider_media,
+                list_contacts=self._eitaa_provider_contacts,
+                upsert_contact=self._eitaa_provider_contact_upsert,
+            ),
+        )
+
+    @contextmanager
+    def _eitaa_provider_runtime_scope(
+        self,
+        account: ProviderAccountContext,
+    ) -> Iterator[None]:
+        runtime = self._eitaa_provider_runtime(account)
+        if isinstance(runtime, EitaaProcessRuntime):
+            raise EitaaRuntimeError(
+                "This provider operation requires a bounded Child RPC.",
+                code="eitaa_process_operation_ipc_required",
+            )
+        token = self._request_runtime.set(runtime)
+        try:
+            yield
+        finally:
+            self._request_runtime.reset(token)
+
+    def _eitaa_provider_runtime(
+        self,
+        account: ProviderAccountContext,
+    ) -> EitaaAccountRuntime | EitaaProcessRuntime:
+        runtime = self._runtime_registry.runtime_for_account(
+            account.messenger_account_id
+        )
+        if runtime.runtime_record is None or (
+            runtime.runtime_record.messenger_account_id
+            != account.messenger_account_id
+        ):
+            raise EitaaRuntimeError(
+                "The Eitaa provider runtime account scope is invalid.",
+                code="eitaa_provider_runtime_scope_invalid",
+            )
+        return runtime
+
+    def _eitaa_process_provider_request(
+        self,
+        account: ProviderAccountContext,
+        method: str,
+        payload: Mapping[str, object],
+        *,
+        timeout_seconds: float,
+    ) -> dict[str, object] | None:
+        runtime = self._eitaa_provider_runtime(account)
+        if not isinstance(runtime, EitaaProcessRuntime):
+            return None
+        return runtime.provider_operation_request(
+            method,
+            payload,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @staticmethod
+    def _eitaa_process_items(
+        payload: Mapping[str, object],
+        field: str,
+        *,
+        maximum: int,
+    ) -> list[Mapping[str, object]]:
+        value = payload.get(field)
+        if not isinstance(value, list) or len(value) > maximum:
+            raise CompositionValidationError(
+                "The Eitaa Child provider result is invalid.",
+                safe_context={"field": field},
+                code="eitaa_process_provider_result_invalid",
+            )
+        if any(not isinstance(item, Mapping) for item in value):
+            raise CompositionValidationError(
+                "The Eitaa Child provider result is invalid.",
+                safe_context={"field": field},
+                code="eitaa_process_provider_result_invalid",
+            )
+        return list(value)
+
+    @staticmethod
+    def _eitaa_process_cursor(payload: Mapping[str, object]) -> str | None:
+        value = payload.get("next_cursor")
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise CompositionValidationError(
+                "The Eitaa Child provider cursor is invalid.",
+                code="eitaa_process_provider_result_invalid",
+            )
+        return value
+
+    def _bind_process_media_reference(
+        self,
+        account: ProviderAccountContext,
+        content_reference: str,
+    ) -> None:
+        marker = "cache:"
+        cache_reference = (
+            content_reference[len(marker) :]
+            if content_reference.startswith(marker)
+            else ""
+        )
+        if not re.fullmatch(r"[0-9a-f]{32}", cache_reference):
+            raise CompositionValidationError(
+                "The Eitaa Child media reference is invalid.",
+                code="provider_media_receipt_invalid",
+            )
+        with self._media_token_scope_lock:
+            self._media_token_accounts[cache_reference] = (
+                account.messenger_account_id
+            )
+            if len(self._media_token_accounts) > 1024:
+                for stale in tuple(self._media_token_accounts)[:256]:
+                    self._media_token_accounts.pop(stale, None)
+
+    def _provider_operation_site(self) -> str:
+        return self._site_key(
+            {"site_key": self._provider_operation_site_key.get()}
+        )
+
+    @staticmethod
+    def _provider_peer_kind(dialog: Mapping[str, Any]) -> str:
+        selected = str(dialog.get("display_kind") or "").strip().lower()
+        return {
+            "personal": "private",
+            "group": "group",
+            "channel": "channel",
+        }.get(selected, "unknown")
+
+    @staticmethod
+    def _provider_offset_cursor(value: str | None) -> int:
+        if value is None:
+            return 0
+        selected = str(value)
+        if not selected.startswith("offset:") or not selected[7:].isdigit():
+            raise CompositionValidationError(
+                "The provider page cursor is invalid.",
+                code="provider_cursor_invalid",
+            )
+        return int(selected[7:])
+
+    @staticmethod
+    def _provider_history_cursor(value: str | None) -> int | None:
+        if value is None:
+            return None
+        selected = str(value)
+        if not selected.startswith("before:") or not selected[7:].isdigit():
+            raise CompositionValidationError(
+                "The provider history cursor is invalid.",
+                code="provider_cursor_invalid",
+            )
+        return int(selected[7:])
+
+    @staticmethod
+    def _provider_message_timestamp(value: object) -> int:
+        if isinstance(value, int) and not isinstance(value, bool):
+            return max(0, value * 1000 if value < 10_000_000_000 else value)
+        selected = str(value or "").strip()
+        if not selected:
+            return 0
+        try:
+            parsed = datetime.fromisoformat(selected.replace("Z", "+00:00"))
+        except ValueError:
+            return 0
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return max(0, int(parsed.timestamp() * 1000))
+
+    async def _eitaa_provider_dialogs(
+        self,
+        context: Any,
+        cursor: str | None,
+        limit: int,
+    ) -> ProviderDialogPage:
+        offset = self._provider_offset_cursor(cursor)
+        process_payload = self._eitaa_process_provider_request(
+            context.account,
+            "eitaa.provider.dialogs.query",
+            {
+                "site_key": self._provider_operation_site(),
+                "cursor": cursor,
+                "limit": limit,
+            },
+            timeout_seconds=90.0,
+        )
+        if process_payload is not None:
+            dialogs: list[ProviderDialogSummary] = []
+            for item in self._eitaa_process_items(
+                process_payload,
+                "dialogs",
+                maximum=200,
+            ):
+                dialogs.append(
+                    ProviderDialogSummary(
+                        peer=ProviderPeerReference(
+                            str(item.get("peer_reference") or ""),
+                            str(item.get("peer_kind") or "unknown"),
+                        ),
+                        title=str(item.get("title") or ""),
+                        unread_count=int(item.get("unread_count") or 0),
+                    )
+                )
+            return ProviderDialogPage(
+                tuple(dialogs),
+                next_cursor=self._eitaa_process_cursor(process_payload),
+            )
+        with self._eitaa_provider_runtime_scope(context.account):
+            payload = self._dialogs_list(
+                {
+                    "site_key": self._provider_operation_site(),
+                    "refresh_if_empty": True,
+                }
+            )
+        dialogs = list(payload.get("dialogs") or [])
+        selected = dialogs[offset : offset + limit]
+        summaries: list[ProviderDialogSummary] = []
+        for item in selected:
+            if not isinstance(item, Mapping):
+                continue
+            peer_key = str(item.get("peer_key") or "").strip()
+            peer_payload = (
+                item.get("peer") if isinstance(item.get("peer"), Mapping) else {}
+            )
+            summaries.append(
+                ProviderDialogSummary(
+                    peer=ProviderPeerReference(
+                        peer_key,
+                        self._provider_peer_kind(item),
+                    ),
+                    title=str(peer_payload.get("title") or "")[:512],
+                    unread_count=max(0, int(item.get("unread_count") or 0)),
+                )
+            )
+        next_offset = offset + len(selected)
+        return ProviderDialogPage(
+            tuple(summaries),
+            next_cursor=(
+                f"offset:{next_offset}" if next_offset < len(dialogs) else None
+            ),
+        )
+
+    async def _eitaa_provider_history(
+        self,
+        context: Any,
+        peer: ProviderPeerReference,
+        cursor: str | None,
+        limit: int,
+    ) -> ProviderMessagePage:
+        process_payload = self._eitaa_process_provider_request(
+            context.account,
+            "eitaa.provider.history.query",
+            {
+                "site_key": self._provider_operation_site(),
+                "peer_reference": peer.opaque_reference,
+                "peer_kind": peer.kind,
+                "cursor": cursor,
+                "limit": limit,
+            },
+            timeout_seconds=90.0,
+        )
+        if process_payload is not None:
+            messages: list[ProviderMessageSummary] = []
+            for item in self._eitaa_process_items(
+                process_payload,
+                "messages",
+                maximum=500,
+            ):
+                text = item.get("text")
+                result_peer = ProviderPeerReference(
+                    str(item.get("peer_reference") or ""),
+                    str(item.get("peer_kind") or "unknown"),
+                )
+                if result_peer != peer:
+                    raise CompositionValidationError(
+                        "The Eitaa Child history scope is invalid.",
+                        code="eitaa_process_provider_result_invalid",
+                    )
+                messages.append(
+                    ProviderMessageSummary(
+                        message_reference=str(
+                            item.get("message_reference") or ""
+                        ),
+                        peer=result_peer,
+                        sender_reference=(
+                            str(item.get("sender_reference"))
+                            if item.get("sender_reference") is not None
+                            else None
+                        ),
+                        sent_at_unix_ms=int(
+                            item.get("sent_at_unix_ms") or 0
+                        ),
+                        text=str(text) if text is not None else None,
+                    )
+                )
+            return ProviderMessagePage(
+                tuple(messages),
+                next_cursor=self._eitaa_process_cursor(process_payload),
+            )
+        with self._eitaa_provider_runtime_scope(context.account):
+            dialog = self.dialog_catalog.get(peer.opaque_reference)
+            if dialog is None:
+                raise CompositionValidationError(
+                    "The selected dialog was not found.",
+                    code="api_dialog_not_found",
+                )
+            payload = self._messages_list(
+                {
+                    "site_key": self._provider_operation_site(),
+                    "peer_file": dialog.get("peer_file"),
+                    "limit": limit,
+                    "before_id": self._provider_history_cursor(cursor),
+                }
+            )
+        messages: list[ProviderMessageSummary] = []
+        for item in payload.get("messages") or []:
+            if not isinstance(item, Mapping):
+                continue
+            message_id = int(item.get("id") or 0)
+            if message_id <= 0:
+                continue
+            sender_raw = str(item.get("sender_key") or "").strip() or None
+            if sender_raw is not None and not re.fullmatch(
+                r"[A-Za-z0-9._:-]{1,256}", sender_raw
+            ):
+                sender_raw = None
+            text = item.get("text")
+            messages.append(
+                ProviderMessageSummary(
+                    message_reference=f"message:{message_id}",
+                    peer=peer,
+                    sender_reference=sender_raw,
+                    sent_at_unix_ms=self._provider_message_timestamp(
+                        item.get("date") or item.get("sent_at")
+                    ),
+                    text=(str(text)[:100_000] if text is not None else None),
+                )
+            )
+        next_before = payload.get("next_before_id")
+        return ProviderMessagePage(
+            tuple(messages),
+            next_cursor=(
+                f"before:{int(next_before)}"
+                if next_before not in {None, ""} and int(next_before) > 0
+                else None
+            ),
+        )
+
+    async def _eitaa_provider_send_text(
+        self,
+        context: Any,
+        request: ProviderSendTextRequest,
+    ) -> ProviderSendReceipt:
+        process_payload = self._eitaa_process_provider_request(
+            context.account,
+            "eitaa.provider.messages.send_text",
+            {
+                "site_key": self._provider_operation_site(),
+                "peer_reference": request.peer.opaque_reference,
+                "peer_kind": request.peer.kind,
+                "text": request.text,
+                "idempotency_key": request.idempotency_key,
+            },
+            timeout_seconds=90.0,
+        )
+        if process_payload is not None:
+            try:
+                status = ProviderSendStatus(str(process_payload.get("status") or ""))
+            except ValueError as exc:
+                raise CompositionValidationError(
+                    "The Eitaa Child send result is invalid.",
+                    code="eitaa_process_provider_result_invalid",
+                ) from exc
+            reference = process_payload.get("message_reference")
+            reason = process_payload.get("safe_reason_code")
+            return ProviderSendReceipt(
+                status,
+                message_reference=(str(reference) if reference is not None else None),
+                safe_reason_code=(str(reason) if reason is not None else None),
+            )
+        with self._eitaa_provider_runtime_scope(context.account):
+            dialog = self.dialog_catalog.get(request.peer.opaque_reference)
+            if dialog is None:
+                raise CompositionValidationError(
+                    "The selected dialog was not found.",
+                    code="api_dialog_not_found",
+                )
+            payload = self._message_send(
+                {
+                    "site_key": self._provider_operation_site(),
+                    "peer_file": dialog.get("peer_file"),
+                    "text": request.text,
+                    "send_as": "auto",
+                }
+            )
+        result = payload.get("result") if isinstance(payload, Mapping) else None
+        result_mapping = result if isinstance(result, Mapping) else {}
+        remote_id = result_mapping.get("message_id") or result_mapping.get("id")
+        reference = (
+            f"message:{int(remote_id)}"
+            if remote_id not in {None, ""} and str(remote_id).isdigit()
+            else f"send:{request.idempotency_key[:64]}"
+        )
+        return ProviderSendReceipt(
+            ProviderSendStatus.SUCCEEDED,
+            message_reference=reference,
+        )
+
+    @staticmethod
+    def _provider_reference_integer(value: str, *, prefix: str) -> int:
+        selected = str(value or "")
+        marker = f"{prefix}:"
+        suffix = selected[len(marker) :] if selected.startswith(marker) else ""
+        if not suffix.isdigit() or int(suffix) <= 0:
+            raise CompositionValidationError(
+                "The provider numeric reference is invalid.",
+                code="provider_reference_invalid",
+            )
+        return int(suffix)
+
+    async def _eitaa_provider_media(
+        self,
+        context: Any,
+        request: ProviderMediaReadRequest,
+    ) -> ProviderMediaReadReceipt:
+        message_id = self._provider_reference_integer(
+            request.message_reference, prefix="message"
+        )
+        process_payload = self._eitaa_process_provider_request(
+            context.account,
+            "eitaa.provider.media.read",
+            {
+                "site_key": self._provider_operation_site(),
+                "peer_reference": request.peer.opaque_reference,
+                "message_reference": request.message_reference,
+                "media_reference": request.media_reference,
+                "variant": request.variant,
+                "max_bytes": request.max_bytes,
+            },
+            timeout_seconds=180.0,
+        )
+        if process_payload is not None:
+            receipt = ProviderMediaReadReceipt(
+                media_reference=str(
+                    process_payload.get("media_reference") or ""
+                ),
+                content_reference=str(
+                    process_payload.get("content_reference") or ""
+                ),
+                mime_type=str(
+                    process_payload.get("mime_type")
+                    or "application/octet-stream"
+                ),
+                byte_count=int(process_payload.get("byte_count") or 0),
+            )
+            if receipt.media_reference != request.media_reference:
+                raise CompositionValidationError(
+                    "The Eitaa Child media scope is invalid.",
+                    code="eitaa_process_provider_result_invalid",
+                )
+            self._bind_process_media_reference(
+                context.account,
+                receipt.content_reference,
+            )
+            return receipt
+        with self._eitaa_provider_runtime_scope(context.account):
+            dialog = self.dialog_catalog.get(request.peer.opaque_reference)
+            if dialog is None:
+                raise CompositionValidationError(
+                    "The selected dialog was not found.",
+                    code="api_dialog_not_found",
+                )
+            payload = self._media_preview(
+                {
+                    "site_key": self._provider_operation_site(),
+                    "peer_file": dialog.get("peer_file"),
+                    "message_id": message_id,
+                    "quality": request.variant,
+                    "max_bytes": request.max_bytes,
+                }
+            )
+        if not payload.get("media_present") or not payload.get("preview_available"):
+            raise CompositionValidationError(
+                "The selected provider media is unavailable.",
+                code="provider_media_not_found",
+            )
+        media_url = str(payload.get("media_url") or "")
+        marker = "/api/v1/media-cache/"
+        cache_token = media_url[len(marker) :] if media_url.startswith(marker) else ""
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{1,256}", cache_token):
+            raise CompositionValidationError(
+                "The provider media content reference is invalid.",
+                code="provider_media_receipt_invalid",
+            )
+        return ProviderMediaReadReceipt(
+            media_reference=request.media_reference,
+            content_reference=f"cache:{cache_token}",
+            mime_type=str(payload.get("mime_type") or "application/octet-stream"),
+            byte_count=int(payload.get("bytes") or 0),
+        )
+
+    async def _eitaa_provider_contacts(
+        self,
+        context: Any,
+        cursor: str | None,
+        limit: int,
+    ) -> ProviderContactPage:
+        offset = self._provider_offset_cursor(cursor)
+        process_payload = self._eitaa_process_provider_request(
+            context.account,
+            "eitaa.provider.contacts.query",
+            {
+                "site_key": self._provider_operation_site(),
+                "cursor": cursor,
+                "limit": limit,
+            },
+            timeout_seconds=120.0,
+        )
+        if process_payload is not None:
+            contacts: list[ProviderContactSummary] = []
+            for item in self._eitaa_process_items(
+                process_payload,
+                "contacts",
+                maximum=500,
+            ):
+                hint = item.get("identity_hint")
+                contacts.append(
+                    ProviderContactSummary(
+                        contact_reference=str(
+                            item.get("contact_reference") or ""
+                        ),
+                        display_name=str(item.get("display_name") or ""),
+                        identity_hint=(str(hint) if hint is not None else None),
+                    )
+                )
+            return ProviderContactPage(
+                tuple(contacts),
+                next_cursor=self._eitaa_process_cursor(process_payload),
+            )
+        with self._eitaa_provider_runtime_scope(context.account):
+            payload = self._eitaa_contacts_list(
+                {
+                    "site_key": self._provider_operation_site(),
+                    "refresh": False,
+                    "sync_local": False,
+                    "offset": offset,
+                    "limit": limit,
+                }
+            )
+        contacts: list[ProviderContactSummary] = []
+        for item in payload.get("contacts") or []:
+            if not isinstance(item, Mapping):
+                continue
+            user_id = item.get("user_id")
+            if isinstance(user_id, bool) or not isinstance(user_id, int) or user_id <= 0:
+                continue
+            phone = str(item.get("phone") or "").strip()
+            display_name = str(item.get("display_name") or "")[:512]
+            if phone and display_name.strip() == phone:
+                display_name = f"کاربر {user_id}"
+            try:
+                identity_hint = masked_phone(phone) if phone else None
+            except BridgeError:
+                identity_hint = None
+            contacts.append(
+                ProviderContactSummary(
+                    contact_reference=f"contact:{user_id}",
+                    display_name=display_name,
+                    identity_hint=identity_hint,
+                )
+            )
+        next_offset = offset + len(contacts)
+        return ProviderContactPage(
+            tuple(contacts),
+            next_cursor=(f"offset:{next_offset}" if payload.get("has_more") else None),
+        )
+
+    async def _eitaa_provider_contact_upsert(
+        self,
+        context: Any,
+        request: ProviderContactUpsertRequest,
+    ) -> ProviderContactMutationReceipt:
+        try:
+            identity = request.identity.reveal_bytes().decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise CompositionValidationError(
+                "The provider contact identity is invalid.",
+                code="provider_contact_identity_invalid",
+            ) from exc
+        phone = validate_canonical_e164(identity)
+        process_payload = self._eitaa_process_provider_request(
+            context.account,
+            "eitaa.provider.contacts.upsert",
+            {
+                "site_key": self._provider_operation_site(),
+                "identity": phone,
+                "display_name": request.display_name,
+                "idempotency_key": request.idempotency_key,
+            },
+            timeout_seconds=120.0,
+        )
+        if process_payload is not None:
+            created = process_payload.get("created")
+            if not isinstance(created, bool):
+                raise CompositionValidationError(
+                    "The Eitaa Child contact result is invalid.",
+                    code="eitaa_process_provider_result_invalid",
+                )
+            return ProviderContactMutationReceipt(
+                contact_reference=str(
+                    process_payload.get("contact_reference") or ""
+                ),
+                created=created,
+            )
+        with self._eitaa_provider_runtime_scope(context.account):
+            payload = self._eitaa_contacts_add(
+                {
+                    "site_key": self._provider_operation_site(),
+                    "phone": phone,
+                    "first_name": request.display_name,
+                    "last_name": "",
+                    "save_local": False,
+                }
+            )
+        contact = payload.get("contact")
+        selected = contact if isinstance(contact, Mapping) else {}
+        user_id = selected.get("user_id")
+        if isinstance(user_id, bool) or not isinstance(user_id, int) or user_id <= 0:
+            raise CompositionValidationError(
+                "The provider contact receipt is invalid.",
+                code="provider_contact_receipt_invalid",
+            )
+        return ProviderContactMutationReceipt(
+            contact_reference=f"contact:{user_id}",
+            created=bool(payload.get("contact_added")),
+        )
+
+    @staticmethod
+    def _provider_operation_actor(
+        app_session: AuthorizedAppSession | None,
+    ) -> ProviderOperationActor:
+        if app_session is None:
+            raise CoordinatorAuthenticationError(
+                "AppUser authentication is required.",
+                code="app_auth_required",
+            )
+        return ProviderOperationActor(
+            app_user_id=app_session.principal.app_user_id,
+            global_role=app_session.principal.global_role,
+        )
+
+    @staticmethod
+    def _require_provider_operation_fields(
+        payload: Mapping[str, Any],
+        allowed: set[str],
+    ) -> None:
+        rejected = sorted(str(key) for key in payload if key not in allowed)
+        if rejected:
+            raise CompositionValidationError(
+                "The provider operation contains unsupported fields.",
+                safe_context={"rejected_fields": rejected},
+                code="provider_operation_fields_rejected",
+            )
+
+    def _provider_dialog_query(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        self._require_provider_operation_fields(
+            payload, {"site_key", "cursor", "limit"}
+        )
+        site_key = self._site_key(payload)
+        cursor = str(payload.get("cursor") or "").strip() or None
+        limit = self._integer(
+            payload.get("limit", 100), "limit", minimum=1, maximum=200
+        )
+        token = self._provider_operation_site_key.set(site_key)
+        try:
+            page = asyncio.run(
+                self._provider_orchestrator.list_dialogs(
+                    actor=self._provider_operation_actor(app_session),
+                    messenger_account_id=messenger_account_id,
+                    correlation_id=self._application_logger.correlation_id(request_id),
+                    deadline_unix_ms=int(time.time() * 1000) + 90_000,
+                    cursor=cursor,
+                    limit=limit,
+                )
+            )
+        finally:
+            self._provider_operation_site_key.reset(token)
+        account = self._provider_operation_account_context(messenger_account_id)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "messenger_account_id": account.messenger_account_id,
+                "provider": account.provider,
+                "dialogs": [
+                    {
+                        "peer_reference": item.peer.opaque_reference,
+                        "peer_kind": item.peer.kind,
+                        "title": item.title,
+                        "unread_count": item.unread_count,
+                    }
+                    for item in page.dialogs
+                ],
+                "next_cursor": page.next_cursor,
+            },
+        )
+
+    def _provider_history_query(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        self._require_provider_operation_fields(
+            payload,
+            {"site_key", "peer_reference", "peer_kind", "cursor", "limit"},
+        )
+        site_key = self._site_key(payload)
+        peer = ProviderPeerReference(
+            str(payload.get("peer_reference") or "").strip(),
+            str(payload.get("peer_kind") or "unknown").strip().lower(),
+        )
+        cursor = str(payload.get("cursor") or "").strip() or None
+        limit = self._integer(
+            payload.get("limit", 100), "limit", minimum=1, maximum=500
+        )
+        token = self._provider_operation_site_key.set(site_key)
+        try:
+            page = asyncio.run(
+                self._provider_orchestrator.load_history(
+                    actor=self._provider_operation_actor(app_session),
+                    messenger_account_id=messenger_account_id,
+                    correlation_id=self._application_logger.correlation_id(request_id),
+                    deadline_unix_ms=int(time.time() * 1000) + 90_000,
+                    peer=peer,
+                    cursor=cursor,
+                    limit=limit,
+                )
+            )
+        finally:
+            self._provider_operation_site_key.reset(token)
+        account = self._provider_operation_account_context(messenger_account_id)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "messenger_account_id": account.messenger_account_id,
+                "provider": account.provider,
+                "messages": [
+                    {
+                        "message_reference": item.message_reference,
+                        "peer_reference": item.peer.opaque_reference,
+                        "peer_kind": item.peer.kind,
+                        "sender_reference": item.sender_reference,
+                        "sent_at_unix_ms": item.sent_at_unix_ms,
+                        "text": item.text,
+                    }
+                    for item in page.messages
+                ],
+                "next_cursor": page.next_cursor,
+            },
+        )
+
+    def _provider_send_text(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        self._require_provider_operation_fields(
+            payload,
+            {
+                "site_key",
+                "peer_reference",
+                "peer_kind",
+                "text",
+                "idempotency_key",
+                "confirm",
+            },
+        )
+        site_key = self._site_key(payload)
+        peer = ProviderPeerReference(
+            str(payload.get("peer_reference") or "").strip(),
+            str(payload.get("peer_kind") or "unknown").strip().lower(),
+        )
+        correlation = self._application_logger.correlation_id(request_id)
+        selected_key = str(payload.get("idempotency_key") or "").strip()
+        if not selected_key:
+            raise CompositionValidationError(
+                "An idempotency key is required for provider send.",
+                code="provider_idempotency_key_required",
+            )
+        if payload.get("confirm") is not True:
+            raise CompositionValidationError(
+                "Provider message send requires explicit confirmation.",
+                code="provider_message_send_confirmation_required",
+            )
+        request = ProviderSendTextRequest(
+            peer=peer,
+            text=str(payload.get("text") or ""),
+            idempotency_key=selected_key,
+        )
+        token = self._provider_operation_site_key.set(site_key)
+        try:
+            receipt = asyncio.run(
+                self._provider_orchestrator.send_text(
+                    actor=self._provider_operation_actor(app_session),
+                    messenger_account_id=messenger_account_id,
+                    correlation_id=correlation,
+                    deadline_unix_ms=int(time.time() * 1000) + 90_000,
+                    request=request,
+                )
+            )
+        finally:
+            self._provider_operation_site_key.reset(token)
+        account = self._provider_operation_account_context(messenger_account_id)
+        return ApiResponse(
+            201,
+            {
+                "ok": True,
+                "messenger_account_id": account.messenger_account_id,
+                "provider": account.provider,
+                "status": receipt.status.value,
+                "message_reference": receipt.message_reference,
+                "safe_reason_code": receipt.safe_reason_code,
+            },
+        )
+
+    def _provider_media_read(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        self._require_provider_operation_fields(
+            payload,
+            {
+                "site_key",
+                "peer_reference",
+                "peer_kind",
+                "message_reference",
+                "media_reference",
+                "variant",
+                "max_bytes",
+            },
+        )
+        site_key = self._site_key(payload)
+        request = ProviderMediaReadRequest(
+            peer=ProviderPeerReference(
+                str(payload.get("peer_reference") or "").strip(),
+                str(payload.get("peer_kind") or "unknown").strip().lower(),
+            ),
+            message_reference=str(payload.get("message_reference") or "").strip(),
+            media_reference=str(payload.get("media_reference") or "").strip(),
+            variant=str(payload.get("variant") or "thumbnail").strip().lower(),
+            max_bytes=self._integer(
+                payload.get("max_bytes", 16 * 1024 * 1024),
+                "max_bytes",
+                minimum=32 * 1024,
+                maximum=512 * 1024 * 1024,
+            ),
+        )
+        token = self._provider_operation_site_key.set(site_key)
+        try:
+            receipt = asyncio.run(
+                self._provider_orchestrator.read_media(
+                    actor=self._provider_operation_actor(app_session),
+                    messenger_account_id=messenger_account_id,
+                    correlation_id=self._application_logger.correlation_id(request_id),
+                    deadline_unix_ms=int(time.time() * 1000) + 180_000,
+                    request=request,
+                )
+            )
+        finally:
+            self._provider_operation_site_key.reset(token)
+        account = self._provider_operation_account_context(messenger_account_id)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "messenger_account_id": account.messenger_account_id,
+                "provider": account.provider,
+                "media_reference": receipt.media_reference,
+                "content_reference": receipt.content_reference,
+                "mime_type": receipt.mime_type,
+                "byte_count": receipt.byte_count,
+            },
+        )
+
+    def _provider_contact_query(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        self._require_provider_operation_fields(
+            payload, {"site_key", "cursor", "limit"}
+        )
+        site_key = self._site_key(payload)
+        cursor = str(payload.get("cursor") or "").strip() or None
+        limit = self._integer(
+            payload.get("limit", 100), "limit", minimum=1, maximum=500
+        )
+        token = self._provider_operation_site_key.set(site_key)
+        try:
+            page = asyncio.run(
+                self._provider_orchestrator.list_contacts(
+                    actor=self._provider_operation_actor(app_session),
+                    messenger_account_id=messenger_account_id,
+                    correlation_id=self._application_logger.correlation_id(request_id),
+                    deadline_unix_ms=int(time.time() * 1000) + 120_000,
+                    cursor=cursor,
+                    limit=limit,
+                )
+            )
+        finally:
+            self._provider_operation_site_key.reset(token)
+        account = self._provider_operation_account_context(messenger_account_id)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "messenger_account_id": account.messenger_account_id,
+                "provider": account.provider,
+                "contacts": [
+                    {
+                        "contact_reference": item.contact_reference,
+                        "display_name": item.display_name,
+                        "identity_hint": item.identity_hint,
+                    }
+                    for item in page.contacts
+                ],
+                "next_cursor": page.next_cursor,
+            },
+        )
+
+    def _provider_contact_upsert(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        self._require_provider_operation_fields(
+            payload,
+            {"site_key", "identity", "display_name", "idempotency_key", "confirm"},
+        )
+        site_key = self._site_key(payload)
+        if payload.get("confirm") is not True:
+            raise CompositionValidationError(
+                "Provider contact mutation requires explicit confirmation.",
+                code="provider_contact_mutation_confirmation_required",
+            )
+        identity = str(payload.get("identity") or "")
+        display_name = str(payload.get("display_name") or "").strip()
+        idempotency_key = str(payload.get("idempotency_key") or "").strip()
+        if not identity:
+            raise CompositionValidationError(
+                "A provider contact identity is required.",
+                code="provider_contact_identity_required",
+            )
+        if not idempotency_key:
+            raise CompositionValidationError(
+                "An idempotency key is required for provider contact mutation.",
+                code="provider_idempotency_key_required",
+            )
+        request = ProviderContactUpsertRequest(
+            identity=SensitiveProviderValue.from_text(identity),
+            display_name=display_name,
+            idempotency_key=idempotency_key,
+        )
+        token = self._provider_operation_site_key.set(site_key)
+        try:
+            receipt = asyncio.run(
+                self._provider_orchestrator.upsert_contact(
+                    actor=self._provider_operation_actor(app_session),
+                    messenger_account_id=messenger_account_id,
+                    correlation_id=self._application_logger.correlation_id(request_id),
+                    deadline_unix_ms=int(time.time() * 1000) + 120_000,
+                    request=request,
+                )
+            )
+        finally:
+            self._provider_operation_site_key.reset(token)
+        account = self._provider_operation_account_context(messenger_account_id)
+        return ApiResponse(
+            201 if receipt.created else 200,
+            {
+                "ok": True,
+                "messenger_account_id": account.messenger_account_id,
+                "provider": account.provider,
+                "contact_reference": receipt.contact_reference,
+                "created": receipt.created,
+            },
+        )
+
+    def _audit_query(
+        self,
+        session: AuthorizedAppSession | None,
+        query: Mapping[str, str],
+    ) -> ApiResponse:
+        if session is None:
+            raise CoordinatorAuthenticationError(
+                "An AppUser session is required.", code="app_auth_session_required"
+            )
+        page = self._require_coordinator_audit().query(
+            app_user_id=session.principal.app_user_id,
+            global_role=session.principal.global_role,
+            messenger_account_id=str(query.get("messenger_account_id") or "").strip() or None,
+            provider=str(query.get("provider") or "").strip() or None,
+            action_prefix=str(query.get("action_prefix") or "").strip() or None,
+            result=str(query.get("result") or "").strip() or None,
+            correlation_id=str(query.get("correlation_id") or "").strip() or None,
+            from_at=str(query.get("from_at") or "").strip() or None,
+            to_at=str(query.get("to_at") or "").strip() or None,
+            cursor=str(query.get("cursor") or "").strip() or None,
+            limit=self._integer(query.get("limit", 200), "limit", minimum=1, maximum=1000),
+        )
+        return ApiResponse(200, {"ok": True, **page.safe_summary()})
+
+    def _audit_export(
+        self,
+        session: AuthorizedAppSession | None,
+        payload: Mapping[str, Any],
+    ) -> ApiResponse:
+        if session is None:
+            raise CoordinatorAuthenticationError(
+                "An AppUser session is required.", code="app_auth_session_required"
+            )
+        result = self._require_coordinator_audit().export_jsonl(
+            app_user_id=session.principal.app_user_id,
+            global_role=session.principal.global_role,
+            output_directory=self.base_directory / "runtime" / "exports" / "audit",
+            messenger_account_id=self._payload_text(payload, "messenger_account_id").strip() or None,
+            action_prefix=self._payload_text(payload, "action_prefix").strip() or None,
+            max_events=self._integer(
+                payload.get("max_events", 10_000),
+                "max_events",
+                minimum=1,
+                maximum=100_000,
+            ),
+        )
+        return ApiResponse(200, {"ok": True, "export": result.safe_summary()})
+
+    @staticmethod
+    def _payload_text(payload: Mapping[str, Any], key: str) -> str:
+        value = payload.get(key)
+        return value if isinstance(value, str) else ""
+
+    @staticmethod
+    def _untrusted_account_context_fields(value: Any) -> set[str]:
+        """Find client-writable account selectors at any bounded JSON depth."""
+
+        rejected: set[str] = set()
+        pending: list[tuple[Any, int]] = [(value, 0)]
+        visited = 0
+        while pending:
+            current, depth = pending.pop()
+            visited += 1
+            if visited > 10_000 or depth > 32:
+                break
+            if isinstance(current, Mapping):
+                for key, item in current.items():
+                    normalized = str(key).strip().casefold()
+                    if normalized in {"messenger_account_id", "account_id"}:
+                        rejected.add(normalized)
+                    pending.append((item, depth + 1))
+            elif isinstance(current, (list, tuple)):
+                pending.extend((item, depth + 1) for item in current)
+        return rejected
+
+    def _session_cookie(self, token: str) -> str:
+        max_age = self.config.features.app_user_auth.absolute_timeout_hours * 60 * 60
+        cookie = (
+            f"{APP_USER_SESSION_COOKIE}={token}; Path=/; "
+            f"HttpOnly; SameSite=Strict; Max-Age={max_age}"
+        )
+        return cookie + ("; Secure" if self.config.deployment.secure_cookie else "")
+
+    def _clear_session_cookie(self) -> str:
+        cookie = (
+            f"{APP_USER_SESSION_COOKIE}=; Path=/; "
+            "HttpOnly; SameSite=Strict; Max-Age=0"
+        )
+        return cookie + ("; Secure" if self.config.deployment.secure_cookie else "")
+
+    def _issued_session_response(
+        self,
+        issued: IssuedAppSession,
+        *,
+        status: int = 200,
+    ) -> ApiResponse:
+        auth = self._require_app_auth_service()
+        payload = dict(issued.safe_payload())
+        principal = dict(payload["principal"])
+        principal["permissions"] = {
+            **dict(principal.get("permissions", {})),
+            "use_legacy_workspace": auth.can_use_legacy_workspace(issued.principal),
+        }
+        payload["principal"] = principal
+        return ApiResponse(
+            status,
+            payload,
+            headers={"Set-Cookie": self._session_cookie(issued.token)},
+        )
+
+    def _client_diagnostics_report(
+        self,
+        app_session: AuthorizedAppSession | None,
+        payload: Mapping[str, Any],
+        *,
+        client_kind: str,
+        request_id: str | None,
+    ) -> ApiResponse:
+        """Accept only a tiny allowlisted client-error envelope.
+
+        Messages, stacks, URLs, DOM state, storage and arbitrary metadata are
+        deliberately rejected instead of being sanitized after receipt.
+        """
+
+        allowed_keys = {"event", "level", "error_type", "safe_context"}
+        rejected_keys = sorted(str(key) for key in payload if key not in allowed_keys)
+        if rejected_keys:
+            raise CompositionValidationError(
+                "Client diagnostics contain unsupported fields.",
+                code="client_diagnostic_fields_rejected",
+                safe_context={"rejected_fields": rejected_keys},
+            )
+        event = str(payload.get("event") or "").strip().lower()
+        if event not in _CLIENT_DIAGNOSTIC_EVENTS:
+            raise CompositionValidationError(
+                "Client diagnostic event is not allowed.",
+                code="client_diagnostic_event_invalid",
+            )
+        level = str(payload.get("level") or "error").strip().lower()
+        if level not in {"warning", "error"}:
+            raise CompositionValidationError(
+                "Client diagnostic level is invalid.",
+                code="client_diagnostic_level_invalid",
+            )
+        error_type = str(payload.get("error_type") or "Error").strip()
+        if not _SAFE_CLIENT_ERROR_TYPE.fullmatch(error_type):
+            raise CompositionValidationError(
+                "Client diagnostic error type is invalid.",
+                code="client_diagnostic_error_type_invalid",
+            )
+        raw_context = payload.get("safe_context")
+        if raw_context is None:
+            raw_context = {}
+        if not isinstance(raw_context, Mapping):
+            raise CompositionValidationError(
+                "Client diagnostic context is invalid.",
+                code="client_diagnostic_context_invalid",
+            )
+        allowed_context = {
+            "component_stack_present",
+            "document_visible",
+            "online",
+            "surface",
+        }
+        rejected_context = sorted(str(key) for key in raw_context if key not in allowed_context)
+        if rejected_context:
+            raise CompositionValidationError(
+                "Client diagnostic context contains unsupported fields.",
+                code="client_diagnostic_context_rejected",
+                safe_context={"rejected_fields": rejected_context},
+            )
+        surface = str(raw_context.get("surface") or "renderer").strip().lower()
+        if surface not in {"renderer", "browser"}:
+            raise CompositionValidationError(
+                "Client diagnostic surface is invalid.",
+                code="client_diagnostic_surface_invalid",
+            )
+        safe_context = {
+            "surface": surface,
+            "component_stack_present": bool(raw_context.get("component_stack_present", False)),
+            "document_visible": bool(raw_context.get("document_visible", True)),
+            "online": bool(raw_context.get("online", True)),
+        }
+        actor_id = (
+            app_session.principal.app_user_id
+            if app_session is not None
+            else "legacy-local-client"
+        )
+        now = time.monotonic()
+        with self._client_diagnostic_lock:
+            recent = [
+                observed
+                for observed in self._client_diagnostic_windows.get(actor_id, [])
+                if now - observed < 60.0
+            ]
+            if len(recent) >= 20:
+                self._client_diagnostic_windows[actor_id] = recent
+                raise CoordinatorAuthRateLimitError(
+                    "Client diagnostic rate limit is active.",
+                    code="client_diagnostic_rate_limited",
+                    safe_context={"retry_after_seconds": 60},
+                )
+            recent.append(now)
+            self._client_diagnostic_windows[actor_id] = recent
+        self._application_logger.emit(
+            "renderer_error_reported",
+            level=level,
+            result="failed" if level == "error" else "degraded",
+            reason_code=event,
+            correlation_id=request_id,
+            fields={
+                "client_event": event,
+                "client_kind": client_kind,
+                "error_type": error_type,
+                "app_user_id": (
+                    app_session.principal.app_user_id
+                    if app_session is not None
+                    else None
+                ),
+                **safe_context,
+            },
+        )
+        return ApiResponse(202, {"ok": True, "accepted": True})
+
+    def _app_auth_status(
+        self,
+        app_session_token: str | None,
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        if not self.app_user_auth_enabled:
+            return ApiResponse(
+                200,
+                {
+                    "ok": True,
+                    "enabled": False,
+                    "setup_required": False,
+                    "authenticated": False,
+                },
+            )
+        auth = self._require_app_auth_service()
+        setup_required = auth.setup_required()
+        if setup_required:
+            return ApiResponse(
+                200,
+                {
+                    "ok": True,
+                    "enabled": True,
+                    "setup_required": True,
+                    "authenticated": False,
+                    "self_registration_enabled": False,
+                },
+                headers={"Set-Cookie": self._clear_session_cookie()},
+            )
+        if not app_session_token:
+            return ApiResponse(
+                200,
+                {
+                    "ok": True,
+                    "enabled": True,
+                    "setup_required": False,
+                    "authenticated": False,
+                    "self_registration_enabled": self.app_user_self_registration_enabled,
+                },
+            )
+        try:
+            session = auth.authorize(
+                app_session_token,
+                rotate_csrf=True,
+                request_id=request_id,
+            )
+        except CoordinatorAuthenticationError as exc:
+            if exc.code not in {"app_auth_required", "app_auth_session_invalid"}:
+                raise
+            return ApiResponse(
+                200,
+                {
+                    "ok": True,
+                    "enabled": True,
+                    "setup_required": False,
+                    "authenticated": False,
+                    "session_invalid": True,
+                    "self_registration_enabled": self.app_user_self_registration_enabled,
+                },
+                headers={"Set-Cookie": self._clear_session_cookie()},
+            )
+        principal = session.principal.safe_summary()
+        principal["permissions"] = {
+            **dict(principal.get("permissions", {})),
+            "use_legacy_workspace": auth.can_use_legacy_workspace(session.principal),
+        }
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "enabled": True,
+                "setup_required": False,
+                "authenticated": True,
+                "self_registration_enabled": self.app_user_self_registration_enabled,
+                "principal": principal,
+                "csrf_token": session.csrf_token,
+                "idle_expires_at": session.idle_expires_at,
+                "absolute_expires_at": session.absolute_expires_at,
+            },
+        )
+
+    def _app_auth_setup(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        client_kind: str,
+        request_id: str | None,
+    ) -> ApiResponse:
+        issued = self._require_app_auth_service().bootstrap_admin(
+            username=self._payload_text(payload, "username"),
+            password=self._payload_text(payload, "password"),
+            display_name=self._payload_text(payload, "display_name"),
+            client_kind=client_kind,
+            request_id=request_id,
+        )
+        return self._issued_session_response(issued, status=201)
+
+    def _app_auth_login(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        client_kind: str,
+        client_address: str | None,
+        request_id: str | None,
+    ) -> ApiResponse:
+        issued = self._require_app_auth_service().authenticate(
+            username=self._payload_text(payload, "username"),
+            password=self._payload_text(payload, "password"),
+            client_kind=client_kind,
+            client_address=client_address,
+            request_id=request_id,
+        )
+        return self._issued_session_response(issued)
+
+    def _app_auth_register(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        client_kind: str,
+        request_id: str | None,
+    ) -> ApiResponse:
+        if not self.app_user_self_registration_enabled:
+            raise CoordinatorAuthorizationError(
+                "ثبت‌نام خودکار در این شیوهٔ استقرار فعال نیست.",
+                code="app_auth_registration_unavailable",
+            )
+        issued = self._require_app_auth_service().register_user(
+            username=self._payload_text(payload, "username"),
+            password=self._payload_text(payload, "password"),
+            display_name=self._payload_text(payload, "display_name"),
+            client_kind=client_kind,
+            request_id=request_id,
+        )
+        return self._issued_session_response(issued, status=201)
+
+    def _require_authorized_session(
+        self,
+        session: AuthorizedAppSession | None,
+    ) -> AuthorizedAppSession:
+        if session is None:
+            raise CoordinatorAuthenticationError(
+                "برای ادامه وارد نرم‌افزار شوید.",
+                code="app_auth_required",
+            )
+        return session
+
+    def _app_auth_me(
+        self,
+        app_session: AuthorizedAppSession | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        auth = self._require_app_auth_service()
+        principal = session.principal.safe_summary()
+        principal["permissions"] = {
+            **dict(principal.get("permissions", {})),
+            "use_legacy_workspace": auth.can_use_legacy_workspace(session.principal),
+        }
+        return ApiResponse(200, {"ok": True, "principal": principal})
+
+    def _app_auth_logout(
+        self,
+        app_session: AuthorizedAppSession | None,
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        self._require_app_auth_service().logout(session, request_id=request_id)
+        return ApiResponse(
+            200,
+            {"ok": True, "authenticated": False},
+            headers={"Set-Cookie": self._clear_session_cookie()},
+        )
+
+    def _app_auth_logout_all(
+        self,
+        app_session: AuthorizedAppSession | None,
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        revoked = self._require_app_auth_service().logout_all(
+            session,
+            request_id=request_id,
+        )
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "authenticated": False,
+                "sessions_revoked": revoked,
+            },
+            headers={"Set-Cookie": self._clear_session_cookie()},
+        )
+
+    def _app_auth_sessions_list(
+        self,
+        app_session: AuthorizedAppSession | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        sessions = self._require_app_auth_service().list_own_sessions(session)
+        return ApiResponse(200, {"ok": True, "sessions": sessions})
+
+    def _app_auth_session_revoke(
+        self,
+        app_session: AuthorizedAppSession | None,
+        session_id: str,
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        revoked = self._require_app_auth_service().revoke_own_session(
+            session,
+            session_id,
+            request_id=request_id,
+        )
+        current = session.principal.session_id == session_id
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "session_revoked": revoked,
+                "current_session_revoked": current,
+                "session_invalid": current,
+            },
+            headers={"Set-Cookie": self._clear_session_cookie()} if current else {},
+        )
+
+    def _app_auth_change_password(
+        self,
+        app_session: AuthorizedAppSession | None,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        self._require_app_auth_service().change_password(
+            session,
+            current_password=self._payload_text(payload, "current_password"),
+            new_password=self._payload_text(payload, "new_password"),
+            request_id=request_id,
+        )
+        return ApiResponse(200, {"ok": True, "password_changed": True})
+
+    def _app_users_list(
+        self,
+        app_session: AuthorizedAppSession | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "users": self._require_app_auth_service().list_users(session.principal),
+            },
+        )
+
+    def _app_users_create(
+        self,
+        app_session: AuthorizedAppSession | None,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        created = self._require_app_auth_service().create_user(
+            session.principal,
+            username=self._payload_text(payload, "username"),
+            password=self._payload_text(payload, "password"),
+            display_name=self._payload_text(payload, "display_name"),
+            global_role=self._payload_text(payload, "global_role"),
+            request_id=request_id,
+        )
+        return ApiResponse(201, {"ok": True, "user": created})
+
+    def _app_users_update(
+        self,
+        app_session: AuthorizedAppSession | None,
+        app_user_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        role_value = payload.get("global_role")
+        status_value = payload.get("status")
+        updated = self._require_app_auth_service().update_user(
+            session.principal,
+            app_user_id,
+            global_role=role_value if isinstance(role_value, str) else None,
+            status=status_value if isinstance(status_value, str) else None,
+            request_id=request_id,
+        )
+        return ApiResponse(200, {"ok": True, "user": updated})
+
+    def _app_users_revoke_sessions(
+        self,
+        app_session: AuthorizedAppSession | None,
+        app_user_id: str,
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        revoked = self._require_app_auth_service().revoke_user_sessions(
+            session.principal,
+            app_user_id,
+            request_id=request_id,
+        )
+        return ApiResponse(
+            200,
+            {"ok": True, "sessions_revoked": revoked},
+        )
+
+    def _phone_accounts_list(
+        self,
+        app_session: AuthorizedAppSession | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        accounts = self._require_app_auth_service().list_phone_accounts(
+            session.principal
+        )
+        return ApiResponse(200, {"ok": True, "phone_accounts": accounts})
+
+    def _phone_account_membership_update(
+        self,
+        app_session: AuthorizedAppSession | None,
+        phone_account_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        membership = self._require_app_auth_service().update_phone_account_membership(
+            session.principal,
+            phone_account_id=phone_account_id,
+            app_user_id=self._payload_text(payload, "app_user_id"),
+            role=self._payload_text(payload, "role"),
+            status=self._payload_text(payload, "status"),
+            request_id=request_id,
+        )
+        return ApiResponse(200, {"ok": True, "membership": membership})
+
+    def _app_integrations_list(
+        self,
+        app_session: AuthorizedAppSession | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        is_admin = session.principal.global_role == "admin"
+        records = self._require_coordinator().list_app_integrations(
+            app_user_id=session.principal.app_user_id,
+            include_inactive=is_admin,
+        )
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "integrations": [record.safe_summary() for record in records],
+                "can_manage": is_admin,
+            },
+        )
+
+    def _app_integration_update(
+        self,
+        app_session: AuthorizedAppSession | None,
+        integration_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        record = self._require_coordinator().update_app_integration(
+            integration_id,
+            app_user_id=session.principal.app_user_id,
+            global_role=session.principal.global_role,
+            status=self._payload_text(payload, "status"),
+            request_id=request_id,
+        )
+        return ApiResponse(200, {"ok": True, "integration": record.safe_summary()})
+
+    def _messenger_accounts_list(
+        self,
+        app_session: AuthorizedAppSession | None,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        accounts = self._require_app_auth_service().list_messenger_accounts(
+            session.principal
+        )
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "feature_enabled": self.config.features.multi_session.enabled,
+                "default_messenger_account_id": (
+                    self.config.features.multi_session.legacy_default_messenger_account_id
+                    if self.config.features.multi_session.enabled
+                    else None
+                ),
+                "accounts": accounts,
+                "provider_adapters": {
+                    key: descriptor.safe_payload()
+                    for key, descriptor in self._provider_registry.descriptor_catalog().items()
+                },
+            },
+        )
+
+    def _messenger_account_status(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        account = self._require_app_auth_service().require_messenger_account_access(
+            session.principal,
+            messenger_account_id,
+            operation="view",
+        )
+        return ApiResponse(200, {"ok": True, "account": account})
+
+    def _messenger_account_capabilities(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+    ) -> ApiResponse:
+        session = self._require_authorized_session(app_session)
+        self._require_app_auth_service().require_messenger_account_access(
+            session.principal,
+            messenger_account_id,
+            operation="view",
+        )
+        snapshot = self._require_provider_capability_service().snapshot(
+            messenger_account_id
+        )
+        return ApiResponse(200, {"ok": True, **snapshot.safe_summary()})
+
+    def _messenger_account_onboard(
+        self,
+        app_session: AuthorizedAppSession | None,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        if not self.config.features.multi_session.enabled:
+            raise CoordinatorAuthorizationError(
+                "Account onboarding is not enabled.",
+                code="multi_session_onboarding_disabled",
+            )
+        session = self._require_authorized_session(app_session)
+        allowed_keys = {"provider", "phone", "label"}
+        rejected_keys = sorted(str(key) for key in payload if key not in allowed_keys)
+        if rejected_keys:
+            raise CompositionValidationError(
+                "Account onboarding contains unsupported fields.",
+                code="messenger_account_onboarding_fields_rejected",
+                safe_context={"rejected_fields": rejected_keys},
+            )
+        
+        provider_value = payload.get("provider")
+        phone_value = payload.get("phone")
+        
+        if not isinstance(provider_value, str):
+            raise CompositionValidationError(
+                "Account onboarding provider field is invalid.",
+                code="messenger_account_onboarding_identity_fields_invalid",
+            )
+        
+        if phone_value is None:
+            raise CompositionValidationError(
+                "Account onboarding requires a phone identity field.",
+                code="messenger_account_onboarding_identity_fields_invalid",
+            )
+            
+        if phone_value is not None and not isinstance(phone_value, str):
+            raise CompositionValidationError(
+                "Account onboarding identity fields are invalid.",
+                code="messenger_account_onboarding_identity_fields_invalid",
+            )
+            
+        if payload.get("label") is not None and not isinstance(payload.get("label"), str):
+            raise CompositionValidationError(
+                "Account onboarding label is invalid.",
+                code="messenger_account_onboarding_label_invalid",
+            )
+        provider = self._payload_text(payload, "provider").strip().lower()
+        descriptor = self._provider_registry.descriptor_catalog().get(provider)
+        if descriptor is None or not descriptor.onboarding_enabled:
+            raise CompositionValidationError(
+                "Account onboarding is unavailable for this provider.",
+                code=(
+                    descriptor.reason_code
+                    if descriptor is not None and descriptor.reason_code
+                    else "provider_onboarding_unavailable"
+                ),
+                safe_context={"provider": provider or "unknown"},
+            )
+        if descriptor.account_identity_kind != "phone_e164":
+            raise CompositionValidationError(
+                "Account onboarding does not support this provider identity kind.",
+                code="provider_onboarding_identity_kind_unsupported",
+                safe_context={"provider": provider},
+            )
+        identity = validate_canonical_e164(self._payload_text(payload, "phone"))
+        label_value = payload.get("label")
+        label = label_value if isinstance(label_value, str) else None
+        self._application_logger.emit(
+            "messenger_account_onboarding_started",
+            result="started",
+            correlation_id=request_id,
+            fields={
+                "provider": provider,
+                "actor_app_user_id": session.principal.app_user_id,
+            },
+        )
+        try:
+            result = self._require_app_auth_service().onboard_messenger_account(
+                session.principal,
+                provider=provider,
+                canonical_phone=identity,
+                label=label,
+                request_id=request_id,
+            )
+        except BridgeError as exc:
+            self._application_logger.emit(
+                "messenger_account_onboarding_rejected",
+                level="warning",
+                result="rejected",
+                reason_code=exc.code,
+                correlation_id=request_id,
+                fields={"provider": provider, "error_type": type(exc).__name__},
+            )
+            raise
+        account = self._require_app_auth_service().require_messenger_account_access(
+            session.principal,
+            result.messenger_account_id,
+            operation="view",
+        )
+        self._application_logger.emit(
+            (
+                "messenger_account_onboarding_succeeded"
+                if result.created
+                else "messenger_account_onboarding_reused"
+            ),
+            result="succeeded",
+            correlation_id=request_id,
+            fields={
+                "provider": provider,
+                "messenger_account_id": result.messenger_account_id,
+                "created": result.created,
+                "identity_record_created": result.phone_account_created,
+                "owner_membership_created": result.membership_created,
+            },
+        )
+        return ApiResponse(
+            201 if result.created else 200,
+            {
+                "ok": True,
+                "account": account,
+                "onboarding": result.safe_summary(),
+            },
+        )
+
+    def _messenger_account_worker_action(
+        self,
+        app_session: AuthorizedAppSession | None,
+        messenger_account_id: str,
+        *,
+        action: str,
+        request_id: str | None,
+    ) -> ApiResponse:
+        if not self.config.features.multi_session.enabled:
+            raise CoordinatorAuthorizationError(
+                "Account worker management is not enabled.",
+                code="multi_session_worker_management_disabled",
+            )
+        session = self._require_authorized_session(app_session)
+        self._require_app_auth_service().require_messenger_account_access(
+            session.principal,
+            messenger_account_id,
+            operation="manage_worker",
+        )
+        if action == "start":
+            self._runtime_registry.start_account(
+                messenger_account_id,
+                actor_app_user_id=session.principal.app_user_id,
+                actor_global_role=session.principal.global_role,
+                request_id=request_id,
+            )
+            account = self._require_app_auth_service().require_messenger_account_access(
+                session.principal,
+                messenger_account_id,
+                operation="view",
+            )
+            return ApiResponse(
+                200,
+                {
+                    "ok": True,
+                    "account": account,
+                    "worker": account.get("worker"),
+                },
+            )
+        if action == "stop":
+            record = self._runtime_registry.stop_account(
+                messenger_account_id,
+                actor_app_user_id=session.principal.app_user_id,
+                actor_global_role=session.principal.global_role,
+                request_id=request_id,
+            )
+            return ApiResponse(
+                200,
+                {"ok": True, "account": record.safe_summary(), "worker": None},
+            )
+        raise CompositionValidationError(
+            "The worker action is invalid.",
+            code="worker_action_invalid",
+        )
+
     def _authorize(self, authorization: str | None) -> None:
         if self.bearer_token is None:
             return
@@ -492,18 +3800,34 @@ class BridgeApplicationApi:
             raise CredentialError("A valid local API bearer token is required.", code="api_unauthorized")
 
     def _health(self) -> dict[str, Any]:
-        config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
         return {
             "ok": True,
             "service": "eitaa-bridge-api",
+            "status": "alive",
             "api_version": self.API_VERSION,
             "bridge_version": __version__,
-            "default_site_key": config.default_site_key,
-            "site_count": len(config.wordpress_sites),
             "core_product": "0.6.0-core7.4.5-gmi1",
             "core_package": "0.6.0.dev19",
-            "authentication_required": self.bearer_token is not None,
-            "scheduler": self._scheduler.snapshot(),
+        }
+
+    def _observability_health(self) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "runtime_logger": self._application_logger.health_summary(),
+            "disk": observability_disk_health(self.base_directory),
+            "retention_policy": {
+                "rotation_keep_newest": 5,
+                "max_age_days": 30,
+                "max_total_bytes": 100 * 1024 * 1024,
+            },
+        }
+
+    def _readiness(self) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "service": "eitaa-bridge-api",
+            "status": "ready",
+            "deployment_mode": self.config.deployment.mode,
         }
 
     def _schema(self) -> dict[str, Any]:
@@ -512,7 +3836,86 @@ class BridgeApplicationApi:
             "api_version": self.API_VERSION,
             "routes": [
                 {"method": "GET", "path": "/api/v1/health"},
+                {"method": "GET", "path": "/api/v1/readiness"},
                 {"method": "GET", "path": "/api/v1/schema"},
+                {"method": "GET", "path": "/api/v2/app-auth/status"},
+                {"method": "POST", "path": "/api/v2/app-auth/setup"},
+                {"method": "POST", "path": "/api/v2/app-auth/login"},
+                {"method": "POST", "path": "/api/v2/app-auth/register"},
+                {"method": "GET", "path": "/api/v2/app-auth/me"},
+                {"method": "GET", "path": "/api/v2/observability/events"},
+                {"method": "GET", "path": "/api/v2/observability/health"},
+                {"method": "POST", "path": "/api/v2/client-diagnostics"},
+                {"method": "POST", "path": "/api/v2/app-auth/logout"},
+                {"method": "POST", "path": "/api/v2/app-auth/logout-all"},
+                {"method": "GET", "path": "/api/v2/app-auth/sessions"},
+                {
+                    "method": "POST",
+                    "path": "/api/v2/app-auth/sessions/{session_id}/revoke",
+                },
+                {"method": "POST", "path": "/api/v2/app-auth/change-password"},
+                {"method": "GET", "path": "/api/v2/app-users"},
+                {"method": "POST", "path": "/api/v2/app-users"},
+                {
+                    "method": "POST",
+                    "path": "/api/v2/app-users/{app_user_id}/update",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/app-users/{app_user_id}/revoke-sessions",
+                },
+                {"method": "GET", "path": "/api/v2/phone-accounts"},
+                {
+                    "method": "POST",
+                    "path": "/api/v2/phone-accounts/{phone_account_id}/memberships",
+                },
+                {"method": "GET", "path": "/api/v2/app-integrations"},
+                {
+                    "method": "POST",
+                    "path": "/api/v2/app-integrations/{integration_id}/update",
+                },
+                {"method": "GET", "path": "/api/v2/messenger-accounts"},
+                {"method": "POST", "path": "/api/v2/messenger-accounts"},
+                {
+                    "method": "GET",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}",
+                },
+                {
+                    "method": "GET",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/capabilities",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/worker/start",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/worker/stop",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/dialogs/query",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/history/query",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/messages/send-text",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/media/read",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/contacts/query",
+                },
+                {
+                    "method": "POST",
+                    "path": "/api/v2/messenger-accounts/{messenger_account_id}/contacts/upsert",
+                },
                 {"method": "GET", "path": "/api/v1/scheduler/status"},
                 {"method": "GET", "path": "/api/v1/auth/status"},
                 {"method": "POST", "path": "/api/v1/auth/request-code"},
@@ -520,8 +3923,14 @@ class BridgeApplicationApi:
                 {"method": "POST", "path": "/api/v1/auth/submit-password"},
                 {"method": "POST", "path": "/api/v1/auth/logout"},
                 {"method": "POST", "path": "/api/v1/auth/reset-local-session"},
+                {"method": "POST", "path": "/api/v1/auth/recover-phone-identity"},
                 {"method": "GET", "path": "/api/v1/sites"},
                 {"method": "GET", "path": "/api/v1/settings/sites"},
+                {"method": "GET", "path": "/api/v2/settings/deployment"},
+                {
+                    "method": "POST",
+                    "path": "/api/v2/settings/deployment/port",
+                },
                 {"method": "POST", "path": "/api/v1/settings/sites/upsert"},
                 {"method": "POST", "path": "/api/v1/settings/sites/default"},
                 {"method": "POST", "path": "/api/v1/settings/sites/delete"},
@@ -532,7 +3941,10 @@ class BridgeApplicationApi:
                 {"method": "GET", "path": "/api/v1/wordpress/tags"},
                 {"method": "POST", "path": "/api/v1/wordpress/tags"},
                 {"method": "POST", "path": "/api/v1/wordpress/post"},
+                {"method": "GET", "path": "/api/v2/audit"},
+                {"method": "POST", "path": "/api/v2/audit/export"},
                 {"method": "POST", "path": "/api/v1/dialogs/list"},
+                {"method": "POST", "path": "/api/v1/dialogs/live-sync"},
                 {"method": "POST", "path": "/api/v1/dialogs/sync"},
                 {"method": "POST", "path": "/api/v1/dialogs/sync/start"},
                 {"method": "GET", "path": "/api/v1/dialogs/sync/status"},
@@ -595,6 +4007,8 @@ class BridgeApplicationApi:
                 {"method": "GET", "path": "/api/v1/contacts/import/status"},
                 {"method": "POST", "path": "/api/v1/contacts/import/cancel"},
                 {"method": "POST", "path": "/api/v1/contacts/targets/preview"},
+                {"method": "POST", "path": "/api/v1/contacts/add-to-messenger/start"},
+                {"method": "POST", "path": "/api/v1/contacts/audit"},
                 {"method": "POST", "path": "/api/v1/compositions/preview"},
                 {"method": "POST", "path": "/api/v1/compositions/status"},
                 {"method": "POST", "path": "/api/v1/compositions/publish"},
@@ -615,11 +4029,11 @@ class BridgeApplicationApi:
         callback: Any,
         timeout: float | None = None,
     ) -> Any:
-        def guarded() -> Any:
-            with self._eitaa_lock:
-                return callback()
-        return self._scheduler.run_sync(
-            priority=priority, kind=kind, callback=guarded, timeout=timeout
+        return self._runtime.run_sync(
+            priority=priority,
+            kind=kind,
+            callback=self._runtime_bound_target(callback),
+            timeout=timeout,
         )
 
     @staticmethod
@@ -644,17 +4058,371 @@ class BridgeApplicationApi:
         return parsed.astimezone(timezone.utc)
 
     def _core_config(self) -> EitaaCoreConfig:
-        config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
+        if isinstance(self._runtime, EitaaProcessRuntime):
+            raise EitaaRuntimeError(
+                "Provider authentication must execute inside the Eitaa Child process.",
+                code="eitaa_process_auth_ipc_required",
+            )
+        config = self._runtime.ownership.core
         return EitaaCoreConfig(
-            session_file=config.core.session_file,
-            database_file=config.core.database_file,
-            media_directory=config.core.media_directory,
-            diagnostics_root=config.core.diagnostics_root,
-            diagnostics_enabled=config.core.diagnostics_enabled,
-            timeout_seconds=config.core.timeout_seconds,
+            session_file=config.session_file,
+            database_file=config.database_file,
+            media_directory=config.media_directory,
+            diagnostics_root=config.diagnostics_root,
+            diagnostics_enabled=config.diagnostics_enabled,
+            timeout_seconds=config.timeout_seconds,
         )
 
-    def _auth_status(self) -> dict[str, Any]:
+    @staticmethod
+    def _account_auth_actor(
+        app_session: AuthorizedAppSession | None,
+    ) -> tuple[str | None, str | None]:
+        if app_session is None:
+            return None, None
+        return (
+            app_session.principal.app_user_id,
+            app_session.principal.global_role,
+        )
+
+    @staticmethod
+    def _account_auth_fields(record: Any) -> dict[str, object]:
+        return {
+            "messenger_account_id": record.messenger_account_id,
+            "provider": record.provider,
+            "auth_state": record.auth_state,
+            "session_generation": record.session_generation,
+        }
+
+    def _close_auth_attempt(self) -> None:
+        if self._auth_runtime is not None:
+            try:
+                self._auth_runtime.close()
+            finally:
+                self._auth_runtime = None
+        self._auth_challenge = None
+
+    def _archive_uncoordinated_session(self) -> str | None:
+        """Fail closed if Core saved a token but Coordinator did not accept it."""
+
+        session_file = self._core_config().session_file
+        if not session_file.is_file():
+            return None
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        archive = session_file.with_name(
+            f"{session_file.name}.uncoordinated.{timestamp}.bak"
+        )
+        try:
+            os.replace(session_file, archive)
+        except OSError as exc:
+            self._runtime_logger.emit(
+                "auth_uncoordinated_session_archive_failed",
+                level="error",
+                fields={"error_type": type(exc).__name__},
+            )
+            return None
+        self._runtime_logger.emit(
+            "auth_uncoordinated_session_archived",
+            level="warning",
+            fields={"archive_name": archive.name},
+        )
+        return archive.name
+
+    def _archive_account_session_file(self, marker: str) -> str | None:
+        session_file = self._core_config().session_file
+        if not session_file.is_file():
+            return None
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        archive = session_file.with_name(
+            f"{session_file.name}.{marker}.{timestamp}.bak"
+        )
+        try:
+            os.replace(session_file, archive)
+        except OSError as exc:
+            raise AuthenticationRuntimeError(
+                "بایگانی امن نشست حساب ناموفق بود.",
+                safe_context={"error_type": type(exc).__name__},
+                code="auth_session_archive_failed",
+            ) from exc
+        if session_file.exists():
+            raise AuthenticationRuntimeError(
+                "فایل نشست حساب پس از بایگانی همچنان فعال است.",
+                code="auth_session_archive_verification_failed",
+            )
+        return archive.name
+
+    def _audit_account_auth_failure(
+        self,
+        *,
+        action: str,
+        reason_code: str,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+        safe_metadata: Mapping[str, Any] | None = None,
+        result: str = "failed",
+    ) -> None:
+        actor_id, actor_role = self._account_auth_actor(app_session)
+        try:
+            self._runtime.audit_auth_event(
+                action=action,
+                result=result,
+                reason_code=reason_code,
+                actor_app_user_id=actor_id,
+                actor_global_role=actor_role,
+                request_id=request_id,
+                safe_metadata=safe_metadata,
+            )
+        except BridgeError as audit_error:
+            self._runtime_logger.emit(
+                "auth_audit_write_failed",
+                level="error",
+                fields={
+                    "action": action,
+                    "error_code": audit_error.code,
+                },
+            )
+
+    def _transition_account_auth(
+        self,
+        record: Any,
+        *,
+        new_state: str,
+        increment_generation: bool,
+        reason_code: str,
+        action: str,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+        mark_validated: bool = False,
+        audit_when_unchanged: bool = True,
+        safe_metadata: Mapping[str, Any] | None = None,
+    ) -> Any:
+        actor_id, actor_role = self._account_auth_actor(app_session)
+        updated = self._runtime.transition_auth(
+            expected_states={record.auth_state},
+            expected_generation=record.session_generation,
+            new_state=new_state,
+            increment_generation=increment_generation,
+            reason_code=reason_code,
+            action=action,
+            mark_validated=mark_validated,
+            audit_when_unchanged=audit_when_unchanged,
+            actor_app_user_id=actor_id,
+            actor_global_role=actor_role,
+            request_id=request_id,
+            safe_metadata=safe_metadata,
+        )
+        self._runtime_logger.emit(
+            "auth_state_transition",
+            fields={
+                "from_auth_state": record.auth_state,
+                "to_auth_state": updated.auth_state,
+                "from_session_generation": record.session_generation,
+                "to_session_generation": updated.session_generation,
+                "reason": reason_code,
+            },
+        )
+        return updated
+
+    def _auth_status(
+        self,
+        *,
+        app_session: AuthorizedAppSession | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        if self._runtime.is_account_scoped:
+            return self._auth_status_account(
+                app_session=app_session,
+                request_id=request_id,
+            )
+        return self._auth_status_legacy()
+
+    def _auth_status_account(
+        self,
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        core_config = self._core_config()
+        core = None
+        with self._eitaa_lock, self._auth_lock:
+            record = self._runtime.refresh_auth_record()
+            challenge = (
+                self._auth_challenge
+                if isinstance(self._auth_challenge, AccountAuthChallenge)
+                else None
+            )
+            if challenge is not None:
+                challenge_valid = (
+                    challenge.messenger_account_id == record.messenger_account_id
+                    and challenge.session_generation == record.session_generation
+                    and record.auth_state == "challenge_pending"
+                )
+                if not challenge_valid or challenge.is_expired():
+                    reason = (
+                        "challenge_expired"
+                        if challenge.is_expired()
+                        else "challenge_context_mismatch"
+                    )
+                    self._close_auth_attempt()
+                    if record.auth_state == "challenge_pending":
+                        record = self._transition_account_auth(
+                            record,
+                            new_state="expired",
+                            increment_generation=False,
+                            reason_code=reason,
+                            action="eitaa.auth.challenge.expired",
+                            app_session=app_session,
+                            request_id=request_id,
+                            safe_metadata={"challenge_stage": challenge.stage},
+                        )
+                    challenge = None
+            elif record.auth_state == "challenge_pending":
+                record = self._transition_account_auth(
+                    record,
+                    new_state="expired",
+                    increment_generation=False,
+                    reason_code="challenge_runtime_missing",
+                    action="eitaa.auth.challenge.expired",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"challenge_stage": "unknown"},
+                )
+
+            if challenge is not None:
+                return {
+                    "ok": True,
+                    "authenticated": False,
+                    "session_present": core_config.session_file.is_file(),
+                    "password_pending": challenge.stage == "password",
+                    "fresh_login_available": False,
+                    "challenge": challenge.safe_summary(),
+                    **self._account_auth_fields(record),
+                }
+
+            if not core_config.session_file.is_file():
+                if record.auth_state == "authenticated":
+                    record = self._transition_account_auth(
+                        record,
+                        new_state="invalid",
+                        increment_generation=True,
+                        reason_code="local_session_missing",
+                        action="eitaa.auth.session.invalidated",
+                        app_session=app_session,
+                        request_id=request_id,
+                        safe_metadata={"session_file_present": False},
+                    )
+                return {
+                    "ok": True,
+                    "authenticated": False,
+                    "session_present": False,
+                    "password_pending": False,
+                    "fresh_login_available": True,
+                    **self._account_auth_fields(record),
+                }
+
+            if record.auth_state in {"revoked", "invalid"}:
+                return {
+                    "ok": True,
+                    "authenticated": False,
+                    "session_present": True,
+                    "session_error": True,
+                    "session_invalid": True,
+                    "session_error_code": "auth_metadata_rejects_active_session",
+                    "password_pending": False,
+                    "fresh_login_available": True,
+                    **self._account_auth_fields(record),
+                }
+
+            try:
+                core = EitaaCore.open(core_config)
+            except Exception as exc:
+                return {
+                    "ok": True,
+                    "authenticated": False,
+                    "session_present": True,
+                    "session_error": True,
+                    "session_error_code": "auth_session_open_failed",
+                    "session_error_type": type(exc).__name__,
+                    "password_pending": False,
+                    "fresh_login_available": True,
+                    **self._account_auth_fields(record),
+                }
+            try:
+                session_summary = core.session.safe_summary()
+                try:
+                    core.discovery.list_dialogs(limit=1)
+                except Exception as exc:
+                    if self._is_invalid_session_error(exc):
+                        if record.auth_state != "invalid":
+                            record = self._transition_account_auth(
+                                record,
+                                new_state="invalid",
+                                increment_generation=True,
+                                reason_code="remote_session_invalid",
+                                action="eitaa.auth.session.invalidated",
+                                app_session=app_session,
+                                request_id=request_id,
+                                safe_metadata={
+                                    "error_type": type(exc).__name__,
+                                    "remote_status": 401,
+                                    "session_file_present": True,
+                                },
+                            )
+                        return {
+                            "ok": True,
+                            "authenticated": False,
+                            "session_present": True,
+                            "session": session_summary,
+                            "session_error": True,
+                            "session_invalid": True,
+                            "session_error_code": "auth_session_invalid",
+                            "session_error_type": type(exc).__name__,
+                            "password_pending": False,
+                            "fresh_login_available": True,
+                            "remote_probe": False,
+                            "remote_warning": False,
+                            "remote_error_code": 401,
+                            **self._account_auth_fields(record),
+                        }
+                    return {
+                        "ok": True,
+                        "authenticated": record.auth_state == "authenticated",
+                        "session_present": True,
+                        "session": session_summary,
+                        "password_pending": False,
+                        "fresh_login_available": record.auth_state != "authenticated",
+                        "remote_probe": False,
+                        "remote_warning": True,
+                        "remote_error_type": type(exc).__name__,
+                        "remote_error_code": getattr(exc, "code", None),
+                        **self._account_auth_fields(record),
+                    }
+                record = self._transition_account_auth(
+                    record,
+                    new_state="authenticated",
+                    increment_generation=False,
+                    reason_code="remote_session_validated",
+                    action="eitaa.auth.session.validated",
+                    app_session=app_session,
+                    request_id=request_id,
+                    mark_validated=True,
+                    audit_when_unchanged=False,
+                    safe_metadata={"session_file_present": True},
+                )
+                return {
+                    "ok": True,
+                    "authenticated": True,
+                    "session_present": True,
+                    "session": session_summary,
+                    "password_pending": False,
+                    "fresh_login_available": False,
+                    "remote_probe": True,
+                    "remote_warning": False,
+                    **self._account_auth_fields(record),
+                }
+            finally:
+                core.close()
+
+    def _auth_status_legacy(self) -> dict[str, Any]:
         core_config = self._core_config()
         if not core_config.session_file.exists():
             return {
@@ -719,7 +4487,167 @@ class BridgeApplicationApi:
             if core is not None:
                 core.close()
 
-    def _auth_reset_local_session(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def _auth_reset_local_session(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        if self._runtime.is_account_scoped:
+            return self._auth_reset_local_session_account(
+                payload,
+                app_session=app_session,
+                request_id=request_id,
+            )
+        return self._auth_reset_local_session_legacy(payload)
+
+    def _auth_reset_local_session_account(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        automatic_recovery = payload.get("automatic_recovery") is True
+        if payload.get("confirm") is not True and not automatic_recovery:
+            actor_id, actor_role = self._account_auth_actor(app_session)
+            self._runtime.audit_auth_event(
+                action="eitaa.auth.session.reset.denied",
+                result="denied",
+                reason_code="explicit_confirmation_missing",
+                actor_app_user_id=actor_id,
+                actor_global_role=actor_role,
+                request_id=request_id,
+            )
+            raise CompositionValidationError(
+                "Explicit confirmation is required to archive the local session.",
+                code="api_session_reset_confirmation_required",
+            )
+        session_file = self._core_config().session_file
+        self._runtime.close_shared_core()
+        with self._eitaa_lock, self._auth_lock:
+            record = self._runtime.refresh_auth_record()
+            if automatic_recovery and record.auth_state == "absent" and not session_file.exists():
+                return {
+                    "ok": True,
+                    "session_present": False,
+                    "archived": False,
+                    "login_ready": True,
+                    "recovery_mode": "automatic",
+                    **self._account_auth_fields(record),
+                }
+            if automatic_recovery and record.auth_state != "invalid":
+                actor_id, actor_role = self._account_auth_actor(app_session)
+                self._runtime.audit_auth_event(
+                    action="eitaa.auth.session.reset.denied",
+                    result="denied",
+                    reason_code="automatic_recovery_state_mismatch",
+                    actor_app_user_id=actor_id,
+                    actor_global_role=actor_role,
+                    request_id=request_id,
+                    safe_metadata={"auth_state": record.auth_state},
+                )
+                raise CompositionValidationError(
+                    "Automatic recovery is only available for an invalid provider session.",
+                    safe_context={"auth_state": record.auth_state},
+                    code="api_session_automatic_recovery_not_allowed",
+                )
+            had_challenge = self._auth_challenge is not None
+            self._close_auth_attempt()
+            reset_reason = (
+                "automatic_invalid_session_recovery"
+                if automatic_recovery
+                else "operator_local_session_reset"
+            )
+            if not session_file.exists():
+                if record.auth_state != "absent" or had_challenge:
+                    record = self._transition_account_auth(
+                        record,
+                        new_state="absent",
+                        increment_generation=True,
+                        reason_code=reset_reason,
+                        action="eitaa.auth.session.reset",
+                        app_session=app_session,
+                        request_id=request_id,
+                        safe_metadata={
+                            "archive_created": False,
+                            "session_file_present": False,
+                        },
+                    )
+                else:
+                    actor_id, actor_role = self._account_auth_actor(app_session)
+                    self._runtime.audit_auth_event(
+                        action="eitaa.auth.session.reset",
+                        result="succeeded",
+                        reason_code="local_session_already_absent",
+                        actor_app_user_id=actor_id,
+                        actor_global_role=actor_role,
+                        request_id=request_id,
+                        safe_metadata={
+                            "archive_created": False,
+                            "session_file_present": False,
+                        },
+                    )
+                return {
+                    "ok": True,
+                    "session_present": False,
+                    "archived": False,
+                    "login_ready": True,
+                    "recovery_mode": (
+                        "automatic" if automatic_recovery else "confirmed"
+                    ),
+                    **self._account_auth_fields(record),
+                }
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+            archive = session_file.with_name(
+                f"{session_file.name}.invalid.{timestamp}.bak"
+            )
+            try:
+                os.replace(session_file, archive)
+            except OSError as exc:
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.session.reset.failed",
+                    reason_code="local_session_archive_failed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"error_type": type(exc).__name__},
+                )
+                raise AuthenticationRuntimeError(
+                    "بایگانی نشست محلی ناموفق بود. برنامه را ببندید و دوباره تلاش کنید.",
+                    safe_context={"error_type": type(exc).__name__},
+                    code="auth_session_archive_failed",
+                ) from exc
+            if session_file.exists():
+                raise AuthenticationRuntimeError(
+                    "فایل نشست پس از بایگانی همچنان در مسیر فعال باقی مانده است.",
+                    safe_context={"session_file_present": True},
+                    code="auth_session_archive_verification_failed",
+                )
+            record = self._transition_account_auth(
+                record,
+                new_state="absent",
+                increment_generation=True,
+                reason_code=reset_reason,
+                action="eitaa.auth.session.reset",
+                app_session=app_session,
+                request_id=request_id,
+                safe_metadata={
+                    "archive_created": True,
+                    "session_file_present": False,
+                },
+            )
+        return {
+            "ok": True,
+            "session_present": False,
+            "archived": True,
+            "login_ready": True,
+            "recovery_mode": "automatic" if automatic_recovery else "confirmed",
+            **({} if automatic_recovery else {"archive_name": archive.name}),
+            **self._account_auth_fields(record),
+        }
+
+    def _auth_reset_local_session_legacy(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         """Archive an unusable local session and return to a clean login gate.
 
         This does not call remote logout because the current token may already
@@ -732,7 +4660,7 @@ class BridgeApplicationApi:
                 code="api_session_reset_confirmation_required",
             )
         session_file = self._core_config().session_file
-        EitaaBridge.close_shared_cores()
+        self._runtime.close_shared_core()
         with self._eitaa_lock, self._auth_lock:
             if self._auth_runtime is not None:
                 self._auth_runtime.close()
@@ -764,7 +4692,341 @@ class BridgeApplicationApi:
             "login_ready": True,
         }
 
-    def _auth_request_code(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def _auth_recover_phone_identity(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        """Recover one migrated identity whose old CurrentUser DPAPI key is unavailable."""
+
+        if not self._runtime.is_account_scoped:
+            raise CompositionValidationError(
+                "Protected phone identity recovery requires an account-scoped runtime.",
+                code="api_phone_identity_recovery_account_scope_required",
+            )
+        if payload.get("confirm") is not True:
+            raise CompositionValidationError(
+                "Explicit confirmation is required to recover the protected phone identity.",
+                code="api_phone_identity_recovery_confirmation_required",
+            )
+        session = (
+            self._require_authorized_session(app_session)
+            if self.app_user_auth_enabled
+            else None
+        )
+        if session is not None and session.principal.global_role != "admin":
+            raise CoordinatorAuthorizationError(
+                "Only an administrator can recover the protected phone identity.",
+                code="app_auth_admin_required",
+            )
+        phone = validate_canonical_e164(str(payload.get("phone") or "").strip())
+        account_id = str(self._runtime.ownership.messenger_account_id or "")
+        coordinator = self._require_coordinator()
+        record = self._runtime.refresh_auth_record()
+        session_file = self._core_config().session_file
+        if session_file.exists() or record.auth_state != "absent":
+            raise CompositionValidationError(
+                "Archive the active provider session before recovering the phone identity.",
+                safe_context={
+                    "session_file_present": session_file.exists(),
+                    "auth_state": record.auth_state,
+                },
+                code="api_phone_identity_recovery_session_present",
+            )
+        current_identity = coordinator.messenger_account_phone_identity(account_id)
+        if not current_identity.protected_phone.display_hint.endswith(phone[-2:]):
+            self._runtime.audit_auth_event(
+                action="eitaa.auth.phone_identity.recovery_denied",
+                result="denied",
+                reason_code="display_hint_mismatch",
+                actor_app_user_id=(session.principal.app_user_id if session else None),
+                actor_global_role=(session.principal.global_role if session else None),
+                request_id=request_id,
+                safe_metadata={"display_hint_match": False},
+            )
+            raise CompositionValidationError(
+                "The supplied phone does not match the selected account hint.",
+                code="api_phone_identity_recovery_hint_mismatch",
+            )
+        try:
+            resolved = self._runtime.resolve_login_phone(phone)
+        except BridgeError as exc:
+            if exc.code != "phone_unprotection_failed":
+                raise
+        else:
+            if not hmac.compare_digest(resolved, phone):
+                raise CompositionValidationError(
+                    "The supplied phone does not own the selected MessengerAccount.",
+                    code="eitaa_account_phone_mismatch",
+                )
+            return {
+                "ok": True,
+                "recovered": False,
+                "recovery_required": False,
+                "login_ready": True,
+            }
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        coordinator_root = self.base_directory / "data" / "coordinator"
+        recovery_root = coordinator_root / "identity-recovery"
+        recovery_root.mkdir(parents=True, exist_ok=True)
+        key_file = coordinator_root / "identity.key.dpapi"
+        key_backup = recovery_root / f"identity.key.dpapi.{timestamp}.bak"
+        database_backup = recovery_root / f"coordinator.{timestamp}.bak.sqlite3"
+        temporary_key = coordinator_root / f"identity.key.dpapi.next.{timestamp}"
+        restore_key = coordinator_root / f"identity.key.dpapi.restore.{timestamp}"
+        if any(path.exists() for path in (key_backup, database_backup, temporary_key, restore_key)):
+            raise AuthenticationRuntimeError(
+                "A protected identity recovery artifact already exists.",
+                code="phone_identity_recovery_artifact_collision",
+            )
+
+        with self._eitaa_lock, self._auth_lock:
+            key_swapped = False
+            database_updated = False
+            try:
+                shutil.copy2(key_file, key_backup)
+                source_uri = f"{coordinator.path.as_uri()}?mode=ro"
+                with sqlite3.connect(source_uri, uri=True, timeout=5.0) as source:
+                    with sqlite3.connect(database_backup, timeout=5.0) as destination:
+                        source.backup(destination)
+                replacement_protector = WindowsDpapiPhoneProtector(temporary_key)
+                protected_phone = replacement_protector.protect(phone)
+                if not hmac.compare_digest(
+                    replacement_protector.reveal(protected_phone),
+                    phone,
+                ):
+                    raise AuthenticationRuntimeError(
+                        "The replacement protected identity did not pass verification.",
+                        code="phone_identity_recovery_verification_failed",
+                    )
+                os.replace(temporary_key, key_file)
+                key_swapped = True
+                updated = coordinator.replace_messenger_account_phone_identity(
+                    account_id,
+                    protected_phone=protected_phone,
+                    actor_app_user_id=(
+                        session.principal.app_user_id if session else None
+                    ),
+                    actor_global_role=(
+                        session.principal.global_role if session else None
+                    ),
+                    request_id=request_id,
+                )
+                database_updated = True
+                verified_phone = WindowsDpapiPhoneProtector(key_file).reveal(
+                    updated.protected_phone
+                )
+                if not hmac.compare_digest(verified_phone, phone):
+                    raise AuthenticationRuntimeError(
+                        "The recovered protected identity did not pass final verification.",
+                        code="phone_identity_recovery_final_verification_failed",
+                    )
+            except Exception as exc:
+                rollback_error: Exception | None = None
+                try:
+                    if database_updated:
+                        backup_uri = f"{database_backup.as_uri()}?mode=ro"
+                        with sqlite3.connect(backup_uri, uri=True, timeout=5.0) as source:
+                            with sqlite3.connect(coordinator.path, timeout=5.0) as destination:
+                                source.backup(destination)
+                    if key_swapped:
+                        shutil.copy2(key_backup, restore_key)
+                        os.replace(restore_key, key_file)
+                except (OSError, sqlite3.Error) as rollback_exc:
+                    rollback_error = rollback_exc
+                if rollback_error is not None:
+                    raise AuthenticationRuntimeError(
+                        "Protected phone identity recovery failed and automatic rollback was incomplete.",
+                        safe_context={
+                            "error_type": type(exc).__name__,
+                            "rollback_error_type": type(rollback_error).__name__,
+                            "key_backup": key_backup.name,
+                            "database_backup": database_backup.name,
+                        },
+                        code="phone_identity_recovery_rollback_incomplete",
+                    ) from exc
+                if isinstance(exc, BridgeError):
+                    raise
+                if isinstance(exc, (OSError, sqlite3.Error)):
+                    raise AuthenticationRuntimeError(
+                        "The protected phone identity recovery failed.",
+                        safe_context={"error_type": type(exc).__name__},
+                        code="phone_identity_recovery_failed",
+                    ) from exc
+                raise
+            finally:
+                temporary_key.unlink(missing_ok=True)
+                restore_key.unlink(missing_ok=True)
+                phone = ""
+                if "verified_phone" in locals():
+                    verified_phone = ""
+
+        return {
+            "ok": True,
+            "recovered": True,
+            "recovery_required": False,
+            "login_ready": True,
+            "backups": {
+                "key": key_backup.name,
+                "database": database_backup.name,
+            },
+        }
+
+    def _auth_request_code(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        if self._runtime.is_account_scoped:
+            return self._auth_request_code_account(
+                payload,
+                app_session=app_session,
+                request_id=request_id,
+            )
+        return self._auth_request_code_legacy(payload)
+
+    def _auth_request_code_account(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        supplied_phone = payload.get("phone")
+        session_file = self._core_config().session_file
+        with self._eitaa_lock, self._auth_lock:
+            record = self._runtime.refresh_auth_record()
+            if session_file.is_file():
+                actor_id, actor_role = self._account_auth_actor(app_session)
+                self._runtime.audit_auth_event(
+                    action="eitaa.auth.request_code.denied",
+                    result="denied",
+                    reason_code="active_session_reset_required",
+                    actor_app_user_id=actor_id,
+                    actor_global_role=actor_role,
+                    request_id=request_id,
+                    safe_metadata={"session_file_present": True},
+                )
+                raise CompositionValidationError(
+                    "Archive or log out the active account session before starting a fresh login.",
+                    code="api_auth_session_reset_required",
+                )
+            if record.auth_state == "challenge_pending":
+                self._close_auth_attempt()
+                record = self._transition_account_auth(
+                    record,
+                    new_state="expired",
+                    increment_generation=False,
+                    reason_code="challenge_replaced",
+                    action="eitaa.auth.challenge.expired",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"challenge_stage": "unknown"},
+                )
+            else:
+                self._close_auth_attempt()
+            try:
+                phone = self._runtime.resolve_login_phone(
+                    str(supplied_phone).strip()
+                    if supplied_phone is not None and str(supplied_phone).strip()
+                    else None
+                )
+            except BridgeError as exc:
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.request_code.denied",
+                    reason_code=(
+                        "account_phone_mismatch"
+                        if exc.code == "eitaa_account_phone_mismatch"
+                        else "account_phone_resolution_failed"
+                    ),
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"error_type": type(exc).__name__},
+                    result=(
+                        "denied"
+                        if exc.code == "eitaa_account_phone_mismatch"
+                        else "failed"
+                    ),
+                )
+                raise
+            try:
+                self._auth_runtime = EitaaAuth.open(self._core_config())
+                provider_challenge = self._auth_runtime.auth.request_code(phone)
+                provider_summary = provider_challenge.safe_summary()
+                record = self._transition_account_auth(
+                    record,
+                    new_state="challenge_pending",
+                    increment_generation=True,
+                    reason_code="login_challenge_issued",
+                    action="eitaa.auth.request_code.succeeded",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "delivery_type": str(
+                            provider_summary.get("delivery_type") or "unknown"
+                        ),
+                        "timeout_seconds": provider_summary.get("timeout_seconds"),
+                    },
+                )
+                self._auth_challenge = AccountAuthChallenge.for_code(
+                    messenger_account_id=record.messenger_account_id,
+                    session_generation=record.session_generation,
+                    provider_challenge=provider_challenge,
+                )
+                self._runtime_logger.emit(
+                    "auth_challenge_created",
+                    fields={
+                        "session_generation": record.session_generation,
+                        "challenge_stage": "code",
+                        "expires_at": self._auth_challenge.expires_at.isoformat(
+                            timespec="milliseconds"
+                        ),
+                    },
+                )
+                return {
+                    "ok": True,
+                    "step": "code",
+                    "challenge": self._auth_challenge.safe_summary(),
+                    **self._account_auth_fields(record),
+                }
+            except BridgeError:
+                self._close_auth_attempt()
+                raise
+            except NetworkError as exc:
+                self._close_auth_attempt()
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.request_code.failed",
+                    reason_code="provider_network_unreachable",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"error_type": type(exc).__name__},
+                )
+                raise AuthenticationRuntimeError(
+                    "ارتباط سرویس محلی با سرور ایتا برقرار نشد. اتصال اینترنت یا دسترسی شبکهٔ سرویس را بررسی و دوباره تلاش کنید.",
+                    safe_context={"error_type": type(exc).__name__},
+                    code="auth_provider_network_unreachable",
+                ) from exc
+            except Exception as exc:
+                self._close_auth_attempt()
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.request_code.failed",
+                    reason_code="provider_request_failed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"error_type": type(exc).__name__},
+                )
+                raise AuthenticationRuntimeError(
+                    "راه‌اندازی ورود ایتا ناموفق بود. سرویس محلی را دوباره راه‌اندازی و مجدداً تلاش کنید.",
+                    safe_context={"error_type": type(exc).__name__},
+                    code="auth_request_code_failed",
+                ) from exc
+
+    def _auth_request_code_legacy(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         phone = str(payload.get("phone") or "").strip()
         if not phone:
             raise CompositionValidationError("phone is required.", code="api_phone_required")
@@ -772,15 +5034,37 @@ class BridgeApplicationApi:
             try:
                 if self._auth_runtime is not None:
                     self._auth_runtime.close()
+                self._auth_challenge = None
                 self._auth_runtime = EitaaAuth.open(self._core_config())
-                self._auth_challenge = self._auth_runtime.auth.request_code(phone)
+                provider_challenge = self._auth_runtime.auth.request_code(phone)
+                self._auth_challenge = LegacyAuthChallenge.for_code(
+                    provider_challenge=provider_challenge,
+                )
+                self._runtime_logger.emit(
+                    "auth_challenge_created",
+                    fields={
+                        "runtime_scope": "legacy",
+                        "challenge_stage": "code",
+                    },
+                )
                 return {
                     "ok": True,
                     "step": "code",
                     "challenge": self._auth_challenge.safe_summary(),
                 }
             except BridgeError:
+                self._close_auth_attempt()
                 raise
+            except NetworkError as exc:
+                if self._auth_runtime is not None:
+                    self._auth_runtime.close()
+                self._auth_runtime = None
+                self._auth_challenge = None
+                raise AuthenticationRuntimeError(
+                    "ارتباط سرویس محلی با سرور ایتا برقرار نشد. اتصال اینترنت یا دسترسی شبکهٔ سرویس را بررسی و دوباره تلاش کنید.",
+                    safe_context={"error_type": type(exc).__name__},
+                    code="auth_provider_network_unreachable",
+                ) from exc
             except Exception as exc:
                 if self._auth_runtime is not None:
                     self._auth_runtime.close()
@@ -792,17 +5076,336 @@ class BridgeApplicationApi:
                     code="auth_request_code_failed",
                 ) from exc
 
-    def _auth_submit_code(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        code = str(payload.get("code") or "").strip()
+    def _require_account_challenge(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        expected_stage: str,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> tuple[AccountAuthChallenge, Any]:
+        challenge_id = str(payload.get("challenge_id") or "").strip()
+        if not challenge_id:
+            raise CompositionValidationError(
+                "challenge_id is required.",
+                code="api_auth_challenge_id_required",
+            )
+        record = self._runtime.refresh_auth_record()
+        challenge = self._auth_challenge
+        if (
+            not isinstance(challenge, AccountAuthChallenge)
+            or self._auth_runtime is None
+        ):
+            missing_stage = (
+                challenge.stage
+                if isinstance(challenge, AccountAuthChallenge)
+                else "unknown"
+            )
+            self._close_auth_attempt()
+            if record.auth_state == "challenge_pending":
+                self._transition_account_auth(
+                    record,
+                    new_state="expired",
+                    increment_generation=False,
+                    reason_code="challenge_runtime_missing",
+                    action="eitaa.auth.challenge.expired",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"challenge_stage": missing_stage},
+                )
+            raise CompositionValidationError(
+                "No account login challenge is pending.",
+                code="api_auth_challenge_missing",
+            )
+        if challenge.is_expired():
+            self._close_auth_attempt()
+            if (
+                record.auth_state == "challenge_pending"
+                and record.session_generation == challenge.session_generation
+            ):
+                self._transition_account_auth(
+                    record,
+                    new_state="expired",
+                    increment_generation=False,
+                    reason_code="challenge_expired",
+                    action="eitaa.auth.challenge.expired",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={"challenge_stage": challenge.stage},
+                )
+            raise CompositionValidationError(
+                "The account login challenge expired. Request a new code.",
+                code="api_auth_challenge_expired",
+            )
+        if not challenge.matches(
+            challenge_id=challenge_id,
+            messenger_account_id=record.messenger_account_id,
+            session_generation=record.session_generation,
+            stage=expected_stage,
+        ) or record.auth_state != "challenge_pending":
+            actor_id, actor_role = self._account_auth_actor(app_session)
+            self._runtime.audit_auth_event(
+                action="eitaa.auth.challenge.denied",
+                result="denied",
+                reason_code="challenge_context_mismatch",
+                actor_app_user_id=actor_id,
+                actor_global_role=actor_role,
+                request_id=request_id,
+                safe_metadata={"challenge_stage": expected_stage},
+            )
+            raise CompositionValidationError(
+                "The account login challenge does not match this session.",
+                code="api_auth_challenge_mismatch",
+            )
+        return challenge, record
+
+    def _require_legacy_challenge(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        expected_stage: str,
+    ) -> LegacyAuthChallenge:
+        challenge_id = str(payload.get("challenge_id") or "").strip()
+        if not challenge_id:
+            raise CompositionValidationError(
+                "challenge_id is required.",
+                code="api_auth_challenge_id_required",
+            )
+        challenge = self._auth_challenge
+        if (
+            not isinstance(challenge, LegacyAuthChallenge)
+            or self._auth_runtime is None
+        ):
+            raise CompositionValidationError(
+                "No single-session login challenge is pending.",
+                code="api_auth_challenge_missing",
+            )
+        if challenge.is_expired():
+            expired_stage = challenge.stage
+            self._close_auth_attempt()
+            self._runtime_logger.emit(
+                "auth_challenge_expired",
+                level="warning",
+                result="rejected",
+                reason_code="challenge_expired",
+                fields={
+                    "runtime_scope": "legacy",
+                    "challenge_stage": expired_stage,
+                },
+            )
+            raise CompositionValidationError(
+                "The single-session login challenge expired. Request a new code.",
+                code="api_auth_challenge_expired",
+            )
+        if not challenge.matches(
+            challenge_id=challenge_id,
+            stage=expected_stage,
+        ):
+            self._runtime_logger.emit(
+                "auth_challenge_denied",
+                level="warning",
+                result="rejected",
+                reason_code="challenge_context_mismatch",
+                fields={
+                    "runtime_scope": "legacy",
+                    "expected_stage": expected_stage,
+                    "actual_stage": challenge.stage,
+                },
+            )
+            raise CompositionValidationError(
+                "The single-session login challenge does not match this flow.",
+                code="api_auth_challenge_mismatch",
+            )
+        return challenge
+
+    def _auth_submit_code(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        if self._runtime.is_account_scoped:
+            return self._auth_submit_code_account(
+                payload,
+                app_session=app_session,
+                request_id=request_id,
+            )
+        return self._auth_submit_code_legacy(payload)
+
+    def _auth_submit_code_account(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        code = _normalize_login_code(payload.get("code"))
         with self._eitaa_lock, self._auth_lock:
-            if self._auth_runtime is None or self._auth_challenge is None:
+            challenge, record = self._require_account_challenge(
+                payload,
+                expected_stage="code",
+                app_session=app_session,
+                request_id=request_id,
+            )
+            if not re.fullmatch(r"[0-9A-Za-z-]{2,32}", code):
                 raise CompositionValidationError(
-                    "No login code challenge is pending.", code="api_auth_challenge_missing"
+                    "کد ورود باید فقط شامل رقم یا حروف انگلیسی باشد.",
+                    code="auth_code_format_invalid",
                 )
             try:
-                result = self._auth_runtime.auth.submit_code(self._auth_challenge, code)
+                result = self._auth_runtime.auth.submit_code(
+                    challenge.provider_challenge,
+                    code,
+                )
             except BridgeError:
                 raise
+            except RpcError as exc:
+                error_kind, reason_code, error_code, message = (
+                    _provider_login_code_failure(exc)
+                )
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.submit_code.failed",
+                    reason_code=reason_code,
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "error_type": type(exc).__name__,
+                        "challenge_stage": "code",
+                        "provider_error_kind": error_kind,
+                    },
+                )
+                raise AuthenticationRuntimeError(
+                    message,
+                    safe_context={
+                        "error_type": type(exc).__name__,
+                        "provider_error_kind": error_kind,
+                    },
+                    code=error_code,
+                ) from exc
+            except Exception as exc:
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.submit_code.failed",
+                    reason_code="provider_code_submission_failed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "error_type": type(exc).__name__,
+                        "challenge_stage": "code",
+                    },
+                )
+                raise AuthenticationRuntimeError(
+                    "بررسی کد ورود ایتا ناموفق بود. دوباره تلاش کنید.",
+                    safe_context={"error_type": type(exc).__name__},
+                    code="auth_submit_code_failed",
+                ) from exc
+            if result.completed:
+                if not self._core_config().session_file.is_file():
+                    self._audit_account_auth_failure(
+                        action="eitaa.auth.login.failed",
+                        reason_code="provider_session_file_missing",
+                        app_session=app_session,
+                        request_id=request_id,
+                        safe_metadata={"session_file_present": False},
+                    )
+                    self._close_auth_attempt()
+                    raise AuthenticationRuntimeError(
+                        "ورود ایتا کامل شد اما فایل نشست تأیید نشد.",
+                        code="auth_session_file_missing_after_login",
+                    )
+                try:
+                    record = self._transition_account_auth(
+                        record,
+                        new_state="authenticated",
+                        increment_generation=False,
+                        reason_code="native_login_completed",
+                        action="eitaa.auth.login.completed",
+                        app_session=app_session,
+                        request_id=request_id,
+                        mark_validated=True,
+                        safe_metadata={"challenge_stage": "code"},
+                    )
+                except BridgeError:
+                    self._archive_uncoordinated_session()
+                    self._close_auth_attempt()
+                    raise
+                self._close_auth_attempt()
+                self._runtime.close_shared_core()
+                return {
+                    "ok": True,
+                    "step": "completed",
+                    **result.safe_summary(),
+                    **self._account_auth_fields(record),
+                }
+            if result.password_required:
+                self._auth_challenge = challenge.for_password()
+                actor_id, actor_role = self._account_auth_actor(app_session)
+                self._runtime.audit_auth_event(
+                    action="eitaa.auth.submit_code.password_required",
+                    result="succeeded",
+                    reason_code="second_factor_required",
+                    actor_app_user_id=actor_id,
+                    actor_global_role=actor_role,
+                    request_id=request_id,
+                    safe_metadata={"challenge_stage": "password"},
+                )
+                self._runtime_logger.emit(
+                    "auth_challenge_advanced",
+                    fields={
+                        "session_generation": record.session_generation,
+                        "challenge_stage": "password",
+                    },
+                )
+                return {
+                    "ok": True,
+                    "step": "password",
+                    **result.safe_summary(),
+                    "challenge": self._auth_challenge.safe_summary(),
+                    **self._account_auth_fields(record),
+                }
+            self._audit_account_auth_failure(
+                action="eitaa.auth.submit_code.failed",
+                reason_code="provider_result_incomplete",
+                app_session=app_session,
+                request_id=request_id,
+                safe_metadata={"challenge_stage": "code"},
+            )
+            raise AuthenticationRuntimeError(
+                "پاسخ ورود ایتا وضعیت قابل استفاده‌ای نداشت.",
+                code="auth_submit_code_result_invalid",
+            )
+
+    def _auth_submit_code_legacy(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        code = _normalize_login_code(payload.get("code"))
+        with self._eitaa_lock, self._auth_lock:
+            challenge = self._require_legacy_challenge(
+                payload,
+                expected_stage="code",
+            )
+            if not re.fullmatch(r"[0-9A-Za-z-]{2,32}", code):
+                raise CompositionValidationError(
+                    "کد ورود باید فقط شامل رقم یا حروف انگلیسی باشد.",
+                    code="auth_code_format_invalid",
+                )
+            try:
+                result = self._auth_runtime.auth.submit_code(
+                    challenge.provider_challenge,
+                    code,
+                )
+            except BridgeError:
+                raise
+            except RpcError as exc:
+                error_kind, _reason_code, error_code, message = (
+                    _provider_login_code_failure(exc)
+                )
+                raise AuthenticationRuntimeError(
+                    message,
+                    safe_context={
+                        "error_type": type(exc).__name__,
+                        "provider_error_kind": error_kind,
+                    },
+                    code=error_code,
+                ) from exc
             except Exception as exc:
                 raise AuthenticationRuntimeError(
                     "بررسی کد ورود ایتا ناموفق بود. دوباره تلاش کنید.",
@@ -813,19 +5416,133 @@ class BridgeApplicationApi:
                 self._auth_runtime.close()
                 self._auth_runtime = None
                 self._auth_challenge = None
-                EitaaBridge.close_shared_cores()
+                self._runtime.close_shared_core()
                 return {"ok": True, "step": "completed", **result.safe_summary()}
-            return {"ok": True, "step": "password", **result.safe_summary()}
+            if result.password_required:
+                self._auth_challenge = challenge.for_password()
+                self._runtime_logger.emit(
+                    "auth_challenge_advanced",
+                    fields={
+                        "runtime_scope": "legacy",
+                        "challenge_stage": "password",
+                    },
+                )
+                return {
+                    "ok": True,
+                    "step": "password",
+                    **result.safe_summary(),
+                    "challenge": self._auth_challenge.safe_summary(),
+                }
+            raise AuthenticationRuntimeError(
+                "پاسخ ورود ایتا وضعیت قابل استفاده‌ای نداشت.",
+                code="auth_submit_code_result_invalid",
+            )
 
-    def _auth_submit_password(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def _auth_submit_password(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        if self._runtime.is_account_scoped:
+            return self._auth_submit_password_account(
+                payload,
+                app_session=app_session,
+                request_id=request_id,
+            )
+        return self._auth_submit_password_legacy(payload)
+
+    def _auth_submit_password_account(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        password = payload.get("password")
+        if not isinstance(password, str) or not password:
+            raise CompositionValidationError(
+                "password is required.",
+                code="api_password_required",
+            )
+        with self._eitaa_lock, self._auth_lock:
+            _, record = self._require_account_challenge(
+                payload,
+                expected_stage="password",
+                app_session=app_session,
+                request_id=request_id,
+            )
+            try:
+                result = self._auth_runtime.auth.submit_password(password)
+            except BridgeError:
+                raise
+            except Exception as exc:
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.submit_password.failed",
+                    reason_code="provider_password_submission_failed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "error_type": type(exc).__name__,
+                        "challenge_stage": "password",
+                    },
+                )
+                raise AuthenticationRuntimeError(
+                    "بررسی رمز دوم ایتا ناموفق بود. دوباره تلاش کنید.",
+                    safe_context={"error_type": type(exc).__name__},
+                    code="auth_submit_password_failed",
+                ) from exc
+            if not result.completed or not self._core_config().session_file.is_file():
+                self._audit_account_auth_failure(
+                    action="eitaa.auth.login.failed",
+                    reason_code="provider_session_file_missing",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "challenge_stage": "password",
+                        "session_file_present": self._core_config().session_file.is_file(),
+                    },
+                )
+                self._close_auth_attempt()
+                raise AuthenticationRuntimeError(
+                    "ورود دومرحله‌ای کامل شد اما فایل نشست تأیید نشد.",
+                    code="auth_session_file_missing_after_login",
+                )
+            try:
+                record = self._transition_account_auth(
+                    record,
+                    new_state="authenticated",
+                    increment_generation=False,
+                    reason_code="native_second_factor_completed",
+                    action="eitaa.auth.login.completed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    mark_validated=True,
+                    safe_metadata={"challenge_stage": "password"},
+                )
+            except BridgeError:
+                self._archive_uncoordinated_session()
+                self._close_auth_attempt()
+                raise
+            self._close_auth_attempt()
+            self._runtime.close_shared_core()
+            return {
+                "ok": True,
+                "step": "completed",
+                **result.safe_summary(),
+                **self._account_auth_fields(record),
+            }
+
+    def _auth_submit_password_legacy(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         password = payload.get("password")
         if not isinstance(password, str) or not password:
             raise CompositionValidationError("password is required.", code="api_password_required")
         with self._eitaa_lock, self._auth_lock:
-            if self._auth_runtime is None:
-                raise CompositionValidationError(
-                    "No second-factor challenge is pending.", code="api_auth_challenge_missing"
-                )
+            self._require_legacy_challenge(
+                payload,
+                expected_stage="password",
+            )
             try:
                 result = self._auth_runtime.auth.submit_password(password)
             except BridgeError:
@@ -836,13 +5553,201 @@ class BridgeApplicationApi:
                     safe_context={"error_type": type(exc).__name__},
                     code="auth_submit_password_failed",
                 ) from exc
+            if not result.completed:
+                raise AuthenticationRuntimeError(
+                    "پاسخ ورود دومرحله‌ای ایتا کامل نبود.",
+                    code="auth_submit_password_result_invalid",
+                )
             self._auth_runtime.close()
             self._auth_runtime = None
             self._auth_challenge = None
-            EitaaBridge.close_shared_cores()
+            self._runtime.close_shared_core()
             return {"ok": True, "step": "completed", **result.safe_summary()}
 
-    def _auth_logout(self) -> dict[str, Any]:
+    def _auth_logout(
+        self,
+        *,
+        app_session: AuthorizedAppSession | None = None,
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
+        if self._runtime.is_account_scoped:
+            return self._auth_logout_account(
+                app_session=app_session,
+                request_id=request_id,
+            )
+        return self._auth_logout_legacy()
+
+    def _auth_logout_account(
+        self,
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        session_file = self._core_config().session_file
+        with self._eitaa_lock, self._auth_lock:
+            record = self._runtime.refresh_auth_record()
+            if not session_file.is_file():
+                had_challenge = self._auth_challenge is not None
+                self._close_auth_attempt()
+                if record.auth_state not in {"absent", "revoked"} or had_challenge:
+                    record = self._transition_account_auth(
+                        record,
+                        new_state="revoked",
+                        increment_generation=True,
+                        reason_code="logout_without_active_session",
+                        action="eitaa.auth.logout.completed",
+                        app_session=app_session,
+                        request_id=request_id,
+                        safe_metadata={
+                            "remote_ok": False,
+                            "archive_created": False,
+                            "session_file_present": False,
+                        },
+                    )
+                else:
+                    actor_id, actor_role = self._account_auth_actor(app_session)
+                    self._runtime.audit_auth_event(
+                        action="eitaa.auth.logout.completed",
+                        result="succeeded",
+                        reason_code=(
+                            "local_session_already_revoked"
+                            if record.auth_state == "revoked"
+                            else "local_session_already_absent"
+                        ),
+                        actor_app_user_id=actor_id,
+                        actor_global_role=actor_role,
+                        request_id=request_id,
+                        safe_metadata={
+                            "remote_ok": False,
+                            "archive_created": False,
+                            "session_file_present": False,
+                        },
+                    )
+                return {
+                    "ok": True,
+                    "logout": {
+                        "remote_ok": False,
+                        "local_session_archived": False,
+                    },
+                    "session_present": False,
+                    "login_ready": True,
+                    **self._account_auth_fields(record),
+                }
+
+            if record.auth_state in {"invalid", "revoked"}:
+                self._runtime.close_shared_core()
+                archive_name = self._archive_account_session_file("invalid")
+                self._close_auth_attempt()
+                record = self._transition_account_auth(
+                    record,
+                    new_state="revoked",
+                    increment_generation=True,
+                    reason_code="invalid_session_revoked_locally",
+                    action="eitaa.auth.logout.completed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "remote_ok": False,
+                        "archive_created": archive_name is not None,
+                        "session_file_present": False,
+                    },
+                )
+                return {
+                    "ok": True,
+                    "logout": {
+                        "remote_ok": False,
+                        "remote_session_already_invalid": True,
+                        "local_session_archived": archive_name is not None,
+                        "archive_name": archive_name,
+                    },
+                    "session_present": False,
+                    "login_ready": True,
+                    **self._account_auth_fields(record),
+                }
+
+            try:
+                with self._open_bridge(
+                    self.config_path,
+                    env_file=self.env_file,
+                    open_core=True,
+                ) as bridge:
+                    result = bridge.core.account.logout(archive_local_session=True)
+                    summary = result.safe_summary()
+            except Exception as exc:
+                if not self._is_invalid_session_error(exc):
+                    self._audit_account_auth_failure(
+                        action="eitaa.auth.logout.failed",
+                        reason_code="provider_logout_failed",
+                        app_session=app_session,
+                        request_id=request_id,
+                        safe_metadata={"error_type": type(exc).__name__},
+                    )
+                    raise
+                self._runtime.close_shared_core()
+                archive_name = self._archive_account_session_file("invalid")
+                self._close_auth_attempt()
+                record = self._transition_account_auth(
+                    record,
+                    new_state="revoked",
+                    increment_generation=True,
+                    reason_code="remote_session_already_invalid",
+                    action="eitaa.auth.logout.completed",
+                    app_session=app_session,
+                    request_id=request_id,
+                    safe_metadata={
+                        "remote_ok": False,
+                        "archive_created": archive_name is not None,
+                        "session_file_present": False,
+                    },
+                )
+                return {
+                    "ok": True,
+                    "logout": {
+                        "remote_ok": False,
+                        "remote_session_already_invalid": True,
+                        "local_session_archived": archive_name is not None,
+                        "archive_name": archive_name,
+                    },
+                    "session_present": False,
+                    "login_ready": True,
+                    **self._account_auth_fields(record),
+                }
+
+            self._runtime.close_shared_core()
+            archive_name = None
+            archived_path = summary.get("archived_path")
+            if archived_path:
+                archive_name = Path(str(archived_path)).name
+            if session_file.is_file():
+                archive_name = self._archive_account_session_file("logout")
+            self._close_auth_attempt()
+            record = self._transition_account_auth(
+                record,
+                new_state="revoked",
+                increment_generation=True,
+                reason_code="remote_logout_completed",
+                action="eitaa.auth.logout.completed",
+                app_session=app_session,
+                request_id=request_id,
+                safe_metadata={
+                    "remote_ok": bool(summary.get("remote_ok", True)),
+                    "archive_created": archive_name is not None,
+                    "session_file_present": False,
+                },
+            )
+            return {
+                "ok": True,
+                "logout": {
+                    "remote_ok": bool(summary.get("remote_ok", True)),
+                    "local_session_archived": archive_name is not None,
+                    "archive_name": archive_name,
+                },
+                "session_present": False,
+                "login_ready": True,
+                **self._account_auth_fields(record),
+            }
+
+    def _auth_logout_legacy(self) -> dict[str, Any]:
         try:
             with self._eitaa_lock, self._open_bridge(
                 self.config_path, env_file=self.env_file, open_core=True
@@ -855,7 +5760,7 @@ class BridgeApplicationApi:
             # Remote logout cannot succeed after Eitaa has already invalidated
             # the token. Preserve the unusable file as a backup and complete a
             # local logout so the user is never trapped inside the workspace.
-            EitaaBridge.close_shared_cores()
+            self._runtime.close_shared_core()
             recovery = self._auth_reset_local_session({"confirm": True})
             self._runtime_logger.emit(
                 "auth_logout_local_fallback_completed",
@@ -877,7 +5782,7 @@ class BridgeApplicationApi:
                 "session_present": False,
                 "login_ready": True,
             }
-        EitaaBridge.close_shared_cores()
+        self._runtime.close_shared_core()
         return {
             "ok": True,
             "logout": summary,
@@ -1027,6 +5932,56 @@ class BridgeApplicationApi:
             "sync": summary,
         }
 
+    def _dialogs_live_sync(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Merge the newest remote dialog page without replacing the catalog.
+
+        The mobile UI calls this lightweight path periodically.  An incomplete
+        page must never mark older dialogs inactive, so only the returned peers
+        are upserted and the complete-snapshot finalizer remains disabled.
+        """
+
+        site_key = self._site_key(payload)
+
+        def operation() -> dict[str, Any]:
+            with self._open_bridge(
+                self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
+            ) as bridge:
+                page = bridge.core.discovery.list_dialogs(
+                    limit=100,
+                    offset_date=0,
+                    offset_id=0,
+                    offset_peer=None,
+                    exclude_pinned=False,
+                )
+                merged = self._merge_core_dialogs(
+                    bridge,
+                    page.dialogs,
+                    source="remote",
+                    complete=False,
+                    finalize_snapshot=False,
+                )
+                return {
+                    **merged,
+                    "remote_count": len(page.dialogs),
+                    "server_total_count": page.total_count,
+                    "warning_codes": list(page.parse_warnings),
+                    "mode": "first_page_merge",
+                }
+
+        summary = self._run_eitaa(
+            priority=EitaaPriority.DIALOG_PAGE,
+            kind="dialogs.live",
+            callback=operation,
+        )
+        dialogs = self.dialog_catalog.list()
+        return {
+            "ok": True,
+            "site_key": site_key,
+            "dialog_count": len(dialogs),
+            "dialogs": dialogs,
+            "sync": summary,
+        }
+
     def _dialogs_sync_start(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         site_key = self._site_key(payload)
         page_size = self._integer(payload.get("page_size", 100), "page_size", minimum=1, maximum=100)
@@ -1036,7 +5991,7 @@ class BridgeApplicationApi:
                 current = self._dialog_sync_jobs.get(self._active_dialog_sync_job)
                 if current and current.get("state") in {"queued", "running"}:
                     return {"ok": True, "job": dict(current), "reused": True}
-            job_id = uuid.uuid4().hex
+            job_id = self._persistent_job_create("dialogs.sync")
             job = {
                 "job_id": job_id, "kind": "dialog_sync", "site_key": site_key,
                 "state": "queued", "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1045,7 +6000,7 @@ class BridgeApplicationApi:
             self._dialog_sync_jobs[job_id] = job
             self._active_dialog_sync_job = job_id
         thread = threading.Thread(
-            target=self._run_dialog_sync_job,
+            target=self._runtime_bound_target(self._run_dialog_sync_job),
             args=(job_id, site_key, page_size, max_pages),
             name=f"eitaa-dialog-sync-{job_id[:8]}", daemon=True,
         )
@@ -1058,6 +6013,7 @@ class BridgeApplicationApi:
             job["state"] = "running"
             job["started_at"] = datetime.now(timezone.utc).isoformat()
         try:
+            self._persistent_job_begin(job_id)
             summary = self._sync_dialog_catalog(site_key=site_key, page_size=page_size, max_pages=max_pages)
             dialogs = self.dialog_catalog.list()
             result = {"site_key": site_key, "dialog_count": len(dialogs), "dialogs": dialogs, "sync": summary}
@@ -1066,6 +6022,7 @@ class BridgeApplicationApi:
                 job["state"] = "completed"
                 job["result"] = result
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._persistent_job_finish(job_id, state="completed")
             self._runtime_logger.emit(
                 "dialog_sync_completed",
                 fields={
@@ -1083,6 +6040,11 @@ class BridgeApplicationApi:
                 job["state"] = "failed"
                 job["error"] = error
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._persistent_job_finish(
+                job_id,
+                state="failed",
+                error_code=str(error.get("error_code") or "dialog_sync_failed"),
+            )
             self._runtime_logger.emit(
                 "dialog_sync_failed",
                 level="error",
@@ -1105,16 +6067,20 @@ class BridgeApplicationApi:
             raise CompositionValidationError("job_id is required.", code="api_job_id_required")
         with self._jobs_lock:
             job = self._dialog_sync_jobs.get(job_id)
-            if not job:
-                raise CompositionValidationError("Dialog sync job was not found.", code="api_job_not_found")
-            return {"ok": True, "job": dict(job)}
+            copied = dict(job) if job else None
+        if copied is None:
+            copied = self._persistent_job_snapshot(job_id, kind="dialog_sync")
+        if copied is None:
+            raise CompositionValidationError("Dialog sync job was not found.", code="api_job_not_found")
+        return {"ok": True, "job": copied}
 
     def _dialog_avatar_source(self, bridge: Any, site_key: str, peer_key: str) -> tuple[Any, Any] | None:
         """Resolve a dialog peer/photo pair without rescanning 10k rows per avatar."""
 
         now = time.monotonic()
+        cache_key = self._scoped_cache_key("avatar-source", site_key)
         with self._avatar_source_cache_lock:
-            cached = self._avatar_source_cache.get(site_key)
+            cached = self._avatar_source_cache.get(cache_key)
             valid = bool(cached and now - float(cached[0]) <= self._avatar_source_cache_ttl_seconds)
             sources = cached[1] if valid and cached is not None else None
             source = sources.get(peer_key) if sources is not None else None
@@ -1126,7 +6092,7 @@ class BridgeApplicationApi:
             for item in entries if item.photo is not None
         }
         with self._avatar_source_cache_lock:
-            self._avatar_source_cache[site_key] = (time.monotonic(), refreshed)
+            self._avatar_source_cache[cache_key] = (time.monotonic(), refreshed)
         return refreshed.get(peer_key)
 
     def _dialogs_avatar(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -1187,7 +6153,7 @@ class BridgeApplicationApi:
         self, bridge: EitaaBridge, entries: Any, *, source: str, complete: bool,
         finalize_snapshot: bool = True, active_keys: set[str] | None = None,
     ) -> dict[str, Any]:
-        peer_directory = self.base_directory / "data" / "ui-peers"
+        peer_directory = self._runtime.peer_directory
         peer_directory.mkdir(parents=True, exist_ok=True)
         selected_keys: set[str] = set()
         counts: dict[str, int] = {}
@@ -1400,7 +6366,7 @@ class BridgeApplicationApi:
         site_key = self._site_key(payload)
         mode = str(payload.get("mode") or "username").strip().lower()
         display_kind = str(payload.get("display_kind") or "").strip().lower() or None
-        peer_directory = self.base_directory / "data" / "ui-peers"
+        peer_directory = self._runtime.peer_directory
         peer_directory.mkdir(parents=True, exist_ok=True)
         with self._eitaa_lock, self._open_bridge(
             self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
@@ -1486,6 +6452,10 @@ class BridgeApplicationApi:
         ).strip()
         return joined or str(contact.get("username") or "").strip()
 
+    @staticmethod
+    def _sender_contact_name_is_generic_eitaa(name: str) -> bool:
+        return name.strip().casefold() in {"eitaa", "ایتا"}
+
     def _enrich_message_senders(
         self,
         bridge: Any,
@@ -1542,9 +6512,16 @@ class BridgeApplicationApi:
                 selected_id = int(user_id)
                 current = profiles.get(selected_id, {})
                 contact_name = self._sender_contact_name(contact)
+                preferred_contact_name = (
+                    ""
+                    if self._sender_contact_name_is_generic_eitaa(contact_name)
+                    else contact_name
+                )
                 source = str(contact.get("source") or "").strip()
                 profiles[selected_id] = {
-                    "display_name": contact_name or current.get("display_name"),
+                    "display_name": (
+                        preferred_contact_name or current.get("display_name")
+                    ),
                     "username": str(contact.get("username") or "").strip() or current.get("username"),
                     "is_eitaa_contact": (
                         source.startswith("eitaa_contact")
@@ -1687,7 +6664,7 @@ class BridgeApplicationApi:
 
         upload_path: Path | None = None
         if upload_path_raw:
-            upload_root = (self.base_directory / "runtime" / "uploads").resolve()
+            upload_root = self._runtime.upload_directory.resolve()
             candidate = Path(upload_path_raw).expanduser().resolve()
             try:
                 candidate.relative_to(upload_root)
@@ -1883,11 +6860,12 @@ class BridgeApplicationApi:
             remaining_raw, "remaining_unread_count", minimum=0, maximum=1_000_000
         )
         peer_key = f"{peer.type.value}:{peer.id}"
+        receipt_key = self._scoped_cache_key("read-receipt", peer_key)
         due_at = time.monotonic() + self._read_receipt_delay_seconds
         with self._read_queue_lock:
-            previous = self._pending_read_receipts.get(peer_key)
+            previous = self._pending_read_receipts.get(receipt_key)
             if previous is None or max_id >= int(previous["max_id"]):
-                self._pending_read_receipts[peer_key] = {
+                self._pending_read_receipts[receipt_key] = {
                     "site_key": site_key,
                     "peer_path": str(peer_path),
                     "peer_key": peer_key,
@@ -1905,7 +6883,7 @@ class BridgeApplicationApi:
             if not self._read_worker_active:
                 self._read_worker_active = True
                 threading.Thread(
-                    target=self._run_read_receipt_worker,
+                    target=self._runtime_bound_target(self._run_read_receipt_worker),
                     name="eitaa-bridge-read-receipts",
                     daemon=True,
                 ).start()
@@ -1925,7 +6903,7 @@ class BridgeApplicationApi:
                 if not self._pending_read_receipts:
                     self._read_worker_active = False
                     return
-                peer_key, task = min(
+                receipt_key, task = min(
                     self._pending_read_receipts.items(),
                     key=lambda item: float(item[1].get("due_at", 0.0)),
                 )
@@ -1935,12 +6913,12 @@ class BridgeApplicationApi:
                 continue
             if self._scheduler.has_higher_priority_work(EitaaPriority.READ_RECEIPT):
                 with self._read_queue_lock:
-                    if peer_key in self._pending_read_receipts:
-                        self._pending_read_receipts[peer_key]["due_at"] = time.monotonic() + 1.0
+                    if receipt_key in self._pending_read_receipts:
+                        self._pending_read_receipts[receipt_key]["due_at"] = time.monotonic() + 1.0
                 time.sleep(0.2)
                 continue
             with self._read_queue_lock:
-                task = self._pending_read_receipts.pop(peer_key, None)
+                task = self._pending_read_receipts.pop(receipt_key, None)
             if task is None:
                 continue
             try:
@@ -1973,9 +6951,16 @@ class BridgeApplicationApi:
                         )
                     except KeyError:
                         pass
-            except Exception:
-                # Safe Core diagnostics retain the failure. A read receipt is
-                # best-effort and must never delay active message retrieval.
+            except Exception as exc:
+                # A read receipt is best-effort and must never delay active
+                # retrieval, but its failure remains support-visible.
+                self._runtime_logger.emit(
+                    "read_receipt_failed",
+                    level="warning",
+                    reason_code="read_receipt_background_operation_failed",
+                    operation="messages.read",
+                    fields={"error_type": type(exc).__name__},
+                )
                 continue
 
     def _messages_sync(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -2078,6 +7063,7 @@ class BridgeApplicationApi:
                     id=int(item.get("id")),
                     name=str(item.get("name") or "").strip(),
                     aliases=tuple(str(value).strip() for value in aliases_raw),
+                    is_primary=bool(item.get("is_primary")),
                 )
                 label.validate()
             except (TypeError, ValueError) as exc:
@@ -2121,7 +7107,12 @@ class BridgeApplicationApi:
             minimum=0.05,
             maximum=0.95,
         )
-        scope = f"{site_key}:{peer.type.value}:{peer.id}"
+        scope = self._scoped_cache_key(
+            "content-index-active",
+            site_key,
+            peer.type.value,
+            peer.id,
+        )
         with self._content_index_lock:
             active_id = self._content_index_active.get(scope)
             if active_id:
@@ -2132,7 +7123,7 @@ class BridgeApplicationApi:
                         "reused": True,
                         "job": self._content_index_job_copy(active),
                     }
-            job_id = uuid.uuid4().hex
+            job_id = self._persistent_job_create("content.index")
             cancellation = threading.Event()
             job: dict[str, Any] = {
                 "job_id": job_id,
@@ -2156,7 +7147,7 @@ class BridgeApplicationApi:
             self._content_index_active[scope] = job_id
             self._content_index_cancellations[job_id] = cancellation
         threading.Thread(
-            target=self._run_content_index_job,
+            target=self._runtime_bound_target(self._run_content_index_job),
             args=(
                 job_id,
                 scope,
@@ -2187,6 +7178,12 @@ class BridgeApplicationApi:
             job = self._content_index_jobs[job_id]
             job["state"] = "running"
             job["started_at"] = datetime.now(timezone.utc).isoformat()
+        self._runtime_logger.emit(
+            "content_index_job_started",
+            result="started",
+            operation="content.index",
+            fields={"job_id": job_id},
+        )
 
         def update_progress(summary: Mapping[str, object]) -> None:
             with self._content_index_lock:
@@ -2195,6 +7192,7 @@ class BridgeApplicationApi:
                     current["progress"] = dict(summary)
 
         try:
+            self._persistent_job_begin(job_id)
             # This worker deliberately bypasses the Eitaa scheduler: it opens a
             # thread-owned Core and calls public local message-store methods only.
             with self._open_bridge(
@@ -2219,6 +7217,21 @@ class BridgeApplicationApi:
                 job["state"] = str(result.get("state") or "completed")
                 job["result"] = dict(result)
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._persistent_job_finish(
+                job_id,
+                state=str(result.get("state") or "completed"),
+            )
+            final_state = str(result.get("state") or "completed")
+            self._runtime_logger.emit(
+                (
+                    "content_index_job_cancelled"
+                    if final_state == "cancelled"
+                    else "content_index_job_succeeded"
+                ),
+                result="cancelled" if final_state == "cancelled" else "succeeded",
+                operation="content.index",
+                fields={"job_id": job_id, "state": final_state},
+            )
         except Exception as exc:
             safe_context = dict(exc.safe_context) if isinstance(exc, LocalContentIndexError) else {}
             try:
@@ -2233,10 +7246,18 @@ class BridgeApplicationApi:
                         "error_code": getattr(exc, "code", "content_index_job_failed"),
                     },
                 )
-            except LocalContentIndexError:
+            except LocalContentIndexError as cleanup_exc:
                 # Preserve the original failure. A staging cleanup problem is
-                # reported on the next run and never promotes incomplete rows.
-                pass
+                # never allowed to promote incomplete rows.
+                self._runtime_logger.emit(
+                    "content_index_job_cleanup_failed",
+                    level="warning",
+                    reason_code=str(
+                        getattr(cleanup_exc, "code", "content_index_cleanup_failed")
+                    ),
+                    operation="content.index.cleanup",
+                    fields={"job_id": job_id, "error_type": type(cleanup_exc).__name__},
+                )
             with self._content_index_lock:
                 job = self._content_index_jobs[job_id]
                 job["state"] = "failed"
@@ -2251,6 +7272,18 @@ class BridgeApplicationApi:
                     "safe_context": safe_context,
                 }
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._persistent_job_finish(
+                job_id,
+                state="failed",
+                error_code=str(getattr(exc, "code", "content_index_job_failed")),
+            )
+            self._runtime_logger.emit(
+                "content_index_job_failed",
+                level="error",
+                reason_code=str(getattr(exc, "code", "content_index_job_failed")),
+                operation="content.index",
+                fields={"job_id": job_id, "error_type": type(exc).__name__},
+            )
         finally:
             with self._content_index_lock:
                 if self._content_index_active.get(scope) == job_id:
@@ -2265,12 +7298,15 @@ class BridgeApplicationApi:
             )
         with self._content_index_lock:
             job = self._content_index_jobs.get(job_id)
-            if job is None:
-                raise CompositionValidationError(
-                    "Content-index job was not found.",
-                    code="api_content_index_job_not_found",
-                )
-            return {"ok": True, "job": self._content_index_job_copy(job)}
+            copied = self._content_index_job_copy(job) if job is not None else None
+        if copied is None:
+            copied = self._persistent_job_snapshot(job_id, kind="local_content_index")
+        if copied is None:
+            raise CompositionValidationError(
+                "Content-index job was not found.",
+                code="api_content_index_job_not_found",
+            )
+        return {"ok": True, "job": copied}
 
     def _content_index_cancel(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         job_id = str(payload.get("job_id") or "").strip()
@@ -2278,18 +7314,25 @@ class BridgeApplicationApi:
             raise CompositionValidationError(
                 "job_id is required.", code="api_job_id_required"
             )
+        self._persistent_job_cancel(job_id)
         with self._content_index_lock:
             job = self._content_index_jobs.get(job_id)
-            if job is None:
-                raise CompositionValidationError(
-                    "Content-index job was not found.",
-                    code="api_content_index_job_not_found",
-                )
-            cancellation = self._content_index_cancellations.get(job_id)
-            if cancellation is not None and job.get("state") in {"queued", "running"}:
-                cancellation.set()
-                job["state"] = "cancelling"
-            return {"ok": True, "job": self._content_index_job_copy(job)}
+            if job is not None:
+                cancellation = self._content_index_cancellations.get(job_id)
+                if cancellation is not None and job.get("state") in {"queued", "running"}:
+                    cancellation.set()
+                    job["state"] = "cancelling"
+                copied = self._content_index_job_copy(job)
+            else:
+                copied = None
+        if copied is None:
+            copied = self._persistent_job_snapshot(job_id, kind="local_content_index")
+        if copied is None:
+            raise CompositionValidationError(
+                "Content-index job was not found.",
+                code="api_content_index_job_not_found",
+            )
+        return {"ok": True, "job": copied}
 
     def _content_index_results(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         site_key = self._site_key(payload)
@@ -2426,7 +7469,7 @@ class BridgeApplicationApi:
         peer = getattr(user, "peer", None)
         if peer is None or getattr(peer, "access_hash", None) is None:
             return None
-        directory = self.base_directory / "data" / "eitaa-contact-peers"
+        directory = self._runtime.contact_peers_directory
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"user-{int(peer.id)}.json"
         save_peer_file(path, peer)
@@ -2454,8 +7497,99 @@ class BridgeApplicationApi:
         }
 
     def _invalidate_eitaa_contacts_cache(self, site_key: str) -> None:
+        cache_key = self._scoped_cache_key("eitaa-contacts", site_key)
         with self._eitaa_contacts_cache_lock:
-            self._eitaa_contacts_cache.pop(site_key, None)
+            self._eitaa_contacts_cache.pop(cache_key, None)
+
+    def _contact_mutation_context(self) -> ContactMutationContext:
+        """Build contact audit context only from trusted server-side selection."""
+
+        account_id = self._runtime.ownership.messenger_account_id
+        return ContactMutationContext(
+            actor_app_user_id=self._request_actor_app_user_id.get(),
+            messenger_account_id=account_id,
+            provider="eitaa" if account_id else None,
+            request_id=RuntimeLogger.current_correlation_id(),
+        )
+
+    def _upsert_eitaa_local_contact(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        duplicate_policy: str = "update",
+        category_policy: str = "merge",
+        status_policy: str = "preserve",
+        safe_reason_code: str = "eitaa_contact_observed",
+    ) -> dict[str, Any]:
+        """Write shared fields globally and provider identity only for the selected account."""
+
+        row = dict(payload)
+        context = self._contact_mutation_context()
+        provider_user_id = row.get("eitaa_user_id")
+        if context.messenger_account_id:
+            # These legacy columns are global and therefore cannot safely hold
+            # one of several account-specific identities or access hashes.
+            row.pop("eitaa_user_id", None)
+            row.pop("access_hash", None)
+        saved = self._contact_store.upsert_contact(
+            row,
+            duplicate_policy=duplicate_policy,
+            category_policy=category_policy,
+            status_policy=status_policy,
+            context=context,
+        )
+        if context.messenger_account_id and provider_user_id not in (None, ""):
+            binding = self._contact_store.record_account_binding(
+                contact_id=int(saved["id"]),
+                messenger_account_id=context.messenger_account_id,
+                provider="eitaa",
+                provider_user_id=provider_user_id,
+                reachability="reachable",
+                safe_reason_code=safe_reason_code,
+                last_resolved_at=row.get("last_resolved_at"),
+                context=context,
+            )
+            canonical_id = int(binding["contact_id"])
+            if canonical_id != int(saved["id"]):
+                refreshed = self._contact_store.get_contacts((canonical_id,))
+                if refreshed:
+                    saved = refreshed[0]
+            saved = dict(saved)
+            saved["selected_account_binding"] = binding
+        return saved
+
+    def _with_selected_contact_bindings(
+        self,
+        contacts: tuple[dict[str, Any], ...] | list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        selected = [dict(item) for item in contacts]
+        account_id = self._runtime.ownership.messenger_account_id
+        if account_id:
+            for item in selected:
+                # Legacy provider identity columns are never shared through a
+                # multi-account API response. Only the selected binding is.
+                item["eitaa_user_id"] = None
+                item["access_hash_present"] = False
+        if not account_id or not selected:
+            for item in selected:
+                item["selected_account_binding"] = None
+            return selected
+        bindings = self._contact_store.selected_account_bindings(
+            [int(item["id"]) for item in selected],
+            messenger_account_id=account_id,
+            provider="eitaa",
+        )
+        for item in selected:
+            item["selected_account_binding"] = bindings.get(int(item["id"]))
+        return selected
+
+    def _allow_legacy_contact_identity(self) -> bool:
+        account_id = self._runtime.ownership.messenger_account_id
+        return bool(
+            account_id
+            and account_id
+            == self.config.features.multi_session.legacy_default_messenger_account_id
+        )
 
     def _eitaa_contacts_list(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         site_key = self._site_key(payload)
@@ -2464,9 +7598,10 @@ class BridgeApplicationApi:
         limit = self._integer(payload.get("limit", 50), "limit", minimum=1, maximum=500)
         offset = self._integer(payload.get("offset", 0), "offset", minimum=0, maximum=1_000_000)
         now = time.monotonic()
+        cache_key = self._scoped_cache_key("eitaa-contacts", site_key)
 
         with self._eitaa_contacts_cache_lock:
-            cached = self._eitaa_contacts_cache.get(site_key)
+            cached = self._eitaa_contacts_cache.get(cache_key)
             cached_valid = bool(
                 cached
                 and not refresh
@@ -2494,7 +7629,11 @@ class BridgeApplicationApi:
             all_contacts = tuple(loaded["contacts"])
             not_modified = bool(loaded.get("not_modified"))
             with self._eitaa_contacts_cache_lock:
-                self._eitaa_contacts_cache[site_key] = (time.monotonic(), all_contacts, not_modified)
+                self._eitaa_contacts_cache[cache_key] = (
+                    time.monotonic(),
+                    all_contacts,
+                    not_modified,
+                )
         else:
             all_contacts = cached_contacts
             not_modified = cached_not_modified
@@ -2506,7 +7645,7 @@ class BridgeApplicationApi:
                 phone = str(item.get("phone") or "").strip()
                 if not phone:
                     continue
-                self._contact_validation(lambda item=item, phone=phone: self._contact_store.upsert_contact(
+                self._contact_validation(lambda item=item, phone=phone: self._upsert_eitaa_local_contact(
                     {
                         "phones": [phone],
                         "first_name": item.get("first_name") or "",
@@ -2517,9 +7656,7 @@ class BridgeApplicationApi:
                         "sendable": True,
                         "category_ids": category_ids,
                     },
-                    duplicate_policy="update",
-                    category_policy="merge",
-                    status_policy="preserve",
+                    safe_reason_code="eitaa_contact_sync",
                 ))
                 synced_local += 1
 
@@ -2538,6 +7675,8 @@ class BridgeApplicationApi:
             lambda: self._contact_store.find_contacts_by_eitaa_identity(
                 eitaa_user_ids=[int(item["user_id"]) for item in raw_page],
                 phones=[item["phone"] for item in raw_page if item.get("phone")],
+                messenger_account_id=self._runtime.ownership.messenger_account_id,
+                include_legacy_global_identity=self._allow_legacy_contact_identity(),
             )
         )
         local_by_eitaa_id = {
@@ -2580,6 +7719,11 @@ class BridgeApplicationApi:
         }
 
     def _eitaa_contacts_add(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        if "messenger_account_id" in payload or "account_id" in payload:
+            raise CompositionValidationError(
+                "The target account must come from the authenticated account selector.",
+                code="api_contact_target_account_not_trusted",
+            )
         site_key = self._site_key(payload)
         phone = str(payload.get("phone") or "").strip()
         first_name = str(payload.get("first_name") or "").strip()
@@ -2661,7 +7805,7 @@ class BridgeApplicationApi:
         self._invalidate_eitaa_contacts_cache(site_key)
         if bool(payload.get("save_local", True)):
             contact = result["contact"]
-            self._contact_validation(lambda: self._contact_store.upsert_contact(
+            saved_local = self._contact_validation(lambda: self._upsert_eitaa_local_contact(
                 {
                     "phones": [contact["phone"]] if contact.get("phone") else [phone],
                     # The spreadsheet/manual name is authoritative. A stale
@@ -2675,10 +7819,19 @@ class BridgeApplicationApi:
                     "sendable": True,
                     "category_ids": list(self._contact_ids(payload, "category_ids")),
                 },
-                duplicate_policy="update",
-                category_policy="merge",
-                status_policy="preserve",
+                safe_reason_code=(
+                    "eitaa_contact_added"
+                    if result.get("contact_added")
+                    else "eitaa_contact_updated"
+                    if result.get("contact_updated")
+                    else "eitaa_contact_existing"
+                ),
             ))
+            result["local_contact_id"] = int(saved_local["id"])
+            if saved_local.get("selected_account_binding"):
+                result["selected_account_binding"] = saved_local[
+                    "selected_account_binding"
+                ]
         result.pop("access_hash", None)
         return {"ok": True, **result}
 
@@ -2753,6 +7906,8 @@ class BridgeApplicationApi:
             local_matches = self._contact_store.find_contacts_by_eitaa_identity(
                 eitaa_user_ids=[item[1] for item in selected],
                 phones=[item[2] for item in selected if item[2]],
+                messenger_account_id=self._runtime.ownership.messenger_account_id,
+                include_legacy_global_identity=self._allow_legacy_contact_identity(),
             )
             for local_contact in local_matches:
                 local_user_id = local_contact.get("eitaa_user_id")
@@ -2760,6 +7915,15 @@ class BridgeApplicationApi:
                     local_by_user_id[int(local_user_id)] = local_contact
                 for local_phone in local_contact.get("phones") or ():
                     local_by_phone[normalize_phone(local_phone)] = local_contact
+            if self._runtime.ownership.messenger_account_id:
+                for _, selected_user_id, _ in selected:
+                    identity_match = self._contact_store.find_contacts_by_eitaa_identity(
+                        eitaa_user_ids=(selected_user_id,),
+                        messenger_account_id=self._runtime.ownership.messenger_account_id,
+                        include_legacy_global_identity=self._allow_legacy_contact_identity(),
+                    )
+                    if identity_match:
+                        local_by_user_id[selected_user_id] = identity_match[0]
 
         categorized: list[dict[str, Any]] = []
         updated_count = 0
@@ -2783,12 +7947,13 @@ class BridgeApplicationApi:
                         int(local_contact["id"]),
                         category_ids,
                         operation="remove",
+                        context=self._contact_mutation_context(),
                     )
                 )
             else:
                 saved = self._contact_validation(
                     lambda raw_contact=raw_contact, user_id=user_id, phone=phone:
-                    self._contact_store.upsert_contact(
+                    self._upsert_eitaa_local_contact(
                         {
                             "phones": [phone] if phone else [],
                             "first_name": str(raw_contact.get("first_name") or "").strip(),
@@ -2799,9 +7964,8 @@ class BridgeApplicationApi:
                             "sendable": True,
                             "category_ids": list(category_ids),
                         },
-                        duplicate_policy="update",
                         category_policy="merge" if operation == "add" else "replace",
-                        status_policy="preserve",
+                        safe_reason_code="eitaa_contact_categorized",
                     )
                 )
             updated_count += 1
@@ -2820,7 +7984,33 @@ class BridgeApplicationApi:
             "contacts": categorized,
         }
 
+    def _contacts_add_to_messenger_start(
+        self, payload: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        """Provider-neutral handoff pinned to the server-selected account runtime."""
+
+        if "messenger_account_id" in payload or "account_id" in payload:
+            raise CompositionValidationError(
+                "The target account must come from the authenticated account selector.",
+                code="api_contact_target_account_not_trusted",
+            )
+        descriptor = provider_adapter_catalog()["eitaa"]
+        if not descriptor.configured:
+            raise CompositionValidationError(
+                "The selected messaging provider is not configured.",
+                code=descriptor.reason_code or "provider_adapter_not_configured",
+            )
+        response = self._eitaa_contacts_import_local_start(payload)
+        response["provider"] = "eitaa"
+        response["messenger_account_id"] = self._runtime.ownership.messenger_account_id
+        return response
+
     def _eitaa_contacts_import_local_start(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        if "messenger_account_id" in payload or "account_id" in payload:
+            raise CompositionValidationError(
+                "The target account must come from the authenticated account selector.",
+                code="api_contact_target_account_not_trusted",
+            )
         site_key = self._site_key(payload)
         contact_ids = self._contact_ids(payload, "contact_ids")
         category_ids = self._contact_ids(payload, "category_ids")
@@ -2899,7 +8089,8 @@ class BridgeApplicationApi:
                         level="error",
                         fields={
                             "contact_id": int(item["id"]),
-                            "phone": phone,
+                            "app_user_id": self._request_actor_app_user_id.get(),
+                            "messenger_account_id": self._runtime.ownership.messenger_account_id,
                             **{
                                 key: value
                                 for key, value in error.items()
@@ -2948,6 +8139,8 @@ class BridgeApplicationApi:
             job = self._contact_import_jobs[response["job"]["job_id"]]
             job["local_only"] = False
             job["remote_operation"] = "contacts.importContacts"
+            job["provider"] = "eitaa"
+            job["messenger_account_id"] = self._runtime.ownership.messenger_account_id
             response["job"] = dict(job)
         return response
 
@@ -2996,14 +8189,52 @@ class BridgeApplicationApi:
         total = self._contact_validation(
             lambda: self._contact_store.count_contacts(search=search, category_ids=category_ids)
         )
+        visible_contacts = self._with_selected_contact_bindings(contacts)
         return {
             "ok": True,
-            "contacts": list(contacts),
-            "count": len(contacts),
+            "contacts": visible_contacts,
+            "count": len(visible_contacts),
             "total": total,
             "offset": offset,
             "limit": limit,
             "has_more": offset + len(contacts) < total,
+            "shared_directory": True,
+            "categories_shared": True,
+        }
+
+    def _contacts_audit(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        contact_id = (
+            self._integer(payload.get("contact_id"), "contact_id", minimum=1)
+            if payload.get("contact_id") is not None
+            else None
+        )
+        limit = self._integer(payload.get("limit", 100), "limit", minimum=1, maximum=2_000)
+        events = self._contact_validation(
+            lambda: self._contact_store.list_audit_events(
+                contact_id=contact_id,
+                limit=limit,
+            )
+        )
+        selected_account_id = self._runtime.ownership.messenger_account_id
+        safe_events: list[dict[str, Any]] = []
+        for event in events:
+            safe_event = dict(event)
+            event_account_id = safe_event.get("messenger_account_id")
+            if event_account_id and event_account_id != selected_account_id:
+                # The shared audit may describe edits made from another
+                # workspace, but its account identifier is not shared data.
+                safe_event["messenger_account_id"] = None
+                safe_event["account_context"] = "different_account"
+            elif event_account_id:
+                safe_event["account_context"] = "selected_account"
+            else:
+                safe_event["account_context"] = "shared_directory"
+            safe_events.append(safe_event)
+        return {
+            "ok": True,
+            "events": safe_events,
+            "count": len(safe_events),
+            "chain_valid": self._contact_store.verify_audit_chain(),
         }
 
     def _contacts_upsert(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -3012,12 +8243,26 @@ class BridgeApplicationApi:
             raise CompositionValidationError(
                 "contact must be an object.", code="api_contact_required"
             )
+        if "eitaa_user_id" in contact or "access_hash" in contact:
+            raise CompositionValidationError(
+                "Provider-managed identity cannot be written through the shared contact API.",
+                code="api_contact_provider_identity_not_writable",
+            )
+        if bool(payload.get("add_to_eitaa", False)) and (
+            "messenger_account_id" in payload or "account_id" in payload
+        ):
+            raise CompositionValidationError(
+                "The target account must come from the authenticated account selector.",
+                code="api_contact_target_account_not_trusted",
+            )
         saved = self._contact_validation(
             lambda: self._contact_store.upsert_contact(
                 contact,
                 duplicate_policy=str(payload.get("duplicate_policy") or "skip"),
+                context=self._contact_mutation_context(),
             )
         )
+        saved = self._with_selected_contact_bindings([saved])[0]
         response: dict[str, Any] = {"ok": True, "contact": saved, "eitaa_added": False}
         if bool(payload.get("add_to_eitaa", False)):
             phones = list(saved.get("phones") or [])
@@ -3036,9 +8281,13 @@ class BridgeApplicationApi:
             })
             response["eitaa_added"] = bool(remote.get("contact_added"))
             response["eitaa_contact"] = remote.get("contact")
-            refreshed = self._contact_store.get_contacts((int(saved["id"]),))
+            refreshed = self._contact_store.get_contacts(
+                (int(remote.get("local_contact_id") or saved["id"]),)
+            )
             if refreshed:
-                response["contact"] = refreshed[0]
+                response["contact"] = self._with_selected_contact_bindings(
+                    list(refreshed)
+                )[0]
         return response
 
     def _contacts_archive(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -3048,7 +8297,12 @@ class BridgeApplicationApi:
                 "Explicit archive confirmation is required.",
                 code="api_contact_archive_confirmation_required",
             )
-        self._contact_validation(lambda: self._contact_store.archive_contact(contact_id))
+        self._contact_validation(
+            lambda: self._contact_store.archive_contact(
+                contact_id,
+                context=self._contact_mutation_context(),
+            )
+        )
         return {"ok": True, "contact_id": contact_id, "archived": True}
 
     def _contact_categories(self) -> dict[str, Any]:
@@ -3063,7 +8317,9 @@ class BridgeApplicationApi:
         )
         category = self._contact_validation(
             lambda: self._contact_store.save_category(
-                name=str(payload.get("name") or ""), category_id=category_id
+                name=str(payload.get("name") or ""),
+                category_id=category_id,
+                context=self._contact_mutation_context(),
             )
         )
         return {"ok": True, "category": category}
@@ -3075,7 +8331,12 @@ class BridgeApplicationApi:
                 "Explicit category deletion confirmation is required.",
                 code="api_contact_category_delete_confirmation_required",
             )
-        self._contact_validation(lambda: self._contact_store.delete_category(category_id))
+        self._contact_validation(
+            lambda: self._contact_store.delete_category(
+                category_id,
+                context=self._contact_mutation_context(),
+            )
+        )
         return {
             "ok": True,
             "category_id": category_id,
@@ -3122,13 +8383,20 @@ class BridgeApplicationApi:
             )
         category_ids = self._contact_ids(payload, "category_ids")
         add_to_eitaa = bool(payload.get("add_to_eitaa", False))
+        if add_to_eitaa and (
+            "messenger_account_id" in payload or "account_id" in payload
+        ):
+            raise CompositionValidationError(
+                "The target account must come from the authenticated account selector.",
+                code="api_contact_target_account_not_trusted",
+            )
         if add_to_eitaa and mapping.get("first_name") in (None, ""):
             raise CompositionValidationError(
                 "Map a first-name column before adding spreadsheet rows to Eitaa.",
                 code="api_contact_import_first_name_mapping_required",
             )
         site_key = self._site_key(payload)
-        job_id = uuid.uuid4().hex
+        job_id = self._persistent_job_create("contacts.import")
         cancellation = threading.Event()
         job: dict[str, Any] = {
             "job_id": job_id,
@@ -3144,7 +8412,7 @@ class BridgeApplicationApi:
             self._contact_import_jobs[job_id] = job
             self._contact_import_cancellations[job_id] = cancellation
         threading.Thread(
-            target=self._run_contact_import,
+            target=self._runtime_bound_target(self._run_contact_import),
             args=(job_id, content, file_name, dict(mapping), category_ids, cancellation, add_to_eitaa, site_key),
             name=f"local-contact-import-{job_id[:8]}",
             daemon=True,
@@ -3182,6 +8450,7 @@ class BridgeApplicationApi:
                     current["progress"] = {**current["progress"], **dict(progress)}
 
         try:
+            self._persistent_job_begin(job_id)
             headers, raw_rows = parse_tabular(content, file_name)
             rows = map_contact_rows(headers, raw_rows, mapping)
             category_by_name = {
@@ -3194,7 +8463,10 @@ class BridgeApplicationApi:
                     key = str(name).strip().casefold()
                     category_id = category_by_name.get(key)
                     if category_id is None:
-                        created = self._contact_store.save_category(name=str(name))
+                        created = self._contact_store.save_category(
+                            name=str(name),
+                            context=self._contact_mutation_context(),
+                        )
                         category_id = int(created["id"])
                         category_by_name[key] = category_id
                     row_category_ids.append(category_id)
@@ -3208,6 +8480,7 @@ class BridgeApplicationApi:
                 status_policy="preserve",
                 cancel_event=cancellation,
                 progress=update_progress,
+                context=self._contact_mutation_context(),
             )
             self._runtime_logger.emit(
                 "contact_import_local_completed",
@@ -3272,6 +8545,10 @@ class BridgeApplicationApi:
                 job["progress"] = {**job["progress"], **result}
                 job["state"] = "cancelled" if result.get("cancelled") else "completed"
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._persistent_job_finish(
+                job_id,
+                state="cancelled" if result.get("cancelled") else "completed",
+            )
             self._runtime_logger.emit(
                 "contact_import_completed",
                 fields={
@@ -3295,6 +8572,11 @@ class BridgeApplicationApi:
                 job["state"] = "failed"
                 job["error"] = error
                 job["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self._persistent_job_finish(
+                job_id,
+                state="failed",
+                error_code=str(error.get("error_code") or "contact_import_failed"),
+            )
             self._runtime_logger.emit(
                 "contact_import_failed",
                 level="error",
@@ -3360,7 +8642,7 @@ class BridgeApplicationApi:
     ) -> dict[str, Any]:
         """Start a local SQLite-to-SQLite import without occupying the Eitaa scheduler."""
 
-        job_id = uuid.uuid4().hex
+        job_id = self._persistent_job_create("contacts.source_import")
         cancellation = threading.Event()
         job: dict[str, Any] = {
             "job_id": job_id,
@@ -3404,6 +8686,7 @@ class BridgeApplicationApi:
                         }
 
             try:
+                self._persistent_job_begin(job_id)
                 result = runner(cancellation, update_progress)
                 with self._contact_import_lock:
                     current = self._contact_import_jobs[job_id]
@@ -3412,6 +8695,10 @@ class BridgeApplicationApi:
                         "cancelled" if result.get("cancelled") else "completed"
                     )
                     current["completed_at"] = datetime.now(timezone.utc).isoformat()
+                self._persistent_job_finish(
+                    job_id,
+                    state="cancelled" if result.get("cancelled") else "completed",
+                )
                 self._runtime_logger.emit(
                     "contact_source_import_completed",
                     fields={
@@ -3437,6 +8724,11 @@ class BridgeApplicationApi:
                     current["state"] = "failed"
                     current["error"] = error
                     current["completed_at"] = datetime.now(timezone.utc).isoformat()
+                self._persistent_job_finish(
+                    job_id,
+                    state="failed",
+                    error_code=str(error.get("error_code") or "contact_source_import_failed"),
+                )
                 self._runtime_logger.emit(
                     "contact_source_import_failed",
                     level="error",
@@ -3451,7 +8743,7 @@ class BridgeApplicationApi:
                     self._contact_import_cancellations.pop(job_id, None)
 
         threading.Thread(
-            target=run,
+            target=self._runtime_bound_target(run),
             name=f"local-contact-source-{job_id[:8]}",
             daemon=True,
         ).start()
@@ -3575,7 +8867,7 @@ class BridgeApplicationApi:
                         found.add(member_id)
                         processed += 1
                         try:
-                            saved = self._contact_store.upsert_contact(
+                            saved = self._upsert_eitaa_local_contact(
                                 self._contact_source_row(
                                     member.user,
                                     phones=(
@@ -3587,9 +8879,8 @@ class BridgeApplicationApi:
                                     sendable=member.is_sendable,
                                     category_ids=category_ids,
                                 ),
-                                duplicate_policy="update",
                                 category_policy="merge",
-                                status_policy="preserve",
+                                safe_reason_code="eitaa_community_contact_observed",
                             )
                             if saved.get("duplicate"):
                                 duplicates += 1
@@ -3711,11 +9002,10 @@ class BridgeApplicationApi:
                                     contact_row["first_name"] = str(entry.first_name)
                                 if not contact_row.get("last_name") and entry.last_name:
                                     contact_row["last_name"] = str(entry.last_name)
-                                saved = self._contact_store.upsert_contact(
+                                saved = self._upsert_eitaa_local_contact(
                                     contact_row,
-                                    duplicate_policy="update",
                                     category_policy="merge",
-                                    status_policy="preserve",
+                                    safe_reason_code="eitaa_phone_list_contact_resolved",
                                 )
                                 if saved.get("duplicate"):
                                     duplicates += 1
@@ -3759,31 +9049,40 @@ class BridgeApplicationApi:
         job_id = str(query.get("job_id") or "").strip()
         with self._contact_import_lock:
             job = self._contact_import_jobs.get(job_id)
-            if job is None:
-                raise CompositionValidationError(
-                    "Contact import job was not found.",
-                    code="api_contact_import_job_not_found",
-                )
-            copied = dict(job)
-            copied["progress"] = dict(job["progress"])
-            return {"ok": True, "job": copied}
+            copied = dict(job) if job is not None else None
+            if copied is not None:
+                copied["progress"] = dict(job["progress"])
+        if copied is None:
+            copied = self._persistent_job_snapshot(job_id, kind="contact_import")
+        if copied is None:
+            raise CompositionValidationError(
+                "Contact import job was not found.",
+                code="api_contact_import_job_not_found",
+            )
+        return {"ok": True, "job": copied}
 
     def _contact_import_cancel(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         job_id = str(payload.get("job_id") or "").strip()
+        self._persistent_job_cancel(job_id)
         with self._contact_import_lock:
             job = self._contact_import_jobs.get(job_id)
-            if job is None:
-                raise CompositionValidationError(
-                    "Contact import job was not found.",
-                    code="api_contact_import_job_not_found",
-                )
-            cancellation = self._contact_import_cancellations.get(job_id)
-            if cancellation is not None and job["state"] in {"queued", "running"}:
-                cancellation.set()
-                job["state"] = "cancelling"
-            copied = dict(job)
-            copied["progress"] = dict(job["progress"])
-            return {"ok": True, "job": copied}
+            if job is not None:
+                cancellation = self._contact_import_cancellations.get(job_id)
+                if cancellation is not None and job["state"] in {"queued", "running"}:
+                    cancellation.set()
+                    job["state"] = "cancelling"
+                copied = dict(job)
+                copied["progress"] = dict(job["progress"])
+            else:
+                copied = None
+        if copied is None:
+            copied = self._persistent_job_snapshot(job_id, kind="contact_import")
+        if copied is None:
+            raise CompositionValidationError(
+                "Contact import job was not found.",
+                code="api_contact_import_job_not_found",
+            )
+        return {"ok": True, "job": copied}
 
     def _contact_targets(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         result = self._contact_validation(
@@ -3843,6 +9142,96 @@ class BridgeApplicationApi:
         config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
         return WordPressSiteSettings(self.config_path, config.env_file)
 
+    def _deployment_port_settings(self) -> DeploymentPortSettings:
+        return DeploymentPortSettings(self.config_path)
+
+    def _settings_deployment(
+        self,
+        *,
+        app_session: AuthorizedAppSession | None,
+    ) -> dict[str, Any]:
+        session = (
+            self._require_authorized_session(app_session)
+            if self.app_user_auth_enabled
+            else None
+        )
+        can_manage = session is None or session.principal.global_role == "admin"
+        return {
+            "ok": True,
+            "can_manage": can_manage,
+            **self._deployment_port_settings().details(),
+        }
+
+    def _settings_deployment_port_update(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: AuthorizedAppSession | None,
+        request_id: str | None,
+    ) -> dict[str, Any]:
+        session = (
+            self._require_authorized_session(app_session)
+            if self.app_user_auth_enabled
+            else None
+        )
+        actor_fields = (
+            {"actor_app_user_id": session.principal.app_user_id}
+            if session is not None
+            else {"actor_kind": "legacy_local"}
+        )
+        if session is not None and session.principal.global_role != "admin":
+            self._application_logger.emit(
+                "deployment_port_update_rejected",
+                level="warning",
+                result="rejected",
+                reason_code="app_auth_admin_required",
+                correlation_id=request_id,
+                fields=actor_fields,
+            )
+            raise CoordinatorAuthorizationError(
+                "Only an administrator can change the internal HTTP port.",
+                code="app_auth_admin_required",
+            )
+        settings = self._deployment_port_settings()
+        previous = settings.details()
+        try:
+            updated = settings.update_port(
+                payload.get("port"),
+                confirm=payload.get("confirm") is True,
+            )
+        except BridgeConfigurationError as exc:
+            persistence_failure = exc.code in {
+                "deployment_settings_backup_failed",
+                "deployment_settings_write_failed",
+            }
+            self._application_logger.emit(
+                (
+                    "deployment_port_update_failed"
+                    if persistence_failure
+                    else "deployment_port_update_rejected"
+                ),
+                level="error" if persistence_failure else "warning",
+                result="failed" if persistence_failure else "rejected",
+                reason_code=exc.code,
+                correlation_id=request_id,
+                fields={**actor_fields, "deployment_mode": previous["mode"]},
+            )
+            raise
+        self._application_logger.emit(
+            "deployment_port_update_succeeded",
+            result="succeeded",
+            correlation_id=request_id,
+            fields={
+                **actor_fields,
+                "deployment_mode": updated["mode"],
+                "previous_port": previous["bind_port"],
+                "new_port": updated["bind_port"],
+                "restart_required": True,
+                "proxy_update_required": updated["proxy_update_required"],
+            },
+        )
+        return {"ok": True, "can_manage": True, **updated}
+
     def _settings_sites(self) -> dict[str, Any]:
         return {"ok": True, **self._site_settings().details()}
 
@@ -3891,7 +9280,7 @@ class BridgeApplicationApi:
         callback: Any,
         priority: EitaaPriority = EitaaPriority.BACKGROUND,
     ) -> dict[str, Any]:
-        task_id = uuid.uuid4().hex
+        task_id = self._persistent_job_create(f"background.{kind}")
         state: dict[str, Any] = {
             "task_id": task_id,
             "kind": kind,
@@ -3906,7 +9295,16 @@ class BridgeApplicationApi:
                 state["status"] = "running"
                 state["started_at"] = datetime.now(timezone.utc).isoformat()
             try:
-                result = self._run_eitaa(priority=priority, kind=kind, callback=callback)
+                with self._runtime_logger.observed_operation(
+                    f"background.{kind}",
+                    fields={"task_id": task_id, "kind": kind},
+                ):
+                    self._persistent_job_begin(task_id)
+                    result = self._run_eitaa(
+                        priority=priority,
+                        kind=kind,
+                        callback=callback,
+                    )
             except Exception as exc:
                 converted = self._error_response(exc)
                 error = converted.payload.get("error") or {}
@@ -3915,6 +9313,11 @@ class BridgeApplicationApi:
                     state["error_type"] = type(exc).__name__
                     state["error"] = error
                     state["finished_at"] = datetime.now(timezone.utc).isoformat()
+                self._persistent_job_finish(
+                    task_id,
+                    state="failed",
+                    error_code=str(error.get("error_code") or "background_task_failed"),
+                )
                 self._runtime_logger.emit(
                     "background_task_failed",
                     level="error",
@@ -3931,8 +9334,13 @@ class BridgeApplicationApi:
                     state["status"] = "completed"
                     state["result"] = self._safe_summary(result)
                     state["finished_at"] = datetime.now(timezone.utc).isoformat()
+                self._persistent_job_finish(task_id, state="completed")
 
-        threading.Thread(target=worker, name=f"bridge-{kind}-{task_id[:8]}", daemon=True).start()
+        threading.Thread(
+            target=self._runtime_bound_target(worker),
+            name=f"bridge-{kind}-{task_id[:8]}",
+            daemon=True,
+        ).start()
         return {"ok": True, "task": dict(state)}
 
     def _background_status(self, query: Mapping[str, str]) -> dict[str, Any]:
@@ -3940,16 +9348,26 @@ class BridgeApplicationApi:
         with self._jobs_lock:
             if task_id:
                 task = self._background_tasks.get(task_id)
-                if task is None:
-                    raise CompositionValidationError(
-                        "Background task was not found.", code="api_background_task_not_found"
-                    )
-                return {"ok": True, "task": dict(task)}
+                copied = dict(task) if task is not None else None
+                if copied is not None:
+                    return {"ok": True, "task": copied}
             tasks = sorted(
                 (dict(item) for item in self._background_tasks.values()),
                 key=lambda item: str(item.get("created_at", "")),
                 reverse=True,
             )[:50]
+        if task_id:
+            recovered = self._persistent_job_snapshot(
+                task_id,
+                kind="background",
+                identifier_field="task_id",
+                state_field="status",
+            )
+            if recovered is None:
+                raise CompositionValidationError(
+                    "Background task was not found.", code="api_background_task_not_found"
+                )
+            return {"ok": True, "task": recovered}
         return {"ok": True, "tasks": tasks}
 
     def _community_members_sync(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -4775,7 +10193,17 @@ class BridgeApplicationApi:
         if not isinstance(raw, str) or not raw.strip():
             raise CompositionValidationError("peer_file is required.", code="api_peer_file_required")
         path = Path(raw).expanduser()
-        return path.resolve() if path.is_absolute() else (self.base_directory / path).resolve()
+        resolved = path.resolve() if path.is_absolute() else (self.base_directory / path).resolve()
+        account_root = self._runtime.ownership.account_data_directory
+        if account_root is not None:
+            try:
+                resolved.relative_to(account_root)
+            except ValueError as exc:
+                raise CompositionValidationError(
+                    "peer_file is outside the selected MessengerAccount.",
+                    code="api_peer_file_account_boundary",
+                ) from exc
+        return resolved
 
     @staticmethod
     def _integer(
@@ -4831,6 +10259,28 @@ class BridgeApplicationApi:
         invalid_session = BridgeApplicationApi._is_invalid_session_error(exc)
         if invalid_session:
             status = 401
+        elif isinstance(exc, CoordinatorAuthRateLimitError):
+            status = 429
+        elif isinstance(exc, CoordinatorAuthorizationError):
+            status = 403
+        elif isinstance(exc, CoordinatorConflictError):
+            status = 409
+        elif isinstance(exc, CoordinatorAuthenticationError):
+            if exc.code in {
+                "app_auth_required",
+                "app_auth_session_invalid",
+                "app_auth_invalid_credentials",
+                "app_auth_current_password_invalid",
+            }:
+                status = 401
+            elif exc.code in {
+                "app_auth_setup_unavailable",
+                "app_auth_setup_conflict",
+                "app_auth_username_unavailable",
+            }:
+                status = 409
+            else:
+                status = 400
         elif isinstance(exc, CredentialError):
             status = 401
         elif isinstance(exc, (CompositionCollisionError, CompositionBlockedError)):

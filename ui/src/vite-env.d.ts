@@ -11,10 +11,11 @@ type LoginAppearanceValue = {
 
 interface Window {
   eitaaDesktop: {
-    api(method: string, path: string, body?: unknown): Promise<DesktopApiResult>
+    api(method: string, path: string, body?: unknown, csrfToken?: string, messengerAccountId?: string, correlationId?: string): Promise<DesktopApiResult>
+    reportDiagnostic(payload: ClientDiagnosticPayload, correlationId?: string): Promise<boolean>
     openExternal(url: string): Promise<void>
     selectFile(options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }): Promise<string | null>
-    selectUploadFile(options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }): Promise<string | null>
+    selectUploadFile(options?: { title?: string; filters?: Array<{ name: string; extensions: string[] }>; messengerAccountId?: string }): Promise<string | null>
     loginAppearance: {
       get(): Promise<LoginAppearanceValue>
       selectBackground(): Promise<LoginAppearanceValue>
@@ -30,5 +31,17 @@ interface Window {
       isMaximized(): Promise<boolean>
       onMaximized(callback: (value: boolean) => void): () => void
     }
+  }
+}
+
+type ClientDiagnosticPayload = {
+  event: 'renderer_render_error' | 'renderer_unhandled_error' | 'renderer_unhandled_rejection'
+  level: 'warning' | 'error'
+  error_type: string
+  safe_context: {
+    component_stack_present: boolean
+    document_visible: boolean
+    online: boolean
+    surface: 'renderer' | 'browser'
   }
 }

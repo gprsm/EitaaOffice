@@ -10,7 +10,7 @@ selected_private_channel.json
 # Runtime data, browser profiles, diagnostics, and backups
 runtime/
 data/
-diagnostics/
+/diagnostics/
 backups/
 catalog/
 *.sqlite3
@@ -27,6 +27,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .pytest-audit-temp/
+/.pytest*/
+/.phase*pytest*/
+/.test-tmp/
+/.tmp/
+/.codex_work/
 .coverage
 htmlcov/
 build/
@@ -45,3 +50,24 @@ release/
 .DS_Store
 Thumbs.db
 /ui/node_modules/
+
+# Local third-party research copies and one-shot repair scratch
+/Bale/
+/prompt_out.txt
+/scripts/fix*.py
+/scripts/extract_*
+/scripts/extracted_*
+/scripts/find_*
+/scripts/fix*.js
+/scripts/fix_*.js
+/scripts/gen_*
+/scripts/get_prompt.*
+/scripts/read_*
+/scripts/test_*.py
+/scripts/update_*
+/scripts/phase5_grouping.js
+/scripts/screenshot.ps1
+*.backup
+
+# Local stabilization recovery artifacts (verified receipts are documented separately)
+artifacts/stabilization/

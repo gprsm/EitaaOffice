@@ -1,0 +1,1256 @@
+# دفتر اعتبارسنجی‌ها و جلوگیری از آزمون تکراری
+
+آخرین بازبینی: ۲۰۲۶-۰۸-۲۵
+
+> یادداشت اعتبار جاری: رکوردهای پیش از V-103 شاهد تاریخی و وابسته به Trigger خود هستند. به‌علت drift ثبت‌شده در V-103، هیچ نتیجهٔ قدیمی `PRODUCTION_READY` یا شمارش `590/590` به‌تنهایی وضعیت snapshot جاری را اثبات نمی‌کند؛ V-103 به بعد مرجع وضعیت snapshot جاری است.
+
+## فصل ۱ — اعتبارسنجی‌های قابل اتکا
+
+| شناسه | موضوع | نوع شاهد | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-001 | ورود و Session واقعی ایتا | Live | پذیرفته | Phase 10-B | تغییر Auth/session ownership یا رخداد واقعی متعارض |
+| V-002 | UI Desktop/Mobile و Account workspace | Live + automated | پذیرفته | Phase 9 و 10-B/10-D | تغییر layout/account gate/responsive CSS |
+| V-003 | جداسازی AppUser/MessengerAccount | Fake/Contract/Adversarial | 48/48 و suites قبلی پذیرفته | Phase 10-C3 | تغییر authorization/scope/job/runtime |
+| V-004 | Process isolation | Real child-process tests | پذیرفته | Phase 7 | تغییر IPC/supervisor/process runtime |
+| V-005 | Audit/Correlation/Stress | Automated stress | پذیرفته | Phase 8-D | تغییر schema/audit/job/lease/correlation |
+| V-006 | Support Bundle و PII scan | Real bundle + adversarial | finding=0 | Phase 10-D | تغییر bundler/scanner/log schema/included paths |
+| V-007 | Health/readiness/drain/restart | Isolated runtime | پذیرفته | Phase 10-D | تغییر HTTP server/lifecycle/deployment |
+| V-008 | وضعیت UI حساب‌ها | Static + Fake live در ۲۰۲۶-۰۸-۱۳ | Select و Add account descriptor-driven موجود؛ یک option واقعی؛ چندحساب Fake پذیرفته | Phase 11-0 | تغییر Gate/descriptor/onboarding route یا Pilot واقعی |
+| V-009 | پوشش معماری لاگ | Static audit در ۲۰۲۶-۰۸-۱۳ | زیرساخت قوی، پوشش سراسری ناکامل | Logging audit | تغییر logger/audit/Electron/UI error handling |
+| V-010 | یکپارچگی حافظهٔ مهندسی | Static documentation check | ۸ فایل، لینک مفقود=۰، خطای Encoding=۰، شمارهٔ کامل=۰ | `docs/project-memory` | افزودن/تغییر نام سند یا لینک |
+
+## فصل ۲ — کار انجام‌شده در نوبت ۲۰۲۶-۰۸-۱۳
+
+- نوع: ممیزی ایستای هدفمند و مستندسازی؛
+- آزمون زنده: اجرا نشد؛
+- شبکه/Provider: استفاده نشد؛
+- Credential/Session/PII: مشاهده نشد؛
+- تغییر Config: انجام نشد؛
+- Git mutation: انجام نشد؛
+- دلیل اجرا نشدن test suite: این تغییر فقط مستندات و تصمیم معماری است و شواهد آزمون‌های مربوط از Phase 7 تا 10 معتبرند.
+- کنترل یکپارچگی مستندات: همهٔ لینک‌های Markdown محلی resolve شدند و اسکن Encoding/شمارهٔ کامل بدون Finding بود.
+
+## فصل ۳ — قالب ورودی بعدی
+
+```text
+### V-NNN — عنوان
+- تاریخ:
+- سطح: Static | Unit | Contract | Fake | Adversarial | Isolated runtime | Live
+- دامنه و فایل‌های مؤثر:
+- فرمان/روش امن:
+- نتیجه:
+- Artifact/Report:
+- دادهٔ واقعی/اثر بیرونی:
+- Trigger تکرار:
+```
+
+## فصل ۴ — اعتبارسنجی Observability و سازمان‌دهی 2026-08-13
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-011 | Event Catalog، پوشش رخداد literal، schema، redaction، client diagnostics و rate limit | Unit/Contract/Adversarial | 6/6 موفق | `tests/test_observability_contract.py` | تغییر catalog/logger/client diagnostic |
+| V-012 | regression کامل Backend | Automated full suite | 513/513 موفق در 81.5s | pytest با basetemp مستقل | تغییر Backend مرکزی/dependency |
+| V-013 | React/Electron و UI regression | Contract + Build | observability موفق؛ 54/54 assertion شمارش‌دار موفق؛ production build موفق | npm scripts و Vite build | تغییر UI/API bridge/Electron/build config |
+| V-014 | map/index/link و syntax ابزارها | Static/Generated | stale=0، broken link=0، py_compile موفق | `scripts/refresh_project_docs.py` | انتقال سند/تغییر generator/release script |
+| V-015 | حفظ worktree و دادهٔ واقعی | Read-only filesystem/Git | diff-check دامنهٔ تغییر موفق؛ `bridge.json`، session، data، runtime، catalog و backups موجود؛ هیچ Git mutation انجام نشد | کنترل نهایی محلی | تغییر/انتقال config، runtime یا عملیات Git |
+
+یادداشت invocation: نخستین تلاش اجرای هدفمند از working directory اشتباه `ui` به venv نسبی نرسید و PowerShell اجرای `npm.ps1` را رد کرد؛ هیچ تستی در آن تلاش اجرا نشد. روش canonical ویندوز از ریشه و با `.\.venv\Scripts\python.exe` و `npm.cmd --prefix ui` است.
+
+یادداشت intentional-red: تست جدید پوشش catalog در اجرای نخست 43 رخداد literal قدیمی ثبت‌نشده را گزارش کرد. پس از افزودن metadata مرکزی همهٔ رخدادها، همان تست و suite کامل سبز شدند؛ failure اولیه یافتهٔ حل‌شده بود، نه وضعیت نهایی.
+
+یادداشت import precedence: یک بررسی شمارش با `python -c` بدون `PYTHONPATH=src` نسخهٔ نصب‌شدهٔ قدیمی‌تر `.venv/site-packages` را resolve کرد و ImportError داد؛ این invocation هیچ اعتبارسنجی‌ای انجام نداد. pytest طبق `pyproject.toml` source جاری را استفاده کرد و شمارش catalog از فایل source برابر 68 بود. راهنمای توسعه این تفاوت را ثبت می‌کند.
+
+یادداشت Git ownership: نخستین `git status` در sandbox با هشدار `dubious ownership` متوقف شد و هیچ تغییری نداد. بررسی فقط‌خواندنی با `git -c safe.directory=<workspace>` تکرار شد؛ global/local Git config تغییر نکرد و worktree عمداً dirty باقی ماند.
+
+جزئیات: `../reports/features/OBSERVABILITY_FOUNDATION_REPORT_2026-08-13.md`.
+
+## فصل ۵ — اعتبارسنجی Phase 11-0 در 2026-08-13
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-016 | Backend کامل پس از Multi-account Onboarding | Unit/Contract/Fake/Adversarial full regression | 518/518 موفق در 91.5s | pytest با basetemp مستقل | تغییر Coordinator/AppAuth/API/provider/account isolation |
+| V-017 | قرارداد UI و Build | Static model/Contract/TypeScript/Build | 61/61 assertion شماره‌دار + observability موفق؛ production build موفق | npm scripts و Vite | تغییر Gate/dialog/descriptor/api bridge/build config |
+| V-018 | پذیرش دیداری Onboarding | Fake live Desktop + Mobile | Dialog/Provider/privacy/enablement/cancel موفق؛ 390×844 بدون overflow؛ console نهایی 0 warning/error | Browser development fixture | تغییر layout/dialog/MUI/account management surface |
+| V-019 | Runtime log PII/redaction | Read-only scanner | 9106 record، invalid JSON=0، finding=0 | `scripts/phase10_log_redaction_verify.py` | تغییر logger/redaction/event fields/included logs |
+| V-020 | Idempotency و جداسازی ساخت حساب | Fake/Adversarial | retry پس از service restart، race هم‌زمان، cross-owner denial و forged fields موفق | `tests/test_phase11_0_multi_account_onboarding.py` | تغییر fingerprint/transaction/unique/membership/payload allowlist |
+| V-021 | نقشه، فهرست گزارش و لینک‌های Markdown پس از Phase 11-0 | Generated/Static | refresh موفق؛ stale=0 و broken link=0 | `scripts/refresh_project_docs.py` | تغییر مسیر، سند، generator یا report |
+
+### دامنه و اثر بیرونی
+
+- حساب واقعی دوم: ساخته نشد؛
+- Credential/OTP/password/Cookie/Token/شمارهٔ واقعی: مشاهده یا ثبت نشد؛
+- Provider network و ارسال واقعی: استفاده نشد؛
+- WordPress/Laragon: استفاده نشد؛
+- Firewall/Proxy/Port 80/443: تغییر نکرد؛
+- `bridge.json`، Session واقعی، data/catalog/backups: تغییر داده نشدند؛
+- Git reset/checkout/clean/stage/commit/push/config mutation: انجام نشد؛
+- Vite Fake listener فقط روی Loopback اجرا و پس از پذیرش terminate شد.
+- پنج basetemp دقیق `.pytest-phase11-0-*` پس از ثبت نتیجه و کنترل مسیر حذف شدند؛ سایر cacheها و داده‌های عملیاتی حفظ شدند.
+
+### Warning معتبر باز
+
+- Build chunk اصلی 894.38 kB است و هشدار آستانهٔ 500 kB دارد؛ F-013 غیرمسدودکننده و باز است.
+
+### Invocation/error ledger
+
+1. Python پیش‌فرض سیستم `pytest` نداشت؛ نتیجهٔ معتبری تولید نشد و `.venv` استفاده شد.
+2. pytest Temp سراسری Windows مجوز نداشت؛ اجرای معتبر با basetemp داخل workspace تکرار شد.
+3. یک targeted regression پس از گسترش Provider descriptor یک expectation قدیمی را شکست؛ expectation به قرارداد تازه ارتقا و suite سبز شد.
+4. اجرای نخست تست‌های تازه پنج خطای fixture/assertion داشت؛ fixture AppPrincipal، نام کلید خطا و correlation argument اصلاح شدند.
+5. PowerShell `npm.ps1` را طبق ExecutionPolicy رد کرد؛ `npm.cmd` check/test/build موفق بود.
+6. `Start-Process` به‌علت duplicate PATH در محیط sandbox آغاز نشد؛ اجرای مستقیم Vite موفق و سپس terminate شد.
+7. پذیرش دیداری Warning Tooltip روی Button غیرفعال را یافت؛ wrapper اصلاح و تب تازه صفر warning/error شد.
+8. Git read-only ابتدا `dubious ownership` داد؛ با override همان invocation و بدون تغییر Config بررسی شد.
+9. lookup یک Event Catalog و Baseline با مسیر اشتباه fail شد؛ مسیر canonical پیدا شد و هیچ mutation مرتبطی رخ نداد.
+10. یک block اعتبارسنجی payload هنگام patch ابتدا در handler مجاور دیده شد؛ بازبینی قبل از پذیرش آن را جابه‌جا کرد و compile/targeted/full suite موفق شدند.
+11. نخستین فرمان تجمیعی کنترل نهایی به‌دلیل عملگر سه‌تایی ناسازگار با PowerShell parse نشد؛ فرمان فقط‌خواندنی بود و با `if/else` تکرار شد. نتیجهٔ معتبر: داده‌های عملیاتی حاضر، scratch این مرحله صفر و diff-check موفق.
+
+جزئیات: `../reports/phases/PHASE11_0_MULTI_ACCOUNT_ONBOARDING_FOUNDATION_REPORT_2026-08-13.md`.
+
+## فصل ۶ — اعتبارسنجی Phase 11-A در 2026-08-13
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-022 | ممیزی دو ZIP بله | Static source/archive | traversal=0، binary=0؛ Personal: 20 فایل Python/9 تست آفلاین؛ Aiobale: 237 فایل Python/0 تست همراه | `BALE_PROVIDER_DISCOVERY.md` | تغییر hash ورودی یا منبع تازه |
+| V-023 | بررسی منابع رسمی بله | Current primary web sources | API رسمی فقط Bot/Arm مستند؛ استفاده از API غیررسمی/مهندسی معکوس صریحاً ممنوع | شرایط و مستندات رسمی بله | تغییر مادی صفحهٔ رسمی یا مجوز کتبی |
+| V-024 | حفظ مرز محصول | Static project state | هیچ source/config/dependency/descriptor/runtime تغییر نکرد؛ Bale غیرفعال ماند | گزارش Phase 11-A | انتخاب مسیر رسمی Bot یا قرارداد personal |
+
+### دامنه و اثر بیرونی
+
+- ZIPها استخراج، import، نصب یا اجرا نشدند؛
+- test suite داخل ZIPها اجرا نشد؛ اعداد test از تحلیل ایستا به‌دست آمد؛
+- Provider endpoint، auth، OTP، Session، Send و Capture استفاده نشد؛
+- فقط GitHub پروژه، مستندات خود Aiobale و صفحات عمومی رسمی بله خوانده شدند؛
+- هیچ Credential/Token/Cookie/شمارهٔ کامل یا مقدار app key وارد Log/Report نشد؛
+- هیچ Git mutation، Config change یا دست‌کاری دادهٔ واقعی انجام نشد؛
+- regression محصول اجرا نشد، چون source/config/runtime محصول تغییر نکرد.
+
+جزئیات: `../reports/phases/PHASE11A_BALE_DISCOVERY_AND_COMPLIANCE_BLOCKER_REPORT_2026-08-13.md`.
+
+## فصل ۷ — اعتبارسنجی زیرساخت Phase 11-B0 در 2026-08-13
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-025 | Provider Extension contract و fail-closed Bale slot | Unit/Contract/Fake/Adversarial targeted | 23/23 موفق؛ مجوز/state gate، factory shape، session isolation، secret repr و منع network/dynamic loader پذیرفته شد | `tests/test_phase11b_provider_extension_foundation.py` و suiteهای مرتبط | تغییر contracts/registry/worker/Bale slot |
+| V-026 | سازگاری UI و Observability | TypeScript + source contracts | type-check موفق؛ onboarding 7/7؛ observability contract موفق | `ui/` | تغییر descriptor/Gate/Event Catalog/Electron observability |
+| V-027 | Full regression پس از Registry migration | Backend + UI + production build | Python 525/525؛ UI شماره‌دار 61/61؛ observability موفق؛ build موفق | pytest و npm scripts | تغییر contracts/registry/worker/UI |
+| V-028 | محرمانگی log واقعی | Read-only scanner | 9106 رکورد؛ invalid JSON=0؛ finding=0 | `scripts/phase10_log_redaction_verify.py` | تغییر logger/redaction/Provider event fields یا log corpus |
+| V-029 | اسناد و metadata نهایی | Generated/Static | stale=0؛ broken link=0؛ compile موفق؛ Event Catalog=76؛ provider catalog=`bale,eitaa`؛ diff-check موفق | refresh script و source probe | تغییر docs/generator/contracts/catalog |
+
+### دامنه و اثر بیرونی
+
+- هیچ endpoint پیام‌رسان، login، OTP، Session یا Send استفاده نشد؛
+- ZIPهای بله import، نصب، استخراج یا اجرا نشدند؛
+- `bridge.json`، داده، catalog، runtime، backup و نشست واقعی تغییر نکردند؛
+- هیچ Firewall/Proxy/Port/Git config تغییر نکرد؛
+- Bale descriptor همچنان runtime/onboarding غیرفعال است.
+
+### Invocation/error ledger
+
+1. lookup اولیهٔ مسیر فرضی `domain/models.py` نتیجه نداشت؛ مسیرهای canonical با جست‌وجوی source پیدا شدند و mutation رخ نداد.
+2. Git sandbox هشدار `dubious ownership` داد؛ بررسی فقط‌خواندنی با override همان invocation و بدون تغییر config ادامه یافت.
+3. یک عبارت جست‌وجو که با `--provider` آغاز می‌شد flag تفسیر شد؛ بررسی با نحو امن تکرار شد.
+4. نخستین full regression یک failure سازگاری Worker داشت: کد امن `eitaa_worker_process_feature_disabled` در factory boundary عمومی شده بود. Registry برای عبور همهٔ `BridgeError`های امن اصلاح شد و exceptionهای ناشناخته همچنان sanitize می‌شوند.
+5. metadata probe نخست بدون `PYTHONPATH=src` نسخهٔ نصب‌شدهٔ قدیمی محیط مجازی را import کرد؛ با source path صریح تکرار و نتیجهٔ معتبر ثبت شد. pytestهای پروژه از ابتدا `pythonpath=[src]` داشتند.
+
+هشدار build: chunk اصلی 894.38 kB است؛ همان بدهی غیرمسدودکنندهٔ F-013 و بدون تغییر نسبت به مبنای پیشین.
+
+## فصل ۸ — اعتبارسنجی Phase 11-B1 در 2026-08-13/14
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-030 | Coordinator v5→v6 و Contact v2→v3 | Migration/Unit/Adversarial | حفظ داده، checksum، FK، trigger، quick-check و backup موفق | `tests/test_phase11b1_multi_provider_core.py` | تغییر schema/migration/reconciliation |
+| V-031 | Fake Provider سوم، Registry، Capability و عدم escalation | Contract/Fake/Adversarial | targeted مرتبط `48/48` موفق | تست B1 و Provider foundation | تغییر Manifest/Registry/Fake/Capability |
+| V-032 | API/AppUser/runtime/observability compatibility | Unit/Contract | targeted `55/55` موفق | suiteهای API و Phase 11 | تغییر API dispatch/account auth/runtime |
+| V-033 | regression کامل Backend | Automated full suite | `540/540` موفق در 102.6s | pytest با basetemp مستقل | تغییر Backend/dependency/schema |
+| V-034 | UI/Electron/build | TypeScript/Contract/Build | check موفق؛ assertion شماره‌دار `61/61`؛ observability موفق؛ build موفق | npm scripts و Vite | تغییر UI/API descriptor/capability/build |
+| V-035 | محرمانگی Runtime log | Read-only scanner | 9106 رکورد، invalid JSON=0، finding=0 | `scripts/phase10_log_redaction_verify.py` | تغییر logger/event fields/redaction/log corpus |
+| V-036 | metadata عمومی B1 | Static/source probe | schema=6، Event Catalog=78، product catalog=`bale,eitaa`، collected tests=540 | source با `PYTHONPATH=src` | تغییر catalog/schema/test collection |
+
+### دامنه و اثر بیرونی
+
+- Provider network/Login/OTP/Send/WordPress استفاده نشد.
+- DB عملیاتی، `bridge.json`، Session، data/runtime/catalog/backups تغییر نکردند.
+- migration فقط روی فایل‌های موقت آزمون انجام شد.
+- Git reset/checkout/clean/stage/commit/push/config mutation انجام نشد و worktree dirty حفظ شد.
+
+### Invocation/error ledger
+
+1. چند جست‌وجوی فقط‌خواندنی اولیه به‌علت quoting/glob ناسازگار PowerShell اجرا نشدند؛ با الگوی Windows-safe تکرار شدند.
+2. دو lookup مسیر فرضی را پیدا نکردند؛ مسیر canonical با فهرست فایل‌ها مشخص شد.
+3. targeted نخست `38 passed / 1 failed` داشت؛ شکست فقط assertion قدیمی version=5 بود. انتظار به schema جاری 6 ارتقا و اجرای نهایی سبز شد.
+4. Git status نخست `dubious ownership` داد؛ فقط همان فرمان با override موقت invocation اجرا شد و هیچ config تغییر نکرد.
+5. full regression نخست در سقف 120s و 66٪ timeout شد؛ نتیجهٔ معتبر تلقی نشد. اجرای دوم با basetemp تازه `540/540` موفق شد.
+6. collect-only نخست با tail شمار کل را نشان نداد؛ جمع امن شمار فایل‌ها مقدار 540 را تأیید کرد.
+7. patch تجمیعی نخستِ اسناد به‌علت تفاوت context انتهای Validation ledger اعمال نشد و هیچ فایل را تغییر نداد؛ patch به بخش‌های دقیق تقسیم و سپس کامل اعمال شد.
+
+جزئیات: `../reports/phases/PHASE11B1_MULTI_PROVIDER_CORE_REPORT_2026-08-13.md`.
+
+## فصل ۹ — آماده‌سازی handoff دوایجنتی در 2026-08-17
+
+### V-037 — پرامپت اجرایی Antigravity و قرارداد مالکیت نوشتن
+
+- تاریخ: ۲۰۲۶-۰۸-۱۷
+- سطح: `STATIC / DOCUMENTATION`
+- دامنه و فایل‌های مؤثر: حافظهٔ مهندسی، نقشه‌راه چندProvider، راهنمای Provider، گزارش نهایی 11-B1 و handoff تازهٔ 11-B2.
+- روش امن: فقط اسناد canonical خوانده شدند؛ کد، listener، DB عملیاتی، Session و Provider network دوباره بررسی نشدند، زیرا Trigger ابطال برای شواهد B1 وجود نداشت.
+- نتیجه: وضعیت فعلی، مأموریت B2، معیارهای آزمون، ممنوعیت‌های عملیاتی، شرایط توقف و قرارداد همکاری Codex/Antigravity در `docs/handoffs/ANTIGRAVITY_PHASE11B2_HANDOFF_PROMPT_2026-08-17.md` ثبت شد؛ refresh فهرست اسناد انجام و هر دو کنترل stale و لینک‌های محلی با exit code صفر پذیرفته شدند.
+- Artifact/Report: handoff یادشده و F-019.
+- دادهٔ واقعی/اثر بیرونی: هیچ؛ Credential/PII مشاهده نشد، سرویس/Config/Git/data/runtime تغییر نکرد.
+- Trigger تکرار: تغییر وضعیت Phase 11-B2، سیاست مالکیت worktree، گزارش نهایی تازه یا آغاز Provider مجاز جدید.
+
+### Invocation/error ledger
+
+1. نخستین فراخوانی ابزار مطالعه به نام ناموجود `shell_command` ارجاع داد و پیش از اجرای هر فرمان با `TypeError` متوقف شد؛ هیچ فایل یا وضعیت بیرونی تغییر نکرد. مطالعه با ابزار صحیح و read-only تکرار شد.
+2. یک مطالعهٔ تجمیعی اسناد خروجی بیش از ظرفیت همان فراخوانی تولید کرد و نمایش آن truncate شد؛ اسناد الزامی سپس در فراخوانی‌های محدودتر و فایل‌محور دوباره خوانده شدند.
+
+## فصل ۱۰ — اعتبارسنجی Phase 11-B2 slice 1 در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-038 | orchestrator عمومی، Eitaa compatibility، Fake سوم، authorization/capability/deadline/result | Unit/Contract/Fake/Adversarial | suite نهایی B2 برابر `14/14` موفق | `tests/test_phase11b2_provider_neutral_orchestration.py` | تغییر orchestrator/DTO/adapter/API |
+| V-039 | replay/idempotency/race/uncertain send و Manifest ceiling | Adversarial | replay پس از لغو دسترسی رد؛ duplicate race یک provider call؛ uncertain بدون retry؛ escalation رد | همان suite | تغییر cache/key/manifest/capability |
+| V-040 | دو AppUser، چند حساب یک Provider و چند Provider | Contract/Adversarial | account context فقط server-resolved؛ cross-account پیش از adapter رد؛ result هر حساب مستقل | همان suite | تغییر membership/context resolver/adapter resolution |
+| V-041 | UI account capability و منع request نامجاز | Static contract/TypeScript | B2 UI=`6/6`، onboarding=`7/7`، TypeScript check نهایی موفق | `ui/scripts/run-phase11b2-orchestration-tests.mjs` | تغییر Gate/App/QuickSend/Contacts |
+| V-042 | regression هدفمند Phase 11/API | Unit/Contract | B0+B1+B2+11-0+API برابر `75/75` موفق؛ observability Python=`6/6` | pytest با basetemp مستقل | تغییر Provider core/API/observability |
+| V-043 | regression کامل Backend | Automated full suite | اجرای نهایی `554/554` موفق؛ collection مستقل=`554` | pytest full با `.pytest-phase11b2-full-02` | تغییر Backend/قرارداد مرکزی |
+| V-044 | UI/Electron/build | Contract/TypeScript/Build | B2=`6/6`، observability موفق، onboarding=`7/7`، build نهایی موفق | npm scripts/Vite | تغییر UI/build graph/capability |
+| V-045 | محرمانگی runtime log و Event Catalog | Read-only scanner/Contract | `9106` رکورد، invalid JSON=`0`، finding=`0`؛ Event Catalog=`84` | redaction verifier و source probe | تغییر event fields/logger/scanner |
+| V-046 | نقشه، فهرست گزارش و لینک‌های B2 | Generated/Static | refresh موفق؛ stale=`0`؛ broken local link=`0` | `scripts/refresh_project_docs.py` | تغییر source/docs/generator/path |
+
+### ترتیب شواهد هدفمند
+
+1. هنگام رشد suite مستقل B2، نتایج میانی `7/7`، `9/9`، `10/10` و نهایی `14/14` همگی سبز بودند.
+2. regressionهای میانی B2+B1 برابر `22/22`، B2+B1+B0 برابر `30/30`، API+11-0 برابر `39/39` و تجمیع نهایی مرتبط `75/75` بود.
+3. تست‌های malformed result، media بزرگ‌تر از حد request، exception خام، correlation نامعتبر، deadline منقضی، context جعلی و snapshot stale همگی fail-closed موفق شدند.
+
+### Invocation/error ledger
+
+1. patch تجمیعی نخست برای افزودن API helperها به‌علت context نامنطبق اعمال نشد؛ هیچ فایلی تغییر نکرد و patch به بخش‌های کوچک تقسیم شد.
+2. دو patch ترکیبی UI به‌علت یک خط بسیار بلند Contact modal context پیدا نکردند و اتمیک بدون mutation متوقف شدند؛ guard سمت handler و اجزای قابل‌ویرایش جداگانه اعمال شدند.
+3. اجرای نخست UI B2 پس از `3/6` به‌دلیل assertion بیش‌ازحد وابسته به نام شرط متوقف شد؛ تست به behavior واقعی `canSend/disabled` تغییر کرد و نهایی `6/6` شد.
+4. نخستین production build با دو `TS18047` در narrowing مقدار nullable capability snapshot متوقف شد. null guard صریح افزوده شد؛ TypeScript check و build نهایی موفق شدند.
+5. full regression نخست `553 passed / 1 failed` داشت. failure فقط expectation ایستای قدیمی dependency array رسانه بود؛ انتظار به dependency امن تازهٔ `mediaReadSupported` ارتقا یافت، targeted سبز شد و full دوم `554/554` موفق بود.
+6. چند جست‌وجوی PowerShell با quote/glob ناسازگار parse/resolve نشدند؛ فرمان‌ها فقط‌خواندنی بودند و با `rg` و مسیر Windows-safe تکرار شدند.
+7. Git read-only به‌علت `dubious ownership` ابتدا اجرا نشد؛ فقط همان فراخوانی با `git -c safe.directory=<workspace>` تکرار شد و config/stage/commit تغییر نکرد.
+8. یک source probe با `python -c` بدون `src` در import path، package جاری را پیدا نکرد و شاهدی نساخت؛ probe با `sys.path` صریح تکرار و Event Catalog=`84` تأیید شد.
+9. فراخوانی `--help` اسکنر فقط usage را تأیید کرد و شاهد privacy محسوب نشد؛ اجرای واقعی جداگانه با finding=`0` پذیرفته شد.
+
+### دامنه و اثر بیرونی
+
+- Provider network، Login، OTP، Credential، Send واقعی و WordPress استفاده نشد.
+- DB عملیاتی، `bridge.json`، `.env`، Session، `data/`، `runtime/`، `diagnostics/` و `backups/` تغییر داده نشدند؛ scanner فقط‌خواندنی بود و مقدارها را echo نکرد.
+- هیچ Firewall/Proxy/Port/Certificate یا Git mutation/config انجام نشد و worktree عمداً dirty حفظ شد.
+- سطح شاهد B2 فقط `UNIT / CONTRACT-FAKE / ADVERSARIAL / BUILD`؛ هیچ ادعای Live وجود ندارد.
+
+## فصل ۱۱ — تکمیل محلی Phase 11-B2 و رسیدن به مرز بیرونی در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-047 | شش operation عمومی، Media/Contacts و confirmation | Unit/Contract/Adversarial | B2 مستقل نهایی `20/20`؛ field allowlist، capability، bounded result و `confirm=true` پذیرفته | `tests/test_phase11b2_provider_neutral_orchestration.py` | تغییر route/DTO/orchestrator/confirmation |
+| V-048 | Eitaa Process Child RPC و media chunk broker | Contract/Process/Adversarial | method/field/fence forged رد؛ شش mapper typed؛ media path در Child و chunk پیوسته/محدود پذیرفته | B2 + Phase 7A/7B/7D + HTTP media | تغییر worker/process runtime/IPC/media streaming |
+| V-049 | receipt پایدار Send/Contact و مهاجرت Coordinator v7 | Unit/Migration/Privacy | restart replay بدون provider call؛ owner/payload mismatch رد؛ stale claim بدون retry uncertain؛ direct v6→v7 + FK/quick check موفق؛ B2+schema=`38/38` | `coordinator/receipts.py`، `schema.py` و تست‌های B2/schema | تغییر receipt/schema/orchestrator idempotency |
+| V-050 | regression مرتبط Phase 11/Process/API/Observability | Unit/Contract/Fake/Adversarial | `133/133` موفق | ۱۲ فایل تست مرتبط با basetemp مستقل | تغییر Provider core/API/Process/Coordinator |
+| V-051 | regression کامل Backend | Automated full suite | اجرای نهایی پس از همهٔ تغییرها `561/561` موفق؛ collection مستقل=`561` | pytest full با `.pytest-work/full-phase11-delivery-20260820` | تغییر Backend یا قرارداد مرکزی |
+| V-052 | UI capability/onboarding/observability/build | Contract/TypeScript/Build | B2=`6/6`، onboarding=`7/7`، observability موفق، TypeScript check و Vite production build موفق | npm scripts canonical | تغییر UI/Electron/build graph |
+| V-053 | Event Catalog و محرمانگی log/receipt | Contract/Read-only scanner | Catalog=`86`؛ runtime=`9106` رکورد، invalid=`0`، finding=`0`؛ replay log فاقد متن/identity/key؛ DB تست فاقد payload خام | observability/B2 tests و `scripts/phase10_log_redaction_verify.py` | تغییر logger/event/receipt/redaction |
+| V-054 | حافظه، گزارش نهایی، فهرست و لینک‌ها | Generated/Static | refresh سه artifact موفق؛ stale=`0`؛ broken local link=`0`؛ `git diff --check` موفق | `scripts/refresh_project_docs.py` و Git read-only | تغییر source/docs/generator/path |
+
+### Failure و تحلیل اصلاحی
+
+1. نخستین اجرای persistence یک شکست داشت چون harness تست قابلیت‌ها را همیشه از Manifest Fake می‌خواند؛ harness به Provider واقعی account bind شد و اجرای تکراری `38/38` سبز شد.
+2. آزمون تازهٔ direct v6→v7 یک ایراد واقعی پیدا کرد: verifier نسخهٔ ۶ جدول v7 را زود مطالبه می‌کرد. نگاشت `REQUIRED_TABLES_V6` اصلاح و همان آزمون با integrity/FK check پذیرفته شد؛ F-022 ثبت شد.
+3. دو assertion لاگ ابتدا با context عمومی `finally` در محل تست اشتباه patch شدند؛ قبل از اجرا با جست‌وجوی موضعی کشف، حذف و در سناریوهای persistence دقیق قرار گرفتند.
+4. Git read-only بدون safe-directory موقت به‌علت مالکیت sandbox رد شد؛ فقط invocation با `git -c safe.directory=<workspace>` تکرار شد و هیچ config/stage/commit تغییر نکرد.
+5. probe شمار Catalog ابتدا package نصب‌شدهٔ قدیمی را import کرد؛ شاهد نساخت و با `sys.path.insert(0,'src')` فقط‌خواندنی تکرار شد؛ نتیجه 86 است.
+6. patch تجمیعی نخست مستندات به‌علت context متفاوت `PROJECT_STRUCTURE.md` اتمیک اعمال نشد؛ اسناد به patchهای فایل‌محور کوچک تقسیم شدند.
+
+### دامنه و اثر بیرونی
+
+- همهٔ DBها و cacheهای این پذیرش در مسیر موقت workspace بودند؛ DB عملیاتی migrate و سرویس واقعی restart نشد.
+- Provider network، Login، OTP، Credential، Send واقعی، WordPress و تغییر Firewall/Proxy/Port/Certificate انجام نشد.
+- `bridge.json`، `.env`، Session واقعی، `data/`، `runtime/`، `diagnostics/` و `backups/` نوشته یا جابه‌جا نشدند؛ log scanner فقط‌خواندنی بود.
+- worktree عمداً dirty حفظ شد و reset/checkout/clean/stage/commit/push یا Git config mutation انجام نشد.
+- سطح پذیرش `UNIT / CONTRACT-FAKE / ADVERSARIAL / BUILD` است. ادامهٔ 11-C/Live 11-D فقط طبق گزارش blocker بیرونی مجاز است.
+
+## فصل ۱۲ — Material/mobile، ثبت‌نام و دریافت خودکار پیام در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-055 | AppUser self-registration، رمز چهار نویسه‌ای و نشست یک‌ساله | Unit/Contract/Config | ثبت‌نام private-only و user-only، min=4، cookie/session یک‌ساله و fail-closed config در full suite پذیرفته | `test_app_user_auth.py`، `test_app_user_api.py`، `test_config.py` | تغییر AppAuth/register/policy/deployment/cookie |
+| V-056 | Material-only و mobile-first UI contract | Static/Unit/Contract | مجموعهٔ هدفمند Python برابر `65/65`؛ source فعال بدون class و stylesheet اختصاصی، module/safe-area/touch/layout پذیرفته | تست‌های Material/Phase6D/UI repair/scroll/composer | تغییر TSX/theme/shell/module/layout |
+| V-057 | مدل‌ها و contractهای شماره‌دار UI | Contract | Scroll=`10/10`، grouped media=`16/16`، Phase9=`22/22`، Phase10=`7/7`، Phase11=`13/13`؛ جمع شماره‌دار=`68/68`؛ mobile-auth-live و observability نیز موفق | npm scripts canonical | تغییر UI state/polling/account gate/Electron |
+| V-058 | TypeScript و production build | TypeScript/Build | check موفق؛ Vite موفق با 1006 module؛ main=`785.60 kB` و gzip=`240.96 kB`؛ warning آستانه 500 kB در F-013 باز | `npm.cmd --prefix ui run check/build` | تغییر dependency/import graph/Vite/UI |
+| V-059 | regression کامل Backend و migration در Windows | Automated full suite/Isolated temp | full=`566/566`؛ migration suite خارج از sandbox=`7/7`؛ فقط warning cache غیرعملکردی | pytest با basetemp workspace و اجرای مجاز خارج sandbox | تغییر Backend/schema/migration/auth/live route |
+| V-060 | حافظه، گزارش مستقل، map/index و لینک‌ها | Generated/Static | سه artifact تولیدشونده refresh شد؛ stale=`0` و broken local link=`0` | `scripts/refresh_project_docs.py` | تغییر source/docs/generator/path |
+| V-061 | حفظ worktree و توقف listener موقت | Read-only Git/process | `git diff --check` موفق؛ status فقط‌خواندنی dirty گستردهٔ موجود را تأیید کرد؛ Port 5173 پس از Ctrl-C listener ندارد؛ هیچ Git mutation نشد | Git با safe-directory invocation و کنترل listener | تغییر Git state یا اجرای dev server |
+
+### Failure و تحلیل اصلاحی
+
+1. full pytest داخل sandbox ابتدا 20 شکست ثبت کرد: 18 تست ایستای قدیمی وجود class/CSS سفارشی و labelهای پیشین را مطالبه می‌کردند؛ قراردادها به MUI component، `sx`، aria و moduleهای جاری منتقل و رفتارهای ایمنی متن دعوت/ویرایش تقویت شدند. دو شکست migration فقط `WinError 5` روی rename پوشهٔ موقت بودند؛ اجرای خارج sandbox `7/7` و full نهایی `566/566` شد.
+2. rerun هدفمند UI ابتدا `64/65` بود چون تست label قدیمی «شناسه و Access Hash» را انتظار داشت؛ label امن جاری «شناسه فنی» معیار شد و rerun `65/65` سبز شد.
+3. نخستین full run پیش از اصلاح قراردادها خطای session 13ساعته نیز داشت؛ این انتظار تاریخی با policy صریح یک‌ساله ناسازگار بود. تست اکنون active در 13 ساعت و expired پس از عبور از یک سال را بررسی می‌کند.
+4. Pytest امکان نوشتن `.pytest_cache` را نداشت، اما basetemp داخل workspace و exit code نهایی صفر بود؛ warning شاهد شکست محصول نیست.
+5. Browser درون برنامه localhost را با `ERR_BLOCKED_BY_CLIENT` رد کرد؛ Chrome در دسترس نبود و file URL طبق مرز امنیتی رد شد. bypass انجام نشد و پذیرش دیداری تازه شاهد این نوبت نیست؛ F-025 باز شد.
+6. build موفق است ولی chunk اصلی هنوز بالاتر از 500 kB است؛ از 894.38 به 785.60 kB کاهش یافت و F-013 باز باقی ماند.
+7. چند patch تجمیعی context خطوط بلند را پیدا نکردند و بدون mutation متوقف شدند؛ patchهای کوچک‌تر اعمال و پس از آن TypeScript/full regression اجرا شد.
+8. Vite dev server مورد استفاده برای تلاش پذیرش دیداری، هنگام dependency scan به HTMLهای موجود در runtime/Edge profile نیز رسید و به access/resolve/EPERM خورد؛ این scan شاهد build نبود. production build مستقل موفق شد، dev server با Ctrl-C بسته شد و کنترل نهایی Port 5173 را بدون listener یافت.
+
+### دامنه و اثر بیرونی
+
+- با دستور صریح مالک فقط policyهای self-registration/session در `bridge.json` و نمونهٔ آن به‌روز شدند؛ secret یا PII در گزارش/لاگ وارد نشد.
+- Provider network، Login، OTP، Send/Invite واقعی و WordPress استفاده نشد.
+- Session واقعی، `data/`، `runtime/`، `diagnostics/` و `backups/` جابه‌جا یا بازنویسی نشدند.
+- Firewall/Proxy/Port/Certificate/rollback و migration DB عملیاتی انجام نشد.
+- سطح شاهد UI جدید `STATIC / UNIT / CONTRACT / BUILD` است؛ پذیرش Live Provider یا Browser دیداری ادعا نمی‌شود.
+
+جزئیات: `../reports/features/MATERIAL_MOBILE_SELF_REGISTRATION_LIVE_SYNC_REPORT_2026-08-20.md`.
+
+## فصل ۱۳ — بازیابی startup پس از استفادهٔ مجدد PID در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-062 | علت‌یابی خروج Backend و تطبیق مالکیت واقعی PID | Local runtime forensics / Read-only | لاگ startup به `eitaa_worker_process_alive` رسید؛ رکورد و lease قدیمی یک PID زنده داشتند، اما executable سیستم‌عامل `svchost.exe` و نامرتبط با Python Worker بود | `server-console.log`، metadata امن Coordinator/lease و OS executable probe | تغییر رکورد عملیاتی، liveness probe یا رخداد startup تازه |
+| V-063 | قرارداد PID reuse، lease، registry و audit reason | Unit/Contract/OS probe | red اولیه خطای قبلی را بازتولید کرد؛ نهایی `4/4` و suite مالکیت/Process برابر `25/25` موفق | `tests/test_phase4d_account_management.py` و Phase 7B/7C/7D | تغییر account runtime، lease، coordinator recovery یا spawn |
+| V-064 | regression کامل و کنترل‌های canonical | Automated full suite / TypeScript / Observability / Generated docs | Backend `570/570`؛ TypeScript check و observability موفق؛ docs refresh/check/link-check موفق | pytest، npm و `scripts/refresh_project_docs.py` | تغییر Backend/UI/docs generator |
+| V-065 | محرمانگی لاگ واقعی پس از علت‌یابی | Read-only scanner | ۹۱۰۸ رکورد JSONL؛ `invalid_json=0` و `finding=0` | `scripts/phase10_log_redaction_verify.py` | تغییر logger/redaction/event fields یا log corpus |
+
+### Failure و تحلیل اصلاحی
+
+1. آزمون red نخست علاوه بر failure عملکردی مورد انتظار، برای fixture دارای `tmp_path` با `WinError 5` در temp سراسری روبه‌رو شد؛ اجرای معتبر با basetemp صریح داخل workspace انجام شد.
+2. دو probe فقط‌خواندنی Python ابتدا به‌علت quote نامعتبر، یک `SyntaxError` و سپس خطای SQL ساختند و هیچ شاهدی تولید نکردند؛ query پارامتری امن در اجرای سوم metadata بدون شناسهٔ حساب را برگرداند.
+3. `Get-CimInstance` و `tasklist` برای جزئیات فرایند با Access denied متوقف شدند؛ راه‌حل محصول به API فقط‌خواندنی Toolhelp محدود شد و همان API executable نامرتبط را با موفقیت تشخیص داد.
+4. یک `rg` اولیه glob ویندوز را نپذیرفت؛ مسیرهای canonical با الگوی Windows-safe پیدا شدند.
+5. فرمان Git فقط‌خواندنی به‌دلیل نبودن repository قابل‌شناسایی در این context اجرا نشد؛ هیچ Git config یا mutation انجام نشد و شاهد پذیرش بر Git متکی نیست.
+
+### دامنه و اثر بیرونی
+
+- لاگ واقعی، Worker metadata، lease و executable فقط‌خواندنی بررسی شدند؛ هیچ PII، شناسهٔ حساب یا Credential در سند ثبت نشد.
+- `bridge.json`، `.env`، Session، `data/`، `runtime/`، `diagnostics/` و `backups/` تغییر داده نشدند؛ test artifactها فقط در basetemp workspace بودند.
+- Backend واقعی restart نشد و Provider network/Login/OTP/Send/WordPress به‌کار نرفت.
+- هیچ process termination، پاک‌سازی دستی lease، migration عملیاتی، تغییر Port/Firewall/Proxy/Certificate یا Git mutation انجام نشد.
+
+جزئیات: `../reports/features/BACKEND_STARTUP_PID_REUSE_RECOVERY_REPORT_2026-08-20.md`.
+
+## فصل ۱۴ — کارت Material پیام و بازیابی خودکار نشست در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-066 | Red contracts نام نویسنده، نشست و Login/Card | Test-first / Static / Unit | اجرای نخست `5/5` شکست مورد انتظار داشت؛ script موبایل نیز نبود component را آشکار کرد | تست‌های تازه در `test_application_api.py`، `test_account_auth_lifecycle.py`، `test_material_ui_repair.py` و mobile script | تغییر قرارداد محصول یا حذف test |
+| V-067 | نام Contact و استثنای Eitaa | Unit/Contract | Contact عادی اولویت دارد؛ عنوان `Eitaa/ایتا` نام member/history را نمی‌پوشاند؛ targeted نهایی موفق | `test_api_message_sender_names_prefer_eitaa_contacts_then_members` | تغییر sender enrichment/contact source |
+| V-068 | بازیابی خودکار fail-closed نشست | Unit/Adversarial/Audit | invalid به absent و backup یکتا؛ response بدون archive name؛ reason امن؛ نشست authenticated با 400 دست‌نخورده ماند | دو test automatic recovery در `test_account_auth_lifecycle.py` | تغییر auth state/reset/archive/audit |
+| V-069 | Material Card، Login مرکزی و UI regressions | Static/Contract/TypeScript/Build | هدفمند `24/24`؛ assertionهای شماره‌دار UI `68/68`؛ mobile-auth-live/observability/check موفق؛ build 1008 module و main=`787.69 kB` gzip=`241.44 kB` | Python UI contracts و همهٔ npm scriptهای canonical | تغییر Message card/Login/App/UI graph |
+| V-070 | regression کامل Python | Automated full suite / Isolated temp | اجرای نهایی `573/573` موفق؛ collection مستقل=`573` | pytest با `.test-tmp/full-session-card-final` | تغییر Backend، API، auth یا UI static contracts |
+| V-071 | محرمانگی log واقعی | Read-only scanner | application=`8645`، worker=`484`، مجموع=۹۱۲۹؛ invalid JSON=`0` و finding=`0` | `scripts/phase10_log_redaction_verify.py` | تغییر logger/audit/redaction/log corpus |
+| V-072 | حافظه، report index، map/symbol و لینک‌ها | Generated/Static/Git read-only | سه artifact refresh؛ stale=`0`، broken local link=`0`، TypeScript/observability تکراری و `git diff --check` موفق | `scripts/refresh_project_docs.py` و Git با safe-directory موقت | تغییر source/docs/generator/path |
+| V-073 | Red قرارداد runtime/version/font/CSRF/OTP | Test-first / Static / Unit | dev entry-point، version source، دو وزن فونت، استقلال CSRF، OTP محلی‌سازی‌شده و provider error mapping ابتدا روی رفتار قبلی شکست خوردند | runtime/UI/auth testهای تازه | تغییر Electron main، Theme، api client یا auth OTP |
+| V-074 | runtime، Auth و Material هدفمند | Unit/Contract/TypeScript | runtime ownership نهایی `21/21`؛ Auth+Material نهایی `38/38`؛ TypeScript check موفق | pytest هدفمند و `npm run check` | تغییر runtime ownership/version/auth/Login UI |
+| V-075 | مدل‌ها و build نهایی UI | Contract/TypeScript/Build | Scroll=`10/10`، grouped=`16/16`، Phase9=`22/22`، Phase10=`7/7`، Phase11=`13/13`؛ observability/mobile-auth-live موفق؛ build 1008 module و main=`788.97 kB` gzip=`241.76 kB` | همهٔ npm scriptهای canonical و build | تغییر UI state/import graph/theme/auth/live sync |
+| V-076 | regression کامل Backend پس از اصلاح‌های زنده | Automated full suite / Isolated temp | `580/580` موفق و collection مستقل `580` | pytest با `.test-tmp/full-live-startup-font-auth` | تغییر Backend/API/auth/static UI contracts |
+| V-077 | پذیرش زندهٔ Startup، ورود و خواندن Eitaa | Live / Read-only provider acceptance | Health=`200`؛ reset خودکار و request-code موفق؛ login completed؛ dialog/message sync/list پیوسته با status 200؛ هیچ Send/Invite/WordPress انجام نشد | Electron workspace build و log/audit امن | تغییر startup/version/session/auth/provider read/polling |
+| V-078 | محرمانگی log پس از ورود واقعی | Read-only scanner | application=`8827`، worker=`678`، invalid JSON=`0` و finding=`0` | `scripts/phase10_log_redaction_verify.py` | تغییر logger/audit/redaction یا corpus زنده |
+| V-079 | حافظه، گزارش، map/index و لینک‌ها | Generated/Static/Git read-only | سه artifact تولیدشونده refresh؛ stale=`0`، broken local link=`0` و `git diff --check` موفق؛ dirty worktree موجود حفظ شد | `scripts/refresh_project_docs.py` و Git با safe-directory موقت | تغییر source/docs/generator/path |
+
+### Failure و تحلیل اصلاحی
+
+1. Red اولیه پنج failure مورد انتظار و نبود فایل Card را ثبت کرد. پس از implementation، هدفمند بدون basetemp با `WinError 5` temp سراسری مواجه شد و یک assertion helper نیز نام متفاوت داشت؛ basetemp workspace و نام قرارداد اصلاح و `24/24` شد.
+2. نخستین invocation هدفمند یک نام test ناموجود داشت و شاهد نساخت؛ بلافاصله با نام canonical فایل تکرار شد.
+3. full نخست پس از extraction فقط یک failure داشت: test scroll رشتهٔ media layout را هنوز در `App.tsx` می‌جست. مرجع به module جدید منتقل و full نهایی `573/573` شد.
+4. patch تجمیعی source و patch تجمیعی نخست مستندات به‌علت context متفاوت اتمیک رد شدند؛ هیچ تغییر نیمه‌اعمال‌شده نداشتند و patchهای کوچک فایل‌محور جایگزین شدند.
+5. production build موفق بود ولی warning chunk بالاتر از 500 kB باقی ماند؛ F-013 باز است و شاهد شکست build محسوب نشد.
+6. Git read-only نخست به‌علت dubious ownership sandbox رد شد؛ هیچ safe-directory دائمی یا Git mutation انجام نشد.
+
+### دامنه و اثر بیرونی
+
+- همهٔ Session و DBهای auth در basetemp workspace تستی بودند؛ Session، `data/` و Config عملیاتی تغییر نکردند.
+- Provider network، Login، OTP، Credential، Send/Invite و WordPress واقعی انجام نشد؛ Browser live نیز برای جلوگیری از probe عملیاتی اجرا نشد.
+- Scanner فقط‌خواندنی بود و هیچ متن خصوصی، شماره، Token، Cookie یا شناسهٔ حساس در گزارش ثبت نشد.
+- Firewall/Proxy/Port/Certificate، migration/rollback عملیاتی و Git reset/checkout/clean/stage/commit/push انجام نشد.
+
+جزئیات: `../reports/features/MATERIAL_MESSAGE_CARD_AUTOMATIC_SESSION_RECOVERY_REPORT_2026-08-20.md`.
+
+## فصل ۱۵ — اصلاح بازگشت RTL در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-080 | Red قرارداد double-flip و drawer edge | Test-first / Static contract | direction تکراری Workspace و لبه/transform قدیمی موبایل پیش از اصلاح شکست خوردند؛ پس از اصلاح Phase 9 acceptance=`13/13` | `ui/scripts/run-phase9-acceptance-tests.mjs` | تغییر root/theme/rtlCache/App grid/drawer |
+| V-081 | پذیرش مختصات RTL در Chromium محلی Electron | Local visual/runtime fixture | دسکتاپ 1280×800 و موبایل 390×844: `html/main=rtl`؛ ترتیب Navigation→Conversation→Chat از راست، Header کارت و drawer بستهٔ موبایل در بیرون لبهٔ راست پذیرفته شدند | `ui/scripts/capture-rtl-layout.cjs` | تغییر layout/theme/card/drawer/Electron fixture |
+| V-082 | مدل‌ها و قراردادهای کامل UI | Contract | Scroll=`10/10`، grouped=`16/16`، Phase9 workspace+acceptance=`24/24`، Phase10=`7/7`، Phase11=`13/13`؛ جمع شماره‌دار=`70/70`؛ mobile-auth-live و observability موفق | npm scripts canonical | تغییر UI state/layout/auth/live sync |
+| V-083 | TypeScript، production build و full Python | TypeScript / Build / Automated full suite | check موفق؛ build 1008 module و main=`788.97 kB` gzip=`241.76 kB`؛ full Python با basetemp workspace=`580/580` | npm check/build و pytest canonical | تغییر source/dependency/contracts |
+| V-084 | حافظه، گزارش، map/index و لینک‌ها | Generated/Static/Git read-only | سه artifact تولیدشونده refresh شد؛ stale=`0`، broken local link=`0` و `git diff --check` موفق؛ dirty worktree موجود حفظ شد | `scripts/refresh_project_docs.py` و Git با safe-directory موقت | تغییر source/docs/generator/path |
+
+### Failure و تحلیل اصلاحی
+
+1. Browser درون برنامه localhost را با `ERR_BLOCKED_BY_CLIENT` رد کرد و Chrome در دسترس نبود؛ هیچ bypass انجام نشد و Chromium محلی خود Electron با fixture توسعه جایگزین شد.
+2. نخستین Vite invocation با cwd نامناسب root را 404 داد. اجرای داخل `ui` در sandbox نیز هنگام پیمایش dependency والد با access/resolve error متوقف شد؛ اجرای محدود خارج sandbox با cwd صحیح موفق و listener پس از پذیرش متوقف شد.
+3. harness Electron در navigation اولیهٔ Vite یک `ERR_FAILED` ناشی از optimization reload دید؛ فقط همین cancellation محدود تحمل و صفحهٔ RTL واقعی پس از بارگیری اندازه‌گیری شد.
+4. probe کلیک خودکار drawer در BrowserWindow پنهان state را تغییر نداد و شاهد محسوب نشد؛ حذف شد. مختصات حالت بسته، قرارداد edge/transform و screenshot موبایل معیار پذیرش‌اند.
+5. full pytest نخست به temp سراسری کاربر دسترسی نداشت و با `WinError 5` setup error ساخت؛ rerun با basetemp تازهٔ workspace بدون تغییر محصول `580/580` موفق شد.
+6. production build موفق بود اما warning chunk بالاتر از 500 kB باقی است؛ F-013 باز و مستقل از RTL است.
+7. Git read-only نخست به‌علت dubious ownership sandbox رد شد؛ هیچ safe-directory دائمی یا Git mutation انجام نشد و invocation read-only با safe-directory موقت در پایان استفاده می‌شود.
+
+### دامنه و اثر بیرونی
+
+- پذیرش تصویری فقط fixture محلی و داده‌های ساختگی را استفاده کرد؛ Provider network، Login/OTP، Send/Invite و WordPress انجام نشد.
+- Session، Config، `data/`، runtime عملیاتی، diagnostics و backupها جابه‌جا یا بازنویسی نشدند؛ basetemp فقط برای suite تست بود.
+- Firewall/Proxy/Port/Certificate، migration/rollback عملیاتی، حذف داده و Git reset/checkout/clean/stage/commit/push انجام نشد.
+- جزئیات: `../reports/features/RTL_LAYOUT_REGRESSION_REPAIR_REPORT_2026-08-20.md`.
+
+## فصل ۱۶ — تنظیم متمرکز پورت داخلی در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | مرجع | Trigger تکرار |
+|---|---|---|---|---|---|
+| V-085 | RED قرارداد منبع واحد پورت | Test-first / Static+Unit | collection با ImportError نبود `DeploymentPortSettings` شکست مورد انتظار داشت؛ قرارداد پیش از پیاده‌سازی موجود بود | `tests/test_deployment_port_settings.py` و Material/API assertions | تغییر نیاز محصول یا حذف test |
+| V-086 | persistence اتمیک و سه profile استقرار | Unit/Adversarial/Config | desktop default به deployment کامل تبدیل، Host/Origin داخلی sync، 443/bool/range/unconfirmed بدون write رد، public reverse-proxy حفظ و PermissionError backup به failure امن بدون تغییر فایل تبدیل شد؛ `7/7` | `test_deployment_port_settings.py` | تغییر config dataclass/loader/serializer/atomic write |
+| V-087 | API سراسری، مجوز و Observability | Contract/Auth/Audit | GET برای user واردشده با `can_manage=false`؛ POST user=`403`، admin+CSRF+confirm موفق؛ event موفق correlationدار و event ردشده audit-required | `test_app_user_api_setup_session_csrf_roles_and_logout` و Event Catalog | تغییر dispatch/Auth/CSRF/routes/logger/catalog |
+| V-088 | Material UI و build | Static/TypeScript/Build | کنترل واحد «شبکه و وب» بدون class، check و observability موفق؛ build 1009 module، Settings=`30.62 kB`، main=`788.97 kB` gzip=`241.76 kB` | `SettingsPage.tsx`، Material test و npm check/build/observability | تغییر Settings/theme/API client/import graph |
+| V-089 | regression کامل Backend و UI | Automated full suite / Isolated temp / Contract | Python=`588/588`؛ UI شماره‌دار=`70/70`؛ mobile-auth-live موفق | pytest با basetemp workspace و همهٔ npm scriptهای canonical | تغییر Backend/API/UI/auth/live/navigation |
+| V-090 | حافظه، map/index و لینک‌ها | Generated/Static/Git read-only | سه artifact تولیدشونده refresh شد؛ stale=`0`، broken local link=`0`، Event Catalog=`89` و `git diff --check` موفق؛ dirty worktree موجود حفظ شد | `scripts/refresh_project_docs.py` و Git read-only | تغییر source/docs/generator/path |
+
+### Failure و تحلیل اصلاحی
+
+1. RED اولیه در collection و به‌علت نبود سرویس شکست خورد؛ این همان failure مورد انتظار test-first بود.
+2. اجرای service پس از implementation به temp سراسری ویندوز دسترسی نداشت و شش setup error با `WinError 5` ساخت؛ rerun با basetemp تازه در workspace `6/6` شد و هیچ تغییر محصولی برای دورزدن مجوز انجام نشد.
+3. API آزمایشی v1 برای کاربر عادی پیش از route به gate حساب پیام‌رسان خورد و `app_auth_legacy_workspace_forbidden` داد. چون تنظیم deployment سراسری است، route به namespace v2 منتقل شد؛ user مشاهده می‌کند ولی فقط admin تغییر می‌دهد.
+4. تست correlation ابتدا پارامتر داخلی `request_id` را به public dispatch داد و TypeError ساخت؛ public contract واقعی `correlation_id` استفاده و رویداد با همان شناسه پذیرفته شد.
+5. production build موفق بود ولی warning chunk بالاتر از 500 kB باقی است؛ F-013 باز و مستقل از این فاز است.
+6. بازبینی failure دیسک یک RED تازه ساخت: PermissionError ایجاد backup خام بالا می‌آمد. خطا به کد امن و رخداد `deployment_port_update_failed` نگاشت شد؛ آزمون هدفمند `15/15` و full تکراری `588/588` موفق شدند.
+
+### دامنه و اثر بیرونی
+
+- همهٔ Configها و backupهای mutation در basetemp workspace بودند؛ `bridge.json`، `.env`، Session، data، runtime/diagnostics/backups عملیاتی تغییر نکردند.
+- Backend واقعی restart نشد و Port/Firewall/Laragon/Proxy/Certificate تغییر نکرد.
+- Provider network، Login/OTP/Credential، Send/Invite و WordPress اجرا نشد.
+- migration/rollback عملیاتی، حذف داده و Git reset/checkout/clean/stage/commit/push انجام نشد.
+- جزئیات: `../reports/features/CENTRALIZED_DEPLOYMENT_PORT_SETTINGS_REPORT_2026-08-20.md`.
+
+## فصل ۱۷ — ریزفاز ۲.۱ ناوبری موبایل در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه | Trigger تکرار |
+|---|---|---|---|---|
+| V-091 | RED فهرست/بازگشت | Test-first/Static | نبود transition فهرست‌محور شکست مورد انتظار داشت | تغییر قرارداد/test |
+| V-092 | State و Material | Static/TypeScript | targeted و check موفق؛ فهرست اولیه، section transition و Arrow بازگشت پذیرفته شد | تغییر App/Header/Navigation |
+| V-093 | UI regression | Contract | assertionهای شماره‌دار=`70/70` و mobile-auth-live/observability موفق | تغییر shell/state/live |
+| V-094 | Build و full suite | Build/Automated | build 1010 module؛ Python=`589/589` | تغییر source/import graph |
+| V-095 | مستندات | Generated/Static | سه artifact refresh؛ stale=`0`، broken link=`0` و diff-check موفق | تغییر source/docs |
+
+جزئیات: `../reports/features/MOBILE_CONVERSATION_NAVIGATION_MICROPHASE_2_1_REPORT_2026-08-20.md`.
+
+## فصل ۱۸ — ریزفاز ۲.۲ Header موبایل در 2026-08-20
+
+| شناسه | موضوع | سطح | نتیجه |
+|---|---|---|---|
+| V-096 | RED متن زنده/تقارن | Test-first/Static | Python و mobile-live روی رفتار قبلی شکست خوردند |
+| V-097 | Material/State | Static/TypeScript | حالت live بی‌صدا، connecting/retrying و جایگاه ۴۸px پذیرفته شد |
+| V-098 | UI contracts | Contract | Phase9=`13/13`، mobile-live و observability موفق |
+| V-099 | Build/full | Build/Automated | build 1010 module و Python=`590/590` |
+| V-100 | Docs | Generated/Static | سه artifact refresh؛ stale=`0`، broken link=`0` و diff-check موفق |
+
+جزئیات: `../reports/features/MOBILE_HEADER_MICROPHASE_2_2_REPORT_2026-08-20.md`.
+
+## 2026-08-21 - Microphase 2.3 Mobile Navigation Selected Item
+
+- **هدف:** اعتبارسنجی تغییر ترتیب و استایل گزینه «منتخب» در Bottom Navigation.
+- **تغییرات:** ایجاد `mobileSections` در `WorkspaceNavigation.tsx`.
+- **نتیجه:**
+  - TypeScript `check`: **موفق**
+  - Observability UI: **موفق**
+  - Phase 9 UI Tests: **موفق (12/12)**
+  - Pytest Backend: **موفق (590/590)**
+  - Docs Consistency: **موفق**
+- **وضعیت نهایی تاریخی:** `HISTORICAL_GREEN / SUPERSEDED_BY_V-103`
+
+## 2026-08-21 - Phase 3 (Header Search, Composer Fix, WP Icon)
+
+- **هدف:** اجرای کامل فاز ۳ شامل ۳ ریزفاز.
+- **تغییرات:** افزودن HeaderMessageSearch، UsageInfoDialog، WordPressIcon.
+- **نتیجه:**
+  - TypeScript `check`: **موفق**
+  - UI Unit Tests: **موفق (15/15)**
+- **وضعیت نهایی تاریخی:** `HISTORICAL_GREEN / SUPERSEDED_BY_V-103`
+
+| LEGACY-2026-08-21-PHASE45 | Timeline Pagination & Phase 5 Grouping | Automated Tests + TypeScript + Review | PASS تاریخی (590/590، TS بدون خطا)؛ برای snapshot جاری منقضی طبق V-103 | Phase 4/5 | تغییر timeline grouping/layout یا V-103 |
+
+| LEGACY-2026-08-21-BALE-BOT-DECISION | تصمیم تاریخی مسیر رسمی Bale Bot/Arm | Recovered/Historical Decision | قطعهٔ قابل‌بازیابی: مسیر رسمی Bot/Arm جدا از Personal و Token-based مطرح شده بود؛ متن اصلی لفظ‌به‌لفظ بازیابی‌پذیر نیست و مرجع جاری F-046 است. | F-035 و F-046 | تغییر تصمیم محصولی Bale |
+
+| 2026-08-21 | UI Layout & Avatar Changes | `npm.cmd --prefix ui run check`؛ `npm.cmd --prefix ui run test:observability` | Pass تاریخی؛ برای snapshot جاری منقضی طبق V-103 | نمایش شرطی شناسه پیام، cache آواتار و هم‌ترازی flex |
+
+| 2026-08-22 | Avatar Concurrency Control | `npm.cmd --prefix ui run check`؛ `npm.cmd --prefix ui run build` | Pass تاریخی؛ برای snapshot جاری منقضی طبق V-103 | صف هم‌زمانی حداکثر ۳ در `avatarLoader.ts` |
+
+## 2026-08-22 — ثبت تصمیم‌های معماری ایندکس‌گذاری
+
+| شناسه | موضوع | نوع | نتیجه | مرجع | Trigger ابطال |
+|---|---|---|---|---|---|
+| V-101 | تصمیم‌های معماری ایندکس‌گذاری | Decision/Interactive | سه تغییر بنیادی پذیرفته شد: دسته اجباری، تاریخ از متن، هویت سازمانی فرستنده. گزینه B برای نمایش auto-index انتخاب شد. score از UI پنهان. چت شخصی خارج از scope. | F-036، F-037، F-038 و [implementation_plan.md](implementation_plan.md) | تغییر نیاز کاربر یا scope |
+| V-102 | دسته فعالیت اصلی مستقل از WP | Decision | ۸-۹ دسته سازمانی مستقل از WP categories تعریف می‌شوند. جدول index_activity_categories جدید. هر پست گروه/کانال باید یکی داشته باشد. | F-037 | تغییر schema یا تعریف primary label |
+
+## 2026-08-25 — ممیزی انتقال به AntiGravity2
+
+### V-103 — Baseline، مقایسهٔ پوشهٔ قبلی و اعتبارسنجی محلی snapshot
+
+- تاریخ: 2026-08-25
+- سطح: `STATIC / AUTOMATED LOCAL / READ-ONLY OPERATIONAL SCAN`
+- دامنه: source، UI، tests، scripts، installer، docs و لاگ‌های JSONL جاری؛ بدون Provider network یا داده‌برداری از محتوای خصوصی.
+- علت تکرار: 94 فایل افزوده، 35 فایل تغییرکرده و 1 فایل حذف‌شده نسبت به پوشهٔ قبلی، همراه با تغییر قراردادهای Bale، onboarding، identity و content index، Trigger ابطال شواهد 590/590 قبلی را فعال کرد.
+- نتیجهٔ Git: ریشهٔ `AntiGravity2` repository نیست. پوشهٔ قبلی repository شاخهٔ `main` و عمداً dirty است؛ status فقط‌خواندنی با safe-directory محدود به همان invocation انجام شد و هیچ config/stage/commit تغییر نکرد.
+- Backend: تلاش اول به‌علت basetemp کپی‌شده و غیرقابل‌نوشتن شاهد معتبر نساخت. اجرای معتبر با basetemp تازه 587 test جمع‌آوری کرد؛ 585 موفق و 2 شکست به‌علت BOM در `providers/bale/slot.py` ثبت شد.
+- UI: TypeScript check و observability موفق؛ scroll=`10/10`، grouped-media=`16/16`، Phase 9 workspace/acceptance، Phase 11-B2=`6/6` و mobile-auth-live موفق. Phase 10 local activation به‌علت assertion قدیمی محل helper و Phase 11 onboarding به‌علت گسترش allowlist به `token` شکست خوردند.
+- Bale probe آفلاین: manifest مقدار `live_accepted/configured/runtime/onboarding=true` برگرداند، ولی ساخت Adapter با `ModuleNotFoundError` روی import اشتباه متوقف شد. هیچ درخواست شبکه‌ای اجرا نشد.
+- اسناد: check اولیه سه artifact تولیدشونده را stale یافت؛ generator اجرا و سپس `--check --check-links` با exit code صفر پذیرفته شد.
+- لاگ جاری: scanner فقط‌خواندنی روی 8373 رکورد Application و 6304 رکورد Worker، `invalid_json=0` و `finding=0` گزارش کرد. این شاهد فقط مسیرهای تعریف‌شدهٔ scanner را پوشش می‌دهد و artifactهای مستقل پوشهٔ `Bale` را تأیید نمی‌کند.
+- اثر بیرونی: هیچ Login/OTP/Session mutation/Send/Invite/WordPress، migration/rollback، restart، Firewall/Proxy/Port/Certificate یا Git mutation انجام نشد. `bridge.json`، `.env`، Session، `data/`، `runtime/`، `diagnostics/` و `backups/` بازنویسی یا جابه‌جا نشدند.
+- یافته‌های مرتبط: F-039 تا F-044.
+- Trigger تکرار: اصلاح فایل‌های مذکور، ایجاد baseline Git، تغییر package manifest یا درخواست پذیرش تازه.
+
+| 2026-08-23 | Message Grouping & Skeleton | `npm.cmd --prefix ui run check`؛ `npm.cmd --prefix ui run build` | Pass تاریخی؛ برای snapshot جاری منقضی طبق V-103 | حذف محدودیت ۵ دقیقه و افزودن Skeleton تصویر |
+
+## 2026-08-25 — برنامهٔ تثبیت و قرارداد لاگ‌گذاری
+
+### V-104 — ثبت برنامهٔ G-00 تا G-09 و دفتر اجرای append-only
+
+- تاریخ: 2026-08-25
+- سطح: `DOCUMENTATION / GOVERNANCE / NO_CODE_CHANGE`
+- Run: `STAB-GPLAN-R00`
+- دامنه: تعریف هدف کدها، اتصال `F-039` تا `F-044` به اهداف اجرایی، ترتیب وابستگی، معیار خروج، دروازه‌های تأیید، قرارداد سه‌لایهٔ لاگ و مرز عدم توسعهٔ Bale.
+- نتیجه: `STABILIZATION_REMEDIATION_PLAN_2026-08-25.md` و `STABILIZATION_EXECUTION_LOG.md` ایجاد و از `README.md` مرجع شدند؛ برنامهٔ توسعه‌ای قبلی UI تا پایان تثبیت `DEFERRED` شد؛ `F-045` افزوده شد.
+- کنترل اسناد: generator، `--check` و `--check --check-links` با exit code صفر اجرا شدند. پس از ثبت این Ledger نیز کنترل نهایی اسناد و لینک‌ها باید exit code صفر داشته باشد.
+- تست کد: اجرا نشد؛ از شاهد `V-103` تا این تغییر فقط اسناد حاکمیتی تغییر کرده‌اند و Trigger تکرار suite کد فعال نشده است.
+- اثر بیرونی: هیچ کد، config، دادهٔ عملیاتی، Provider network، فرایند سیستم یا Git state تغییر نکرد.
+- Trigger تکرار: تغییر خود برنامه/قرارداد لاگ یا آغاز هر هدف اجرایی.
+
+### V-105 — اصلاح دامنه: عدم rollback قرارداد متأخر هویت و Bale
+
+- تاریخ: 2026-08-25
+- سطح: `USER_DECISION / STATIC SOURCE+DOCUMENT REVIEW / NO_CODE_CHANGE`
+- Run: `STAB-GPLAN-R01`
+- علت: کاربر صریحاً اعلام کرد بازگرداندن قراردادهای امنیت/حریم خصوصی قدیمی هدف نیست، آخرین قرارداد امنیتی توسعهٔ Bale مرجع است و سایر قراردادهای اصلاح‌شده باید حفظ شوند.
+- شاهد هویت: `identity.masked_phone()` برای E.164 مقدار کامل را برمی‌گرداند؛ `MessengerAccountGate` همان `phone_hint` را نمایش می‌دهد و گزارش `ACCOUNT_MANAGEMENT_UI_AND_UNMASKING_REPORT_2026-08-21.md` این رفتار را تصمیم محصول ثبت کرده است.
+- شاهد شکاف: دو تست masking همچنان بدنهٔ خالی دارند و Baseline/Specification قدیمی نمایش پوشیده را ادعا می‌کردند. اسناد در این Run همسو شدند؛ اصلاح تست به G-04/G-06 موکول است.
+- شاهد Bale: فصل‌های متأخر `BALE_PROVIDER_DISCOVERY.md` مجوز توسعه را اعلام می‌کنند، اما slot جاری با factory نامعتبر و ادعای `live_accepted` شکسته است. تصمیم مجوز rollback نشد؛ دامنهٔ تثبیت همچنان فقط fail-closed و رفع خرابی بدون قابلیت تازه است.
+- مرز مستقل: `docs/SECURITY.md` و AGENTS همچنان شماره، Token، OTP، Cookie، Session و متن خصوصی را در Log/Audit/Diagnostic/Support Bundle ممنوع می‌کنند. نمایش در UI مجوز ثبت در لاگ نیست.
+- تغییرهای مستندی: G-04، F-040، F-044، F-046، Baseline، Specification، Bale Discovery و تصمیم معماری ۳۴.
+- تست کد: اجرا نشد؛ هیچ source/test/config تغییر نکرد.
+- اثر بیرونی: فقط اسناد؛ بدون Provider network، DB/session/config/Git mutation.
+- Trigger تکرار: تغییر قرارداد کاربر، تغییر `identity.py`/UI/تست‌های هویت، یا آغاز G-02/G-04.
+
+### V-106 — توقف موقت و Handoff قابل‌ازسرگیری
+
+- تاریخ: 2026-08-25
+- سطح: `USER_DECISION / DOCUMENTATION / NO_CODE_CHANGE`
+- Run: `STAB-GPAUSE-R00`
+- علت: کاربر توقف موقت تا دستور بعدی را همراه با ثبت دقیق مسیر، وضعیت و ادامهٔ کار درخواست کرد.
+- نتیجه: `docs/handoffs/STABILIZATION_PAUSE_HANDOFF_2026-08-25.md` ایجاد شد؛ وضعیت plan و Execution Log به `USER_PAUSED` تغییر کرد؛ G-00 تا G-09 همگی `QUEUED / NOT_STARTED` باقی ماندند.
+- وضعیت tracker: هدف در لحظهٔ handoff در وضعیت `blocked` تا دریافت فرمان کاربر بود؛ این سند معنای عملیاتی آن را `USER_PAUSED` ثبت می‌کند و هیچ ادعای تکمیل ندارد.
+- تست کد: اجرا نشد؛ هیچ source/test/config تغییر نکرد.
+- اثر بیرونی: فقط اسناد؛ بدون Git/Provider/network/DB/session/config/process mutation.
+- ادامه: پس از فرمان کاربر با خواندن همین handoff و Run پیشنهادی `STAB-G00-R01`.
+- Trigger تکرار: ازسرگیری هدف یا تغییر دامنه توسط کاربر.
+
+### V-107 — ازسرگیری، ثبت RED توقف و قرارداد همکاری AntiGravity
+
+- تاریخ: 2026-08-25
+- سطح: `DOCUMENTATION / GENERATED ARTIFACT / NO_CODE_CHANGE`
+- Run: `STAB-GRESUME-R00`
+- RED: پس از توقف فوری، `refresh_project_docs.py --check` و `--check --check-links` هر دو با exit code 1 فقط `docs/REPORTS_INDEX.md` را stale یافتند.
+- اصلاح: قرارداد `CODEX_ANTIGRAVITY_COLLABORATION_PROTOCOL.md` و Handoff جاری `ANTIGRAVITY_STABILIZATION_CURRENT.md` ایجاد و اسناد تولیدشونده refresh شدند.
+- GREEN: هر دو check نهایی exit code صفر؛ broken link گزارش نشد.
+- تست کد: اجرا نشد؛ source/test/config تغییری نداشت و Trigger suite کد فعال نشد.
+- اثر بیرونی: فقط اسناد؛ بدون Git/Provider/network/DB/session/config/process mutation.
+- ادامه: `STAB-G00-R01` برای baseline امن و قابلیت بازگشت.
+- Trigger تکرار: تغییر اسناد حاکمیتی، Handoff یا generator.
+
+### V-108 — G-00 baseline امن و اتصال تاریخچهٔ Git
+
+- تاریخ: 2026-08-25
+- سطح: `AUTOMATED / LOCAL GIT METADATA / RECOVERY ARTIFACT / NO COMMIT`
+- Run: `STAB-G00-R01`
+- علت: F-039 و شروع اولین فاز اجرایی پس از دستور کاربر.
+- RED: ریشه Git نبود (`exit=128`)؛ تست baseline به‌علت نبود module در collection شکست خورد.
+- GREEN هدفمند: `tests/test_stabilization_baseline.py = 2/2` با cache غیرفعال؛ allowlist و determinism/hash verification پذیرفته شد.
+- artifact واقعی: 613 فایل؛ archive SHA-256=`70908224926eb45791bdc504558478756328743f0a9f7b8355f19b30d73ca8ab`؛ content-set SHA-256=`d128912b0e14e2f5113a209d7fb403349379e9d372217dcfe252bfef0f08239a`؛ forbidden top-level=`0`.
+- Git: repository/branch=`stabilization` و `legacy/main` هر دو به commit `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` متصل‌اند؛ مالک `.git` حساب ویندوز است.
+- failure/retry: verifier نخست false positive مستندی داشت؛ `safe.directory` global رد و تغییر نکرد؛ metadata sandbox-owner به artifact recovery منتقل و repository با مالک صحیح بازسازی شد.
+- محدودیت: index/stage/commit عمداً انجام نشد؛ manifest+Execution Log تا مجوز کاربر شاهد canonical است.
+- اثر بیرونی: fetch فقط محلی؛ بدون Provider/network/DB/session/config/process mutation.
+- یافته: F-039 mitigated؛ commit gate باقی است.
+- Trigger تکرار: تغییر baseline tooling/scope، خرابی artifact، تغییر refs یا دستور stage/commit.
+
+### V-109 — G-01 سلامت اسناد، شناسه‌ها و فهرست گزارش تثبیت
+
+- تاریخ: 2026-08-25
+- سطح: `TEST-FIRST / UNIT / REPOSITORY INTEGRATION / GENERATED DOCS`
+- Run: `STAB-G01-R01`
+- RED ابزار: import checker ناموجود با collection error؛ پس از ساخت checker، repository واقعی ۱۴۳ نشانه گزارش کرد: replacement=`2`، question-run=`129`، control=`4`، duplicate validation ID=`2` و malformed command row=`6`.
+- تفسیر RED: ۱۴۳ تعداد نشانه‌ها بود، نه تعداد defect مستقل؛ بیشتر question-runها از چند سطر واحدِ encoding-corrupt منشأ داشتند.
+- ترمیم: F-035 و Bale Discovery بدون حدس لفظی و با provenance بازیابی شدند؛ duplicateهای تاریخی به `LEGACY-...` منتقل، مسیرهای control-character و جدول‌های npm اصلاح و Baseline/Specification/finalization با V-103/F-046 همسو شدند.
+- guard: `check_project_memory_integrity.py` به حداقل کیفیت AGENTS افزوده شد و full pytest با تست repository واقعی از encoding/ID drift جلوگیری می‌کند.
+- RED فهرست گزارش: تست تازه به‌علت نبود `docs/reports/stabilization` در `REPORT_GROUPS` با `KeyError` شکست خورد.
+- GREEN نهایی: suite هدفمند=`5/5`؛ checker repository=`issue_count 0`؛ refresh/check/check-links همگی exit=`0`؛ `git diff --check` exit=`0` با safe-directory فقط همان invocation.
+- failure محیطی ثبت‌شده: Temp پیش‌فرض pytest مجوز نداشت و basetemp نخست parent نداشت؛ retry داخل `.test-tmp` سبز شد. Git بدون safe-directory invocation نیز به‌علت مالک متفاوت sandbox رد شد؛ هیچ config سراسری تغییر نکرد.
+- اثر بیرونی: فقط source ابزار/test/docs/generated docs و test temp؛ بدون Provider network، config/data/session/runtime و بدون stage/commit/push.
+- یافته‌ها: F-035 بازیابی شد؛ F-047 بسته شد؛ ادعاهای جاری F-040/F-042 شفاف شدند.
+- Trigger تکرار: تغییر checker، generator، Markdown حافظه، تعریف F/V یا مسیر گزارش‌های تثبیت.
+
+### V-110 — G-02 مهار آفلاین Bale و بسته‌شدن شکست‌های Backend
+
+- تاریخ: 2026-08-25
+- سطح: `TEST-FIRST / CONTRACT / ADVERSARIAL STATIC / FULL BACKEND / UI STATIC`
+- Run: `STAB-G02-R01`
+- RED setup: import test store از module اشتباه و فیلد ناموجود context موجب collection/setup error شد؛ خود تست اصلاح و از RED محصول جدا ثبت شد.
+- RED معتبر: تست اختصاصی `4/4 failed` روی state فعال، descriptor runnable، constructor غیرquarantine و BOM. پس از patch، foundation=`1 failed/6 passed` و account-management=`1 failed/8 passed` روی انتظارهای active قدیمی شکست خوردند.
+- اصلاح: F-046 با `document:F-046` حفظ شد؛ state=`implemented`، configured/runtime/onboarding=false، factory/capability/auth steps خالی و reason امن. Adapter compatibility پیش از client/session/network رد و UI fixture غیرفعال شد.
+- GREEN اختصاصی=`5/5`؛ مرتبط Bale/foundation/account-management=`21/21`.
+- regression Backend: collection مستقل=`599`؛ full run exit=`0` و `599/599` PASS.
+- UI: TypeScript و Observability PASS؛ Phase 11-B2=`6/6`. Phase 11 onboarding روی assertion منقضی allowlist پیش از assertion Bale شکست خورد و به F-042/G-06 متصل ماند.
+- docs: refresh، integrity، stale و local-link checks همگی exit=`0`؛ G-02 در REPORTS_INDEX موجود است؛ diff-check exit=`0`.
+- اثر بیرونی: none؛ فقط source/test/UI fixture/docs/test temp. بدون network/Login/OTP/Session/Send/Capture/config/data/runtime و بدون stage/commit/push.
+- یافته: F-040 بسته؛ F-042 به `BACKEND_GREEN / UI_AND_PACKAGING_PENDING` به‌روزرسانی شد.
+- Trigger تکرار: تغییر Bale slot/quarantine/registry/UI descriptor، فعال‌سازی capability/factory/runtime/onboarding، یا دستور توسعه/Live تازه.
+
+### V-111 — G-03 RED نصب تمیز و توقف پیش از اعتبارسنجی patch
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / SYNTHETIC LOCAL DATA / USER_PAUSED / NOT_GREEN`
+- Run: `STAB-G03-R01` (ناتمام)
+- RED اولیه: نخست test module به‌دلیل نبود `LegacyAuthChallenge` در collection شکست خورد. پس از افزودن مدل اولیه، اجرای Temp پیش‌فرض با `PermissionError` محیطی متوقف و با `--basetemp artifacts/stabilization/...` تکرار شد.
+- RED معتبر نهایی: `tests/test_clean_install_auth_stabilization.py = 4 collected / 4 failed`. علت‌ها: `app_auth_setup_unavailable` روی DB کاملاً خالی، `app_auth_coordinator_missing` در startup، و دو `KeyError: challenge_id` در Legacy auth. یک defect اولیه در password-hasher تست از RED محصول جدا و پیش از اجرای نهایی اصلاح شد.
+- patch اعمال‌شده ولی آزموده‌نشده: مدل `LegacyAuthChallenge` و safe allowlist، bootstrap اتمیک مدیر روی Coordinator واقعاً خالی، مجوز محدود runtime برای empty-bootstrap، startup DB initialization، و binding شناسه/stage/expiry در submit-code/submit-password Legacy.
+- وضعیت پذیرش: `UNVALIDATED`. پس از آخرین patch هیچ pytest، syntax/import check، docs refresh، integrity check یا diff-check اجرا نشد، زیرا کاربر توقف فوری به‌علت اتمام token خواست. G-03 بسته نیست و F-041 باز است.
+- هش‌های نقطهٔ توقف: `api.py=a8a4ae666684c010d63c4052038ea1d9f71fd7c28adce8bf1b70eb8b614174b6`؛ `account_auth.py=6cea7a594c4a83afa647d57d8dd55be5a451a3885b45c0be0417d1a62b1785da`؛ `account_runtime.py=7b30786294b166fd4ae92d3ce7a41947c807572a76e92dc9cb63202b95588f0b`؛ `coordinator/app_auth.py=637cb60fd635a542de103b6a5ec405d3dfbe3078c3e92b926abcd0ea37e1048c`؛ تست=`f88ffae3e15575039cd8e53dcc32a8ef22b734e9239c5b132910aec0db32f59d`.
+- اثر بیرونی: فقط source/test/docs و مسیرهای Temp آزمون؛ بدون Provider network، Login/OTP/Send، بدون داده/config/session/runtime عملیاتی و بدون Git stage/commit/push.
+- ادامهٔ اجباری: اجرای همان ۴ تست با basetemp تازه؛ سپس بازبینی شکست‌ها، suiteهای `test_app_user_auth.py`، `test_app_user_api.py`، `test_account_runtime.py` و `test_application_api.py`؛ در پایان Backend کامل و کنترل اسناد.
+
+### V-112 — G-03-A ازسرگیری کنترل‌شده و GREEN اختصاصی
+
+- تاریخ: 2026-08-26
+- سطح: `TARGETED / SYNTHETIC LOCAL DATA / STAGE_COMPLETE / USER_PAUSED`
+- Run: `STAB-G03-R02`
+- علت تکرار: patch ثبت‌شده در V-111 به‌دلیل توقف فوری کاربر هرگز پس از تغییر آزموده نشده بود. پیش از اجرا، SHA-256 هر چهار فایل محصول با هش‌های V-111 یکسان بود؛ بنابراین همان patch متوقف‌شده و نه نسخه‌ای ناشناخته سنجیده شد.
+- تلاش A01: همان چهار تست با `--basetemp artifacts/stabilization/pytest-g03-resume-a` اجرا شد؛ نتیجه `4 collected / 3 passed / 1 failed`. شکست در درج credential و به‌علت کوتاه‌بودن salt/digest ساختگی test double نسبت به CHECK واقعی schema بود؛ مسیر bootstrap محصول تا نقطهٔ درج با موفقیت طی شده بود.
+- اصلاح: فقط یک سطر fixture آزمون تغییر کرد تا `PasswordMaterial` مصنوعی طول معتبر schema داشته باشد؛ هیچ کد محصولی در این ازسرگیری تغییر نکرد.
+- تلاش A02: retry با basetemp تازه `artifacts/stabilization/pytest-g03-resume-b` برابر `4 collected / 4 passed` و exit code صفر شد.
+- کنترل مستندات: generator با exit code صفر نقشهٔ فایل و index نمادها را به‌روزرسانی کرد؛ سپس memory integrity، stale check و link check هر سه با exit code صفر گذشتند.
+- SHA-256 نهایی: `api.py=a8a4ae666684c010d63c4052038ea1d9f71fd7c28adce8bf1b70eb8b614174b6`؛ `account_auth.py=6cea7a594c4a83afa647d57d8dd55be5a451a3885b45c0be0417d1a62b1785da`؛ `account_runtime.py=7b30786294b166fd4ae92d3ce7a41947c807572a76e92dc9cb63202b95588f0b`؛ `coordinator/app_auth.py=637cb60fd635a542de103b6a5ec405d3dfbe3078c3e92b926abcd0ea37e1048c`؛ تست=`1e5be6e0bbb998b2de8fd6aca442a48df5f4ec224286c4b9bf2a8d8b1c565344`.
+- پذیرش مرحله: `G-03-A TARGETED_GREEN`. F-041 باز است؛ این رکورد جایگزین regression مرتبط، adversarial/restart یا full Backend نیست.
+- اثر بیرونی: فقط source/test/docs و مسیرهای Temp آزمون؛ بدون Provider network، Login/OTP/Send، داده/config/session/runtime عملیاتی و بدون Git stage/commit/push.
+- ادامه: G-03-B فقط با دستور بعدی کاربر آغاز شود.
+
+### V-113 — G-03-B regression مرتبط AppAuth/API/AccountRuntime
+
+- تاریخ: 2026-08-26
+- سطح: `RELATED REGRESSION / SYNTHETIC LOCAL DATA / STAGE_COMPLETE / USER_PAUSED`
+- Run: `STAB-G03-R03`
+- Trigger اجرا: دستور صریح کاربر برای شروع G-03-B پس از بسته‌شدن کنترل‌شدهٔ G-03-A؛ این suiteها از زمان patch مرتبط G-03 دوباره اجرا نشده بودند.
+- دامنه: `tests/test_app_user_auth.py`، `tests/test_app_user_api.py`، `tests/test_account_runtime.py` و `tests/test_application_api.py` در یک pytest با `--basetemp artifacts/stabilization/pytest-g03b-r01-a`.
+- نتیجه: `57 collected / 57 passed`، exit code صفر. هیچ failure محیطی، محصولی یا contract drift مشاهده نشد و retry لازم نبود.
+- تغییر: هیچ فایل source یا test در G-03-B تغییر نکرد. SHA-256 چهار فایل محصول و چهار suite پیش و پس از اجرا تطبیق کامل داشت.
+- کنترل مستندات: generator، memory integrity، stale check و link check همگی با exit code صفر پایان یافتند.
+- SHA-256 محصول: `api.py=a8a4ae666684c010d63c4052038ea1d9f71fd7c28adce8bf1b70eb8b614174b6`؛ `account_auth.py=6cea7a594c4a83afa647d57d8dd55be5a451a3885b45c0be0417d1a62b1785da`؛ `account_runtime.py=7b30786294b166fd4ae92d3ce7a41947c807572a76e92dc9cb63202b95588f0b`؛ `coordinator/app_auth.py=637cb60fd635a542de103b6a5ec405d3dfbe3078c3e92b926abcd0ea37e1048c`.
+- SHA-256 آزمون‌ها: `test_app_user_auth.py=075f3015580830c4fc30e9b5c8d442f5499360be1bbf344a8ca62783437d7400`؛ `test_app_user_api.py=b5ce8c79277f72ab945b2a54d061bdac3f21be5d08a41eb73c34580c18e9b773`؛ `test_account_runtime.py=0868d6fbb0514828ede6c24b43de61a1c98c603ac361fae2ba2eb008f2b0dcc3`؛ `test_application_api.py=c287251789a933ab86c6e40528c8f9d1c6e9cce5f7b5a76f0f7fa0d51e30ac93`.
+- پذیرش مرحله: `G-03-B RELATED_REGRESSION_GREEN`. F-041 باز است؛ آزمون‌های adversarial/restart و Backend کامل هنوز اجرا نشده‌اند.
+- اثر بیرونی: فقط خواندن source/test و مسیر Temp آزمون؛ بدون Provider network، Login/OTP/Send، داده/config/session/runtime عملیاتی و بدون Git stage/commit/push.
+- ادامه: G-03-C فقط با دستور بعدی کاربر آغاز شود.
+
+### V-114 — G-03-C adversarial/restart و reconciliation چرخهٔ challenge
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / ADVERSARIAL / RESTART / SYNTHETIC LOCAL DATA / STAGE_COMPLETE / USER_PAUSED`
+- Run: `STAB-G03-R04`
+- Trigger اجرا: دستور صریح کاربر برای شروع G-03-C؛ V-113 صراحتاً adversarial/restart را آزموده‌نشده ثبت کرده بود.
+- قراردادهای تازه: restart و پاک‌سازی Legacy runtime، انقضای password و منع replay، supersession challenge قدیمی، رد stage/شناسهٔ خصمانه بدون Provider/echo، و reconciliation رکورد چندحسابی پس از گم‌شدن in-memory challenge.
+- RED: اجرای `-k g03c` روی دو فایل هدفمند با basetemp ایزوله `5 collected / 4 passed / 1 failed` شد. failure محصولی یگانه: submit پس از restart پاسخ `api_auth_challenge_missing` می‌داد و Provider را صدا نمی‌زد، اما رکورد Coordinator را نادرست در `challenge_pending` نگه می‌داشت.
+- اصلاح محصول: در `_require_account_challenge`، نبود challenge/runtime اکنون تلاش معلق را می‌بندد و اگر رکورد همان لحظه `challenge_pending` باشد، با reason=`challenge_runtime_missing` و action=`eitaa.auth.challenge.expired` به `expired` منتقل می‌کند؛ generation افزایش نمی‌یابد و metadata فقط stage امن دارد.
+- GREEN اختصاصی: retry با basetemp تازه `5 collected / 5 passed` و exit code صفر.
+- regression مرتبط: شش فایل شامل clean-install، AccountAuth lifecycle و چهار suite G-03-B با basetemp تازه `81 passed` و exit code صفر.
+- کنترل مستندات: generator نقشهٔ فایل و index نمادها را refresh کرد؛ memory integrity، stale check و link check همگی exit code صفر داشتند.
+- کنترل diff: تلاش نخست `git diff --check` بدون مسیر صریح به‌علت کشف‌نشدن worktree exit code 1 داد؛ این failure محیطی/فرمانی بود. retry read-only با `--git-dir=.git --work-tree=.` روی سه فایل تغییرکرده exit code صفر شد. هیچ index/stage/commit تغییر نکرد.
+- SHA-256 پیش: `api.py=a8a4ae666684c010d63c4052038ea1d9f71fd7c28adce8bf1b70eb8b614174b6`؛ `account_auth.py=6cea7a594c4a83afa647d57d8dd55be5a451a3885b45c0be0417d1a62b1785da`؛ `test_clean_install_auth_stabilization.py=1e5be6e0bbb998b2de8fd6aca442a48df5f4ec224286c4b9bf2a8d8b1c565344`؛ `test_account_auth_lifecycle.py=89621f194f5a41ef6e26e18e7c10c92a7bf4d3219be49ed6b04bbd7861d00a25`.
+- SHA-256 پس: `api.py=1ac2f10ad3ca38861c39a9ed45effe2f954dde4c41daa8efd624456ade7ad1b4`؛ `account_auth.py=6cea7a594c4a83afa647d57d8dd55be5a451a3885b45c0be0417d1a62b1785da`؛ `test_clean_install_auth_stabilization.py=05ac08438f7da1b7692caa1bf4a9b0af846975ddf6ffe0d6d38df5ca5c7fea45`؛ `test_account_auth_lifecycle.py=ce9af830fc8e3300a0671e03b5420fd33bfd2908abcb12d6b66edd0456a82882`.
+- پذیرش مرحله: `G-03-C ADVERSARIAL_RESTART_GREEN`. F-041 باز است؛ Backend کامل و کنترل UI مرتبط هنوز اجرا نشده‌اند.
+- اثر بیرونی: فقط source/test/docs و Temp DB/config/session مصنوعی زیر basetemp؛ بدون Provider network، Login/OTP/Send واقعی، داده/config/session/runtime عملیاتی و بدون Git stage/commit/push.
+- ادامه: G-03-D فقط با دستور بعدی کاربر آغاز شود.
+
+### V-115 — G-03-D full Backend و کنترل‌های UI/Observability
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / UI TYPESCRIPT / UI-ELECTRON OBSERVABILITY / STAGE_COMPLETE / USER_PAUSED`
+- Run: `STAB-G03-R05`
+- Trigger اجرا: دستور صریح کاربر برای G-03-D و تغییر guard مرکزی API پس از آخرین full suite معتبر V-110؛ جلوگیری از تکرار نقض نمی‌شود چون کد مرکزی و پنج تست تازه اضافه شده بود.
+- Backend تلاش A01: کل pytest با basetemp ایزوله `608 collected / 607 passed / 1 failed`. failure در `test_literal_runtime_events_are_registered_in_catalog` بود: `auth_challenge_denied` و `auth_challenge_expired` در G-03 emit شده اما catalog نشده بودند.
+- بررسی مسیر traceback: Resolve-Path فایل آزمون و cwd هر دو snapshot جاری `AntiGravity2` را تأیید کردند؛ نمایش مسیر قدیمی به metadata bytecode منتقل‌شده مربوط بود و آزمون source جاری را پیمایش کرده است، نه پوشهٔ قدیمی را.
+- اصلاح: دو تعریف event با category=`authentication`، default result=`rejected` و `audit_required=true` به Event Catalog افزوده شد؛ هیچ payload خصوصی یا شناسهٔ challenge به schema افزوده نشد.
+- GREEN هدفمند: `tests/test_observability_contract.py = 6/6 passed`.
+- GREEN نهایی Backend: retry مستقل با basetemp تازه `608/608 passed` در 85.33 ثانیه.
+- UI: `npm.cmd --prefix ui run check` exit code صفر؛ `npm.cmd --prefix ui run test:observability` exit code صفر و قراردادهای UI/Electron سبز.
+- کنترل مستندات: generator نقشهٔ فایل و index نمادها را refresh کرد؛ memory integrity، stale check و link check همگی exit code صفر داشتند.
+- جلوگیری از تکرار: Phase 11 onboarding اجرا نشد، زیرا failure allowlist آن در F-042/G-06 ثبت و هیچ کد مرتبطی در G-03 تغییر نکرده است. Phase 10 نیز trigger تازه نداشت.
+- diff: کنترل read-only هدفمند با git-dir/work-tree صریح exit code صفر؛ هیچ stage/commit/push انجام نشد.
+- SHA-256 نهایی: `api.py=1ac2f10ad3ca38861c39a9ed45effe2f954dde4c41daa8efd624456ade7ad1b4`؛ `event_catalog.py=33a895d017a8175b4e8fb2d61969fcfaf2b0154b342221f0af43b5d5acb322a9`؛ `test_clean_install_auth_stabilization.py=05ac08438f7da1b7692caa1bf4a9b0af846975ddf6ffe0d6d38df5ca5c7fea45`؛ `test_account_auth_lifecycle.py=ce9af830fc8e3300a0671e03b5420fd33bfd2908abcb12d6b66edd0456a82882`؛ `test_observability_contract.py=748b2d9437e2fcd82ad20047e77e356031b936364f740a08d9fcdf1bdc245ad5`.
+- پذیرش مرحله: `G-03-D FULL_REGRESSION_GREEN`. F-041 فقط برای finalization/report در G-03-E باز می‌ماند؛ این نتیجه F-042، packaging یا release readiness عمومی را نمی‌بندد.
+- اثر بیرونی: فقط source/docs و Temp DB/config/session/log مصنوعی زیر basetemp و build metadata محلی TypeScript؛ بدون Provider network، Login/OTP/Send واقعی، داده/config/session/runtime عملیاتی و بدون Git mutation.
+- ادامه: G-03-E فقط با دستور بعدی کاربر آغاز شود.
+
+### V-116 — G-03-E معیارهای تکمیلی، finalization و بستن F-041
+
+- تاریخ: 2026-08-26
+- سطح: `EXIT-CRITERIA AUDIT / ISOLATED INSTALL REHEARSAL / FULL BACKEND / FINALIZATION`
+- Run: `STAB-G03-R06`
+- بازبینی: هش هفت فایل اصلی با V-112/V-114/V-115 و تغییر test-only همین Run تطبیق داده شد؛ نمادهای bootstrap/challenge/restart/catalog حاضر و diff check هدفمند exit code صفر بود.
+- شکاف کشف‌شده: معیار خروج رسمی G-03، startup تکراری و installer rehearsal ایزوله را لازم می‌دانست اما V-111 تا V-115 شاهد مستقل برای آن دو نداشتند. F-041 پیش از رفع این gap بسته نشد.
+- acceptance تازه: `test_g03e_empty_multisession_startup_is_repeatable` و `test_g03e_installer_config_copy_rehearsal_starts_offline_twice` با basetemp ایزوله `2/2 passed`. config نمونه مطابق قرارداد copy-if-missing در ریشهٔ موقت استفاده و هر سناریو بدون Provider/Session واقعی دو بار startup شد.
+- Trigger تکرار full suite: فایل آزمون clean-install تغییر کرد؛ Backend کامل با basetemp تازه `610/610 passed` در 82.28 ثانیه. UI دوباره اجرا نشد چون هیچ فایل UI تغییر نکرد و V-115 شاهد جاری سبز دارد.
+- کنترل مستندات: generator نقشهٔ فایل، index نمادها و REPORTS_INDEX را refresh و گزارش G-03 را discoverable کرد؛ memory integrity، stale check و link check همگی exit code صفر داشتند.
+- SHA-256 نهایی: `api.py=1ac2f10ad3ca38861c39a9ed45effe2f954dde4c41daa8efd624456ade7ad1b4`؛ `account_auth.py=6cea7a594c4a83afa647d57d8dd55be5a451a3885b45c0be0417d1a62b1785da`؛ `account_runtime.py=7b30786294b166fd4ae92d3ce7a41947c807572a76e92dc9cb63202b95588f0b`؛ `coordinator/app_auth.py=637cb60fd635a542de103b6a5ec405d3dfbe3078c3e92b926abcd0ea37e1048c`؛ `event_catalog.py=33a895d017a8175b4e8fb2d61969fcfaf2b0154b342221f0af43b5d5acb322a9`؛ `test_clean_install_auth_stabilization.py=980d467153927d6f9b6d8b1ccacfb88ebb3db177dce94b8178524c9912b0830c`؛ `test_account_auth_lifecycle.py=ce9af830fc8e3300a0671e03b5420fd33bfd2908abcb12d6b66edd0456a82882`.
+- privacy/PII: challenge/provider material فقط در حافظه ماند؛ تست‌های mismatch/hostile-id/password expiry و observability عدم echo/leak را پوشش دادند. گزارش هیچ مقدار خصوصی یا شناسهٔ حساس ندارد.
+- پذیرش: `G-03 COMPLETE / F-041 CLOSED / SYNTHETIC_OFFLINE_ACCEPTED`. این پذیرش F-042/F-043/F-044 یا release readiness عمومی را نمی‌بندد.
+- اثر بیرونی: فقط test/docs و Temp DB/config/session/log مصنوعی؛ بدون نصب واقعی، Provider network، Login/OTP/Send، دادهٔ عملیاتی و بدون Git stage/commit/push.
+- ادامه: G-04 فقط با دستور بعدی کاربر آغاز شود.
+
+### V-117 — G-04-A ممیزی قرارداد هویت و RED مستقل حریم خصوصی
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / STATIC CONTRACT / PRIVACY RED / STAGE_COMPLETE / USER_PAUSED`
+- Run: `STAB-G04-R01`
+- Trigger اجرا: دستور صریح کاربر برای شروع G-04 پس از closure G-03؛ F-044 دو تست خالی و نبود شاهد مستقل redaction را باز نگه داشته بود.
+- دامنه: فقط ممیزی قرارداد و افزودن `tests/test_g04_identity_privacy_stabilization.py`؛ هیچ اصلاح محصول در این زیرمرحله مجاز نبود.
+- آزمون هدفمند: `3 collected / 1 passed / 2 failed` با basetemp ایزوله `artifacts/stabilization/pytest-g04a-r01-red-a` و exit code 1.
+- PASS: مقدار canonical ساختگی در مرز مجاز نمایش محصول بدون بازگشت masking حفظ شد.
+- RED معتبر ۱: هر دو تست تاریخی قرارداد تلفن در `tests/test_coordinator_schema.py` همچنان placeholder تک‌دستوری `pass` هستند.
+- RED معتبر ۲: redaction عمومی مقدار کامل زیر نام‌های `phone_hint` و `display_hint` را حذف نمی‌کند، زیرا این نام‌ها در مجموعهٔ کلیدهای تلفن ثبت نشده‌اند.
+- طبقه‌بندی: `test_drift` برای placeholderها و `privacy_contract` برای identity hint؛ failure محیطی یا retry وجود نداشت.
+- جلوگیری از افشا: ورودی کاملاً ساختگی بود؛ assertionهای شکست مقدار را echo نکردند و هیچ مقدار کامل در Ledger، Handoff یا گزارش ثبت نشد.
+- SHA-256: `identity.py=14de42290d97bb0ddc543ffa28dc41402b1619c9a3f91a85faaabaddefb32ac0`؛ `redaction.py=3d688ab266d6856f49b412cfbcb4f82b05ad921139a0e409bdb1e48c9c186cbb`؛ `test_coordinator_schema.py=cfb6c6ebc41e04a6cc644c4bd1e6605fbc46ef610f929e2e40ef348658d0b04e`؛ `test_g04_identity_privacy_stabilization.py=d78bf0fb9c6c94b417d8420fbbcd613dba53271efb4f5a5834f4079ecad70280`.
+- full regression: اجرا نشد؛ suite جاری عمداً RED است و هیچ کد محصولی تغییر نکرد. آخرین `610/610` فقط شاهد snapshot پایان G-03 است.
+- کنترل مستندات: generator نقشهٔ فایل، index نمادها و REPORTS_INDEX را refresh کرد؛ memory integrity، stale check، link check و diff check هدفمند همگی exit code صفر داشتند. گزارش G-04-A در سطر 154 فهرست گزارش‌ها discoverable است.
+- پذیرش مرحله: `G-04-A RED_VERIFIED`. F-044 باز و G-04-B تا دستور بعدی کاربر شروع‌نشده است.
+- اثر بیرونی: فقط test/docs و basetemp مصنوعی؛ بدون Provider network، Login/OTP/Send، داده/config/session/runtime عملیاتی، توسعهٔ Bale یا Git stage/commit/push.
+- Trigger تکرار: تغییر دو تست تاریخی، `identity.py`، `redaction.py` یا نام‌های identity hint؛ نخستین retry فقط در G-04-B و با دستور کاربر.
+
+### V-118 — G-04-B جایگزینی تست‌های خالی و GREEN مرز redaction
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / TARGETED GREEN / RELATED PRIVACY REGRESSION / STAGE_COMPLETE`
+- Run: `STAB-G04-R02`
+- Trigger اجرا: دستور صریح کاربر برای G-04-B و دو RED معتبر V-117.
+- اصلاح آزمون: دو نام/قرارداد masking منقضی حذف و با تست پذیرش display hint canonical در Coordinator persistence و حفظ canonical در مرز محصول جایگزین شدند. guard G-04 هم وجود replacementهای غیرخالی و غیبت نام‌های قدیمی را کنترل می‌کند.
+- اصلاح محصول: `phone_hint` و `display_hint` به `PHONE_KEYS` در redaction مشترک افزوده شدند؛ دادهٔ هویت در UI/persistence محصول کامل می‌ماند، اما در observability mask می‌شود.
+- GREEN اختصاصی: `tests/test_g04_identity_privacy_stabilization.py = 3/3 passed` با basetemp `artifacts/stabilization/pytest-g04b-r01-targeted-a`.
+- regression مرتبط: coordinator schema، diagnostics، observability و G-04 برابر `28/28 passed` با basetemp مستقل `artifacts/stabilization/pytest-g04b-r01-related-a`؛ retry یا failure محیطی وجود نداشت.
+- SHA-256 پس از اصلاح: `redaction.py=8f54cb0655ddbe9bcfdc01fdddef205c8f9f77dd51d49cf3ee4faf1313a50bbe`؛ `test_coordinator_schema.py=e06789ad01726a9544ceb8fbbe36405e6580f17b901948cabd3290f7192e35e3`؛ `test_g04_identity_privacy_stabilization.py=9a7e80a3ef542bfc289b42185bbcaec77c6a7c6b9c495051785a26afa4d1bbe6`.
+- full regression: اجرا نشد؛ دامنهٔ B محدود به دو RED بود و Backend کامل در G-04-E اجرا می‌شود.
+- کنترل مستندات: generator نقشه/نماد/REPORTS_INDEX را refresh کرد؛ گزارش B در سطر 155 discoverable است و integrity، stale، link و diff check هدفمند همگی exit code صفر داشتند.
+- پذیرش مرحله: `G-04-B TARGETED_GREEN / RELATED_REGRESSION_GREEN`. F-044 برای G-04-C تا E باز است.
+- اثر بیرونی: فقط source/test/docs و basetemp مصنوعی؛ بدون Provider network، Login/OTP/Send، داده/config/session/runtime عملیاتی، توسعهٔ Bale یا Git stage/commit/push.
+- ادامه: G-04-C با مجوز همان فرمان کاربر شروع شود؛ token از onboarding عمومی حذف و phone identity مستقل آزموده شود.
+- Trigger تکرار: تغییر redaction، نام‌های identity hint، Coordinator display validation یا قرارداد نمایش محصول.
+
+### V-119 — G-04-C جداسازی E.164 از token در onboarding عمومی
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / API CONTRACT / UI CONTRACT / RELATED REGRESSION / STAGE_COMPLETE / USER_PAUSED`
+- Run: `STAB-G04-R03`
+- Trigger اجرا: دستور صریح کاربر برای انجام G-04-C؛ پذیرش token در allowlist API و failure ثبت‌شدهٔ Phase 11 onboarding در F-042.
+- RED Backend: دو تست جدید با basetemp `artifacts/stabilization/pytest-g04c-r01-red-a` برابر `2/2 failed`؛ validator تلفن token-shaped identity را رد نمی‌کرد و endpoint عمومی آن را تا PhoneProtector عبور می‌داد.
+- RED UI: `test:phase11-onboarding` پس از یک PASS روی assertion allowlist با exit code 1 شکست خورد؛ runner برای failure کل source API را در خروجی dump کرد. هیچ credential/PII واقعی در source یا خروجی وجود نداشت، اما این verbosity به‌عنوان رفتار ابزار ثبت شد.
+- اصلاح: branch و regex token از identity تلفنی حذف شد؛ validator فقط E.164 است. API فقط `provider/phone/label` می‌پذیرد، phone را در boundary اعتبارسنجی می‌کند و descriptor غیر `phone_e164` را با reason امن رد می‌کند.
+- مرز Bale: descriptor آن همچنان onboarding=false است و هیچ account kind/token path/factory/capability تازه‌ای اضافه نشد.
+- GREEN هدفمند: Backend=`2/2 passed` با basetemp تازه `artifacts/stabilization/pytest-g04c-r01-targeted-a`؛ UI Phase 11 onboarding=`7/7 passed`.
+- regression مرتبط A: هفت suite G-04/Coordinator/Phase11 onboarding/Application API/AccountRuntime/B0/B1 برابر `90/90 passed` با basetemp `artifacts/stabilization/pytest-g04c-r01-related-a`.
+- regression مرتبط B: AccountAuth lifecycle و Provider-neutral orchestration برابر `36/36 passed` با basetemp `artifacts/stabilization/pytest-g04c-r01-related-b`. مجموع regression مرتبط=`126/126`.
+- SHA-256 نهایی: `api.py=c77364d8ee8cc2d82a08b13e975f5653f98999b854e62dc7f60164f0ba007a32`؛ `identity.py=afe44246c207e6d8b753d5d310ae67fe4ccefad8ac882677aeed4849fe7f6dde`؛ `redaction.py=8f54cb0655ddbe9bcfdc01fdddef205c8f9f77dd51d49cf3ee4faf1313a50bbe`؛ `test_g04_identity_privacy_stabilization.py=57e992b76a75ee63a2ce4536988dcf11419b14c1f46b9b556d116b5312f75e54`؛ `test_phase11_0_multi_account_onboarding.py=ad520f90da77da2be8fda1e2fcae39153a5acddcc268e6e4416c779588cd6428`؛ `test_coordinator_schema.py=e06789ad01726a9544ceb8fbbe36405e6580f17b901948cabd3290f7192e35e3`.
+- full Backend: اجرا نشد؛ تغییر مرکزی ثبت و Trigger آن فعال است، اما طبق بخش‌بندی کاربر full suite در G-04-E اجرا می‌شود. آخرین `610/610` شاهد snapshot پایان G-03 است، نه snapshot جاری.
+- کنترل مستندات: generator نقشه/نماد/REPORTS_INDEX را refresh کرد؛ گزارش C در سطر 156 discoverable است و integrity، stale، link و diff check هدفمند همگی exit code صفر داشتند.
+- پذیرش مرحله: `G-04-C TARGETED_AND_RELATED_REGRESSION_GREEN`. F-044 برای privacy scan و finalization باز؛ G-04-D تا فرمان کاربر شروع‌نشده است.
+- اثر بیرونی: فقط source/test/docs، basetemp مصنوعی و اجرای static UI؛ بدون Provider network، Login/OTP/Send، داده/config/session/runtime عملیاتی، توسعهٔ Bale یا Git stage/commit/push.
+- Trigger تکرار: تغییر API onboarding allowlist، E.164 validator، Provider identity kind، UI onboarding contract یا PhoneProtector boundary.
+
+### V-120 — G-04-D پذیرش خصمانهٔ چهار کانال privacy
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / ADVERSARIAL PRIVACY / AUDIT PERSISTENCE / SUPPORT BUNDLE / RELATED REGRESSION / USER_PAUSED`
+- Run: `STAB-G04-R04`
+- Trigger اجرا: دستور صریح کاربر برای G-04-D و تغییر redaction/identity boundary در G-04-B/C؛ شاهدهای قدیمی فقط شمارهٔ ایران و کلیدهای شناخته‌شده را پوشش می‌دادند.
+- دامنه: Runtime Log، Diagnostic JSONL، Audit persistence/query/export، Support Bundle creator و scanner؛ همه با E.164/Bearer کاملاً ساختگی و بدون echo مقدار در failure.
+- RED: `tests/test_g04d_privacy_channels.py = 5/5 failed` با basetemp `artifacts/stabilization/pytest-g04d-r01-red-a`. هر پنج کانال/کنترل شکست مستقل داشت؛ bundle creator فقط مسیر ZIP موقت را در stdout چاپ کرد و هیچ مقدار خصوصی echo نشد.
+- علت ریشه‌ای: redaction عمومی generic string را pattern-scan نمی‌کرد؛ Audit append metadata را پیش از hash/persistence sanitize نمی‌کرد و دفاع query/export key-aware نبود؛ bundle creator/scanner الگوی global E.164 نداشتند.
+- اصلاح: redaction مشترک canonical E.164، شکل‌های پشتیبانی‌شدهٔ تلفن، Bearer و provider-token shape را در string ناشناخته/تو‌در‌تو sanitize می‌کند؛ Coordinator Audit پیش از persistence و در query/export redaction دارد؛ creator/scanner الگوی global phone همسو دارند.
+- GREEN اختصاصی: همان پنج تست با basetemp تازه `artifacts/stabilization/pytest-g04d-r01-targeted-a` برابر `5/5 passed`.
+- regression مرتبط A: G-04/G-04-D، diagnostics/observability، Phase 10-D bundle، Audit stress/access، AccountAuth و account management برابر `53/53 passed` با basetemp `artifacts/stabilization/pytest-g04d-r01-related-a`.
+- regression مرتبط B: دو privacy contract در LAN/AppAuth برابر `2/2 passed` با basetemp `artifacts/stabilization/pytest-g04d-r01-related-b`.
+- regression مرتبط C: Coordinator، AppUser Auth، Phase 10-B audit، Phase 11 onboarding و B1 registry برابر `50/50 passed` با basetemp `artifacts/stabilization/pytest-g04d-r01-related-c`.
+- SHA-256 نهایی: `redaction.py=10eb93c1a3ff08845764d55b39c04ba21ed45888e5b767f28c66dbb9ba37a9a4`؛ `runtime_logger.py=2dc04203775c829ebafd34f4ebc960232b7e34f8507465aecef87d65cc554fc1`؛ `manager.py=fba43190216467231baffeca8838fe24a057812e74c586d9ef3c8521532face9`؛ `store.py=b7ceb3c5b41bd3071f93e9331623794939eb9ee293210317d068cc65844ef710`؛ `audit.py=385f2621726584fe8bc5b6b3b1a8c69b942f8ae62763666464a3d5350b631f22`؛ `create_diagnostics_bundle.py=480805802c27b27814f20f60a6fe8a2a9c33c3d58fd67f7b53a959cf81538202`؛ `scan_diagnostics_bundle.py=b02e66e97a7fcce4661634bf34eeaa117a332f9e50d6f43cb30008b4a143a4cc`؛ `test_g04d_privacy_channels.py=5096701603a670a3270ddc368ce88ef54c4de0e50acc3359d271eded6bc5244e`.
+- full Backend: اجرا نشد؛ طبق بخش‌بندی کاربر در G-04-E اجباری است و تغییر store/redaction Trigger آن را فعال نگه می‌دارد.
+- کنترل ثبت نهایی: refresh تولیدکننده انجام شد؛ memory integrity، stale check، link check و targeted diff check همگی exit code صفر داشتند. گزارش G-04-D در سطر 157 `REPORTS_INDEX.md` discoverable و SHA-256 آن `42cdbf1084169ba268c1565a36b4306464e7a71fa826e049a0467a1a6df3061f` است.
+- پذیرش مرحله: `G-04-D ADVERSARIAL_GREEN / RELATED_REGRESSION_GREEN`. F-044 فقط برای full regression/finalization باز و G-04-E تا دستور کاربر شروع‌نشده است.
+- اثر بیرونی: فقط source/test/docs و DB/log/diagnostic/bundle مصنوعی زیر basetemp؛ بدون خواندن diagnostics/config/session/data واقعی، Provider network، Login/OTP/Send، توسعهٔ Bale یا Git stage/commit/push.
+- Trigger تکرار: تغییر redaction، RuntimeLogger/Diagnostic manager، Audit append/query/export، bundle creator/scanner، identity kind یا الگوی تلفن.
+
+### V-121 — G-04-E ممیزی نهایی و full regression
+
+- تاریخ: 2026-08-26
+- سطح: `EXIT AUDIT / FULL BACKEND GREEN / UI CONTRACT GREEN / G-04 COMPLETE / F-044 CLOSED`
+- Run: `STAB-G04-R05`
+- Trigger اجرا: دستور صریح کاربر برای G-04-E و منقضی‌بودن full Backend پس از تغییرهای مرکزی B تا D.
+- ممیزی هش: فایل‌های نهایی مؤثر V-119/V-120 بدون drift. تلاش اول دو مسیر ناموجود حدسی داشت و exit code 1 گرفت؛ تکرار با مسیرهای کشف‌شده exit code صفر داشت. این failure ابزار audit بود، نه محصول.
+- full Backend نخست: `620 collected / 618 passed / 2 failed`، basetemp=`artifacts/stabilization/pytest-g04e-r01-full-a`، exit code 1. هر دو شکست `subprocess.TimeoutExpired` ده‌ثانیه‌ای در Process Worker Phase 7 بودند؛ هیچ failure هویت/privacy ثبت نشد.
+- isolation همان دو node: `2/2 passed`، basetemp=`artifacts/stabilization/pytest-g04e-r01-timeout-isolation-a`، exit code صفر و بدون patch/retry در کد.
+- طبقه‌بندی نهایی: دو timeout نخست ازدحام زمانی full-suite بودند؛ شاهد isolation و full rerun تازه بدون patch محصول سبز است و failure اولیه در Ledger حفظ شد.
+- collect-only: `70` فایل و `620` تست، exit code صفر.
+- full Backend دوم: `620/620 passed`، basetemp=`artifacts/stabilization/pytest-g04e-r02-full-b`، exit code صفر و بدون patch محصول.
+- UI نهایی: `npm.cmd --prefix ui run check` exit code صفر؛ `test:observability` exit code صفر؛ `test:phase11-onboarding=7/7 passed`.
+- هش پایانی فایل‌های مؤثر با S01 یکسان و drift_count=`0`؛ در G-04-E هیچ source/test تغییر نکرد.
+- پذیرش: `G-04 COMPLETE / F-044 CLOSED / OFFLINE_AUTOMATED_ACCEPTED`. release readiness عمومی، Live privacy scan و مجوز Provider از این پذیرش استنباط نمی‌شود.
+- کنترل اسناد: generator فهرست گزارش‌ها را refresh کرد؛ memory integrity، stale check، link check و targeted diff check همگی exit code صفر داشتند. گزارش نهایی در سطر 154 `REPORTS_INDEX.md` discoverable و SHA-256 آن `c0f1afd36abfca1a5c9a58fb609a4b321fd4338a4d63bbe4898f6a5dcb8afc08` است.
+- ادامه: G-05 فقط با دستور صریح کاربر آغاز شود.
+- اثر بیرونی: فقط subprocessهای Fake/disabled Eitaa و basetemp مصنوعی؛ بدون Provider network، Login/OTP/Send یا دادهٔ عملیاتی.
+
+### V-122 — G-05-A ممیزی lifecycle ایندکس خودکار و RED آفلاین
+
+- تاریخ: 2026-08-26
+- سطح: `STATIC / TEST-FIRST / THREAD LIFECYCLE RED / MANUAL CONTRACT GREEN`
+- Run: `STAB-G05-R01`
+- Trigger اجرا: دستور صریح کاربر برای G-05 و F-043 باز؛ اجرای خودکار زیرمرحله‌ها با checkpoint مستند مجاز شد.
+- دامنه: فقط API موقت، thread کنترل‌شده، application log مصنوعی و static source contract؛ بدون اجرای LocalContentIndexService، Provider یا شبکه.
+- آزمون: `tests/test_g05_auto_index_lifecycle_stabilization.py = 1/4 passed, 3/4 failed` با basetemp=`artifacts/stabilization/pytest-g05a-r01-red-a` و exit code 1.
+- REDها: scheduler ناقص در startup واقعاً thread ساخت؛ `close()` آن را متوقف نکرد؛ event cataloged/correlated برای safe-default وجود نداشت؛ loop unbounded و نام thread در source باقی بود.
+- PASS: پنج route/method ایندکس دستی همچنان موجودند.
+- cleanup آزمون: target monkeypatch‌شده پس از مشاهدهٔ failure با Event آزاد و join شد؛ thread یتیم آزمون باقی نماند.
+- SHA-256 پیش از patch محصول: `api.py=c77364d8ee8cc2d82a08b13e975f5653f98999b854e62dc7f60164f0ba007a32`؛ `event_catalog.py=33a895d017a8175b4e8fb2d61969fcfaf2b0154b342221f0af43b5d5acb322a9`؛ تست=`2c649fba8b4153e5130881c233687155c82d8690acef5a4ae2d84c1a8ad871fe`.
+- تصمیم پذیرش A: `RED_VERIFIED`. G-05-B خودکار ادامه می‌یابد؛ F-043 باز است.
+- کنترل ثبت A: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 159 `REPORTS_INDEX.md` discoverable و SHA-256 آن `c10cbdbe3aee5ec5a6eae5641ba40f1f6ab6b3243eccfd75f3cc0dedd0adfc6c` است.
+- اثر بیرونی: فقط temp config/log/DB و thread کنترل‌شده؛ بدون دادهٔ عملیاتی، Provider network، Login/OTP/Send، Bale یا Git mutation.
+
+### V-123 — G-05-B safe-default و حذف scheduler ناقص
+
+- تاریخ: 2026-08-26
+- سطح: `SOURCE PATCH / TARGETED GREEN / RELATED REGRESSION GREEN`
+- Run: `STAB-G05-R01`
+- Trigger اجرا: سه RED معتبر V-122 و مسیر امن صریح برنامهٔ G-05.
+- اصلاح: thread startup و method نامحدود `_run_auto_indexer` حذف؛ manual index حفظ؛ event cataloged/correlated `content_auto_index_scheduler_skipped` با reason=`content_auto_index_scheduler_disabled_safe_default` افزوده شد.
+- اختصاصی: `4/4 passed` با basetemp=`artifacts/stabilization/pytest-g05b-r01-targeted-a` و exit code صفر.
+- regression مرتبط: هفت suite G-05/content-index/account-runtime/observability/Application/AppUser/clean-install برابر `76/76 passed` با basetemp=`artifacts/stabilization/pytest-g05b-r01-related-a` و exit code صفر.
+- collect-only مرتبط: `76` تست، exit code صفر. failure یا retry محیطی وجود نداشت.
+- SHA-256: `api.py=d5f3bde003b9c5827429727446f870feddc91ebe0d7d90e158a06e9b51486f79`؛ `event_catalog.py=3b60caeaa08f768613d269558f5f531b6ff9601e92e396476a7b81245407e47f`؛ تست=`2c649fba8b4153e5130881c233687155c82d8690acef5a4ae2d84c1a8ad871fe`.
+- پذیرش B: `TARGETED_AND_RELATED_GREEN`. F-043 تا C/D/E باز و C خودکار ادامه می‌یابد.
+- کنترل ثبت B: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 160 `REPORTS_INDEX.md` discoverable و SHA-256 آن `c1273fa4c31beef87de9c34f1aeea8d45ab22c8a6cad9c4f185106d918e08f44` است.
+- اثر بیرونی: source/test/docs و basetemp مصنوعی؛ بدون Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+
+### V-124 — G-05-C guard تکرار lifecycle و correlation
+
+- تاریخ: 2026-08-26
+- سطح: `ADVERSARIAL THREAD LIFECYCLE / CORRELATION / OBSERVABILITY CONTRACT`
+- Run: `STAB-G05-R01`
+- Trigger اجرا: پذیرش B و نیاز F-043 به اثبات restart/close، نبود orphan و event امن.
+- آزمون: G-05 به‌همراه `test_observability_contract.py` برابر `11/11 passed` با basetemp=`artifacts/stabilization/pytest-g05c-r01-adversarial-a` و exit code صفر.
+- سه startup/close متوالی: thread count مربوط به auto-index بدون تغییر؛ سه event دقیق با correlationهای یکتا و fields allowlisted؛ بدون account scope/private payload.
+- literal event catalog contract سبز است؛ event جدید cataloged و schema نسخهٔ جاری حفظ شد.
+- SHA-256: `api.py=d5f3bde003b9c5827429727446f870feddc91ebe0d7d90e158a06e9b51486f79`؛ `event_catalog.py=3b60caeaa08f768613d269558f5f531b6ff9601e92e396476a7b81245407e47f`؛ تست=`a305bd989063bd09c34ea394aadd12c8bf7f22d9397a432b0734e0ff794ec8ba`.
+- پذیرش C: `ADVERSARIAL_GREEN`. F-043 تا D/E باز و D خودکار ادامه می‌یابد.
+- کنترل ثبت C: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 161 `REPORTS_INDEX.md` discoverable و SHA-256 آن `d4826af6fc253b06283047193e58a56f49dc4f73288a0cc7c98c28e631cbe2a5` است.
+- اثر بیرونی: سه API/config/log/DB مصنوعی؛ بدون Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+
+### V-125 — G-05-D regression گسترده lifecycle/API
+
+- تاریخ: 2026-08-26
+- سطح: `BROAD RELATED REGRESSION / OFFLINE`
+- Run: `STAB-G05-R01`
+- Trigger اجرا: تغییر مرکزی API startup و Event Catalog در B و پذیرش adversarial در C.
+- دامنه: ۱۴ suite G-05/content-index/account-auth/account-runtime/Application/AppUser/clean-install/diagnostics/observability/Phase10-B/D/Phase11 onboarding/B1/B2.
+- نتیجه: `143/143 passed` با basetemp=`artifacts/stabilization/pytest-g05d-r01-broad-a` و exit code صفر؛ collect-only نیز 143.
+- failure/retry: هیچ‌کدام. source/test در D تغییر نکرد.
+- پذیرش D: `BROAD_RELATED_REGRESSION_GREEN`. F-043 تا full regression/finalization E باز و E خودکار ادامه می‌یابد.
+- کنترل ثبت D: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 162 `REPORTS_INDEX.md` discoverable و SHA-256 آن `620fbeaa38af8cc026543002b8b8ea076ee5a233d61d1d72a2362fb9cff11efb` است.
+- اثر بیرونی: فقط test execution و basetemp مصنوعی؛ بدون Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+
+### V-126 — G-05-E full regression و closure فنی F-043
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / UI STATIC / OBSERVABILITY / FINALIZATION`
+- Run: `STAB-G05-R01`
+- Trigger اجرا: تغییر مرکزی API startup/Event Catalog و سبزی A تا D.
+- full Backend: `625/625 passed` در اجرای نخست با basetemp=`artifacts/stabilization/pytest-g05e-r01-full-a` و exit code صفر.
+- collect-only: `625` تست، exit code صفر.
+- UI: TypeScript check exit code صفر؛ UI/Electron Observability exit code صفر.
+- SHA-256 نهایی: `api.py=d5f3bde003b9c5827429727446f870feddc91ebe0d7d90e158a06e9b51486f79`؛ `event_catalog.py=3b60caeaa08f768613d269558f5f531b6ff9601e92e396476a7b81245407e47f`؛ تست=`a305bd989063bd09c34ea394aadd12c8bf7f22d9397a432b0734e0ff794ec8ba`.
+- failure/retry: هیچ‌کدام. manual index حفظ و scheduler خودکار safe-default خاموش است.
+- پذیرش فنی: `G-05 COMPLETE / F-043 CLOSED / OFFLINE_AUTOMATED_ACCEPTED`؛ کنترل نهایی اسناد و discoverability هنوز در همین E ثبت می‌شود.
+- کنترل اسناد: generator refresh؛ memory integrity، stale check، link check و targeted diff check همگی exit code صفر. گزارش نهایی در سطر 159 `REPORTS_INDEX.md` discoverable و SHA-256 آن `4a2b5bc45dd61ebc41a8a52386f197d2393a5c2b1a40ae9cf3d5d29ab07cf386` است.
+- وضعیت نهایی: `G-05 COMPLETE / F-043 CLOSED`. طبق دستور کاربر، پس از پنج دقیقه نبود پیام توقف G-06 خودکار آغاز می‌شود.
+- اثر بیرونی: test execution، UI static runner و basetemp مصنوعی؛ بدون Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+
+### V-127 — G-06-A ممیزی F-042 و RED قرارداد Phase 10
+
+- تاریخ: 2026-08-26
+- سطح: `STATIC UI CONTRACT / TEST-FIRST / EMPTY TEST AND SKIP GUARD`
+- Run: `STAB-G06-R01`
+- Trigger اجرا: پایان خودکار بازهٔ پنج‌دقیقه‌ای پس از G-05 و F-042 باز.
+- تفکیک وضعیت: Bale BOM بسته در G-02؛ Phase 11 onboarding=`7/7` بسته در G-04؛ packaging صریحاً G-07؛ RED جاری فقط Phase 10 helper drift.
+- Phase 10: پنج assertion PASS، assertion ششم FAIL، exit code 1؛ علت test drift از تعریف محلی به import `utils/helpers.tsx`. runner روی failure source کامل App را چاپ کرد؛ credential/PII عملیاتی وجود نداشت.
+- هشت runner دیگر UI همگی exit code صفر: scroll=`10/10`، grouped-media=`16/16`، Phase9 workspace/acceptance، observability، Phase11 onboarding=`7/7`، B2=`6/6` و mobile-auth static.
+- guard جدید attempt اول=`0/3` به‌علت BOM reader در دو تست و RED واقعی Phase10؛ reader به `utf-8-sig` اصلاح شد. attempt دوم و سوم هر دو=`2/3 passed`, `1/3 failed` با basetempهای تازه؛ attempt سوم پس از کشف مسیر واقعی `.tsx` شاهد canonical است.
+- guardهای سبز: empty test contract صفر؛ unconditional/unreasoned skip/xfail صفر. یک skipif ویندوزی reason صریح دارد.
+- رخدادهای audit-tool جدا: یک quoting error، یک Windows wildcard error و یک helper suffix حدسی ناموجود؛ هیچ تغییر محصول/داده ایجاد نکردند.
+- SHA-256 پیش از patch runner: runner=`772d331dfacb0d975bd0a034187647fa0b8e189bc318b14cede1c2cae6000185`؛ helper=`c8a0bb0ed4a1e4ddd11df473a1540999132006beb010ab8923df67b4b9015909`؛ guard=`93c23ebec88398333e2f0494f8bd5ce1d7240f7fa3201eddc86e87fb1174c79f`.
+- پذیرش A: `RED_VERIFIED`. F-042 برای Phase10/G-06 و packaging/G-07 باز؛ B خودکار ادامه می‌یابد.
+- کنترل ثبت A: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 164 `REPORTS_INDEX.md` discoverable و SHA-256 آن `4bc6929f1c583bf6c3f4c2ec092b9075395886da2806678971b370685e8d283d` است.
+- اثر بیرونی: test/docs و UI static readers؛ بدون build/package واقعی، Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+
+### V-128 — G-06-B اصلاح import contract Phase 10
+
+- تاریخ: 2026-08-26
+- سطح: `TEST RUNNER PATCH / TARGETED GREEN / RELATED REGRESSION`
+- Run: `STAB-G06-R01`
+- Trigger اجرا: RED canonical V-127.
+- اصلاح: runner فایل `helpers.tsx` را مستقیم می‌خواند؛ import App و export canonical helper را با assertion محدود می‌سنجد؛ assertion تعریف محلی منقضی حذف شد.
+- targeted: guard Python=`3/3 passed` با basetemp=`artifacts/stabilization/pytest-g06b-r01-targeted-a`؛ Phase10 UI=`7/7 passed`؛ هر دو exit code صفر.
+- related Backend: G-06/Phase10-B/clean-install/account-auth/Application=`66/66 passed` با basetemp=`artifacts/stabilization/pytest-g06b-r01-related-a`؛ mobile-auth static exit code صفر.
+- SHA-256: runner=`6d35d3f3c6c3536d77b9451a42d421d24c05135e0c114e381b84e0d35d9c6de4`؛ helper بدون تغییر=`c8a0bb0ed4a1e4ddd11df473a1540999132006beb010ab8923df67b4b9015909`؛ guard=`93c23ebec88398333e2f0494f8bd5ce1d7240f7fa3201eddc86e87fb1174c79f`.
+- failure/retry: هیچ‌کدام پس از patch. پذیرش B=`TARGETED_AND_RELATED_GREEN`؛ C خودکار ادامه می‌یابد.
+- کنترل ثبت B: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 165 `REPORTS_INDEX.md` discoverable و SHA-256 آن `b01b575db3637d888b73591ea48550e24c66e4cdd8cef22056b652ad0e5b82cf` است.
+- اثر بیرونی: test runner/test/docs و basetemp مصنوعی؛ بدون تغییر product UI، Provider، دادهٔ عملیاتی، package یا Git mutation.
+
+### V-129 — G-06-C قراردادهای UI، TypeScript و build محلی
+
+- تاریخ: 2026-08-26
+- سطح: `ALL UI CONTRACTS / TYPESCRIPT / LOCAL BUILD`
+- Run: `STAB-G06-R01`
+- Trigger اجرا: سبزی import contract در V-128 و معیار خروج G-06 برای تمام قراردادهای UI و build.
+- ۹ runner UI همگی در اجرای نخست exit code صفر: scroll=`10/10`، grouped-media=`16/16`، Phase9 workspace=`12/12` و `15/15`، Phase9 acceptance=`13/13`، Phase10=`7/7`، observability=PASS، Phase11 onboarding=`7/7`، Phase11-B2=`6/6` و mobile-auth=PASS.
+- TypeScript check exit code صفر. build محلی نیز 1015 module را تبدیل و با exit code صفر پایان داد؛ `pack:win`/installer اجرا نشد.
+- هشدار ثبت‌شده: chunk اصلی minified برابر `794.74 kB` و بیش از آستانهٔ 500 kB است؛ warning غیرمسدودکننده و جدا از صحت قرارداد.
+- SHA-256: `package.json=4271574af58a8352648a7d17e93a151516da7c1539771295267bb3cf6ea10bb3`؛ runner Phase10=`6d35d3f3c6c3536d77b9451a42d421d24c05135e0c114e381b84e0d35d9c6de4`؛ guard=`93c23ebec88398333e2f0494f8bd5ce1d7240f7fa3201eddc86e87fb1174c79f`.
+- رخداد ابزار: Git status نخست به‌علت dubious ownership رد شد؛ retry با `-c safe.directory` همان فرمان موفق شد و هیچ Git config/mutation انجام نشد.
+- پذیرش C: `UI_TYPESCRIPT_BUILD_GREEN`؛ D خودکار ادامه می‌یابد. اثر بیرونی فقط test readers و `ui/dist` تولیدشدهٔ محلی؛ بدون package، Provider network، Login/OTP/Send، دادهٔ عملیاتی یا Bale.
+- کنترل ثبت C: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 166 `REPORTS_INDEX.md` discoverable و SHA-256 آن `77c2942993514554851d0a97cdacbbc3eabba2131c7eefe398cfc4752a295a08` است.
+
+### V-130 — G-06-D regression گسترده و شمارش skip
+
+- تاریخ: 2026-08-26
+- سطح: `BROAD BACKEND REGRESSION / SKIP ACCOUNTING / OFFLINE`
+- Run: `STAB-G06-R01`
+- Trigger اجرا: سبزی تمام قراردادهای UI/build در V-129 و نیاز به پوشش گسترده پیش از full regression.
+- دامنه: ۳۵ suite شامل guard G-06، G-04/G-05، clean install، account/application/auth، coordinator، diagnostics/observability، content index و Phaseهای 4/6/8/9/10/11.
+- نتیجه: `307/307 passed` با basetemp=`artifacts/stabilization/pytest-g06d-r01-broad-a`، failure/error/skip صفر و exit code صفر.
+- collect-only canonical: `307 tests collected` با cacheprovider خاموش و exit code صفر. تلاش quiet قبل از آن exit code صفر داشت اما خروجی بریده‌شدهٔ سه‌سطره جمع کل را نشان نداد؛ برای ثبت عدد دقیق فقط collection تکرار شد.
+- warning محیطی: pytest نتوانست cache سراسری nodeids را به‌علت permission بنویسد؛ test basetemp و نتیجه سالم بود، بنابراین retry محصولی انجام نشد.
+- پذیرش D: `BROAD_BACKEND_GREEN`؛ full suite و closure دامنهٔ تست به E، packaging به G-07. اثر بیرونی فقط test temp؛ بدون Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+- کنترل ثبت D: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 167 `REPORTS_INDEX.md` discoverable و SHA-256 آن `c0db258fdc36dbca3a2309c103fa8f2f648e772d23149c99dd8064694808050f` است.
+
+### V-131 — G-06-E full regression و closure حوزهٔ test contract
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / FINAL TEST CONTRACT ACCEPTANCE / OFFLINE`
+- Run: `STAB-G06-R01`
+- Trigger اجرا: سبزی A تا D و معیار خروج G-06 برای suite کامل و شمار skip.
+- full Backend: `628/628 passed` در اجرای نخست با cacheprovider خاموش، basetemp=`artifacts/stabilization/pytest-g06e-r01-full-a`، failure/error/skip صفر و exit code صفر.
+- collect-only مستقل: `628 tests collected` با exit code صفر. نسبت به G-05 عدد سه تست افزایش دارد که همان guardهای G-06 برای empty body، skip/xfail reason و import contract Phase 10 هستند.
+- شاهد UI جاری از V-129: هر ۹ runner، TypeScript و build محلی سبز؛ از آن checkpoint تا E هیچ source/test/UI تغییر نکرد.
+- whitespace scan هدفمند runner/guard صفر match داشت. SHA-256 نهایی runner=`6d35d3f3c6c3536d77b9451a42d421d24c05135e0c114e381b84e0d35d9c6de4` و guard=`93c23ebec88398333e2f0494f8bd5ce1d7240f7fa3201eddc86e87fb1174c79f` است.
+- پذیرش: `G-06 COMPLETE / TEST_CONTRACT_DOMAIN_CLOSED`. F-042 فقط برای packaging در G-07 باز؛ پروژه `NOT_RELEASE_READY` و هیچ پذیرش Live ایجاد نشده است.
+- اثر بیرونی: test temp و مستندات؛ بدون package/installer، Provider network، Login/OTP/Send، دادهٔ عملیاتی، Bale یا Git mutation.
+- کنترل closure: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ هم‌سویی Baseline/Specification/Findings/Plan/Handoff تأیید شد. گزارش نهایی در سطر 164 `REPORTS_INDEX.md` discoverable و SHA-256 آن `f55cdbee77c225599dfac4421d669b3af1810875292448cecd9cf6ac9d441e5f` است.
+
+### V-132 — G-07-A RED بسته‌بندی allowlist
+
+- تاریخ: 2026-08-26
+- سطح: `TEST-FIRST / SYNTHETIC PACKAGING / ENCODING AND PRIVACY CONTRACT`
+- Run: `STAB-G07-R01`
+- Trigger اجرا: پایان بازهٔ پنج‌دقیقه‌ای پس از G-06 و بخش packaging باز F-042.
+- audit بایتی: `package_clean.py` برابر 3654 بایت، UTF-16LE/BOM و دارای 1826 NUL از offset 3 تا 3653؛ import عادی Python با SyntaxError متوقف می‌شود.
+- تلاش اول: collection error=1 به‌علت NUL، exit code 1. هیچ تست رفتاری اجرا نشد.
+- تلاش دوم با loader فقط-audit: `0/8 passed`, `8/8 failed`; assertion encoding source bytes امن را verbose چاپ کرد. harness به assertion boolean محدود اصلاح شد.
+- تلاش سوم canonical: `0/8 passed`, `8/8 failed` با basetemp=`artifacts/stabilization/pytest-g07a-r03-red-c` و exit code 1.
+- REDهای ثابت‌شده: UTF-8/importability، ورود scratch/probe توسط blacklist، نبود collector allowlist، dry-run/determinism/receipt، privacy scan و verifier traversal برای سه نام ناسالم.
+- SHA-256 pre-image=`be8a9cf215e92fe8d077474e8f7742991c1730128424edf444acd12f5fe6b00c`؛ test canonical=`9d3d01fb1c95916e9bc10e8ef9ccf88a18f62969325d0979e16e02cd1c353598`.
+- اثر بیرونی: فقط فایل/ZIP مصنوعی زیر basetemp؛ هیچ package واقعی پروژه، دادهٔ عملیاتی، Provider network، Bale یا Git mutation. پذیرش A=`RED_VERIFIED` و B خودکار ادامه می‌یابد.
+- کنترل ثبت A: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 169 `REPORTS_INDEX.md` discoverable و SHA-256 آن `dff3d3388a020c3e416d4479ee6a0882f200e592e022f711f8df366ab1c58e9d` است.
+
+### V-133 — G-07-B پیاده‌سازی allowlist و manifest
+
+- تاریخ: 2026-08-26
+- سطح: `SOURCE REPLACEMENT / TARGETED GREEN / REAL DRY-RUN`
+- Run: `STAB-G07-R01`
+- Trigger اجرا: هشت RED canonical در V-132.
+- محدودیت ابزار: apply_patch نتوانست pre-image UTF-16 را decode کند. پس از resolve و containment check، فایل به artifact recoverable با هش ثابت منتقل و نسخهٔ UTF-8 با apply_patch ساخته شد؛ حذف غیرقابل‌بازگشت رخ نداد.
+- اصلاح: exact root/script/docs/installer/wheel files و recursive product scopes سفید؛ manifest داخلی/hash/size، receipt بیرونی، dry-run، ZIP deterministic، scan private-key/JWT و verifier نام/duplicate/case/traversal/size/hash.
+- compile=PASS و NUL count نهایی صفر. targeted=`8/8 passed` با basetemp=`artifacts/stabilization/pytest-g07b-r01-targeted-a`؛ related=`21/21 passed` با basetemp=`artifacts/stabilization/pytest-g07b-r01-related-a`; هر دو exit code صفر.
+- dry-run واقعی: file_count=`296` و content_set_sha256=`bf8483fea77af8b29fbc922daf475916bfc05ed83c02eb4d931792b274f52a72`؛ output zip/receipt هر دو absent و exit code صفر.
+- رخداد ابزار: جست‌وجوی اولیهٔ `rg *.bat` روی Windows exit code 2؛ retry با glob داخلی `-g` موفق. این failure محصول یا packaging نبود.
+- SHA-256: source=`4c4ca4543f262e07918f831f1580e14ae859e5ed25995443e92f04768aff7fd8`؛ test=`9d3d01fb1c95916e9bc10e8ef9ccf88a18f62969325d0979e16e02cd1c353598`؛ pre-image preserved=`be8a9cf215e92fe8d077474e8f7742991c1730128424edf444acd12f5fe6b00c`.
+- پذیرش B=`ALLOWLIST_TARGETED_GREEN`; C archive واقعی فقط زیر artifacts می‌سازد و adversarial/reproducibility را ادامه می‌دهد. بدون نصب، Provider، Bale، دادهٔ عملیاتی یا Git mutation.
+- کنترل ثبت B: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 170 `REPORTS_INDEX.md` discoverable و SHA-256 آن `655ae6c036f6a5ba6985af05322699e0608ea8dc88a086a05b8f15f25b6df1fc` است.
+
+### V-134 — G-07-C adversarial archive و reproducibility
+
+- تاریخ: 2026-08-26
+- سطح: `ADVERSARIAL ZIP / PRIVACY NAMES / BYTE REPRODUCIBILITY`
+- Run: `STAB-G07-R01`
+- Trigger اجرا: سبزی allowlist/dry-run در V-133 و معیار archive واقعی G-07.
+- guardها: case-insensitive collision، entry hash tamper و عدم overwrite/atomic temp؛ suite کامل package=`11/11 passed` با basetemp=`artifacts/stabilization/pytest-g07c-r01-adversarial-a` و exit code صفر.
+- archive A/B: هرکدام file_count=296، ZIP entries=297 با manifest آخر، size=2,031,927، content-set=`bf8483fea77af8b29fbc922daf475916bfc05ed83c02eb4d931792b274f52a72` و SHA-256 یکسان=`3641fa43ff756a926dc576cb73869ef91ac8fd5e8575ae2b84ba2d3871063903`.
+- receipt A/B هر دو با hash archive منطبق؛ verifier هر دو 296 و content equality=true. اسکن مستقل top-level forbidden=0 و case collision=0.
+- false-positive audit: rule نخست 13 مورد nested product diagnostics، fail-closed Bale slot و `vendor/runtime` را operational تشخیص داد؛ نام‌ها بررسی و rule به top-level محدود شد. این‌ها دادهٔ عملیاتی/Bale artifact نیستند.
+- invocation failure: f-string یک‌خطی verifier به‌علت quoting SyntaxError گرفت؛ retry بدون nested quoting exit code صفر. هیچ artifact تغییر نکرد.
+- SHA-256 source بدون drift B=`4c4ca4543f262e07918f831f1580e14ae859e5ed25995443e92f04768aff7fd8`؛ test C=`3ae9ad268acc8011230ee1c38faf55319814f3593c6444de1dbc078c19a30a2f`.
+- پذیرش C=`ADVERSARIAL_REPRODUCIBLE_GREEN`; اثر بیرونی فقط چهار artifact کنترل‌شدهٔ ZIP/receipt. بدون install/publish، Provider، دادهٔ عملیاتی، Bale development یا Git mutation.
+- کنترل ثبت C: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 171 `REPORTS_INDEX.md` discoverable و SHA-256 آن `b754d82a264f43aae08fd02c6d855b073c22286eca64fd495e53615bf0003d1a` است.
+
+### V-135 — G-07-D wheel parity و fresh-install rehearsal ایزوله
+
+- تاریخ: 2026-08-26
+- سطح: `WHEEL PARITY / OFFLINE BUILD / EXTRACT / FRESH VENV REHEARSAL`
+- Run: `STAB-G07-R01`
+- Trigger اجرا: archive reproducible V-134 و معیار fresh-install G-07.
+- RED parity: audit wheel source سه نمونه را متفاوت/غایب یافت. guard پس از fixture newline correction به RED canonical=`12/13 passed`, `1/13 failed` با basetemp=`artifacts/stabilization/pytest-g07d-r03-red-c`; failure واقعی missing=57/mismatched=20.
+- build attempt استاندارد با `--no-build-isolation` به‌علت `BackendUnavailable: setuptools.build_meta` exit code 1؛ شبکه استفاده نشد. builder stdlib به API پارامتردار/deterministic و metadata canonical تبدیل شد.
+- pre-image wheel قدیمی: SHA=`668a30c29228229b0172258d80f9c6324fc7a11289d877a34fe11499fc81257a` در artifact recoverable. label نخست بر اساس hash تاریخی اشتباه بود و به prefix واقعی تغییر نام یافت.
+- wheel میانی SHA=`bb9ecb443802f45582d87baf69b25eb8a2aaa11690cbd3fd37b48a04f4edc60f` و parity 104/0 drift؛ fresh venv اول install/runtime-check PASS ولی `pip check` سه missing dependency داد.
+- علت dependency RED: cryptography/httpx/websockets فقط در subtree قرنطینه‌شدهٔ `application/bale_client` استفاده می‌شوند. آن subtree از release/wheel حذف، سه dependency از pyproject/metadata حذف و fail-closed `providers/bale/slot.py` حفظ شد.
+- دو wheel نهایی مستقل byte-equal، SHA=`de9dd96f2ae76b5443eef8767fa0997afd19a29652e4a96d97b92da08dfa40cf` و parity=`90 source / missing=0 / mismatch=0 / extra=0`.
+- archive نهایی: file_count=282، SHA=`8b76948818111db7856278f8787ed8c1a277d1b2dd5d0680c0c24733fe3f3437`، content-set=`3c777df594577009860338934bf0dec4f34fdb0ee309f10497adf46ae50a1c1b`; extract required=15/missing=0، quarantined client=0، self-dry-run=282 و output absent، compile PASS.
+- fresh venv نهایی: runtime wheels/core/bridge آفلاین نصب؛ runtime checker PASS؛ `pip check`=`No broken requirements found`; import BridgeApplicationApi/Event Catalog PASS و catalog count=92.
+- targeted package+Bale=`20/20 passed`; related 11 suite=`102/102 passed` با basetemp=`artifacts/stabilization/pytest-g07d-r07-related-green`; collect-only=102.
+- هش‌های نهایی: package_clean=`589df28708f5bd246319d4b78f0683ba288c230bd024901a70b212dc0184263e`؛ builder=`6f5e65deec8eb93b90a663e45ae4de0eaadf9e9473c659d8455e45e803dd46e3`؛ launcher=`352182c89be3fd4ee5c231b35419fe895bc8987cfbfc2890f603b306f177cf06`؛ pyproject=`a5eb3685b2e9990c9afee4514d22fae626295ec989c98e4127f0083a51f12e30`؛ test=`9756ba63f7fe9d32046e89e3eabd3b6dd4cfd63aa3181c7e64457855072fd770`.
+- پذیرش D=`FRESH_INSTALL_REHEARSAL_GREEN`. تمام installها فقط در venv مصنوعی artifacts؛ بدون نصب سیستم/کاربر، Provider، دادهٔ عملیاتی، Bale development یا Git mutation.
+- کنترل ثبت D: generator refresh و memory integrity/stale/link check همگی exit code صفر؛ گزارش در سطر 172 `REPORTS_INDEX.md` discoverable و SHA-256 آن `2e72a0c25a420b0a8a6d56b6eff5f191416e38e770682c38f56e6753b1b1c52f` است.
+
+### V-136 — G-07-E full regression و closure F-042
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / TYPESCRIPT / OBSERVABILITY / FINAL RELEASE ARCHIVES`
+- Run: `STAB-G07-R01`
+- Trigger اجرا: سبزی A تا D و معیار closure F-042/G-07.
+- full Backend: `643/643 passed` در اجرای نخست با basetemp=`artifacts/stabilization/pytest-g07e-r01-full-a`، failure/error/skip صفر و exit code صفر؛ collect-only=643.
+- UI: TypeScript و UI/Electron Observability exit code صفر. build G-06-C جاری است و به‌علت نبود تغییر UI تکرار نشد.
+- wheel نهایی SHA=`de9dd96f2ae76b5443eef8767fa0997afd19a29652e4a96d97b92da08dfa40cf`؛ core wheel SHA=`bd12add1866fcb0f25928f9f2b29229f1010e7253738f06ae42c3aa9cd1f23b0`.
+- archive نهایی A/B: هرکدام file_count=282، entries=283، SHA-256 بایت‌یکسان=`729a3d613f8e941c7b973af2e6433fb387b1f97fee2b4e07e72d196b79e2cb57` و content-set=`1b7cc61fac50c3b581aaa6c577f6a64589ff921370d80bf0e75c12ee43e4170c`. verifier هر دو=282؛ top-level/quarantined forbidden=0؛ collision=0؛ manifest-last و receipt match=true.
+- hashهای نهایی: package_clean=`589df28708f5bd246319d4b78f0683ba288c230bd024901a70b212dc0184263e`؛ builder=`6f5e65deec8eb93b90a663e45ae4de0eaadf9e9473c659d8455e45e803dd46e3`؛ launcher=`352182c89be3fd4ee5c231b35419fe895bc8987cfbfc2890f603b306f177cf06`؛ pyproject=`a5eb3685b2e9990c9afee4514d22fae626295ec989c98e4127f0083a51f12e30`؛ package test=`9756ba63f7fe9d32046e89e3eabd3b6dd4cfd63aa3181c7e64457855072fd770`؛ Release Manifest=`15aae5e02bf60ffa6d327217215be6a39aa76f178f6edb2adc3f81e811d6c3cd`.
+- کنترل closure: Release Manifest JSON، generator refresh، memory integrity، stale/link check همگی exit code صفر؛ Baseline/Specification/Structure/Installer/Security/ADR/Findings/Plan/Handoff هم‌سو. گزارش نهایی در سطر 169 `REPORTS_INDEX.md` و SHA-256 آن `bfcb2a3fe6e64ef0ce6c488bbeb50e4be4f491d56fecb64f2c1b2edc3ffd97a8` است.
+- پذیرش فنی: `G-07 COMPLETE / F-042 CLOSED / OFFLINE_AUTOMATED_ACCEPTED`.
+- مرز: no code-sign، installer EXE، نصب واقعی، publish، Provider/Login/Send، دادهٔ عملیاتی یا Bale development؛ پروژه `NOT_RELEASE_READY`.
+
+### V-137 — G-08-A ممیزی و RED مشاهده‌پذیری
+
+- تاریخ: 2026-08-26
+- سطح: `STATIC AUDIT / SYNTHETIC CONTRACT RED`
+- Run: `STAB-G08-R01`
+- Trigger اجرا: تکمیل G-07، پایان بازهٔ پنج‌دقیقه‌ای بدون دستور توقف کاربر و شکاف‌های OBS-006/007 و scanner تک‌حساب.
+- pre-imageها: scanner=`99c34024b9b24477dc5fde05f88045dcdb87e6f9058773192a3c15e457b8958d`؛ RuntimeLogger=`2dc04203775c829ebafd34f4ebc960232b7e34f8507465aecef87d65cc554fc1`؛ manager=`fba43190216467231baffeca8838fe24a057812e74c586d9ef3c8521532face9`؛ diagnostics init=`dd84e2df98e9b1415927749ad85f0ce82074eec7ddef93a02281bfca855f2537`؛ Event Catalog=`3b60caeaa08f768613d269558f5f531b6ff9601e92e396476a7b81245407e47f`.
+- RED canonical: `tests/test_g08_observability_completion.py` با basetemp=`artifacts/stabilization/G08A-red` برابر `4 collected / 4 failed`، exit code 1.
+- طبقه‌بندی: هر چهار شکست `contract`؛ دو scanner، یک logger write-health و یک retention/disk-health. warning cacheprovider به‌علت permission محیطی و غیرمؤثر است.
+- test SHA-256=`1644076e371754207add4ed52e64d3f63ed29ca3f21a34ef927526ec90a09071`.
+- پذیرش A=`RED_VERIFIED`; F-048 باز و B خودکار ادامه می‌یابد.
+- اثر بیرونی: فقط basetemp مصنوعی/test/docs؛ بدون خواندن runtime/diagnostics/config/account واقعی، شبکه، Provider، Bale یا Git mutation.
+
+### V-138 — G-08-B اسکنر چندحسابی opaque
+
+- تاریخ: 2026-08-26
+- سطح: `SOURCE PATCH / TARGETED + RELATED CONTRACT`
+- Run: `STAB-G08-R01`
+- Trigger اجرا: دو RED scanner در V-137.
+- اصلاح: حذف `ACCOUNT_ID/LOGS` ثابت؛ discovery محدود application/account current+numeric rotations؛ رد symlink؛ scope ترتیبی؛ عدم چاپ path/id/value؛ malformed JSON/UTF-8/read failure/missing current fail-closed؛ format v2 و root مصنوعی.
+- اصلاح test harness: application log سالم به سناریوی malformed افزوده شد تا finding مفقودی فایل لازم با دو finding هدف مخلوط نشود.
+- compile=PASS؛ targeted scanner=`2/2 passed` با basetemp=`artifacts/stabilization/G08B-targeted-b`؛ related privacy/observability/diagnostics/Phase10-D=`18/18 passed` با basetemp=`artifacts/stabilization/G08B-related-a`؛ exit codeها صفر.
+- SHA-256: scanner=`a0c28c122d54896082318545d56c884f12c65292871323a0bfeb4df22eb893d5`؛ test=`3922875718d92d72a652a598c9bd68a3d8bef0c8bd9f33259cdb63064b16b043`.
+- پذیرش B=`MULTI_ACCOUNT_SCANNER_GREEN`; F-048 برای C/D/E باز و C خودکار آغاز می‌شود.
+- اثر بیرونی: test temp/source/test/docs؛ بدون اسکن Live، runtime/diagnostics/config/account واقعی، Provider، Bale، شبکه یا Git mutation.
+
+### V-139 — G-08-C Event Catalog و background/lifecycle
+
+- تاریخ: 2026-08-26
+- سطح: `SYNTHETIC CONTRACT RED/GREEN / RELATED REGRESSION`
+- Run: `STAB-G08-R01`
+- RED C: `4/4 failed` با basetemp=`artifacts/stabilization/G08C-red-a`؛ missing catalog=5، background success/failure lifecycle=2 و silent manual/best-effort event coverage=1.
+- اصلاح: generic background از `observed_operation`؛ content-index lifecycle/cleanup، read-receipt failure، unexpected lease-renew و application/auth-close lifecycle امن؛ Catalog `92→102`.
+- GREEN C=`4/4 passed` با basetemp=`artifacts/stabilization/G08C-targeted-a`؛ related صحیح=`98/98 passed` با basetemp=`artifacts/stabilization/G08C-related-b`; compile=PASS.
+- رخداد دامنه: اجرای related نخست دو RED برنامه‌ریزی‌شدهٔ D را هم وارد کرد و فقط همان health/retention test را شکست داد؛ C و سایر تست‌ها سبز بودند. retry_of دامنه با حذف D RED برابر 98/98 است؛ failure_class=`test_scope_selection`.
+- pre-image read-only از archive نهایی G-07-E: API=`d5f3bde003b9c5827429727446f870feddc91ebe0d7d90e158a06e9b51486f79`؛ account runtime=`7b30786294b166fd4ae92d3ce7a41947c807572a76e92dc9cb63202b95588f0b`؛ Catalog=`3b60caeaa08f768613d269558f5f531b6ff9601e92e396476a7b81245407e47f`.
+- post SHA-256: API=`cdc21b9ab2c10056c3a27c8ae45147e2e579710bc339ef96e1f2ecacb4c1f8b4`؛ account runtime=`8dfee07d7c514ce0d120485e124b924415dd1c07650bd2010c7bf3f80d785286`؛ Catalog=`f4e96b84d9040e32424cc88764d6ee34ae55ec15a5acb2937246946dbc8a99a3`؛ test=`d0a7738ff4f647e3a5d50c2d2a8b40d8369ff36c06f27f32c01fc14b980cc185`.
+- پذیرش C=`EVENT_LIFECYCLE_GREEN`; F-048 برای D/E باز و D خودکار آغاز می‌شود.
+- اثر بیرونی: synthetic config/runtime test temp و source/docs؛ بدون Live log/account/Provider، Bale، شبکه یا Git mutation.
+
+### V-140 — G-08-D write-health، retention/disk و Support Bundle adversarial
+
+- تاریخ: 2026-08-26
+- سطح: `ADVERSARIAL SYNTHETIC / TARGETED + RELATED REGRESSION`
+- Run: `STAB-G08-R01`
+- RED: چهار قرارداد اصلی=`4/4 failed` با basetemp=`artifacts/stabilization/G08D-red-a`؛ health endpoint جدا=`1/1 failed` با status 404 و basetemp=`G08D-red-b`.
+- اصلاح: health-aware handler/counter، numeric path-free health، runtime current/rotation allowlist retention و budget، disk summary، maintenance event/health endpoint، JSONL normalization/marker، symlink rejection و scanner member/archive opaque.
+- targeted-a=`4/5 passed`: expected remaining bytes در fixture 54 بود، مقدار واقعی سه سطر 19‌بایتی=57؛ فقط assertion اصلاح شد. targeted-b=`5/5 passed`.
+- expanded guard attempt=`12/13`: BrokenStream فاقد `seek/tell` بود و AttributeError را به‌جای OSError هدف ساخت؛ test double تکمیل شد. G08 all retry=`13/13 passed` با basetemp=`artifacts/stabilization/G08D-g08-all-b`.
+- related privacy/Phase10-D/observability/diagnostics/API/account/audit=`78/78 passed` با basetemp=`artifacts/stabilization/G08D-related-a`.
+- pre SHA-256: RuntimeLogger=`2dc04203775c829ebafd34f4ebc960232b7e34f8507465aecef87d65cc554fc1`؛ manager=`fba43190216467231baffeca8838fe24a057812e74c586d9ef3c8521532face9`؛ init=`dd84e2df98e9b1415927749ad85f0ce82074eec7ddef93a02281bfca855f2537`؛ API(C)=`cdc21b9ab2c10056c3a27c8ae45147e2e579710bc339ef96e1f2ecacb4c1f8b4`؛ Catalog(C)=`f4e96b84d9040e32424cc88764d6ee34ae55ec15a5acb2937246946dbc8a99a3`؛ creator=`480805802c27b27814f20f60a6fe8a2a9c33c3d58fd67f7b53a959cf81538202`؛ scanner=`b02e66e97a7fcce4661634bf34eeaa117a332f9e50d6f43cb30008b4a143a4cc`.
+- post SHA-256: RuntimeLogger=`c017daaefa36d3a851feafbfd8a2f1dec89e023dc0e92381eb59256c174fc1a8`؛ manager=`65b2587b4cf6f209f601ec514058b2ea14c17bf868525d73c20670973b1c9887`؛ init=`7ae8c0946e72abfc6e8977b3c3cae7d5ff9199fd2c3a3f79d7b65d366d9b0c6a`؛ API=`1ca260183f02af219a281a47829c43872206614d13cf7f91a355780e9a454f4a`؛ Catalog=`e4707ce394b5e2af1f97656aa88dbfff891e08e781fc54efd9031206a9c62097`؛ creator=`dd694d4928f22718c0cf002567dd9b77ca96a50b536d3b17ff27fc6e4907bf06`؛ scanner=`7c713d862e4c2dd894be3c2eed8a9b18721d6a71c74996d24fb3aee6e620e661`؛ test=`6a957b4016f643d8136bfadf93d5e5f1f00581398f087f2e9da7e2eb05d7a7ef`.
+- Catalog count=`103`; پذیرش D=`HEALTH_RETENTION_SUPPORT_GREEN`; E خودکار ادامه دارد.
+- اثر بیرونی: فقط source/test/docs و فایل‌های مصنوعی؛ حذف فقط rotationهای basetemp. بدون runtime/diagnostics/config/DB واقعی، Provider، Bale، شبکه یا Git mutation.
+
+### V-141 — G-08-E full regression، wheel parity و closure
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / WHEEL PARITY / TYPESCRIPT / UI OBSERVABILITY`
+- Run: `STAB-G08-R01`
+- full attempt A: `656 collected / 655 passed / 1 failed` با basetemp=`artifacts/stabilization/G08E-full-a`; تنها failure=`test_bundled_bridge_wheel_matches_current_source_tree` و parity=`missing0/mismatched6/extra0`؛ failure_class=`packaging_artifact_drift`.
+- pre-image wheel SHA=`de9dd96f2ae76b5443eef8767fa0997afd19a29652e4a96d97b92da08dfa40cf` در `artifacts/stabilization/G08E_bridge_wheel_preimage_de9dd96f.whl` حفظ شد.
+- builder stdlib آفلاین دو خروجی مستقل بایت‌یکسان ساخت؛ wheel SHA=`9408596d15576c8f46cf07ba6d4595ad2b049c2ea71785b17eb4e54033b70e70`، source files=90 و missing/mismatch/extra=0.
+- package+G08=`28/28 passed` با basetemp=`artifacts/stabilization/G08E-wheel-related-a`.
+- full retry B=`656/656 passed` با basetemp=`artifacts/stabilization/G08E-full-b`، failure/error/skip صفر. collect-only مستقل total=656 و exit code صفر.
+- UI: TypeScript و UI/Electron Observability هر دو exit code صفر؛ build UI تکرار نشد چون هیچ UI source change از G-06-C وجود ندارد.
+- پذیرش=`G-08 COMPLETE / F-048 CLOSED / OFFLINE_AUTOMATED_ACCEPTED`؛ archive نهایی G-07 پس از G-08 تاریخی و بازتولید/fresh-install نهایی در G-09 الزامی است.
+- اثر بیرونی: full tests، دو wheel محلی کنترل‌شده، pre-image recoverable و docs؛ بدون publish/install واقعی، Provider/Live، Bale، دادهٔ عملیاتی یا Git mutation.
+- کنترل closure: Release Manifest JSON، generator refresh، memory integrity، stale check و link check همگی exit code صفر؛ گزارش نهایی در سطر 174 `REPORTS_INDEX.md` و SHA-256 آن `d0c819e6aeb97c5e323b583dd1c00c64fdb59b09de11c157169475e3d1fb32b0` است.
+
+### V-142 — G-09-A baseline پذیرش و package dry-run
+
+- تاریخ: 2026-08-26
+- سطح: `READ-ONLY HASH AUDIT / PACKAGE DRY-RUN`
+- Run: `STAB-G09-R01`
+- Trigger: تکمیل G-08 و پایان بازهٔ پنج‌دقیقه‌ای بدون دستور توقف کاربر؛ نیاز G-09 به archive/fresh-install نهایی.
+- hashها: package_clean=`589df28708f5bd246319d4b78f0683ba288c230bd024901a70b212dc0184263e`؛ builder=`6f5e65deec8eb93b90a663e45ae4de0eaadf9e9473c659d8455e45e803dd46e3`؛ wheel=`9408596d15576c8f46cf07ba6d4595ad2b049c2ea71785b17eb4e54033b70e70`؛ Release Manifest=`3b1010b892f80eca0fc8a95c8c396359ceeba30bcd1ba57a18521f0e74cc622c`.
+- dry-run: exit code 0، file_count=282، content-set=`cf055cd4856ca9e05250700ff2d745f769ebbd1d7fb47d5fbd623af4fe20fc3a`، output/receipt write=0.
+- RED اجرا نشد: A تغییر رفتاری نیست و فقط baseline acceptance/read-only است؛ REDهای package در V-132 و wheel drift در V-141 جاری‌اند.
+- پذیرش=`G09A_BASELINED`; B خودکار ادامه دارد. اثر بیرونی فقط read/test process؛ بدون archive write، Live/Provider، data، Bale یا Git mutation.
+
+### V-143 — G-09-B archive نهایی، privacy و reproducibility
+
+- تاریخ: 2026-08-26
+- سطح: `FINAL ARCHIVE / INDEPENDENT VERIFIER / PACKAGE REGRESSION`
+- Run: `STAB-G09-R01`
+- archiveهای A/B: هرکدام file_count=282، ZIP entries=283 و SHA-256 یکسان=`a637250e1ec45e583804415075a3e9155b5e133a7836552af966be9168c8f360`.
+- content-set هر دو=`cf055cd4856ca9e05250700ff2d745f769ebbd1d7fb47d5fbd623af4fe20fc3a`؛ receipt/hash/count تطبیق دارد.
+- verifier هر دو: schema/order/member size/hash PASS؛ privacy scan high-confidence private-key/JWT finding=0.
+- بازبینی مستقل ZIP هر دو: manifest-last=true، duplicate=0، case-collision=0، forbidden-entry=0.
+- package test attempt A=`3 passed / 12 setup errors`؛ علت فقط PermissionError پوشهٔ Temp پیش‌فرض Pytest بود و test bodyهای متأثر اجرا نشدند. retry با basetemp کنترل‌شده و بدون تغییر کد=`15/15 passed`.
+- packager SHA=`589df28708f5bd246319d4b78f0683ba288c230bd024901a70b212dc0184263e` و test SHA=`9756ba63f7fe9d32046e89e3eabd3b6dd4cfd63aa3181c7e64457855072fd770`؛ source/test change=0.
+- RED تازه موضوعیت نداشت: artifact acceptance روی قراردادهای adversarial V-132 و wheel-drift V-141 بنا شده است.
+- کنترل اسناد: refresh، memory integrity، stale و link check همگی exit code صفر؛ گزارش در سطر 180 `REPORTS_INDEX.md` و SHA-256 آن `e8ca7f336402f62be07015c65071754e7e6651fc3b33207dbe0528022681fd9d` است.
+- پذیرش=`G09B_FINAL_ARCHIVE_GREEN`; C خودکار ادامه دارد. اثر بیرونی فقط چهار artifact محلی و test temp؛ بدون Live/Provider، data، Bale، شبکه، نصب سیستمی یا Git mutation.
+
+### V-144 — G-09-C extract و fresh-install کاملاً آفلاین
+
+- تاریخ: 2026-08-26
+- سطح: `FINAL ARCHIVE EXTRACT / WHEEL PARITY / ISOLATED OFFLINE INSTALL`
+- Run: `STAB-G09-R01`
+- archive ورودی SHA=`a637250e1ec45e583804415075a3e9155b5e133a7836552af966be9168c8f360`؛ extract files=283، required canonical=`15/15` و quarantined Bale client files=0.
+- checklist attempt نخست به‌علت مسیر قدیمی Event Catalog missing=1 کاذب داد؛ مسیر canonical اصلاح و بدون تغییر artifact/source نتیجه missing=0 شد.
+- self dry-run داخل extract: file_count=282، content-set=`cf055cd4856ca9e05250700ff2d745f769ebbd1d7fb47d5fbd623af4fe20fc3a`، archive/receipt write=0؛ compileall=PASS.
+- wheel parity داخل extract: source=90، missing/mismatched/extra=0 و SHA=`9408596d15576c8f46cf07ba6d4595ad2b049c2ea71785b17eb4e54033b70e70`.
+- fresh venv فقط زیر artifacts ساخته و با `--no-index` از core/bridge/runtime wheelهای archive نصب شد؛ download/network=0.
+- runtime checker=`ok=true/failures=0`؛ pip check=PASS؛ module زیر prefix محیط تازه؛ product/API/Catalog=`0.7.0-ui-mvp6.1.1-gmi4.2 / v1 / 103`؛ entrypoints=4.
+- RED تازه اجرا نشد: rehearsal acceptance بر REDهای V-132/V-135/V-141 بنا شده و source/test change=0 است.
+- کنترل اسناد: refresh، memory integrity، stale و link check همگی exit code صفر؛ گزارش در سطر 181 `REPORTS_INDEX.md` و SHA-256 آن `be707f7b85f82c85f090f02c35cf5104dffb1adcd4c64d85942b79795b318309` است.
+- پذیرش=`G09C_OFFLINE_FRESH_INSTALL_GREEN`; D خودکار ادامه دارد. اثر بیرونی فقط extract/compile cache/fresh venv زیر artifacts و اسناد؛ بدون نصب سیستم/کاربر، Live/Provider، data، Bale، شبکه یا Git mutation.
+
+### V-145 — G-09-D full Backend، تمام قراردادهای UI و build
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / ALL UI CONTRACTS / TYPESCRIPT / LOCAL BUILD / SAFE STATUS AUDIT`
+- Run: `STAB-G09-R01`
+- full Backend attempt A با basetemp=`artifacts/stabilization/G09D_full_20260826`: `656/656 passed`، failure/error/skip=0 و exit code صفر؛ collect-only مستقل=656/exit0.
+- ۹ runner UI همگی در اجرای نخست exit0: scroll=`10/10`، grouped=`16/16`، Phase9 workspace=`12/12 + 15/15`، Phase9 acceptance=`13/13`، Phase10=`7/7`، observability=PASS، Phase11 onboarding=`7/7`، Phase11-B2=`6/6` و mobile-auth/live static=PASS.
+- TypeScript check=PASS؛ build=PASS/1015 modules. bundle اصلی=794741 bytes و SHA=`6659940b0dd49cf0a0cff3f5e23b200e7f5cdc8529ecf7a89373f3f379f17461`؛ warning chunk >500kB غیرمسدودکننده و بدون تغییر نسبت به G-06-C.
+- privacy/log criterion: G08 contracts=`13/13` در full suite جاری و G09B archive privacy findings=0؛ هیچ log/runtime واقعی اسکن نشد.
+- safe Git status read-only موفق؛ tree عمداً dirty و دست‌نخورده ماند؛ root operational rows برای bridge.json/.env/data/runtime/diagnostics/backups=0. هیچ safe.directory دائمی یا Git mutation انجام نشد.
+- RED تازه اجرا نشد: مرحلهٔ acceptance تجمیعی است و source/test change=0؛ REDهای هدفی پیش‌تر بسته شده‌اند.
+- کنترل اسناد: refresh، memory integrity، stale و link check همگی exit code صفر؛ گزارش در سطر 182 `REPORTS_INDEX.md` و SHA-256 آن `951a3c2975db874b77af41212d687bae648d083f9a1ce6cb97fb5e151a0d0f80` است.
+- پذیرش=`G09D_FULL_AUTOMATED_ACCEPTANCE_GREEN`; E خودکار ادامه دارد. اثر بیرونی test temp، `ui/dist` محلی و اسناد؛ بدون pack:win/installer، Live/Provider، data، Bale، شبکه یا Git mutation.
+
+### V-146 — G-09-E همسوسازی canonical، Release Manifest و handoff
+
+- تاریخ: 2026-08-26
+- سطح: `FINAL CANONICAL ALIGNMENT / RELEASE CLASSIFICATION / HANDOFF`
+- Run: `STAB-G09-R01`
+- شواهد فنی ورودی: dry-run=282/write0؛ archiveهای بایت‌یکسان SHA=`a637250e1ec45e583804415075a3e9155b5e133a7836552af966be9168c8f360`؛ privacy=0؛ fresh-install no-index=PASS؛ wheel=90/0 drift؛ Backend=`656/656`/skip0؛ تمام UI contracts/TypeScript/build=PASS.
+- اسناد همسو: Current Baseline، Project Specification، Findings Register، Observability Audit، Architecture Decisions، Release Manifest، remediation plan، final report و handoff.
+- Findings: F-005 و F-006 برای current program scope بسته؛ F-045=`AUTOMATED_TECHNICAL_EXECUTION_COMPLETE / USER_ACCEPTANCE_PENDING`. F-039 commit pending، F-013 nonblocking و OBS-008 deferred باقی‌اند.
+- release classification=`OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`; code-sign، Windows visual، real-user installer و پذیرش صریح کاربر دروازه‌های مستقل‌اند.
+- Release Manifest JSON parse=PASS؛ SHA=`b4d27d10b68b579be641bd92ee44c4c1489b2ce95ed813b51a495bbc1e44d122`.
+- canonical SHAها: Baseline=`72d40473d0226c5b0210c11cf9c81f8b3923fe8d4b6c559b2d90df847f0854bb`؛ Findings=`480187d66d9c0400253e131d719172563d8855268a8a0190ddf64dea2920cd0a`؛ Architecture=`cd30755e34d090ee179be9c35b50bcafc5f14dddf83633c63d69b0616651048b`.
+- RED تازه اجرا نشد: E تغییر رفتاری محصول نیست؛ canonical acceptance از شواهد A تا D و REDهای بسته‌شدهٔ برنامه مشتق می‌شود.
+- کنترل اسناد: refresh، memory integrity، stale و link check همگی exit code صفر؛ گزارش نهایی در سطر 179 `REPORTS_INDEX.md` و SHA-256 آن `314819c90a045a404a7750c449c0229f80a6355f302b95f8e6d682be18c60c46` است؛ handoff SHA=`5e7224f3a7fe569b799f55ac4d3c7d0103131933f1762474181d10330ad2486b`.
+- پذیرش فنی=`G09_AUTOMATED_SCOPE_COMPLETE`; پذیرش کاربر هنوز ثبت نشده است. اثر بیرونی فقط اسناد؛ بدون Live/Provider، data، Bale، شبکه، نصب سیستم یا Git mutation.
+
+### V-147 — G-09-E بازسازی archive پس از همسوسازی اسناد و fresh-install نهایی
+
+- تاریخ: 2026-08-26
+- سطح: `FINAL SELECTED-DOC DRIFT DETECTION / REPRODUCIBLE ARCHIVE / EXACT-ARTIFACT FRESH INSTALL`
+- Run: `STAB-G09-R01`
+- Trigger: dry-run پس از canonical alignment مقدار content-set تازه=`d60b10eac4abdd1fd28d1cd6e1ff9f955576b2e393e926e8945a913667a41a49` را در برابر G09B=`cf055cd4...` نشان داد؛ تحویل artifact قدیمی مجاز نبود.
+- manifest diff دقیق: changed فقط `ARCHITECTURE_DECISIONS.md`؛ added=0 و removed=0. source/UI/wheel/dependency drift=0.
+- دو archive نهایی E: file_count=282، entries=283، SHA یکسان=`6ff12e2b82bcaf35833a16d158502fad507a4f16a177113d5b6c65ea87528071` و content-set یکسان=`d60b10eac4abdd1fd28d1cd6e1ff9f955576b2e393e926e8945a913667a41a49`.
+- verifier هر دو: privacy high-confidence finding=0، schema/order/member hash/size PASS؛ بازبینی مستقل manifest-last=true، duplicate/case-collision/forbidden=0.
+- extract archive نهایی: self dry-run=282/content-set exact/write0؛ wheel parity=90 source/missing-mismatch-extra=0/SHA=`9408596d...`؛ Architecture decision 39 حاضر.
+- fresh venv نهایی از دقیقاً همین extract و `--no-index`: install PASS، runtime checker ok/failures0، pip check PASS، imports product/API/Catalog=`0.7.0-ui-mvp6.1.1-gmi4.2/v1/103`.
+- archiveهای G09B تاریخی و artifactهای `G09E_release_final_a/b` canonical هستند. اثر بیرونی فقط archive/extract/venv کنترل‌شده و اسناد؛ بدون Live/Provider، data، Bale، شبکه، نصب سیستم یا Git mutation.
+- dry-run پس از تمام patchهای closure همچنان 282 فایل/content-set=`d60b10ea...`/write0 است. Release Manifest JSON=PASS و SHA=`05282e5da4331f478c7bb97d6333434f2a2410137e158e56e2191c4357ef12e9`.
+- کنترل نهایی اسناد: refresh، memory integrity، stale و link check همگی exit code صفر؛ گزارش سطر 179 و SHA=`f785e84cabaaa218c6ca539b89703f995f1af1557018f6292bcb33d5a23e49ad`؛ handoff SHA=`6f5cf5198d94184751c66e1b874b422c7713914e8a5c5fdd8efeb585ad1dc1a6`.
+
+### V-148 — پذیرش صریح کاربر و closure رسمی G-09/F-045
+
+- تاریخ: 2026-08-26 ساعت 21:54 به‌وقت تهران
+- سطح: `USER ACCEPTANCE / DOCUMENTATION-ONLY FINAL CLOSURE`
+- Run: `STAB-G09-R01`
+- فرمان کاربر: «G09 را می‌پذیرم و closure نهایی را ثبت کن».
+- نتیجه: G-09=`COMPLETE / USER_ACCEPTED` و F-045=`CLOSED / G-00..G-09 COMPLETE / USER_ACCEPTED`.
+- طبقه‌بندی snapshot بدون تغییر=`OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`؛ پذیرش کاربر code-sign، Windows visual، real-user installer، عملیات Live یا Git mutation را مجاز نمی‌کند.
+- تغییر این checkpoint فقط اسناد canonical، Release Manifest و handoff است؛ source/test/archive/data عملیاتی تغییر نمی‌کند.
+- Release Manifest JSON=PASS و SHA=`596d75e4658ed063af4bd37e1ae2b953eeb6f71a72a68ede7fd8f4a93a7b5191`؛ package dry-run پس از closure همچنان 282 فایل/content-set=`d60b10ea...`/write0 است، بنابراین archive canonical منقضی نشد.
+- کنترل اسناد: refresh، memory integrity، stale و link check همگی exit code صفر؛ گزارش نهایی سطر 179 و SHA=`23d939e842ef96df75b6e7a8b7752cc073c9bcfa4a942c38b1d60c22964a6316`؛ handoff SHA=`8c277648ffe0f508780f07b460b7691de262e5af1668c45ce3e7da37e5eee441`.
+
+### V-149 — ممیزی commit PyCharm و حفاظت پیش از پاک‌سازی
+
+- تاریخ: 2026-08-26
+- سطح: `READ AUDIT / RECOVERABLE BACKUP REF / GITHUB REMOTE VERIFICATION`
+- Run: `STAB-GIT-R01`
+- commit اولیه=`f4464ef8...` با 7213 فایل؛ temp/cache=6068 و archive/binary=100. operational root/DB/bridge.json واقعی=0.
+- secret-pattern filename scan: فقط `tests/test_g07_release_packaging.py` با fixture مصنوعی adversarial؛ credential واقعی اثبات نشد.
+- وضعیت remote: مخزن جاری origin GitHub ندارد و upstream آن remote محلی `legacy/stabilization` است. GitHub `EitaaDesktop` در خواندن زنده فقط main=`a4df3ec...` داشت؛ commit جدید و branch stabilization موجود نبود.
+- backup ref پیش از cleanup: `codex/backup-pycharm-f4464ef` دقیقاً روی `f4464ef8...` ساخته شد.
+- سیاست: حذف فقط از index با `--cached`؛ حذف local file/reset hard ممنوع. engineering logs/reports/handoffs باید در commit تمیز حفظ شوند.
+- وضعیت=`CLEANUP_AUTHORIZED / PUSH_PENDING`؛ هیچ push یا تغییر main در این checkpoint انجام نشد.
+
+### V-150 — پاک‌سازی cached-only و candidate امن commit
+
+- تاریخ: 2026-08-26
+- سطح: `GIT INDEX SANITIZATION / NO LOCAL DELETE / PRE-COMMIT AUDIT`
+- Run: `STAB-GIT-R01`
+- policy ignore افزوده‌شده: top-level `.pytest*`، `.phase*pytest*`، `.test-tmp`، `.tmp`، `.codex_work`، `Bale`، prompt، fix scripts و backup copy.
+- pass نخست 6068 temp/cache و scopeهای تحقیقاتی/scratch را از index خارج کرد؛ audit مستقل 171 فایل `.phase*pytest*` جاافتاده یافت و pass دوم آن‌ها را cached-only خارج کرد.
+- candidate نهایی نسبت به parent: files=642، temp/cache=0، operational root=0، DB=0، Bale top-level=0، fix/scratch/backup=0.
+- engineering memory/reports/handoffs حفظ‌شده=177. فایل‌های محلی Pytest/Bale/prompt همچنان present و فقط ignored هستند.
+- secret scan high-confidence فقط fixture مصنوعی `tests/test_g07_release_packaging.py` را برگرداند؛ pathهای `.env` واقعی/bridge.json/database صفر.
+- رخدادهای غیرمحصولی: sandbox Git lock، PowerShell `$Host` collision، sandbox network block و cleanup pattern miss همگی بدون data loss ثبت/اصلاح شدند.
+- پذیرش=`INDEX_CLEAN / COMMIT_PENDING`; main و GitHub هنوز تغییر نکرده‌اند.
+
+### V-151 — reconciliation release پس از hardening فایل ignore
+
+- تاریخ: 2026-08-26
+- سطح: `PACKAGE DRY-RUN / REPRODUCIBLE ARCHIVE / PRIVACY / MANIFEST DIFF`
+- Run: `STAB-GIT-R01`
+- Trigger: `.gitignore` عضو 282 فایل allowlist است و policy تازه content-set را از `d60b10ea...` به `6b9a37c1...` تغییر داد.
+- دو archive تازه: file_count=282، SHA یکسان=`187ea793cc43db2cb4f427201ee845e6d997581aaf5d5094a9d5d227626ebf6b` و content-set یکسان=`6b9a37c1279923627b78b09935f6298c751302721322827d80a651406f0221ea`.
+- verifier/privacy هر دو PASS و high-confidence finding=0. manifest diff نسبت به G09E: changed فقط `.gitignore`، added=0، removed=0.
+- نتیجه: source/UI/wheel/dependency drift=0 و fresh-install exact-wheel شاهد V-147 جاری می‌ماند؛ archiveهای `GITPUBLISH_release_final_a/b` canonical شدند.
+- اثر بیرونی فقط archive/receipt ignored زیر artifacts و اسناد؛ GitHub/main هنوز تغییر نکرده‌اند.
+
+### V-152 — نامزد نهایی index و reconciliation دوم archive
+
+- تاریخ: 2026-08-26
+- سطح: `BASE-AWARE INDEX AUDIT / SCRATCH EXCLUSION / REPRODUCIBLE ARCHIVE / PRIVACY`
+- Run: `STAB-GIT-R01`
+- audit تاریخچه نشان داد `f4464ef8...` رأس چهار commit محلی پس از GitHub main=`a4df3ec...` است؛ بنابراین معیار نهایی از parent آخر به مبنای واقعی GitHub اصلاح شد و هیچ سابقه‌ای حذف نشد.
+- اسکریپت‌های یک‌بارمصرف extract/find/fix/gen/read/test/update و screenshot فقط با cached-only از index خارج و روی دیسک حفظ شدند؛ scripts canonical عملیاتی 21 فایل باقی ماندند.
+- candidate نهایی نسبت به `a4df3ec...`: files=426؛ temp/cache=0، operational root=0، DB=0، Bale top-level=0 و scratch/fix/backup=0. تفکیک: root=13، docs=206، lab=2، scripts=21، src=77، tests=57 و ui=50.
+- archiveهای V-151 برای حفظ تاریخ باقی ماندند ولی پس از تغییر نهایی `.gitignore` تاریخی‌اند. dry-run نهایی: file_count=282 و content-set=`43c67c2eba3c30c534c855119287793eeb2ae7fc8fc61ab7aed19ecfc6dc217a`.
+- دو archive final2: SHA یکسان=`481ed1be889892dc2802fa2052c27ef9ef3078994e3cc377b1e1a1c59f3b3384`، content-set یکسان، file_count=282 و privacy finding=0. manifest diff نسبت به V-151: changed فقط `.gitignore`، added=0 و removed=0.
+- نتیجه: source/UI/wheel/dependency drift=0؛ exact-wheel fresh-install شاهد V-147 جاری است. GitHub/main هنوز تغییر نکرده و commit/push pending است.
+
+### V-153 — کنترل کیفیت کامل پیش از commit انتشار
+
+- تاریخ: 2026-08-26
+- سطح: `FULL BACKEND / TYPESCRIPT / OBSERVABILITY / PACKAGE RETRY / DOCUMENTATION CONTROLS`
+- Run: `STAB-GIT-R01`
+- collect-only مستقل: 74 فایل و 656 تست، exit0. full Backend با `-p no:cacheprovider` و basetemp=`artifacts/stabilization/GITPUBLISH_full_20260826`: `656/656 PASS`، exit0.
+- UI TypeScript check=PASS و UI/Electron observability=PASS، هر دو exit0.
+- package targeted attempt A بدون basetemp: سه test به نتیجه رسیدند و 12 setup error از `PermissionError` روی temp سراسری ویندوز رخ داد؛ product failure=false. retry با basetemp=`artifacts/stabilization/GITPUBLISH_package_retry_20260826`: `15/15 PASS`، exit0؛ full suite نیز همین 15 تست را پوشش داد.
+- package dry-run=282/content-set=`43c67c2e...`/write0؛ Release Manifest JSON=PASS و SHA=`e3a5b606f8f95910f80de93299d38884a8c7371aa1632e6e4517434096744a27`.
+- refresh، memory integrity، generated stale check و link check همگی PASS. اثر بیرونی فقط test temp کنترل‌شده و اسناد؛ GitHub/main هنوز تغییر نکرده‌اند.

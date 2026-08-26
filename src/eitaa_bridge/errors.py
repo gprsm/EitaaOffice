@@ -51,6 +51,34 @@ class AuthenticationRuntimeError(BridgeError):
     code = "authentication_runtime_error"
 
 
+class SessionOwnershipError(BridgeError):
+    """Fail-closed error for invalid or ambiguous provider-session ownership."""
+
+    component = "session_ownership"
+    code = "session_ownership_error"
+
+
+class EitaaRuntimeError(BridgeError):
+    """Fail-closed error for account-scoped Eitaa runtime ownership."""
+
+    component = "eitaa_runtime"
+    code = "eitaa_runtime_error"
+
+
+class WorkerIpcError(BridgeError):
+    """Safe failure at the authenticated local worker IPC boundary."""
+
+    component = "worker_ipc"
+    code = "worker_ipc_error"
+
+
+class ProviderExtensionError(BridgeError):
+    """Safe failure at the allowlisted provider-extension boundary."""
+
+    component = "provider_extension"
+    code = "provider_extension_error"
+
+
 class WordPressError(BridgeError):
     component = "wordpress"
     code = "wordpress_error"
@@ -138,3 +166,45 @@ class LocalContentIndexStoreError(LocalContentIndexError):
 class ContactDirectoryError(BridgeError):
     component = "contact_directory"
     code = "contact_directory_error"
+
+
+class CoordinatorError(BridgeError):
+    """Safe base error for account-registry and migration operations."""
+
+    component = "coordinator"
+    code = "coordinator_error"
+
+
+class CoordinatorSchemaError(CoordinatorError):
+    code = "coordinator_schema_error"
+
+
+class CoordinatorIdentityError(CoordinatorError):
+    code = "coordinator_identity_error"
+
+
+class CoordinatorConflictError(CoordinatorError):
+    """A safe, non-enumerating conflict in coordinator-owned state."""
+
+    code = "coordinator_conflict"
+
+
+class CoordinatorMigrationError(CoordinatorError):
+    code = "coordinator_migration_error"
+
+
+class CoordinatorPreflightError(CoordinatorMigrationError):
+    code = "coordinator_preflight_error"
+
+
+class CoordinatorAuthenticationError(CoordinatorError):
+    component = "app_auth"
+    code = "app_authentication_error"
+
+
+class CoordinatorAuthorizationError(CoordinatorAuthenticationError):
+    code = "app_authorization_error"
+
+
+class CoordinatorAuthRateLimitError(CoordinatorAuthenticationError):
+    code = "app_auth_rate_limited"

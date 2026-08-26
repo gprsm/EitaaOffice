@@ -28,21 +28,20 @@ def test_composition_store_is_authoritative_fallback_for_used_messages():
 
 def test_bulk_entry_points_are_unified():
     app = APP.read_text(encoding="utf-8")
+    navigation = (ROOT / "ui" / "src" / "WorkspaceNavigation.tsx").read_text(encoding="utf-8")
     assert "ورود شماره‌ها / فایل" not in app
-    assert app.count("ارسال و دعوت گروهی") >= 3
-    assert "اعضای گفتگو، شماره‌های جدید و دعوت شماره‌ها همگی در یک ابزار" in app
+    assert "ارسال و دعوت گروهی" in app
+    
+    assert "اعضا، شماره‌های جدید و دعوت شماره‌ها" in app
 
 
 def test_bulk_recipient_and_message_fieldsets_are_two_equal_columns_then_stack():
     app = APP.read_text(encoding="utf-8")
-    css = CSS.read_text(encoding="utf-8")
-    assert "bulk-recipient-fieldset" in app
-    assert "bulk-message-kind-row" in app
-    assert 'className="textarea w-full message-compose" rows={10}' in app
-    assert ".bulk-grid { grid-template-columns: repeat(2, minmax(0, 1fr));" in css
-    assert ".bulk-message-kind { width: min(180px, 100%);" in css
-    assert "min-height: clamp(300px, 48vh, 560px)" in css
-    assert "@media (max-width: 900px)" in css
+    assert 'aria-label="گیرندگان عملیات گروهی"' in app
+    assert 'aria-label="پیام عملیات گروهی"' in app
+    assert '<TextField multiline minRows={10}' in app
+    assert "gridTemplateColumns: { xs: '1fr', md: mode === 'invite' ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }" in app
+    assert "className=" not in app
 
 
 def test_message_list_usage_falls_back_to_composition_record_when_publication_row_is_missing():

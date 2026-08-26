@@ -1,5 +1,7 @@
 # Eitaa Bridge v0.7 — MVP 6.1.1 GMI 4
 
+> راهنمای جاری پروژه از اینجا شروع می‌شود: [`AGENTS.md`](AGENTS.md) برای توسعه‌دهنده/Agent و [`docs/README.md`](docs/README.md) برای مشخصات، ساختار، لاگ، نقشهٔ فایل‌ها و گزارش‌ها. بخش‌های قدیمی‌تر این README برای حفظ تاریخچه باقی مانده‌اند و در صورت تعارض، `docs/project-memory/CURRENT_SYSTEM_BASELINE.md` مرجع وضعیت فعلی است.
+
 نسخه نهایی و بهینه‌شده MVP برای اجرای روزمره روی رایانه شخصی و سیستم اداری.
 
 - Product: `0.7.0-ui-mvp6.1.1-gmi4.2`
@@ -189,6 +191,7 @@ release\installer\EitaaBridge-0.8.0-rc1-Setup-x64.exe
 
 ## مستندات
 
+- `docs/project-memory/README.md` — حافظهٔ مهندسی، یافته‌ها، اعتبارسنجی‌ها و نقشه‌راه؛ مرجع اول پیش از بررسی دوباره
 - `docs/OFFICE_DEPLOYMENT.md`
 - `docs/BACKUP_RESTORE.md`
 - `docs/BULK_OPERATIONS.md`

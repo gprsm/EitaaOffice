@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "default_site_key": "medical-site",
+  "bridge": {
+    "diagnostics_root": "diagnostics/bridge",
+    "diagnostics_enabled": true,
+    "composition_state_file": "data/bridge_compositions.json"
+  },
+  "deployment": {
+    "schema_version": 1,
+    "mode": "trusted_lan_http",
+    "bind": {
+      "host": "192.168.1.20",
+      "port": 8765
+    },
+    "allowed_hosts": [
+      "192.168.1.20:8765"
+    ],
+    "allowed_origins": [
+      "http://192.168.1.20:8765"
+    ],
+    "allowed_private_client_cidrs": [
+      "192.168.1.0/24"
+    ],
+    "cleartext_http_risk_acknowledgement": "I_ACCEPT_TRUSTED_LAN_HTTP_WITHOUT_TRANSPORT_SECURITY",
+    "private_lan_only_acknowledgement": "I_WILL_NOT_EXPOSE_THIS_SERVICE_TO_PUBLIC_OR_GUEST_NETWORKS",
+    "bootstrap_admin_loopback_only": true,
+    "same_origin_only": true,
+    "remote_messenger_auth": {
+      "enabled": false,
+      "cleartext_http_risk_acknowledgement": null
+    }
+  },
+  "features": {
+    "app_user_auth": {
+      "enabled": true,
+      "idle_timeout_minutes": 30,
+      "absolute_timeout_hours": 12,
+      "max_failed_attempts": 5,
+      "lockout_minutes": 15
+    },
+    "multi_session": {
+      "enabled": false,
+      "legacy_default_messenger_account_id": null
+    },
+    "worker_process": {
+      "schema_version": 1,
+      "enabled": false,
+      "startup_timeout_seconds": 15,
+      "request_timeout_seconds": 60,
+      "heartbeat_interval_seconds": 5,
+      "heartbeat_timeout_seconds": 15,
+      "heartbeat_failure_threshold": 3,
+      "restart_window_seconds": 300,
+      "max_restarts": 3,
+      "backoff_initial_seconds": 2,
+      "backoff_max_seconds": 60,
+      "quarantine_seconds": 300
+    }
+  },
+  "core": {
+    "session_file": ".eitaa_session.json",
+    "database_file": "data/eitaa_messages.sqlite3",
+    "media_directory": "data/media",
+    "diagnostics_root": "diagnostics/core",
+    "diagnostics_enabled": true,
+    "timeout_seconds": 30.0
+  },
+  "wordpress_sites": [
+    {
+      "site_key": "medical-site",
+      "base_url": "https://example.com",
+      "default_status": "draft",
+      "default_category_id": 12,
+      "timeout_seconds": 30.0,
+      "verify_tls": true,
+      "retry_attempts": 2,
+      "username_env": "EITAA_BRIDGE_WP_MEDICAL_SITE_USERNAME",
+      "application_password_env": "EITAA_BRIDGE_WP_MEDICAL_SITE_APP_PASSWORD"
+    }
+  ]
+}

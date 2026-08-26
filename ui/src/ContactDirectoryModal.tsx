@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'react-toastify'
+import { toast } from './MaterialToast'
 import {
   Alert, Avatar, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, FormControl, FormControlLabel, Grid, IconButton,
@@ -20,6 +20,7 @@ import LabelRounded from '@mui/icons-material/LabelRounded'
 import SendRounded from '@mui/icons-material/SendRounded'
 import { api, query } from './lib/api'
 import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
+import { useMessengerAccounts } from './MessengerAccountGate'
 
 type ContactCategory = { id: number; name: string; member_count: number }
 type EitaaCategoryOperation = 'add' | 'remove' | 'replace'
@@ -35,6 +36,15 @@ type LocalContact = {
   sendable: boolean
   opt_out: boolean
   categories: Array<{ id: number; name: string }>
+  created_at: string
+  updated_at: string
+  created_by_app_user_id?: string | null
+  updated_by_app_user_id?: string | null
+  selected_account_binding?: {
+    provider: string
+    reachability: string
+    updated_at: string
+  } | null
 }
 type EitaaContact = {
   user_id: number
@@ -163,6 +173,9 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
   handoffTargets: (phones: string[]) => void
   handoffContact: (contact: EitaaContact) => void
 }) {
+  const messengerAccounts = useMessengerAccounts()
+  const canReadProviderContacts = !messengerAccounts.featureEnabled || messengerAccounts.hasCapability('contacts.read')
+  const canWriteProviderContacts = !messengerAccounts.featureEnabled || messengerAccounts.hasCapability('contacts.write')
   const [tab, setTab] = useState<'eitaa' | 'local' | 'categories' | 'import' | 'targets'>('eitaa')
   const [categories, setCategories] = useState<ContactCategory[]>([])
   const [busy, setBusy] = useState(false)
@@ -245,7 +258,7 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
   }, [targetCategoryIds, targetPage, targetSearch])
   const eitaaPageSize = 50
   const loadEitaaContacts = useCallback(async (refresh = false, syncLocal = false, append = false) => {
-    if (!siteKey) return
+    if (!siteKey || !canReadProviderContacts) return
     if (append && eitaaLoadingRef.current) return
     const requestId = ++eitaaRequestSequence.current
     const offset = append ? eitaaContactsRef.current.length : 0
@@ -278,7 +291,7 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
         setEitaaLoading(false)
       }
     }
-  }, [eitaaCategoryIds, eitaaSearch, loadCategories, loadContacts, siteKey])
+  }, [canReadProviderContacts, eitaaCategoryIds, eitaaSearch, loadCategories, loadContacts, siteKey])
   const loadPhoneLists = useCallback(async () => {
     if (!siteKey) return
     const response = await api<{ phone_lists: ResolvedPhoneList[] }>('GET', query('/api/v1/phone-lists', { site_key: siteKey, limit: 1000 }))
@@ -286,6 +299,9 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
   }, [siteKey])
 
   useEffect(() => { void loadCategories() }, [loadCategories])
+  useEffect(() => {
+    if (!canReadProviderContacts && tab === 'eitaa') setTab('local')
+  }, [canReadProviderContacts, tab])
   useEffect(() => {
     if (tab !== 'eitaa') return
     const timer = window.setTimeout(() => void loadEitaaContacts(false, false), 250)
@@ -346,6 +362,10 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
     setTab('local')
   }
   const saveContact = async () => {
+    if (addManualToEitaa && !canWriteProviderContacts) {
+      toast.info('افزودن مخاطب به حساب انتخاب‌شده پشتیبانی نمی‌شود.')
+      return
+    }
     setBusy(true)
     try {
       const response = await api<{ contact: LocalContact; eitaa_contact?: unknown }>('POST', '/api/v1/contacts/upsert', {
@@ -367,6 +387,7 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
     finally { setBusy(false) }
   }
   const addEitaaContact = async () => {
+    if (!canWriteProviderContacts) { toast.info('افزودن مخاطب برای این حساب پشتیبانی نمی‌شود.'); return }
     if (!eitaaDraft.phone.trim() || !eitaaDraft.first_name.trim()) return
     setBusy(true)
     try {
@@ -380,14 +401,28 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
     finally { setBusy(false) }
   }
   const pushLocalCategoriesToEitaa = async () => {
+    if (!canWriteProviderContacts) { toast.info('افزودن مخاطب برای این حساب پشتیبانی نمی‌شود.'); return }
     if (!pushToEitaaCategoryIds.length) { toast.info('حداقل یک دسته محلی را انتخاب کنید.'); return }
-    const response = await api<{ job: ImportJob }>('POST', '/api/v1/eitaa-contacts/import-local/start', {
+    const response = await api<{ job: ImportJob }>('POST', '/api/v1/contacts/add-to-messenger/start', {
       site_key: siteKey, category_ids: pushToEitaaCategoryIds,
     })
     setImportJob(response.job)
     toast.info('افزودن مخاطبان دسته‌های انتخابی به دفترچه ایتا در پس‌زمینه آغاز شد.')
   }
+  const pushLocalContactToSelectedAccount = async (contact: LocalContact) => {
+    if (!canWriteProviderContacts) { toast.info('افزودن مخاطب برای این حساب پشتیبانی نمی‌شود.'); return }
+    if (!contact.phones.length || !contact.first_name.trim()) {
+      toast.info('برای افزودن به پیام‌رسان، نام و شمارهٔ مخاطب لازم است.')
+      return
+    }
+    const response = await api<{ job: ImportJob }>('POST', '/api/v1/contacts/add-to-messenger/start', {
+      site_key: siteKey, contact_ids: [contact.id],
+    })
+    setImportJob(response.job)
+    toast.info('افزودن مخاطب فقط با حساب پیام‌رسان انتخاب‌شده آغاز شد.')
+  }
   const categorizeSelectedEitaaContacts = async () => {
+    if (!canWriteProviderContacts) { toast.info('تغییر مخاطبان برای این حساب پشتیبانی نمی‌شود.'); return }
     const selected = eitaaContacts.filter(contact => eitaaSelectedIds.includes(contact.user_id))
     if (!selected.length) { toast.info('حداقل یک مخاطب ایتا را انتخاب کنید.'); return }
     if (!eitaaAssignCategoryIds.length) { toast.info('حداقل یک دسته محلی را انتخاب کنید.'); return }
@@ -451,6 +486,7 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
   }
 
   const removeEitaaContact = async (contact: EitaaContact) => {
+    if (!canWriteProviderContacts) { toast.info('حذف مخاطب برای این حساب پشتیبانی نمی‌شود.'); return }
     if (!contact.phone) { toast.info('شماره این مخاطب از طرف ایتا نمایش داده نشده است.'); return }
     if (!window.confirm(`مخاطب «${contact.display_name}» از دفترچه مخاطبان ایتا حذف شود؟ نسخه محلی حذف نخواهد شد.`)) return
     await api('POST', '/api/v1/eitaa-contacts/remove', { site_key: siteKey, phone: contact.phone, confirm: true })
@@ -489,6 +525,10 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
   }
   const startImport = async () => {
     if (!preview || !mapping.phone) { toast.error('ستون شماره تماس را مشخص کنید.'); return }
+    if (importAddToEitaa && !canWriteProviderContacts) {
+      toast.info('افزودن مخاطب برای این حساب پشتیبانی نمی‌شود.')
+      return
+    }
     if (importAddToEitaa && !mapping.first_name) {
       toast.error('برای ثبت نام صحیح در ایتا، ستون «نام» را نیز مشخص کنید.')
       return
@@ -552,7 +592,7 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
     </DialogTitle>
     <Box sx={{ px: { xs: 1, sm: 2 }, borderBottom: 1, borderColor: 'divider' }}>
       <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-        {tabItems.map(item => <Tab key={item[0]} value={item[0]} label={item[1]} />)}
+        {tabItems.map(item => <Tab key={item[0]} value={item[0]} label={item[1]} disabled={item[0] === 'eitaa' && !canReadProviderContacts} />)}
       </Tabs>
     </Box>
     <DialogContent sx={{ bgcolor: 'background.default', p: { xs: 1, sm: 2 } }}>
@@ -580,14 +620,14 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
             <TextField label="شماره تماس" value={eitaaDraft.phone} onChange={event => setEitaaDraft(current => ({ ...current, phone: event.target.value }))} inputMode="tel" />
             <Grid container spacing={1.25}><Grid size={{ xs: 12, sm: 6, lg: 12, xl: 6 }}><TextField label="نام" value={eitaaDraft.first_name} onChange={event => setEitaaDraft(current => ({ ...current, first_name: event.target.value }))} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 12, xl: 6 }}><TextField label="نام خانوادگی" value={eitaaDraft.last_name} onChange={event => setEitaaDraft(current => ({ ...current, last_name: event.target.value }))} /></Grid></Grid>
             <Box><Typography variant="subtitle2">دسته محلی اختیاری</Typography>{categoryChecks(eitaaCategoryIds, setEitaaCategoryIds)}</Box>
-            <Button variant="contained" startIcon={<PersonAddAltRounded />} disabled={busy || !eitaaDraft.phone.trim() || !eitaaDraft.first_name.trim()} onClick={() => void addEitaaContact()}>افزودن به ایتا</Button>
+            <Button variant="contained" startIcon={<PersonAddAltRounded />} disabled={!canWriteProviderContacts || busy || !eitaaDraft.phone.trim() || !eitaaDraft.first_name.trim()} onClick={() => void addEitaaContact()}>افزودن به ایتا</Button>
             <Divider />
             <Alert severity="info">دکمه همگام‌سازی، مخاطبان دارای شماره را بدون ساخت رکورد تکراری به دفترچه محلی اضافه یا به‌روزرسانی می‌کند.</Alert>
             <Button variant="outlined" startIcon={<SyncRounded />} disabled={eitaaLoading} onClick={() => void loadEitaaContacts(true, true)}>همگام‌سازی با دفترچه محلی</Button>
             <Divider />
             <Box><Typography fontWeight={900}>افزودن دسته‌های محلی به ایتا</Typography><Typography variant="body2" color="text.secondary">برای شماره‌های تکراری رکورد تازه ساخته نمی‌شود. عملیات پس‌زمینه و قابل لغو است.</Typography></Box>
             {categoryChecks(pushToEitaaCategoryIds, setPushToEitaaCategoryIds)}
-            <Button variant="contained" color="secondary" startIcon={<SyncRounded />} disabled={!pushToEitaaCategoryIds.length || importActive} onClick={() => void pushLocalCategoriesToEitaa()}>افزودن دسته‌های انتخابی به ایتا</Button>
+            <Button variant="contained" color="secondary" startIcon={<SyncRounded />} disabled={!canWriteProviderContacts || !pushToEitaaCategoryIds.length || importActive} onClick={() => void pushLocalCategoriesToEitaa()}>افزودن دسته‌ها به حساب انتخاب‌شده</Button>
           </Stack></Paper>
         </Grid>
         <Grid size={{ xs: 12, lg: 8 }}>
@@ -703,7 +743,7 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
                         <span><Button size="small" variant="outlined" startIcon={<SendRounded />} disabled={!contact.peer_file} onClick={() => handoffContact(contact)}>ارسال پیام</Button></span>
                       </Tooltip>
                       <Tooltip title={contact.phone ? 'حذف فقط از دفترچه ایتا؛ نسخه محلی باقی می‌ماند' : 'شماره برای حذف در دسترس نیست'}>
-                        <span><Button size="small" color="error" startIcon={<DeleteOutlineRounded />} disabled={!contact.phone} onClick={() => void removeEitaaContact(contact)}>حذف از ایتا</Button></span>
+                        <span><Button size="small" color="error" startIcon={<DeleteOutlineRounded />} disabled={!canWriteProviderContacts || !contact.phone} onClick={() => void removeEitaaContact(contact)}>حذف از ایتا</Button></span>
                       </Tooltip>
                     </Stack>
                   </Stack>
@@ -719,25 +759,26 @@ export function ContactDirectoryModal({ siteKey, close, handoffTargets, handoffC
 
       {tab === 'local' && <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 4 }}><Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={1.5}>
+          <Alert severity="info">این دفترچه و دسته‌های آن میان کاربران نرم‌افزار مشترک است؛ افزودن به پیام‌رسان فقط با حسابی انجام می‌شود که در بالای برنامه انتخاب کرده‌اید.</Alert>
           <Box><Typography fontWeight={900}>{draft.id ? 'ویرایش مخاطب محلی' : 'مخاطب محلی جدید'}</Typography><Typography variant="body2" color="text.secondary">شماره‌ها را با ویرگول یا خط جدید جدا کنید.</Typography></Box>
           <Grid container spacing={1.25}><Grid size={{ xs: 12, sm: 6, lg: 12, xl: 6 }}><TextField label="نام" value={draft.first_name} onChange={event => setDraft(current => ({ ...current, first_name: event.target.value }))} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 12, xl: 6 }}><TextField label="نام خانوادگی" value={draft.last_name} onChange={event => setDraft(current => ({ ...current, last_name: event.target.value }))} /></Grid><Grid size={{ xs: 12 }}><TextField label="شماره تماس" value={draft.phones} onChange={event => setDraft(current => ({ ...current, phones: event.target.value }))} multiline minRows={2} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 12 }}><TextField label="نام کاربری" value={draft.username} onChange={event => setDraft(current => ({ ...current, username: event.target.value }))} /></Grid><Grid size={{ xs: 12, sm: 6, lg: 12 }}><TextField label="سازمان یا واحد" value={draft.organization} onChange={event => setDraft(current => ({ ...current, organization: event.target.value }))} /></Grid><Grid size={{ xs: 12 }}><TextField label="یادداشت" value={draft.notes} onChange={event => setDraft(current => ({ ...current, notes: event.target.value }))} multiline minRows={2} /></Grid></Grid>
           <Box><Typography variant="subtitle2">دسته‌ها</Typography>{categoryChecks(draft.category_ids, category_ids => setDraft(current => ({ ...current, category_ids })))}</Box>
-          {!draft.id && <FormControlLabel control={<Switch checked={addManualToEitaa} onChange={event => setAddManualToEitaa(event.target.checked)} />} label="این شماره به دفترچه مخاطبان ایتا نیز افزوده شود" />}
+          {!draft.id && <FormControlLabel control={<Switch checked={addManualToEitaa} disabled={!canWriteProviderContacts} onChange={event => setAddManualToEitaa(event.target.checked)} />} label="این شماره به حساب پیام‌رسان انتخاب‌شده نیز افزوده شود" />}
           <Stack direction={{ xs: 'column', sm: 'row' }} gap={1}><FormControlLabel control={<Checkbox checked={draft.sendable} onChange={event => setDraft(current => ({ ...current, sendable: event.target.checked }))} />} label="قابل ارسال" /><FormControlLabel control={<Checkbox checked={draft.opt_out} onChange={event => setDraft(current => ({ ...current, opt_out: event.target.checked }))} />} label="عدم تمایل به دریافت" /></Stack>
           <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} justifyContent="flex-end">{draft.id && <Button onClick={() => setDraft(EMPTY_CONTACT)}>انصراف</Button>}<Button variant="contained" disabled={busy || !draft.phones.trim()} onClick={() => void saveContact()}>{busy ? 'در حال ذخیره…' : 'ذخیره مخاطب'}</Button></Stack>
         </Stack></Paper></Grid>
         <Grid size={{ xs: 12, lg: 8 }}><Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={1.5}>
           <Grid container spacing={1.25}><Grid size={{ xs: 12, md: 7 }}><TextField label="جست‌وجوی نام، شماره یا سازمان" value={search} onChange={event => setSearch(event.target.value)} /></Grid><Grid size={{ xs: 12, sm: 6, md: 3 }}><FormControl><InputLabel>تعداد در صفحه</InputLabel><Select label="تعداد در صفحه" value={String(contactLimit)} onChange={event => setContactLimit(Number(event.target.value))}><MenuItem value="50">۵۰</MenuItem><MenuItem value="100">۱۰۰</MenuItem><MenuItem value="250">۲۵۰</MenuItem></Select></FormControl></Grid><Grid size={{ xs: 12, sm: 6, md: 2 }}><Button fullWidth variant="outlined" onClick={() => { setSearch(''); setFilterCategoryIds([]) }}>پاک‌کردن</Button></Grid></Grid>
           <Box>{categoryChecks(filterCategoryIds, setFilterCategoryIds)}</Box>
-          <Stack spacing={1} sx={{ maxHeight: { xs: '52vh', md: '58vh' }, overflow: 'auto', pr: .5 }}>{contacts.length ? contacts.map(contact => <Paper key={contact.id} variant="outlined" sx={{ p: 1.25, opacity: contact.opt_out || !contact.sendable ? .62 : 1 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1.25}><Box minWidth={0}><Typography fontWeight={900}>{`${contact.first_name} ${contact.last_name}`.trim() || contact.username || 'بدون نام'}</Typography><Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>{contact.phones.join('، ') || 'بدون شماره'}{contact.organization ? ` · ${contact.organization}` : ''}</Typography><Stack direction="row" gap={.5} flexWrap="wrap" mt={.75}>{contact.categories.map(item => <Chip key={item.id} size="small" label={item.name} />)}{contact.source.includes('eitaa') && <Chip size="small" color="primary" label="ایتایی" />}{contact.opt_out && <Chip size="small" color="warning" label="عدم تمایل" />}</Stack></Box><Stack direction="row" gap={.5} alignSelf={{ xs: 'stretch', sm: 'center' }}><Button size="small" variant="outlined" startIcon={<EditOutlined />} onClick={() => editContact(contact)}>ویرایش</Button><Button size="small" color="warning" startIcon={<ArchiveOutlined />} onClick={() => void archiveContact(contact)}>بایگانی</Button></Stack></Stack></Paper>) : <Alert severity="info">مخاطبی با این فیلتر وجود ندارد.</Alert>}</Stack>
+          <Stack spacing={1} sx={{ maxHeight: { xs: '52vh', md: '58vh' }, overflow: 'auto', pr: .5 }}>{contacts.length ? contacts.map(contact => <Paper key={contact.id} variant="outlined" sx={{ p: 1.25, opacity: contact.opt_out || !contact.sendable ? .62 : 1 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1.25}><Box minWidth={0}><Typography fontWeight={900}>{`${contact.first_name} ${contact.last_name}`.trim() || contact.username || 'بدون نام'}</Typography><Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>{contact.phones.join('، ') || 'بدون شماره'}{contact.organization ? ` · ${contact.organization}` : ''}</Typography><Stack direction="row" gap={.5} flexWrap="wrap" mt={.75}><Chip size="small" variant="outlined" label="مشترک" />{contact.categories.map(item => <Chip key={item.id} size="small" label={item.name} />)}{contact.source.includes('eitaa') && <Chip size="small" color="primary" label="ایتایی" />}{contact.selected_account_binding?.reachability === 'reachable' && <Chip size="small" color="success" label="در حساب انتخاب‌شده موجود است" />}{contact.opt_out && <Chip size="small" color="warning" label="عدم تمایل" />}</Stack><Typography variant="caption" color="text.secondary">آخرین تغییر: {new Date(contact.updated_at).toLocaleString('fa-IR')}</Typography></Box><Stack direction="row" gap={.5} flexWrap="wrap" alignSelf={{ xs: 'stretch', sm: 'center' }}><Button size="small" variant="outlined" startIcon={<PersonAddAltRounded />} disabled={!canWriteProviderContacts || importActive || !contact.phones.length || !contact.first_name.trim()} onClick={() => void pushLocalContactToSelectedAccount(contact)}>افزودن به حساب انتخاب‌شده</Button><Button size="small" variant="outlined" startIcon={<EditOutlined />} onClick={() => editContact(contact)}>ویرایش</Button><Button size="small" color="warning" startIcon={<ArchiveOutlined />} onClick={() => void archiveContact(contact)}>بایگانی</Button></Stack></Stack></Paper>) : <Alert severity="info">مخاطبی با این فیلتر وجود ندارد.</Alert>}</Stack>
           {Math.ceil(contactTotal / contactLimit) > 1 && <Pagination sx={{ alignSelf: 'center' }} count={Math.ceil(contactTotal / contactLimit)} page={contactPage} onChange={(_, value) => setContactPage(value)} color="primary" />}
         </Stack></Paper></Grid>
       </Grid>}
 
-      {tab === 'categories' && <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={2}><Alert severity="info">دسته‌ها دائمی و محلی‌اند و برای همکاران، فهرست‌های تکرارشونده و مخاطبان هدف استفاده می‌شوند.</Alert><Grid container spacing={1.5} alignItems="center"><Grid size={{ xs: 12, sm: 8 }}><TextField label="نام دسته" value={categoryName} onChange={event => setCategoryName(event.target.value)} /></Grid><Grid size={{ xs: 12, sm: 4 }}><Button fullWidth variant="contained" onClick={() => void saveCategory()} disabled={!categoryName.trim()}>{editingCategoryId ? 'ذخیره تغییر نام' : 'ساخت دسته'}</Button></Grid></Grid><Stack spacing={1}>{categories.map(category => <Paper key={category.id} variant="outlined" sx={{ p: 1.25 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}><Box><Typography fontWeight={800}>{category.name}</Typography><Typography variant="caption" color="text.secondary">{category.member_count.toLocaleString('fa-IR')} مخاطب</Typography></Box><Stack direction="row" gap={1}><Button size="small" variant="outlined" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name) }}>تغییر نام</Button><Button size="small" color="error" onClick={() => void deleteCategory(category)}>حذف</Button></Stack></Stack></Paper>)}</Stack></Stack></Paper>}
+      {tab === 'categories' && <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={2}><Alert severity="info">دسته‌ها نیز مانند دفترچهٔ محلی، مشترک و قابل استفاده برای همهٔ کاربران نرم‌افزار هستند.</Alert><Grid container spacing={1.5} alignItems="center"><Grid size={{ xs: 12, sm: 8 }}><TextField label="نام دسته" value={categoryName} onChange={event => setCategoryName(event.target.value)} /></Grid><Grid size={{ xs: 12, sm: 4 }}><Button fullWidth variant="contained" onClick={() => void saveCategory()} disabled={!categoryName.trim()}>{editingCategoryId ? 'ذخیره تغییر نام' : 'ساخت دسته'}</Button></Grid></Grid><Stack spacing={1}>{categories.map(category => <Paper key={category.id} variant="outlined" sx={{ p: 1.25 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}><Box><Typography fontWeight={800}>{category.name}</Typography><Typography variant="caption" color="text.secondary">{category.member_count.toLocaleString('fa-IR')} مخاطب</Typography></Box><Stack direction="row" gap={1}><Button size="small" variant="outlined" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name) }}>تغییر نام</Button><Button size="small" color="error" onClick={() => void deleteCategory(category)}>حذف</Button></Stack></Stack></Paper>)}</Stack></Stack></Paper>}
 
       {tab === 'import' && <Stack spacing={2}>
-        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={2}><Alert severity="info">Excel، CSV یا TXT ابتدا پیش‌نمایش می‌شود. شمارهٔ تکراری مخاطب تازه نمی‌سازد؛ نام‌های جدید به‌روزرسانی و دسته‌های فایل‌های مختلف با همان مخاطب ادغام می‌شوند. برای افزودن به ایتا، ستون نام الزامی است.</Alert><Button component="label" variant="outlined" startIcon={<UploadFileRounded />} disabled={busy || importActive}>انتخاب فایل<input hidden type="file" accept=".xlsx,.csv,.txt" onChange={event => void chooseFile(event.target.files?.[0])} /></Button>{preview && <><Grid container spacing={1.25}>{importFields.map(([field, label]) => <Grid key={field} size={{ xs: 12, sm: 6, md: 4 }}><FormControl><InputLabel>{label}</InputLabel><Select label={label} value={mapping[field] || ''} onChange={event => setMapping(current => ({ ...current, [field]: String(event.target.value) }))}><MenuItem value="">نادیده گرفته شود</MenuItem>{preview.headers.map((header, index) => <MenuItem key={index} value={String(index)}>{header}</MenuItem>)}</Select></FormControl></Grid>)}</Grid><Box><Typography variant="subtitle2">افزودن به دسته‌های:</Typography>{categoryChecks(importCategoryIds, setImportCategoryIds)}</Box><FormControlLabel control={<Switch checked={importAddToEitaa} onChange={event => setImportAddToEitaa(event.target.checked)} />} label="پس از ورود محلی، شماره‌ها به مخاطبان ایتا نیز افزوده شوند" /><TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}><Table stickyHeader size="small"><TableHead><TableRow>{preview.headers.map((header, index) => <TableCell key={index}>{header}</TableCell>)}</TableRow></TableHead><TableBody>{preview.rows.slice(0, 12).map((row, rowIndex) => <TableRow key={rowIndex}>{preview.headers.map((_, columnIndex) => <TableCell key={columnIndex}>{row[columnIndex]}</TableCell>)}</TableRow>)}</TableBody></Table></TableContainer></>}{importJob && <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}><Stack direction="row" justifyContent="space-between"><Typography fontWeight={800}>{importJob.state === 'completed' ? 'کامل شد' : importJob.state === 'failed' ? 'ناموفق' : 'در حال پردازش'}</Typography><Typography>{Number(importJob.progress.processed || 0).toLocaleString('fa-IR')} / {Number(importJob.progress.total || 0).toLocaleString('fa-IR')}</Typography></Stack><LinearProgress variant="determinate" value={Number(importJob.progress.total || 0) ? Number(importJob.progress.processed || 0) / Number(importJob.progress.total || 1) * 100 : 0} /></Stack></Paper>}<Stack direction="row" justifyContent="flex-end">{importActive ? <Button variant="outlined" color="warning" disabled={importJob?.state === 'cancelling'} onClick={() => importJob && void api<{ job: ImportJob }>('POST', '/api/v1/contacts/import/cancel', { job_id: importJob.job_id }).then(response => setImportJob(response.job))}>لغو ایمن</Button> : <Button variant="contained" disabled={!preview || !mapping.phone} onClick={() => void startImport()}>شروع ورود</Button>}</Stack></Stack></Paper>
+        <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={2}><Alert severity="info">Excel، CSV یا TXT ابتدا پیش‌نمایش می‌شود. شمارهٔ تکراری مخاطب تازه نمی‌سازد؛ نام‌های جدید به‌روزرسانی و دسته‌های فایل‌های مختلف با همان مخاطب ادغام می‌شوند. برای افزودن به پیام‌رسان، ستون نام الزامی است.</Alert><Button component="label" variant="outlined" startIcon={<UploadFileRounded />} disabled={busy || importActive}>انتخاب فایل<input hidden type="file" accept=".xlsx,.csv,.txt" onChange={event => void chooseFile(event.target.files?.[0])} /></Button>{preview && <><Grid container spacing={1.25}>{importFields.map(([field, label]) => <Grid key={field} size={{ xs: 12, sm: 6, md: 4 }}><FormControl><InputLabel>{label}</InputLabel><Select label={label} value={mapping[field] || ''} onChange={event => setMapping(current => ({ ...current, [field]: String(event.target.value) }))}><MenuItem value="">نادیده گرفته شود</MenuItem>{preview.headers.map((header, index) => <MenuItem key={index} value={String(index)}>{header}</MenuItem>)}</Select></FormControl></Grid>)}</Grid><Box><Typography variant="subtitle2">افزودن به دسته‌های:</Typography>{categoryChecks(importCategoryIds, setImportCategoryIds)}</Box><FormControlLabel control={<Switch checked={importAddToEitaa} onChange={event => setImportAddToEitaa(event.target.checked)} />} label="پس از ورود محلی، شماره‌ها به حساب انتخاب‌شده نیز افزوده شوند" /><TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}><Table stickyHeader size="small"><TableHead><TableRow>{preview.headers.map((header, index) => <TableCell key={index}>{header}</TableCell>)}</TableRow></TableHead><TableBody>{preview.rows.slice(0, 12).map((row, rowIndex) => <TableRow key={rowIndex}>{preview.headers.map((_, columnIndex) => <TableCell key={columnIndex}>{row[columnIndex]}</TableCell>)}</TableRow>)}</TableBody></Table></TableContainer></>}{importJob && <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}><Stack direction="row" justifyContent="space-between"><Typography fontWeight={800}>{importJob.state === 'completed' ? 'کامل شد' : importJob.state === 'failed' ? 'ناموفق' : 'در حال پردازش'}</Typography><Typography>{Number(importJob.progress.processed || 0).toLocaleString('fa-IR')} / {Number(importJob.progress.total || 0).toLocaleString('fa-IR')}</Typography></Stack><LinearProgress variant="determinate" value={Number(importJob.progress.total || 0) ? Number(importJob.progress.processed || 0) / Number(importJob.progress.total || 1) * 100 : 0} /></Stack></Paper>}<Stack direction="row" justifyContent="flex-end">{importActive ? <Button variant="outlined" color="warning" disabled={importJob?.state === 'cancelling'} onClick={() => importJob && void api<{ job: ImportJob }>('POST', '/api/v1/contacts/import/cancel', { job_id: importJob.job_id }).then(response => setImportJob(response.job))}>لغو ایمن</Button> : <Button variant="contained" disabled={!preview || !mapping.phone} onClick={() => void startImport()}>شروع ورود</Button>}</Stack></Stack></Paper>
         <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}><Stack spacing={1.5}><Typography fontWeight={900}>فهرست‌های شماره شناسایی‌شده قبلی</Typography><Typography variant="body2" color="text.secondary">شماره‌هایی که قبلاً در ایتا شناسایی‌شده‌اند بدون حذف پس از کمپین، به دفترچه محلی منتقل می‌شوند.</Typography><Grid container spacing={1.25}>{phoneLists.length ? phoneLists.map(list => <Grid key={list.id} size={{ xs: 12, md: 6 }}><Paper variant="outlined" sx={{ p: 1.5, height: '100%' }}><Stack spacing={1}><Typography fontWeight={900}>{list.name || 'فهرست بدون نام'}</Typography><Typography variant="body2" color="text.secondary">شناسایی‌شده: {Number(list.resolved_count || 0).toLocaleString('fa-IR')} از {Number(list.total_rows || 0).toLocaleString('fa-IR')}</Typography><Button variant="outlined" disabled={!list.resolved_count || importActive} onClick={() => void startPhoneListImport(list)}>افزودن به دفترچه دائمی</Button></Stack></Paper></Grid>) : <Grid size={{ xs: 12 }}><Alert severity="info">فهرست شناسایی‌شده‌ای وجود ندارد.</Alert></Grid>}</Grid></Stack></Paper>
       </Stack>}
 

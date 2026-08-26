@@ -28,13 +28,26 @@ const darkColors = {
   secondary: '#4dd0b8',
 }
 
-/*
- * Keep Emotion overrides deliberately flat. The RTL Stylis plugin processes
- * these rules, while state-rich legacy selectors live in styles.css.
- */
+/* Material UI owns every visual state; RTL transformation is handled by Emotion. */
 const components: Components<Theme> = {
   MuiCssBaseline: {
     styleOverrides: {
+      '@font-face': [
+        {
+          fontFamily: 'IRANSans',
+          fontStyle: 'normal',
+          fontDisplay: 'swap',
+          fontWeight: 400,
+          src: 'url("./fonts/IRANSansWeb-Regular.woff2") format("woff2")',
+        },
+        {
+          fontFamily: 'IRANSans',
+          fontStyle: 'normal',
+          fontDisplay: 'swap',
+          fontWeight: 700,
+          src: 'url("./fonts/IRANSansWeb-Bold.woff2") format("woff2")',
+        },
+      ],
       'html, body, #root': {
         minWidth: 320,
         color: darkColors.text,
@@ -166,7 +179,7 @@ const components: Components<Theme> = {
     defaultProps: { disableElevation: true },
     styleOverrides: {
       root: {
-        minHeight: 38,
+        minHeight: 44,
         borderRadius: 10,
         fontWeight: 700,
         textTransform: 'none',

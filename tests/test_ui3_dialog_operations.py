@@ -32,9 +32,9 @@ def test_bulk_file_path_has_preflight_progress_and_failure_details():
     app = APP.read_text(encoding="utf-8")
     assert "/api/v1/community/bulk/validate" in app
     assert "/api/v1/community/bulk/recipients" in app
-    assert "file-preflight" in app
-    assert "operation-progress-counts" in app
-    assert "recipient-failures" in app
+    assert 'aria-label="نتیجه پیش‌بررسی فایل"' in app
+    assert 'aria-label="پیشرفت عملیات گروهی"' in app
+    assert 'aria-label="خطاهای گیرندگان"' in app
     assert "response.task.error?.message" in app
 
 

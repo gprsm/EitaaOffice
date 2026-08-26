@@ -232,6 +232,68 @@ def test_electron_runtime_prefers_current_source_over_installed_package():
     assert "env: backendEnvironment(root)" in content
 
 
+def test_electron_development_runtime_prefers_python_module_over_stale_entrypoint():
+    root = Path(__file__).resolve().parents[1]
+    content = (root / "ui" / "electron" / "main.cjs").read_text(encoding="utf-8")
+    development_python = (
+        "if (!app.isPackaged && fs.existsSync(python)) "
+        "apiProcess = spawn(python, ['-m', "
+        "'eitaa_bridge.interfaces.http_api', ...args], spawnOptions)"
+    )
+    packaged_entrypoint = (
+        "else if (fs.existsSync(exe)) apiProcess = spawn(exe, args, spawnOptions)"
+    )
+    assert development_python in content
+    assert packaged_entrypoint in content
+
+
+def test_electron_expected_backend_version_comes_from_canonical_version_file():
+    root = Path(__file__).resolve().parents[1]
+    content = (root / "ui" / "electron" / "main.cjs").read_text(encoding="utf-8")
+    assert "function expectedBridgeVersion(root = projectRoot())" in content
+    assert "path.join(root, 'VERSION.txt')" in content
+    assert "current?.bridge_version === expectedBridgeVersion()" in content
+    assert "alive?.bridge_version === expectedBridgeVersion()" in content
+    assert "const EXPECTED_BRIDGE_VERSION = '0.7.0-ui-mvp6.1.1-gmi4'" not in content
+
+
+def test_office_runtime_derives_endpoint_from_desktop_deployment(tmp_path):
+    project_root = Path(__file__).resolve().parents[1]
+    module = _load_office_runtime(project_root)
+    root = tmp_path / "portable-app"
+    root.mkdir()
+    (root / "bridge.json").write_text(
+        json.dumps(
+            {
+                "deployment": {
+                    "mode": "desktop_loopback",
+                    "bind": {"host": "127.0.0.2", "port": 18767},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    controller = module.RuntimeController(root)
+    assert controller.host == "127.0.0.2"
+    assert controller.port == 18767
+    assert controller.base_url == "http://127.0.0.2:18767"
+
+
+def test_electron_endpoint_and_media_transport_are_config_driven():
+    root = Path(__file__).resolve().parents[1]
+    main = (root / "ui" / "electron" / "main.cjs").read_text(encoding="utf-8")
+    app = ((root / "ui" / "src" / "App.tsx").read_text(encoding="utf-8") + (root / "ui" / "src" / "utils" / "helpers.tsx").read_text(encoding="utf-8"))
+    csp = (root / "ui" / "index.html").read_text(encoding="utf-8")
+    assert "function desktopEndpoint(root = projectRoot())" in main
+    assert "const args = ['--config', 'bridge.json']" in main
+    assert "'--host'" not in main
+    assert "'--port'" not in main
+    assert "eitaa-media://bridge" in app
+    assert "LOCAL_MEDIA_BASE" not in app
+    assert "eitaa-media:" in csp
+    assert "http://127.0.0.1:8765" not in csp
+
+
 def test_edge_pid_handoff_uses_visible_owned_window(tmp_path, monkeypatch):
     project_root = Path(__file__).resolve().parents[1]
     module = _load_office_runtime(project_root)
@@ -261,6 +323,9 @@ def test_windows_process_query_uses_explicit_utf8(monkeypatch):
     if os.name != "nt":
         return
     captured = {}
+    expected_command_line = (
+        "C:\\Users\\کاربر\\Documents\\eitaa\\runtime\\edge-profile"
+    )
 
     def fake_run(command, **kwargs):
         captured["command"] = command
@@ -268,14 +333,14 @@ def test_windows_process_query_uses_explicit_utf8(monkeypatch):
         payload = {
             "ProcessId": 7,
             "ExecutablePath": "msedge.exe",
-            "CommandLine": "C:\\Users\\ExampleUser\\Documents\\Eitaa\\runtime\\edge-profile",
+            "CommandLine": expected_command_line,
         }
         return subprocess.CompletedProcess(command, 0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
     processes = module._windows_processes()
     assert processes is not None
-    assert processes[0]["CommandLine"].endswith("ایتا\\runtime\\edge-profile")
+    assert processes[0]["CommandLine"] == expected_command_line
     assert captured["kwargs"]["encoding"] == "utf-8"
     assert "OutputEncoding" in captured["command"][-1]
 

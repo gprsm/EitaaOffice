@@ -2,7 +2,7 @@
 
 - Training examples: 24
 - Test examples: 17
-- Runtime: 16.286 ms
+- Runtime: 18.896 ms
 - Phrase baseline F1: 0.0
 - Model F1: 0.8
 - Model exact match: 0.7059

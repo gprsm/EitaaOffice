@@ -7,17 +7,20 @@
   const MAX_USAGE = 2000
   const MAX_POSITIONS = 120
   const SAVE_DELAY_MS = 2500
+  const STORAGE_SCOPE_EVENT = 'eitaa-bridge:client-storage-scope-changed'
+  let storagePrefix = String(document.documentElement.dataset.clientStorageScope || '')
+  const scopedKey = key => storagePrefix ? `${key}.${storagePrefix}` : key
 
   const readJson = (key, fallback) => {
     try {
-      const raw = localStorage.getItem(key)
+      const raw = localStorage.getItem(scopedKey(key))
       return raw ? JSON.parse(raw) : fallback
     } catch {
       return fallback
     }
   }
   const writeJson = (key, value) => {
-    try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* best effort */ }
+    try { localStorage.setItem(scopedKey(key), JSON.stringify(value)) } catch { /* best effort */ }
   }
   const sourceMessageId = key => {
     const parts = String(key || '').split(':')
@@ -179,8 +182,18 @@
   const rowForKey = key => document.querySelector(`.virtual-row[data-message-key="${CSS.escape(String(key))}"]`)
   const scrollContainer = () => document.querySelector('.message-scroll')
   const currentPeer = () => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_ACTIVE_PEER) || '""') || '' } catch { return '' }
+    try { return JSON.parse(localStorage.getItem(scopedKey(STORAGE_ACTIVE_PEER)) || '""') || '' } catch { return '' }
   }
+
+  window.addEventListener(STORAGE_SCOPE_EVENT, event => {
+    storagePrefix = String(event?.detail?.storagePrefix || '')
+    usageRecords = readJson(STORAGE_USAGE, {})
+    readingPositions = readJson(STORAGE_POSITIONS, {})
+    dialogsByPeer.clear()
+    peerByFile.clear()
+    activePeer = ''
+    restoreGeneration += 1
+  })
 
   const styleConfirmedRows = () => {
     for (const row of document.querySelectorAll('.virtual-row[data-message-key]')) {

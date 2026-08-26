@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('eitaaDesktop', {
-  api: (method, path, body) => ipcRenderer.invoke('api:request', { method, path, body }),
+  api: (method, path, body, csrfToken, messengerAccountId, correlationId) => ipcRenderer.invoke(
+    'api:request',
+    { method, path, body, csrfToken, messengerAccountId, correlationId },
+  ),
+  reportDiagnostic: (payload, correlationId) => ipcRenderer.invoke('diagnostics:report', payload, correlationId),
   openExternal: url => ipcRenderer.invoke('shell:open-external', url),
   selectFile: options => ipcRenderer.invoke('dialog:select-file', options),
   selectUploadFile: options => ipcRenderer.invoke('dialog:select-upload-file', options),

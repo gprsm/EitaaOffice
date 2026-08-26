@@ -30,7 +30,6 @@ import CloseRounded from '@mui/icons-material/CloseRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import ImageOutlined from '@mui/icons-material/ImageOutlined'
 import SettingsRounded from '@mui/icons-material/SettingsRounded'
-import ShieldOutlined from '@mui/icons-material/ShieldOutlined'
 
 const DEFAULT_APPEARANCE: LoginAppearanceValue = {
   backgroundDataUrl: null,
@@ -130,16 +129,27 @@ export function LoginAppearanceSettingsPanel() {
     finally { setBusy('') }
   }
 
-  return <Stack className="login-appearance-settings" spacing={2}>
-    <Box className="login-appearance-preview" aria-label="پیش‌نمایش پس‌زمینه صفحه ورود">
-      {(loading || busy === 'select') && <Skeleton variant="rectangular" animation="wave" width="100%" height="100%" />}
-      {!loading && busy !== 'select' && appearance.backgroundDataUrl && <Box component="img" src={appearance.backgroundDataUrl} alt="پیش‌نمایش تصویر انتخاب‌شده" sx={{ objectPosition: appearance.position }} />}
-      {!loading && busy !== 'select' && !appearance.backgroundDataUrl && <Stack alignItems="center" justifyContent="center" spacing={1} className="login-appearance-empty">
+  return <Stack spacing={2}>
+    <Box
+      aria-label="پیش‌نمایش پس‌زمینه صفحه ورود"
+      sx={{
+        position: 'relative',
+        minHeight: { xs: 170, sm: 210 },
+        overflow: 'hidden',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 2.25,
+        background: 'linear-gradient(145deg, #16253a, #09111e)',
+      }}
+    >
+      {(loading || busy === 'select') && <Skeleton variant="rectangular" animation="wave" width="100%" height="100%" sx={{ position: 'absolute', inset: 0 }} />}
+      {!loading && busy !== 'select' && appearance.backgroundDataUrl && <Box component="img" src={appearance.backgroundDataUrl} alt="پیش‌نمایش تصویر انتخاب‌شده" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', objectFit: 'cover', objectPosition: appearance.position }} />}
+      {!loading && busy !== 'select' && !appearance.backgroundDataUrl && <Stack alignItems="center" justifyContent="center" spacing={1} sx={{ position: 'absolute', inset: 0, p: 3, color: 'rgba(235, 245, 255, .7)', textAlign: 'center' }}>
         <ImageOutlined />
         <Typography variant="body2">در حال حاضر از پس‌زمینهٔ گرادیانی امن استفاده می‌شود.</Typography>
       </Stack>}
-      <Box className="login-appearance-preview-shade" sx={{ backgroundColor: `rgba(3, 8, 18, ${overlay})` }} />
-      <Box className="login-appearance-preview-card" />
+      <Box sx={{ position: 'absolute', inset: 0, backgroundColor: `rgba(3, 8, 18, ${overlay})` }} />
+      <Box sx={{ position: 'absolute', top: '19%', insetInlineEnd: '12%', width: 'min(37%, 150px)', height: '62%', border: '1px solid rgba(255, 255, 255, .28)', borderRadius: 1.5, bgcolor: 'rgba(20, 28, 39, .72)', boxShadow: '0 12px 35px rgba(0, 0, 0, .35)', backdropFilter: 'blur(8px)' }} />
     </Box>
 
     <Box>
@@ -147,7 +157,7 @@ export function LoginAppearanceSettingsPanel() {
       <Typography variant="caption" color="text.secondary">
         PNG، JPEG، WebP یا AVIF تا ۱۵ مگابایت؛ تصویر در پوشه Runtime برنامه کپی می‌شود و فایل اصلی جابه‌جا نخواهد شد.
       </Typography>
-      {appearance.backgroundFileName && <Typography variant="caption" className="login-appearance-file" dir="auto">{appearance.backgroundFileName}</Typography>}
+      {appearance.backgroundFileName && <Typography variant="caption" dir="auto" sx={{ display: 'block', mt: 1, overflow: 'hidden', color: 'primary.main', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{appearance.backgroundFileName}</Typography>}
     </Box>
 
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -218,60 +228,46 @@ export function LoginSurface({ children }: { children: ReactNode }) {
 
   useEffect(() => { setImageReady(false) }, [appearance.backgroundDataUrl])
 
-  return <Box
-    className="login-screen"
-    dir="rtl"
-    sx={{ '--login-overlay': appearance.overlay } as React.CSSProperties}
-  >
-    <Box className="login-background-layer" aria-hidden>
-      {(loading || (appearance.backgroundDataUrl && !imageReady)) && <Skeleton className="login-background-skeleton" variant="rectangular" animation="wave" width="100%" height="100%" />}
+  return <Box dir="rtl" sx={{ position: 'relative', isolation: 'isolate', minHeight: '100dvh', overflow: 'auto', color: '#f7f9fc', bgcolor: '#070b12' }}>
+    <Box aria-hidden sx={{ position: 'fixed', zIndex: -2, inset: 0, overflow: 'hidden', pointerEvents: 'none', background: 'radial-gradient(circle at 16% 22%, rgba(43, 139, 211, .38), transparent 35%), linear-gradient(145deg, #111c2b, #07101b 55%, #08151a)' }}>
+      {(loading || (appearance.backgroundDataUrl && !imageReady)) && <Skeleton variant="rectangular" animation="wave" width="100%" height="100%" sx={{ position: 'absolute', inset: 0, transform: 'none', bgcolor: 'rgba(43, 56, 74, .88)' }} />}
       {appearance.backgroundDataUrl && <Box
         component="img"
         src={appearance.backgroundDataUrl}
         alt=""
         onLoad={() => setImageReady(true)}
         onError={() => setImageReady(true)}
-        sx={{ objectPosition: appearance.position, opacity: imageReady ? 1 : 0 }}
+        sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', objectFit: 'cover', objectPosition: appearance.position, opacity: imageReady ? 1 : 0, transition: 'opacity 280ms ease', '@media (prefers-reduced-motion: reduce)': { transition: 'none' } }}
       />}
     </Box>
-    <Box className="login-background-overlay" aria-hidden />
+    <Box aria-hidden sx={{ position: 'fixed', zIndex: -1, inset: 0, pointerEvents: 'none', background: `linear-gradient(90deg, rgba(3, 8, 18, .22), rgba(3, 8, 18, .06) 42%, rgba(3, 8, 18, .3)), rgba(3, 8, 18, ${appearance.overlay})` }} />
 
     <IconButton
-      className="login-settings-button"
       aria-label="تنظیم ظاهر صفحه ورود"
       title="تنظیم ظاهر صفحه ورود"
       onClick={() => setSettingsOpen(true)}
+      sx={{ position: 'fixed', zIndex: 4, top: 'max(12px, env(safe-area-inset-top))', insetInlineStart: 'max(12px, env(safe-area-inset-left))', color: '#f7f9fc', bgcolor: 'rgba(10, 17, 27, .62)', border: '1px solid rgba(255, 255, 255, .18)', backdropFilter: 'blur(14px)', '&:hover': { bgcolor: 'rgba(26, 38, 54, .84)' } }}
     >
       <SettingsRounded />
     </IconButton>
 
-    <Box className="login-layout">
-      <Stack className="login-intro" spacing={2.25}>
-        <Box className="login-brand-lockup">
-          <Box className="login-brand-mark">EB</Box>
-          <Box>
-            <Typography component="p" className="login-eyebrow">EITAA BRIDGE</Typography>
-            <Typography component="h1" variant="h3">مرکز یکپارچهٔ محتوای ایتا</Typography>
-          </Box>
-        </Box>
-        <Typography className="login-intro-copy">
-          ورود امن، مدیریت گفتگوها و آماده‌سازی محتوا برای انتشار؛ با حفظ داده‌ها و نشست در همین رایانه.
-        </Typography>
-        <Paper className="login-isolation-note" elevation={0}>
-          <ShieldOutlined />
-          <Box>
-            <Typography variant="subtitle2">آماده برای معماری چندحسابی ایزوله</Typography>
-            <Typography variant="caption">هر حساب باید Session، Scheduler و فضای دادهٔ مستقل خود را داشته باشد؛ این صفحه بر همان مرز طراحی شده است.</Typography>
-          </Box>
-        </Paper>
-      </Stack>
-
+    <Box sx={{ width: '100%', minHeight: '100dvh', mx: 'auto', px: { xs: 'max(12px, env(safe-area-inset-right))', sm: 'max(28px, env(safe-area-inset-right))' }, pt: 'max(68px, env(safe-area-inset-top))', pb: 'max(18px, env(safe-area-inset-bottom))', display: 'grid', placeItems: 'center' }}>
       <Paper
-        className="login-panel"
         elevation={24}
         sx={{
+          width: '100%',
+          maxWidth: 440,
+          justifySelf: 'center',
+          p: { xs: 2, sm: 'clamp(22px, 4vw, 38px)' },
+          overflow: 'hidden',
+          border: 1,
+          borderRadius: { xs: 2.5, sm: 3.25 },
+          boxShadow: '0 28px 90px rgba(0, 0, 0, .44)',
+          backdropFilter: 'blur(24px) saturate(125%)',
           bgcolor: theme.palette.mode === 'dark' ? 'rgba(16, 23, 34, .9)' : 'rgba(255, 255, 255, .92)',
           borderColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.72)',
+          '& .MuiButton-root': { minHeight: 46 },
+          '& .MuiAlert-root': { textAlign: 'start' },
         }}
       >
         {children}
@@ -280,7 +276,7 @@ export function LoginSurface({ children }: { children: ReactNode }) {
 
     <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} fullWidth maxWidth="sm" fullScreen={fullScreen} dir="rtl">
       <DialogTitle>ظاهر صفحه ورود</DialogTitle>
-      <IconButton className="login-appearance-close" aria-label="بستن" onClick={() => setSettingsOpen(false)}><CloseRounded /></IconButton>
+      <IconButton aria-label="بستن" onClick={() => setSettingsOpen(false)} sx={{ position: 'absolute', top: 10, insetInlineEnd: 10 }}><CloseRounded /></IconButton>
       <DialogContent dividers><LoginAppearanceSettingsPanel /></DialogContent>
       <DialogActions><Button onClick={() => setSettingsOpen(false)}>بستن</Button></DialogActions>
     </Dialog>

@@ -257,10 +257,10 @@ def test_material_ui_sources_expose_rtl_contacts_quick_send_and_template_slot():
     contacts = (root / "ContactDirectoryModal.tsx").read_text(encoding="utf-8")
     quick = (root / "QuickSendBar.tsx").read_text(encoding="utf-8")
     theme = (root / "theme.ts").read_text(encoding="utf-8")
-    css = (root / "styles.css").read_text(encoding="utf-8")
 
     assert '<QuickSendBar siteKey={siteKey}' in app
-    assert 'مدیریت مخاطبان ایتا و محلی' in app
+    assert "import('./ContactDirectoryModal')" in app
+    assert 'مدیریت مخاطبان' in contacts
     assert '/api/v1/eitaa-contacts/list' in contacts
     assert '/api/v1/eitaa-contacts/categorize' in contacts
     assert "operation: eitaaCategoryOperation" in contacts
@@ -272,9 +272,10 @@ def test_material_ui_sources_expose_rtl_contacts_quick_send_and_template_slot():
     assert 'selectUploadFile' in quick
     assert 'تمپلیت‌های پیام' in quick
     assert "direction: 'rtl'" in theme
-    assert 'background: #07090d !important' in css
-    assert '@media (max-width: 599px)' in css
-    assert '[data-media-display="dynamic"]' in css
+    assert "from '@mui/material'" in contacts
+    assert "from '@mui/material'" in quick
+    assert "Material UI owns every visual state" in theme
+    assert 'className=' not in app + contacts + quick
 
 
 def test_eitaa_contacts_are_cached_searched_and_paged(config_file, monkeypatch):

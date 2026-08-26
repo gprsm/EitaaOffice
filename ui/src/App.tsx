@@ -1,27 +1,47 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, lazy, ReactNode, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { toast } from 'react-toastify'
-import { Alert, Box, Button, ButtonBase, CircularProgress, Dialog, DialogContent, Paper, Skeleton, Stack, TextField, Typography, useMediaQuery, useTheme } from '@mui/material'
-import { api, AUTH_SESSION_INVALID_EVENT, query } from './lib/api'
+import { TEMPORAL_YEAR_OFFSET, TEMPORAL_MONTH_OFFSET, PERSIAN_MONTHS, LOCALIZED_LOGIN_CODE_DIGITS, normalizeLoginCodeInput, messageKey, titleFor, displayKindLabel, CategoryTreeRow, categoryTree, STORAGE, readStored, writeStored, REMOTE_MESSAGE_TTL_MS, AUTO_NEWER_TTL_MS, TERM_CACHE_TTL_MS, mediaUrl, JALALI_DAY_LABEL_FORMATTER, JALALI_DAY_KEY_FORMATTER, parseSourceKey, jalaliDayLabel, jalaliDayKey, temporalIndexPredictions, div, mod, jalCal, g2d, d2g, j2d, jalaliToGregorian, parseJalaliDate, jalaliParts, jalaliYmd, jalaliMonthLength, jalaliMonths, jalaliWeekdays, JalaliDatePicker } from './utils/helpers'
+import { toast } from './MaterialToast'
+import { Alert, Avatar, Box, Button, ButtonBase, Checkbox, Chip, CircularProgress, Dialog, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, MenuItem, Paper, Popover, Radio, RadioGroup, Select, Skeleton, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material'
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
+import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
+import CloseRounded from '@mui/icons-material/CloseRounded'
+import { api, ApiError, AUTH_SESSION_INVALID_EVENT, query, scopedStorageKey } from './lib/api'
 import { albumCaption, buildAlbumLookup } from './lib/groupedMedia'
 import type { MediaAlbum } from './lib/groupedMedia'
 import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isNearBottom, mergeMessagesById, shouldAutoFollow, stableMessageKey, updateTopPaginationGate } from './lib/scrollMath'
 import type { MessageScrollMemory, ScrollAnchor, TopPaginationGate } from './lib/scrollMath'
 import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, SenderFilterOption, Site, Term } from './lib/types'
-import { ContactDirectoryModal } from './ContactDirectoryModal'
 import { QuickSendBar } from './QuickSendBar'
-import { useColorMode } from './theme'
-import { MaterialIndexWorkbench } from './MaterialIndexWorkbench'
-import { MessageIndexEditor } from './MessageIndexEditor'
 import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
-import { LoginAppearanceProvider, LoginAppearanceSettingsPanel, LoginSurface } from './LoginExperience'
+import { waitForAdaptivePoll } from './lib/polling.mjs'
+import { LoginAppearanceProvider, LoginSurface } from './LoginExperience'
+import { AppUserGate, AppUserLogoutButton, useAppUser } from './AppUserGate'
+import { WorkspaceNavigation } from './WorkspaceNavigation'
+import { UsageInfoDialog } from './UsageInfoDialog'
+import { ConversationListPage } from './ConversationListPage'
+import { ChatHeader } from './ChatHeader'
+import { AuthBrandMark, AuthBrandPill } from './AuthBrand'
+import { MessageContentCard } from './MessageContentCard'
 
-type AuthStatus = { authenticated: boolean; session_present: boolean; password_pending: boolean; session_error?: boolean; session_invalid?: boolean; session_error_code?: string; session_error_type?: string; fresh_login_available?: boolean; remote_warning?: boolean; remote_error_type?: string; remote_error_code?: number | string }
+const ContactDirectoryModal = lazy(() => import('./ContactDirectoryModal').then(module => ({ default: module.ContactDirectoryModal })))
+const SettingsPage = lazy(() => import('./SettingsPage').then(module => ({ default: module.SettingsPage })))
+const MessageFilterDialog = lazy(() => import('./MessageFilterDialog').then(module => ({ default: module.MessageFilterDialog })))
+const ContentIndexDialog = lazy(() => import('./ContentIndexDialog').then(module => ({ default: module.ContentIndexDialog })))
+const MessageIndexEditor = lazy(() => import('./MessageIndexEditor').then(module => ({ default: module.MessageIndexEditor })))
+import {
+  MessengerAccountGate,
+  MessengerAccountMenuControl,
+  useMessengerAccounts,
+} from './MessengerAccountGate'
+
+type AuthChallengeSummary = { challenge_id?: string; stage?: 'code' | 'password'; delivery_type?: string }
+type AuthStatus = { authenticated: boolean; session_present: boolean; password_pending: boolean; session_error?: boolean; session_invalid?: boolean; session_error_code?: string; session_error_type?: string; fresh_login_available?: boolean; remote_warning?: boolean; remote_error_type?: string; remote_error_code?: number | string; challenge?: AuthChallengeSummary }
 type Tab = 'all' | 'channel' | 'group' | 'personal' | 'favorite'
 type BulkMode = 'members' | 'numbers' | 'invite'
 type MemberScope = 'all_snapshot' | 'selected'
 type ComposerResult = Record<string, any>
-type IndexWorkbenchTab = 'index' | 'display'
 type IndexDefinitionKind = 'wordpress-category' | 'wordpress-tag' | 'custom'
 type IndexDefinition = {
   id: number
@@ -33,262 +53,6 @@ type IndexDefinition = {
 
 const WORDPRESS_TAG_INDEX_OFFSET = 1_000_000_000
 const CUSTOM_INDEX_OFFSET = 2_000_000_000
-const TEMPORAL_YEAR_OFFSET = 3_000_000_000
-const TEMPORAL_MONTH_OFFSET = 3_100_000_000
-const PERSIAN_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند']
-
-const messageKey = (dialog: DialogItem, message: MessageItem) => stableMessageKey(dialog.peer_key, message.id)
-const titleFor = (dialog: DialogItem | null) => dialog?.peer.title || (dialog?.peer.username ? `@${dialog.peer.username}` : dialog ? `گفتگو ${dialog.peer.id}` : 'گفتگو')
-const displayKindLabel = (kind: DisplayKind) => kind === 'channel' ? 'کانال' : kind === 'group' ? 'گروه' : 'شخصی'
-
-type CategoryTreeRow = { term: Term; depth: number }
-
-function categoryTree(terms: Term[]): CategoryTreeRow[] {
-  const byId = new Map(terms.map(term => [term.id, term]))
-  const children = new Map<number, Term[]>()
-  const roots: Term[] = []
-  const compare = (a: Term, b: Term) => a.name.localeCompare(b.name, 'fa')
-
-  for (const term of terms) {
-    const parentId = term.parent_id || null
-    if (!parentId || parentId === term.id || !byId.has(parentId)) roots.push(term)
-    else children.set(parentId, [...(children.get(parentId) || []), term])
-  }
-  roots.sort(compare)
-  children.forEach(items => items.sort(compare))
-
-  const rows: CategoryTreeRow[] = []
-  const visited = new Set<number>()
-  const append = (term: Term, depth: number) => {
-    if (visited.has(term.id)) return
-    visited.add(term.id)
-    rows.push({ term, depth })
-    for (const child of children.get(term.id) || []) append(child, depth + 1)
-  }
-  roots.forEach(term => append(term, 0))
-  terms.filter(term => !visited.has(term.id)).sort(compare).forEach(term => append(term, 0))
-  return rows
-}
-
-const STORAGE = {
-  siteKey: 'eitaa-bridge.ui.site-key',
-  peerKey: 'eitaa-bridge.ui.peer-key',
-  tab: 'eitaa-bridge.ui.dialog-tab',
-  syncTimes: 'eitaa-bridge.ui.message-sync-times',
-  terms: 'eitaa-bridge.ui.wordpress-terms',
-  indexAliases: 'eitaa-bridge.ui.content-index-aliases',
-  indexNames: 'eitaa-bridge.ui.content-index-names',
-  customIndexes: 'eitaa-bridge.ui.custom-indexes',
-  mediaDisplay: 'eitaa-bridge.ui.media-display',
-}
-
-function readStored<T>(key: string, fallback: T): T {
-  try {
-    const raw = window.localStorage.getItem(key)
-    return raw ? JSON.parse(raw) as T : fallback
-  } catch { return fallback }
-}
-
-function writeStored(key: string, value: unknown) {
-  try { window.localStorage.setItem(key, JSON.stringify(value)) } catch { /* best effort */ }
-}
-
-const REMOTE_MESSAGE_TTL_MS = 2 * 60 * 1000
-const AUTO_NEWER_TTL_MS = 45 * 1000
-const TERM_CACHE_TTL_MS = 10 * 60 * 1000
-const LOCAL_MEDIA_BASE = 'http://127.0.0.1:8765'
-const mediaUrl = (value?: string) => value ? `${LOCAL_MEDIA_BASE}${value}` : ''
-const MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })
-const JALALI_DAY_LABEL_FORMATTER = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-const JALALI_DAY_KEY_FORMATTER = new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' })
-
-function parseSourceKey(value: string) {
-  const [peerType, peerId, messageId] = value.split(':')
-  return { peerType: peerType as PeerType, peerId: Number(peerId), messageId: Number(messageId), peerKey: `${peerType}:${peerId}` }
-}
-
-function formatDate(value: string) {
-  try { return MESSAGE_DATE_FORMATTER.format(new Date(value)) }
-  catch { return value }
-}
-
-function jalaliDayLabel(value: string) {
-  try { return JALALI_DAY_LABEL_FORMATTER.format(new Date(value)) }
-  catch { return value }
-}
-
-function jalaliDayKey(value: string) {
-  try { return JALALI_DAY_KEY_FORMATTER.format(new Date(value)) }
-  catch { return value.slice(0, 10) }
-}
-
-function temporalIndexPredictions(value: string): IndexPrediction[] {
-  const [yearText, monthText] = jalaliDayKey(value).split('/')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return []
-  return [
-    {
-      label_id: TEMPORAL_YEAR_OFFSET + year,
-      label_name: `سال ${year.toLocaleString('fa-IR', { useGrouping: false })}`,
-      score: 1,
-      evidence: ['تاریخ پیام'],
-      accepted: true,
-    },
-    {
-      label_id: TEMPORAL_MONTH_OFFSET + year * 100 + month,
-      label_name: `${PERSIAN_MONTHS[month - 1]} ${year.toLocaleString('fa-IR', { useGrouping: false })}`,
-      score: 1,
-      evidence: ['تاریخ پیام'],
-      accepted: true,
-    },
-  ]
-}
-
-const div = (a: number, b: number) => Math.trunc(a / b)
-const mod = (a: number, b: number) => a - Math.trunc(a / b) * b
-
-function jalCal(jy: number) {
-  const breaks = [-61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210, 1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178]
-  const gy = jy + 621
-  let leapJ = -14
-  let jp = breaks[0]
-  let jump = 0
-  for (let i = 1; i < breaks.length; i += 1) {
-    const jm = breaks[i]
-    jump = jm - jp
-    if (jy < jm) break
-    leapJ += div(jump, 33) * 8 + div(mod(jump, 33), 4)
-    jp = jm
-  }
-  const n = jy - jp
-  leapJ += div(n, 33) * 8 + div(mod(n, 33) + 3, 4)
-  if (mod(jump, 33) === 4 && jump - n === 4) leapJ += 1
-  const leapG = div(gy, 4) - div((div(gy, 100) + 1) * 3, 4) - 150
-  const march = 20 + leapJ - leapG
-  let leap = mod(mod(n + 1, 33) - 1, 4)
-  if (leap === -1) leap = 4
-  return { leap, gy, march }
-}
-
-function g2d(gy: number, gm: number, gd: number) {
-  let d = div((gy + div(gm - 8, 6) + 100100) * 1461, 4)
-  d += div(153 * mod(gm + 9, 12) + 2, 5) + gd - 34840408
-  d = d - div(div(gy + 100100 + div(gm - 8, 6), 100) * 3, 4) + 752
-  return d
-}
-
-function d2g(jdn: number) {
-  let j = 4 * jdn + 139361631
-  j = j + div(div(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908
-  const i = div(mod(j, 1461), 4) * 5 + 308
-  const gd = div(mod(i, 153), 5) + 1
-  const gm = mod(div(i, 153), 12) + 1
-  const gy = div(j, 1461) - 100100 + div(8 - gm, 6)
-  return { gy, gm, gd }
-}
-
-function j2d(jy: number, jm: number, jd: number) {
-  const r = jalCal(jy)
-  return g2d(r.gy, 3, r.march) + (jm - 1) * 31 - div(jm, 7) * (jm - 7) + jd - 1
-}
-
-function jalaliToGregorian(jy: number, jm: number, jd: number) {
-  return d2g(j2d(jy, jm, jd))
-}
-
-function parseJalaliDate(value: string) {
-  const normalized = value.replace(/[۰-۹]/g, char => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(char))).trim()
-  const match = normalized.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/)
-  if (!match) return null
-  const jy = Number(match[1]); const jm = Number(match[2]); const jd = Number(match[3])
-  if (jm < 1 || jm > 12 || jd < 1 || jd > 31 || (jm > 6 && jd > 30)) return null
-  const result = jalaliToGregorian(jy, jm, jd)
-  const local = new Date(result.gy, result.gm - 1, result.gd, 0, 0, 0, 0)
-  return Number.isNaN(local.getTime()) ? null : local
-}
-
-function jalaliParts(value = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(value)
-  const read = (type: string) => Number(parts.find(item => item.type === type)?.value || 0)
-  return { year: read('year'), month: read('month'), day: read('day') }
-}
-
-function jalaliYmd(year: number, month: number, day: number) {
-  return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`
-}
-
-function jalaliMonthLength(year: number, month: number) {
-  if (month <= 6) return 31
-  if (month <= 11) return 30
-  return parseJalaliDate(jalaliYmd(year, 12, 30)) ? 30 : 29
-}
-
-const jalaliMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند']
-const jalaliWeekdays = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
-
-function JalaliDatePicker(props: {
-  value: string
-  mode: 'day' | 'from'
-  disabled?: boolean
-  busy?: boolean
-  onMode: (mode: 'day' | 'from') => void
-  onSelect: (value: string, mode: 'day' | 'from') => void
-  onClear: () => void
-}) {
-  const now = useMemo(() => jalaliParts(), [])
-  const parsed = props.value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
-  const [open, setOpen] = useState(false)
-  const [year, setYear] = useState(parsed ? Number(parsed[1]) : now.year)
-  const [month, setMonth] = useState(parsed ? Number(parsed[2]) : now.month)
-  const root = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const close = (event: MouseEvent) => { if (root.current && !root.current.contains(event.target as Node)) setOpen(false) }
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', close); window.addEventListener('keydown', key)
-    return () => { document.removeEventListener('mousedown', close); window.removeEventListener('keydown', key) }
-  }, [])
-  const first = parseJalaliDate(jalaliYmd(year, month, 1))
-  const offset = first ? (first.getDay() + 1) % 7 : 0
-  const days = Array.from({ length: jalaliMonthLength(year, month) }, (_, index) => index + 1)
-  const moveMonth = (delta: number) => {
-    let nextMonth = month + delta; let nextYear = year
-    if (nextMonth < 1) { nextMonth = 12; nextYear -= 1 }
-    if (nextMonth > 12) { nextMonth = 1; nextYear += 1 }
-    setMonth(nextMonth); setYear(nextYear)
-  }
-  return <div className="jalali-picker" ref={root}>
-    <button className={`btn btn-sm btn-ghost calendar-button ${props.value ? 'active' : ''}`} disabled={props.disabled} onClick={() => setOpen(value => !value)} title={props.value ? `فیلتر تاریخ ${props.value}` : 'انتخاب تاریخ شمسی'}>
-      {props.busy ? <span className="loading loading-dots loading-xs" /> : <Icon name="calendar" size={20} />}
-      {props.value && <span>{props.value}</span>}
-    </button>
-    {open && <div className="jalali-popover card" onClick={event => event.stopPropagation()}>
-      <div className="date-mode tabs tabs-box">
-        <button type="button" role="tab" aria-selected={props.mode === 'day'} className={`tab ${props.mode === 'day' ? 'active' : ''}`} onClick={() => props.onMode('day')}>فقط همان روز</button>
-        <button type="button" role="tab" aria-selected={props.mode === 'from'} className={`tab ${props.mode === 'from' ? 'active' : ''}`} onClick={() => props.onMode('from')}>از این تاریخ به بعد</button>
-      </div>
-      <div className="calendar-month-head">
-        <button onClick={() => moveMonth(1)} aria-label="ماه بعد">‹</button>
-        <strong>{jalaliMonths[month - 1]} {year}</strong>
-        <button onClick={() => moveMonth(-1)} aria-label="ماه قبل">›</button>
-      </div>
-      <div className="calendar-grid weekdays">{jalaliWeekdays.map(day => <span key={day}>{day}</span>)}</div>
-      <div className="calendar-grid days">
-        {Array.from({ length: offset }).map((_, index) => <span key={`empty-${index}`} />)}
-        {days.map(day => {
-          const value = jalaliYmd(year, month, day)
-          const isToday = year === now.year && month === now.month && day === now.day
-          return <button key={day} className={`${value === props.value ? 'selected' : ''} ${isToday ? 'today' : ''}`} onClick={() => { props.onSelect(value, props.mode); setOpen(false) }}>{day.toLocaleString('fa-IR')}</button>
-        })}
-      </div>
-      <div className="calendar-actions">
-        <button className="btn btn-sm btn-ghost" onClick={() => { setYear(now.year); setMonth(now.month) }}>امروز</button>
-        {props.value && <button className="btn btn-sm btn-ghost" onClick={() => { props.onClear(); setOpen(false) }}>پاک‌کردن فیلتر</button>}
-      </div>
-    </div>}
-  </div>
-}
-
 function initials(title: string) {
   const clean = title.trim()
   return clean ? clean.slice(0, 2) : 'ا'
@@ -312,29 +76,13 @@ function DialogAvatar({ dialog, siteKey, small = false }: { dialog: DialogItem |
     observer.observe(element)
     return () => { active = false; observer.disconnect() }
   }, [dialog, siteKey, src])
-  return <div ref={ref} className={`avatar ${small ? 'small' : ''}`}>
+  return <Avatar ref={ref} sx={{ width: small ? 34 : 46, height: small ? 34 : 46, flex: '0 0 auto', bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 800 }}>
     {src === undefined
       ? <Skeleton variant="circular" animation="wave" width="100%" height="100%" />
       : src
-        ? <img src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" />
+        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : initials(titleFor(dialog))}
-  </div>
-}
-
-function TitleBar() {
-  const [maximized, setMaximized] = useState(false)
-  useEffect(() => {
-    void window.eitaaDesktop.windowControls.isMaximized().then(setMaximized)
-    return window.eitaaDesktop.windowControls.onMaximized(setMaximized)
-  }, [])
-  return <header className="desktop-titlebar">
-    <div className="titlebar-caption"><span className="titlebar-logo">EB</span><b>Eitaa Bridge</b></div>
-    <div className="window-controls">
-      <button title="کمینه" onClick={() => void window.eitaaDesktop.windowControls.minimize()}>—</button>
-      <button title={maximized ? 'بازگردانی' : 'بیشینه'} onClick={() => void window.eitaaDesktop.windowControls.toggleMaximize()}>{maximized ? '❐' : '□'}</button>
-      <button className="window-close" title="بستن" onClick={() => void window.eitaaDesktop.windowControls.close()}>×</button>
-    </div>
-  </header>
+  </Avatar>
 }
 
 function makeCompositionKey() {
@@ -342,44 +90,40 @@ function makeCompositionKey() {
   return `ui-${stamp}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-type IconName = 'menu' | 'all' | 'channel' | 'group' | 'personal' | 'favorite' | 'settings' | 'plus' | 'refresh' | 'wordpress' | 'logout' | 'search' | 'close' | 'more' | 'excel' | 'bulk' | 'calendar' | 'filter'
-
-function Icon({ name, size = 21 }: { name: IconName; size?: number }) {
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
-  if (name === 'menu') return <svg {...common}><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-  if (name === 'all') return <svg {...common}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3 1.7-5.1A7 7 0 0 1 3 12V8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5z" /></svg>
-  if (name === 'channel') return <svg {...common}><path d="m3 11 15-6v14L3 13z" /><path d="M8 14v5" /></svg>
-  if (name === 'group') return <svg {...common}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-  if (name === 'personal') return <svg {...common}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
-  if (name === 'favorite') return <svg {...common}><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" /></svg>
-  if (name === 'settings') return <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.09A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.09A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.2.36.5.7.9.9.33.18.7.28 1.1.28H21v4h-.09A1.7 1.7 0 0 0 19.4 15z" /></svg>
-  if (name === 'plus') return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>
-  if (name === 'refresh') return <svg {...common}><path d="M20 6v5h-5M4 18v-5h5" /><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 9M5.5 15A7 7 0 0 0 17.8 17.8L20 15" /></svg>
-  if (name === 'wordpress') return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M7.5 8.5 11 17l2.2-5.5M14.2 8.5 17 17M6 8.5h3M13 8.5h3" /></svg>
-  if (name === 'logout') return <svg {...common}><path d="M10 17l5-5-5-5M15 12H3" /><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" /></svg>
-  if (name === 'search') return <svg {...common}><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
-  if (name === 'close') return <svg {...common}><path d="m6 6 12 12M18 6 6 18" /></svg>
-  if (name === 'more') return <svg {...common}><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none" /></svg>
-  if (name === 'excel') return <svg {...common}><path d="M4 3h10l6 6v12H4z" /><path d="M14 3v6h6M8 13l4 5M12 13l-4 5" /></svg>
-  if (name === 'calendar') return <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
-  if (name === 'filter') return <svg {...common}><path d="M4 6h16M7 12h10M10 18h4" /></svg>
-  return <svg {...common}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
-}
-
 function MaterialLegacyDialog({ children, close, locked = false, maxWidth = 'md' }: { children: ReactNode; close: () => void; locked?: boolean; maxWidth?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const theme = useTheme()
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'))
   return <Dialog open fullScreen={fullScreen} fullWidth maxWidth={maxWidth} onClose={locked ? undefined : close}>
-    <DialogContent className="material-legacy-dialog-content" sx={{ p: { xs: 1, sm: 1.5 }, bgcolor: 'background.default' }}>
+    <DialogContent sx={{ p: { xs: 1, sm: 1.5 }, bgcolor: 'background.default' }}>
       {children}
     </DialogContent>
   </Dialog>
 }
 
 export default function App() {
+  const mobileShell = useMediaQuery(
+    '(max-width:599px), (max-width:899px) and (orientation:landscape) and (max-height:599px)',
+    { noSsr: true },
+  )
+  const content = <AppUserGate><MessengerAccountGate><EitaaApp /></MessengerAccountGate></AppUserGate>
+  return <LoginAppearanceProvider>
+    {mobileShell ? <MobileShell>{content}</MobileShell> : <DesktopShell>{content}</DesktopShell>}
+  </LoginAppearanceProvider>
+}
+
+function MobileShell({ children }: { children: ReactNode }) {
+  return <Box data-presentation-shell="mobile" sx={{ width: '100%', height: '100dvh', minWidth: 0, minHeight: '100svh', overflow: 'hidden', bgcolor: 'background.default' }}>{children}</Box>
+}
+
+function DesktopShell({ children }: { children: ReactNode }) {
+  return <Box data-presentation-shell="desktop" sx={{ width: '100%', height: '100dvh', minWidth: 0, minHeight: '100svh', overflow: 'hidden', bgcolor: 'background.default' }}>{children}</Box>
+}
+
+function EitaaApp() {
   const [status, setStatus] = useState<AuthStatus | null>(null)
   const [fatal, setFatal] = useState('')
   const [forceFreshLogin, setForceFreshLogin] = useState(false)
+  const [freshChallenge, setFreshChallenge] = useState<AuthChallengeSummary | undefined>()
   const [loginEpoch, setLoginEpoch] = useState(0)
   const refreshStatus = useCallback(async () => {
     setFatal('')
@@ -389,11 +133,12 @@ export default function App() {
       if (next.authenticated) setForceFreshLogin(false)
     } catch (error) { setFatal(error instanceof Error ? error.message : 'سرویس محلی در دسترس نیست.') }
   }, [])
-  const beginFreshLogin = useCallback(() => {
+  const beginFreshLogin = useCallback((challenge?: AuthChallengeSummary) => {
     setFatal(''); setForceFreshLogin(true); setLoginEpoch(value => value + 1)
+    setFreshChallenge(challenge)
     setStatus({ authenticated: false, session_present: false, password_pending: false, fresh_login_available: true })
   }, [])
-  const handleAuthenticated = useCallback(async () => { setForceFreshLogin(false); await refreshStatus() }, [refreshStatus])
+  const handleAuthenticated = useCallback(async () => { setForceFreshLogin(false); setFreshChallenge(undefined); await refreshStatus() }, [refreshStatus])
   useEffect(() => { void refreshStatus() }, [refreshStatus])
   useEffect(() => {
     const recoverInvalidSession = () => { void refreshStatus() }
@@ -403,22 +148,22 @@ export default function App() {
   let content: ReactNode
   if (fatal) content = <StartupError message={fatal} retry={refreshStatus} />
   else if (!status) content = <Splash />
-  else if (forceFreshLogin) content = <LoginGate key={`fresh-login-${loginEpoch}`} onAuthenticated={handleAuthenticated} />
-  else if (!status.authenticated && status.session_present && status.session_error) content = <SessionRecovery status={status} retry={refreshStatus} onFreshLogin={beginFreshLogin} />
-  else if (!status.authenticated) content = <LoginGate key={`login-${loginEpoch}`} onAuthenticated={handleAuthenticated} />
+  else if (forceFreshLogin) content = <LoginGate key={`fresh-login-${loginEpoch}`} initialChallenge={freshChallenge} onAuthenticated={handleAuthenticated} />
+  else if (!status.authenticated && status.session_present && status.session_error) content = <SessionRecovery status={status} onFreshLogin={beginFreshLogin} />
+  else if (!status.authenticated) content = <LoginGate key={`login-${loginEpoch}`} initialChallenge={status.challenge} onAuthenticated={handleAuthenticated} />
   else {
     const sessionWarning = status.remote_warning
       ? `نشست محلی باز شد، اما بررسی ارتباط با ایتا موفق نبود${status.remote_error_type ? ` (${status.remote_error_type})` : ''}. همگام‌سازی را دوباره امتحان کنید.`
       : undefined
     content = <Workspace onLogout={refreshStatus} sessionWarning={sessionWarning} />
   }
-  return <LoginAppearanceProvider><Box className="desktop-shell">{content}</Box></LoginAppearanceProvider>
+  return <>{content}</>
 }
 
 function Splash() {
-  return <LoginSurface><Box className="splash" sx={{ display: 'grid', placeItems: 'center', minHeight: 260 }}>
+  return <LoginSurface><Box sx={{ display: 'grid', placeItems: 'center', minHeight: 260 }}>
     <Stack alignItems="center" spacing={2}>
-      <Box className="brand-mark">EB</Box>
+      <AuthBrandMark />
       <Typography variant="h5">Eitaa Bridge</Typography>
       <CircularProgress size={32} aria-label="در حال آماده‌سازی" />
     </Stack>
@@ -426,107 +171,186 @@ function Splash() {
 }
 function StartupError({ message, retry }: { message: string; retry: () => void }) {
   return <LoginSurface><Stack spacing={2} alignItems="stretch">
-    <Box className="brand-mark" alignSelf="center">!</Box>
+    <Avatar sx={{ alignSelf: 'center', bgcolor: 'error.main', color: 'error.contrastText', fontWeight: 900 }}>!</Avatar>
     <Typography variant="h5" textAlign="center">راه‌اندازی انجام نشد</Typography>
     <Alert severity="error">{message}</Alert>
     <Button variant="contained" onClick={retry}>تلاش دوباره</Button>
   </Stack></LoginSurface>
 }
 
-function SessionRecovery({ status, retry, onFreshLogin }: { status: AuthStatus; retry: () => Promise<void> | void; onFreshLogin: () => void }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const invalidSession = status.session_invalid || status.session_error_code === 'auth_session_invalid'
-  const startFreshLogin = async () => {
-    if (!confirm('نشست فعلی فقط بایگانی شود و صفحه ورود تازه باز شود؟ فایل پشتیبان حذف نخواهد شد.')) return
-    setBusy(true); setError('')
+function SessionRecovery({ status, onFreshLogin }: { status: AuthStatus; onFreshLogin: (challenge?: AuthChallengeSummary) => void }) {
+  const started = useRef(false)
+  const [failed, setFailed] = useState(false)
+  const recover = useCallback(async () => {
+    if (started.current) return
+    started.current = true
+    setFailed(false)
+    const invalidSession = status.session_invalid || status.session_error_code === 'auth_session_invalid'
     try {
-      await api<{ login_ready?: boolean }>('POST', '/api/v1/auth/reset-local-session', { confirm: true })
-      onFreshLogin()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'بایگانی نشست ناموفق بود.')
-      setBusy(false)
+      await api<{ login_ready?: boolean }>(
+        'POST',
+        '/api/v1/auth/reset-local-session',
+        invalidSession ? { automatic_recovery: true } : { confirm: true },
+      )
+      try {
+        const result = await api<{ challenge?: AuthChallengeSummary }>('POST', '/api/v1/auth/request-code', {})
+        onFreshLogin(result.challenge)
+      } catch {
+        onFreshLogin()
+      }
+    } catch {
+      started.current = false
+      setFailed(true)
     }
-  }
-  return <LoginSurface><Stack spacing={2}>
-    <Box className="brand-mark" alignSelf="center">!</Box>
-    <Typography variant="h5" textAlign="center">{invalidSession ? 'نشست ایتا نیاز به بررسی دارد' : 'نشست ایتا موجود است'}</Typography>
-    <Typography color="text.secondary">
-      {invalidSession
-        ? 'ایتا در آخرین بررسی این نشست را معتبر ندانست. می‌توانید دوباره بررسی کنید؛ اگر خطا باقی ماند، نشست قبلی را به‌صورت پشتیبان بایگانی کنید و دوباره وارد شوید.'
-        : 'برنامه نشست شما را حذف نکرده است، اما هسته نتوانست آن را باز کند. این حالت می‌تواند موقت باشد یا فایل نشست واقعاً نامعتبر شده باشد.'}
-    </Typography>
-    <Alert severity="warning">کد: {status.session_error_code || 'auth_session_open_failed'}{status.session_error_type ? ` — ${status.session_error_type}` : ''}</Alert>
-    {error && <Alert severity="error">{error}</Alert>}
-    <Button variant="contained" disabled={busy} onClick={retry}>بررسی دوباره نشست</Button>
-    {status.fresh_login_available !== false && <Button variant="outlined" disabled={busy} onClick={() => void startFreshLogin()}>
-      {busy ? 'در حال بایگانی…' : 'بایگانی نشست و ورود تازه'}
-    </Button>}
-    <Typography variant="caption" color="text.secondary">ورود تازه فقط با انتخاب صریح شما آغاز می‌شود و فایل قبلی با پسوند .bak نگه داشته خواهد شد.</Typography>
+  }, [onFreshLogin, status.session_error_code, status.session_invalid])
+  useEffect(() => { void recover() }, [recover])
+  return <LoginSurface><Stack spacing={2.25} alignItems="center" textAlign="center">
+    <AuthBrandMark />
+    <Typography variant="h5">در حال آماده‌سازی ورود</Typography>
+    <Typography variant="body2" color="text.secondary">لطفاً چند لحظه صبر کنید.</Typography>
+    {!failed && <CircularProgress size={30} aria-label="در حال آماده‌سازی ورود" />}
+    {failed && <Button variant="contained" onClick={() => void recover()}>تلاش دوباره</Button>}
+    <AppUserLogoutButton disabled={!failed} />
   </Stack></LoginSurface>
 }
 
-function LoginGate({ onAuthenticated }: { onAuthenticated: () => Promise<void> | void }) {
-  const [step, setStep] = useState<'phone' | 'code' | 'password'>('phone')
+function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () => Promise<void> | void; initialChallenge?: AuthChallengeSummary }) {
+  const [step, setStep] = useState<'phone' | 'code' | 'password'>(() => initialChallenge?.stage === 'password' ? 'password' : initialChallenge?.challenge_id ? 'code' : 'phone')
+  const [challengeId, setChallengeId] = useState(() => String(initialChallenge?.challenge_id || '').trim())
   const [phone, setPhone] = useState('+98')
   const phoneInputRef = useRef<HTMLInputElement | null>(null)
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [hint, setHint] = useState('')
+  const [hint, setHint] = useState(() => initialChallenge?.challenge_id
+    ? `کد ورود از طریق ${initialChallenge.delivery_type || 'ایتا'} ارسال شد.`
+    : '')
+  const [identityRecoveryRequired, setIdentityRecoveryRequired] = useState(false)
   useEffect(() => {
     if (step === 'phone') window.setTimeout(() => phoneInputRef.current?.focus(), 0)
   }, [step])
+  const applyCodeChallenge = (result: any) => {
+    const issuedChallengeId = String(result.challenge?.challenge_id || '').trim()
+    if (!issuedChallengeId) throw new Error('شناسهٔ امن چالش ورود از سرویس دریافت نشد. صفحه را تازه‌سازی و دوباره تلاش کنید.')
+    setChallengeId(issuedChallengeId)
+    setIdentityRecoveryRequired(false)
+    setHint(`کد از طریق ${result.challenge?.delivery_type || 'ایتا'} ارسال شد.`)
+    setStep('code')
+  }
+  const requestFreshCode = async () => {
+    setBusy(true); setError('')
+    try {
+      const result = await api<any>('POST', '/api/v1/auth/request-code', {})
+      applyCodeChallenge(result)
+      setCode('')
+      setHint('کد تازه ارسال شد؛ فقط آخرین کد دریافتی را وارد کنید.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'دریافت کد تازه ناموفق بود.')
+    } finally {
+      setBusy(false)
+    }
+  }
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError('')
     try {
       if (step === 'phone') {
         const result = await api<any>('POST', '/api/v1/auth/request-code', { phone })
-        setHint(`کد از طریق ${result.challenge?.delivery_type || 'ایتا'} ارسال شد.`); setStep('code')
+        applyCodeChallenge(result)
       } else if (step === 'code') {
-        const result = await api<any>('POST', '/api/v1/auth/submit-code', { code })
-        if (result.step === 'password') { setHint('رمز دوم حساب را وارد کنید.'); setStep('password') }
+        if (!challengeId) throw new Error('شناسهٔ چالش ورود در دسترس نیست. صفحه را تازه‌سازی کنید تا چالش فعال بازیابی شود.')
+        const result = await api<any>('POST', '/api/v1/auth/submit-code', { challenge_id: challengeId, code: normalizeLoginCodeInput(code) })
+        if (result.step === 'password') {
+          setChallengeId(String(result.challenge?.challenge_id || challengeId).trim())
+          setCode('')
+          setHint('رمز دوم حساب را وارد کنید.'); setStep('password')
+        }
         else await onAuthenticated()
-      } else { await api('POST', '/api/v1/auth/submit-password', { password }); await onAuthenticated() }
-    } catch (e) { setError(e instanceof Error ? e.message : 'ورود ناموفق بود.') }
+      } else {
+        if (!challengeId) throw new Error('شناسهٔ چالش ورود در دسترس نیست. صفحه را تازه‌سازی کنید تا چالش فعال بازیابی شود.')
+        await api('POST', '/api/v1/auth/submit-password', { challenge_id: challengeId, password })
+        await onAuthenticated()
+      }
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'api_auth_session_reset_required') {
+        try {
+          await api<{ login_ready?: boolean }>('POST', '/api/v1/auth/reset-local-session', { confirm: true })
+          const result = await api<any>('POST', '/api/v1/auth/request-code', { phone })
+          applyCodeChallenge(result)
+        } catch (recoveryError) {
+          setError(recoveryError instanceof Error ? recoveryError.message : 'آماده‌سازی ورود ناموفق بود. دوباره تلاش کنید.')
+        }
+      } else if (e instanceof ApiError && e.code === 'phone_unprotection_failed') {
+        setIdentityRecoveryRequired(true)
+        setError('کلید محافظت محلیِ مهاجرت قبلی در این اجرای ویندوز قابل بازکردن نیست. می‌توانید شمارهٔ همین حساب را با یک کلید پایدار تازه بازیابی کنید.')
+      } else if (e instanceof ApiError && e.code === 'auth_provider_code_expired') {
+        try {
+          const result = await api<any>('POST', '/api/v1/auth/request-code', {})
+          applyCodeChallenge(result)
+          setCode('')
+          setHint('کد قبلی منقضی شده بود؛ کد تازه ارسال شد.')
+        } catch (refreshError) {
+          setError(refreshError instanceof Error ? refreshError.message : 'دریافت کد تازه ناموفق بود.')
+        }
+      } else {
+        setError(e instanceof Error ? e.message : 'ورود ناموفق بود.')
+      }
+    }
     finally { setBusy(false) }
   }
-  return <LoginSurface><Box component="form" className="login-form" onSubmit={submit} noValidate>
+  const recoverPhoneIdentity = async () => {
+    if (!confirm('محافظت محلی شمارهٔ همین حساب بازسازی شود؟ کلید و پایگاه دادهٔ قبلی پیش از تغییر پشتیبان‌گیری می‌شوند و هنوز هیچ کد ورودی از ایتا درخواست نخواهد شد.')) return
+    setBusy(true); setError('')
+    try {
+      await api<{ recovered?: boolean; login_ready?: boolean }>('POST', '/api/v1/auth/recover-phone-identity', { phone, confirm: true })
+      setIdentityRecoveryRequired(false)
+      setHint('محافظت شماره با موفقیت بازیابی شد؛ اکنون دوباره دریافت کد ورود را انتخاب کنید.')
+      window.setTimeout(() => phoneInputRef.current?.focus(), 0)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'بازیابی محافظت شماره ناموفق بود.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return <LoginSurface><Box component="form" onSubmit={submit} noValidate>
     <Stack spacing={2.25}>
-      <Box className="login-provider-pill"><span>EB</span><b>حساب ایتا</b></Box>
+      <AppUserLogoutButton disabled={busy} />
+      <AuthBrandPill label="حساب ایتا" />
       <Box>
-        <Typography variant="h5" component="h2">ورود امن به ایتا</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: .75, lineHeight: 1.9 }}>
-          کد ورود فقط برای ساخت Session محلی استفاده می‌شود و اطلاعات گفتگو پیش از احراز هویت نمایش داده نخواهد شد.
-        </Typography>
+        <Typography variant="h5" component="h2" textAlign="center">ورود به ایتا</Typography>
       </Box>
-      <Box className="login-step-track" aria-label="مراحل ورود">
-        {(['phone', 'code', 'password'] as const).map((item, index) => <Box
-          key={item}
-          className={`${step === item ? 'active' : ''} ${(['phone', 'code', 'password'] as const).indexOf(step) > index ? 'done' : ''}`}
-        >
-          <span>{(index + 1).toLocaleString('fa-IR')}</span>
-          <small>{item === 'phone' ? 'شماره' : item === 'code' ? 'کد' : 'رمز دوم'}</small>
-        </Box>)}
-      </Box>
+      <Stack direction="row" spacing={0.75} aria-label="مراحل ورود">
+        {(['phone', 'code', 'password'] as const).map((item, index) => {
+          const active = step === item
+          const done = (['phone', 'code', 'password'] as const).indexOf(step) > index
+          return <Stack key={item} direction="row" alignItems="center" justifyContent="center" spacing={0.5} sx={{ flex: 1, minWidth: 0, p: 0.75, color: active || done ? 'primary.main' : 'text.secondary', bgcolor: active ? 'action.selected' : 'action.hover', border: 1, borderColor: active || done ? 'primary.main' : 'divider', borderRadius: 1.5 }}>
+            <Avatar sx={{ width: 22, height: 22, fontSize: '0.7rem', bgcolor: active || done ? 'primary.main' : 'action.disabledBackground', color: active || done ? 'primary.contrastText' : 'text.secondary' }}>{(index + 1).toLocaleString('fa-IR')}</Avatar>
+            <Typography variant="caption" fontWeight={700} noWrap>{item === 'phone' ? 'شماره' : item === 'code' ? 'کد' : 'رمز دوم'}</Typography>
+          </Stack>
+        })}
+      </Stack>
       {step === 'phone' && <TextField inputRef={phoneInputRef} label="شماره تلفن ایتا" type="tel" name="phone" dir="ltr" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+98912…" slotProps={{ htmlInput: { inputMode: 'tel', spellCheck: false, dir: 'ltr' } }} helperText="شماره را با کد کشور وارد کنید؛ نمونه: ‎+98912…" />}
-      {step === 'code' && <TextField label="کد یک‌بارمصرف" dir="ltr" autoFocus value={code} onChange={e => setCode(e.target.value)} autoComplete="one-time-code" slotProps={{ htmlInput: { dir: 'ltr', inputMode: 'numeric' } }} />}
+      {step === 'code' && <TextField label="کد یک‌بارمصرف" dir="ltr" autoFocus value={code} onChange={e => setCode(normalizeLoginCodeInput(e.target.value))} autoComplete="one-time-code" slotProps={{ htmlInput: { dir: 'ltr', inputMode: 'numeric' } }} />}
       {step === 'password' && <TextField label="رمز دوم حساب" type="password" autoFocus value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />}
       <Box aria-live="polite">{hint && <Alert severity="info">{hint}</Alert>}{error && <Alert severity="error">{error}</Alert>}</Box>
       <Button type="submit" size="large" variant="contained" disabled={busy} startIcon={busy ? <CircularProgress size={18} color="inherit" /> : undefined}>
         {busy ? 'در حال بررسی…' : step === 'phone' ? 'دریافت کد ورود' : 'ادامه ورود'}
       </Button>
-      {step !== 'phone' && <Button type="button" variant="text" onClick={() => { setStep('phone'); setCode(''); setPassword(''); setHint('') }}>ورود با شماره‌ای دیگر</Button>}
-      <Typography variant="caption" color="text.secondary" textAlign="center" sx={{ lineHeight: 1.8 }}>
-        نسخهٔ فعلی یک حساب فعال را باز می‌کند؛ پشتیبانی چندحسابی واقعی فقط با Session و Scheduler مستقل برای هر حساب فعال خواهد شد.
-      </Typography>
+      {step === 'code' && <Button type="button" variant="outlined" disabled={busy} onClick={() => void requestFreshCode()}>دریافت کد تازه</Button>}
+      {identityRecoveryRequired && <Button type="button" variant="outlined" color="warning" disabled={busy} onClick={() => void recoverPhoneIdentity()}>
+        بازیابی امن محافظت شماره
+      </Button>}
+      {step !== 'phone' && <Button type="button" variant="text" onClick={() => { setStep('phone'); setChallengeId(''); setCode(''); setPassword(''); setHint('') }}>ورود با شماره‌ای دیگر</Button>}
     </Stack>
   </Box></LoginSurface>
 }
 
 function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; sessionWarning?: string }) {
-  const { resolvedMode } = useColorMode()
+  const appUser = useAppUser()
+  const messengerAccounts = useMessengerAccounts()
+  const dialogsSupported = !messengerAccounts.featureEnabled || messengerAccounts.hasCapability('dialogs.read')
+  const historySupported = !messengerAccounts.featureEnabled || messengerAccounts.hasCapability('history.read')
+  const mediaReadSupported = !messengerAccounts.featureEnabled || messengerAccounts.hasCapability('media.read')
   const [sites, setSites] = useState<Site[]>([])
   const [siteKey, setSiteKey] = useState('')
   const [dialogs, setDialogs] = useState<DialogItem[]>([])
@@ -542,6 +366,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [loadingDialogs, setLoadingDialogs] = useState(false)
   const [syncingDialogs, setSyncingDialogs] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [liveMessageState, setLiveMessageState] = useState<'idle' | 'connecting' | 'live' | 'retrying'>('idle')
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectionMode, setSelectionMode] = useState(false)
   const [activeUsage, setActiveUsage] = useState<{ message: MessageItem; usage: MessageUsage } | null>(null)
@@ -557,7 +382,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   useEffect(() => { fullMediaCacheRef.current = fullMedia }, [fullMedia])
   const [mediaViewer, setMediaViewer] = useState<{ key: string; title: string } | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
-  const [chatsOpen, setChatsOpen] = useState(false)
+  const [chatsOpen, setChatsOpen] = useState(() => window.matchMedia('(max-width: 899px)').matches)
   const [communityOpen, setCommunityOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -566,13 +391,11 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [bulkMemberScope, setBulkMemberScope] = useState<MemberScope>('all_snapshot')
   const [bulkInitialNumbers, setBulkInitialNumbers] = useState<string[]>([])
   const [membersOpen, setMembersOpen] = useState(false)
-  const [railMenuOpen, setRailMenuOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const [contactsOpen, setContactsOpen] = useState(false)
   const [mediaDisplay, setMediaDisplay] = useState<'dynamic' | 'framed'>(() => readStored<'dynamic' | 'framed'>(STORAGE.mediaDisplay, 'dynamic'))
-  const [dialogMenuKey, setDialogMenuKey] = useState<string | null>(null)
   const [contentFiltersOpen, setContentFiltersOpen] = useState(false)
-  const [indexWorkbenchTab, setIndexWorkbenchTab] = useState<IndexWorkbenchTab>('index')
+  const [indexDialogOpen, setIndexDialogOpen] = useState(false)
   const [showWordPressUsed, setShowWordPressUsed] = useState(true)
   const [selectedIndexLabel, setSelectedIndexLabel] = useState<number | null>(null)
   const [selectedSenderKey, setSelectedSenderKey] = useState<string | null>(null)
@@ -599,15 +422,17 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const syncTimesRef = useRef<Record<string, number>>(readStored<Record<string, number>>(STORAGE.syncTimes, {}))
   const newerCheckRef = useRef<Record<string, number>>({})
   const dialogsLoadedRef = useRef(false)
+  const liveDialogSyncInFlightRef = useRef(false)
   const activeMessagePeerRef = useRef<string | null>(null)
   const messageScrollMemoryRef = useRef<Map<string, MessageScrollMemory>>(new Map())
   const messageCacheRef = useRef<Map<string, MessageItem[]>>(new Map())
+  const messageSyncInFlightRef = useRef<Set<string>>(new Set())
   const senderSyncAttemptRef = useRef<Set<string>>(new Set())
   const [composerDocked, setComposerDocked] = useState(() => window.matchMedia('(min-width: 1500px)').matches)
-  const [chatsDocked, setChatsDocked] = useState(() => window.matchMedia('(min-width: 821px)').matches)
+  const [chatsDocked, setChatsDocked] = useState(() => window.matchMedia('(min-width: 900px)').matches)
   useEffect(() => {
     const composerQuery = window.matchMedia('(min-width: 1500px)')
-    const chatsQuery = window.matchMedia('(min-width: 821px)')
+    const chatsQuery = window.matchMedia('(min-width: 900px)')
     const update = () => {
       setComposerDocked(composerQuery.matches); setChatsDocked(chatsQuery.matches)
       if (composerQuery.matches) setComposerOpen(false)
@@ -615,6 +440,16 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     }
     update(); composerQuery.addEventListener('change', update); chatsQuery.addEventListener('change', update)
     return () => { composerQuery.removeEventListener('change', update); chatsQuery.removeEventListener('change', update) }
+  }, [])
+  useEffect(() => {
+    const closeTransientPanels = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setChatsOpen(false)
+      setComposerOpen(false)
+      setContentFiltersOpen(false)
+    }
+    window.addEventListener('keydown', closeTransientPanels)
+    return () => window.removeEventListener('keydown', closeTransientPanels)
   }, [])
   useEffect(() => {
     if (sessionWarning) toast.warn(sessionWarning, { toastId: 'session-remote-warning' })
@@ -683,14 +518,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [])
 
   const syncDialogs = useCallback(async (options?: { silent?: boolean }) => {
-    if (!siteKey || syncingDialogs) return
+    if (!siteKey || syncingDialogs || !dialogsSupported) return
     const previousCount = dialogs.length
     setSyncingDialogs(true)
     try {
       const started = await api<{ job: { job_id: string; state: string } }>('POST', '/api/v1/dialogs/sync/start', { site_key: siteKey, page_size: 100, max_pages: 100 })
       let job: any = started.job
       for (let attempt = 0; attempt < 600 && ['queued', 'running'].includes(job.state); attempt += 1) {
-        await new Promise(resolve => window.setTimeout(resolve, 750))
+        await waitForAdaptivePoll(attempt, { active: true })
         const status = await api<{ job: any }>('GET', query('/api/v1/dialogs/sync/status', { job_id: job.job_id }))
         job = status.job
       }
@@ -711,10 +546,15 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       }
     } catch (e) { toast.error(e instanceof Error ? e.message : 'همگام‌سازی گفتگوها ناموفق بود.') }
     finally { setSyncingDialogs(false) }
-  }, [siteKey, syncingDialogs, dialogs.length, applyDialogs])
+  }, [siteKey, syncingDialogs, dialogs.length, dialogsSupported, applyDialogs])
 
   const loadDialogs = useCallback(async () => {
     if (!siteKey) return
+    if (!dialogsSupported) {
+      setDialogs([])
+      setDialog(null)
+      return
+    }
     setLoadingDialogs(true)
     try {
       const response = await api<{ dialogs: DialogItem[]; sync?: { deferred?: boolean } }>('POST', '/api/v1/dialogs/list', { site_key: siteKey, refresh_if_empty: true })
@@ -724,7 +564,18 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       }
     } catch (e) { toast.error(e instanceof Error ? e.message : 'دریافت گفتگوها ناموفق بود.') }
     finally { setLoadingDialogs(false) }
-  }, [siteKey, applyDialogs, syncDialogs])
+  }, [siteKey, dialogsSupported, applyDialogs, syncDialogs])
+
+  const liveSyncDialogs = useCallback(async () => {
+    if (!siteKey || !dialogsSupported || syncingDialogs || liveDialogSyncInFlightRef.current) return
+    liveDialogSyncInFlightRef.current = true
+    try {
+      const response = await api<{ dialogs: DialogItem[] }>('POST', '/api/v1/dialogs/live-sync', { site_key: siteKey })
+      applyDialogs(response.dialogs)
+    } finally {
+      liveDialogSyncInFlightRef.current = false
+    }
+  }, [applyDialogs, dialogsSupported, siteKey, syncingDialogs])
 
   const loadTerms = useCallback(async (force = false) => {
     if (!siteKey || !activeSite?.credentials_configured) {
@@ -749,12 +600,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [siteKey, activeSite?.credentials_configured])
 
   const listMessages = useCallback(async (selected: DialogItem, beforeId?: number, limit = viewportPageSize) => {
+    if (!historySupported) return []
     const response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', { site_key: siteKey, peer_file: selected.peer_file, limit, before_id: beforeId })
     return [...response.messages].reverse()
-  }, [siteKey, viewportPageSize])
+  }, [historySupported, siteKey, viewportPageSize])
 
   const markDialogRead = useCallback(async (selected: DialogItem, maxId: number, remainingUnreadCount: number) => {
-    if (!siteKey || maxId < 1 || lastReadRef.current[selected.peer_key] === maxId) return
+    if (!siteKey || !historySupported || maxId < 1 || lastReadRef.current[selected.peer_key] === maxId) return
     lastReadRef.current[selected.peer_key] = maxId
     try {
       await api('POST', '/api/v1/messages/read/enqueue', {
@@ -770,7 +622,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       delete lastReadRef.current[selected.peer_key]
       toast.warning('ثبت خوانده‌شدن در صف انجام نشد؛ نمایش پیام‌ها ادامه دارد.')
     }
-  }, [siteKey, loadDialogs])
+  }, [historySupported, siteKey, loadDialogs])
 
   const rememberMessageSync = useCallback((peerKey: string) => {
     syncTimesRef.current = { ...syncTimesRef.current, [peerKey]: Date.now() }
@@ -800,16 +652,24 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     return merged
   }, [listMessages, rememberDialogMessages, viewportPageSize])
 
-  const syncDialogMessages = useCallback(async (selected: DialogItem, options?: { force?: boolean; silent?: boolean; local?: MessageItem[] }) => {
+  const syncDialogMessages = useCallback(async (selected: DialogItem, options?: {
+    force?: boolean
+    silent?: boolean
+    local?: MessageItem[]
+    background?: boolean
+    propagateError?: boolean
+  }) => {
     const lastSync = syncTimesRef.current[selected.peer_key] || 0
     if (!options?.force && Date.now() - lastSync < REMOTE_MESSAGE_TTL_MS) return options?.local || []
+    if (options?.background && messageSyncInFlightRef.current.has(selected.peer_key)) return options.local || []
+    messageSyncInFlightRef.current.add(selected.peer_key)
     const unreadCount = Math.max(0, selected.unread_count || 0)
     const initialLimit = Math.min(500, Math.max(viewportPageSize, unreadCount + 15))
     const local = options?.local || []
     const newestLocalId = local.length ? local[local.length - 1].id : 0
     const remoteAhead = Boolean(selected.top_message_id && selected.top_message_id > newestLocalId)
     const pages = !local.length ? Math.max(1, Math.min(20, Math.ceil(initialLimit / 25))) : remoteAhead || unreadCount > 0 ? Math.max(1, Math.min(6, Math.ceil(Math.max(unreadCount, viewportPageSize) / 50))) : 1
-    setLoadingMessages(true)
+    if (!options?.background) setLoadingMessages(true)
     try {
       await api('POST', '/api/v1/messages/sync', {
         site_key: siteKey,
@@ -844,8 +704,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       return merged
     } catch (e) {
       if (!options?.silent) toast.warning(e instanceof Error ? e.message : 'تازه‌سازی پیام‌ها ناموفق بود؛ نسخه ذخیره‌شده نمایش داده می‌شود.')
+      if (options?.propagateError) throw e
       return local
-    } finally { setLoadingMessages(false) }
+    } finally {
+      messageSyncInFlightRef.current.delete(selected.peer_key)
+      if (!options?.background) setLoadingMessages(false)
+    }
   }, [listMessages, rememberDialogMessages, rememberMessageSync, siteKey, viewportPageSize])
 
   const loadDialogMessages = useCallback(async (selected: DialogItem) => {
@@ -874,6 +738,26 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     void loadDialogs()
   }, [siteKey, loadDialogs])
   useEffect(() => { if (siteKey) void loadTerms() }, [siteKey, loadTerms])
+  useEffect(() => {
+    if (!siteKey || !dialogsSupported) return
+    let cancelled = false
+
+    const poll = async () => {
+      let failedAttempts = 0
+      while (!cancelled) {
+        await waitForAdaptivePoll(failedAttempts, { active: false })
+        if (cancelled) return
+        try {
+          await liveSyncDialogs()
+          failedAttempts = 0
+        } catch {
+          failedAttempts = Math.min(8, failedAttempts + 1)
+        }
+      }
+    }
+    void poll()
+    return () => { cancelled = true }
+  }, [dialogsSupported, liveSyncDialogs, siteKey])
   useEffect(() => {
     if (!siteKey) {
       setContentIndexAliases({})
@@ -958,12 +842,88 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     const previous = newerCheckRef.current[dialog.peer_key] || 0
     if (!force && Date.now() - previous < AUTO_NEWER_TTL_MS) return
     newerCheckRef.current[dialog.peer_key] = Date.now()
+
+    if (dateRange && messages.length) {
+      const lastMessage = messages[messages.length - 1]
+      setLoadingMessages(true)
+      try {
+        const nextFrom = new Date(new Date(lastMessage.date).getTime() + 1000).toISOString()
+        const request = {
+          site_key: siteKey,
+          peer_file: dialog.peer_file,
+          date_from: nextFrom,
+          date_to: dateRange.to,
+          limit: 10000,
+        }
+        let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+        
+        if (!response.messages.length) {
+          await api('POST', '/api/v1/messages/date-range/sync', {
+            site_key: siteKey,
+            peer_file: dialog.peer_file,
+            date_from: nextFrom,
+            date_to: dateRange.to,
+            pages: 20,
+            page_size: 100,
+          })
+          response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+        }
+
+        if (response.messages.length) {
+          const chronological = [...response.messages].sort((left, right) => (
+            new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
+          ))
+          setMessages(current => mergeMessagesById(current, chronological))
+        }
+      } finally {
+        setLoadingMessages(false)
+      }
+      return
+    }
+
     const current = messages
     await syncDialogMessages(dialog, { force, silent: !force, local: current })
-    if (force) toast.success('پیام‌های جدید بررسی و حافظه محلی به‌روز شد.')
-  }, [dialog, loadingMessages, messages, syncDialogMessages])
+    if (force) toast.success('درخواست همگام‌سازی با موفقیت ارسال شد و در پس‌زمینه درحال انجام است.')
+  }, [dialog, loadingMessages, messages, syncDialogMessages, dateRange, siteKey])
 
-  const loadFromJalaliDate = useCallback(async (selectedValue?: string, selectedMode?: 'day' | 'from') => {
+  useEffect(() => {
+    if (!dialog || !siteKey || !historySupported || dateRange || loadingDateRange) {
+      setLiveMessageState('idle')
+      return
+    }
+    let cancelled = false
+    const selected = dialog
+    setLiveMessageState('connecting')
+
+    const poll = async () => {
+      let failedAttempts = 0
+      while (!cancelled) {
+        await waitForAdaptivePoll(failedAttempts, { active: true })
+        if (cancelled || activeMessagePeerRef.current !== selected.peer_key) return
+        try {
+          const local = messageCacheRef.current.get(selected.peer_key) || []
+          await syncDialogMessages(selected, {
+            force: true,
+            silent: true,
+            local,
+            background: true,
+            propagateError: true,
+          })
+          if (cancelled) return
+          failedAttempts = 0
+          setLiveMessageState('live')
+        } catch {
+          if (cancelled) return
+          failedAttempts = Math.min(8, failedAttempts + 1)
+          setLiveMessageState('retrying')
+        }
+      }
+    }
+    void poll()
+    return () => { cancelled = true }
+  }, [dateRange, dialog?.peer_key, historySupported, loadingDateRange, siteKey, syncDialogMessages])
+
+  const loadFromJalaliDate = useCallback(async (selectedValue?: string, selectedMode?: 'day' | 'from', forceSync?: boolean) => {
     if (!dialog || !siteKey) return
     const value = selectedValue || jalaliFrom
     const mode = selectedMode || dateMode
@@ -980,11 +940,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         peer_file: dialog.peer_file,
         date_from: start.toISOString(),
         date_to: end.toISOString(),
-        limit: 5000,
+        limit: 10000,
       }
       let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
       let source = 'حافظه محلی'
-      if (!response.messages.length) {
+      if (!response.messages.length || forceSync) {
+          if (forceSync) toast.info("در حال همگام‌سازی عمیق با سرور ایتا... (لطفاً منتظر بمانید)");
         await api('POST', '/api/v1/messages/date-range/sync', {
           site_key: siteKey,
           peer_file: dialog.peer_file,
@@ -1098,7 +1059,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [dialog, rememberDialogMessages])
 
   const loadMedia = useCallback(async (message: MessageItem) => {
-    if (!dialog) return
+    if (!dialog || !mediaReadSupported) return
     const key = messageKey(dialog, message)
     if (key in mediaCacheRef.current || mediaRequestsRef.current.has(key)) return
     mediaRequestsRef.current.add(key)
@@ -1120,10 +1081,10 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     } finally {
       mediaRequestsRef.current.delete(key)
     }
-  }, [dialog, siteKey])
+  }, [dialog, mediaReadSupported, siteKey])
 
   const openFullMedia = useCallback(async (message: MessageItem) => {
-    if (!dialog) return
+    if (!dialog || !mediaReadSupported) return
     const key = messageKey(dialog, message)
     setMediaViewer({ key, title: `تصویر پیام #${message.id}` })
     if (key in fullMediaCacheRef.current || fullMediaRequestsRef.current.has(key)) return
@@ -1148,7 +1109,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     } finally {
       fullMediaRequestsRef.current.delete(key)
     }
-  }, [dialog, siteKey])
+  }, [dialog, mediaReadSupported, siteKey])
 
   const loadContentIndexResults = useCallback(async (selected: DialogItem) => {
     try {
@@ -1190,6 +1151,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       const labels = prioritized.slice(0, 200).map(item => ({
         id: item.id,
         name: item.name,
+        is_primary: item.kind === 'wordpress-category',
         aliases: [...new Set([
           ...(item.kind === 'wordpress-category' && byId.get(item.id)?.parent_id && byId.get(byId.get(item.id)!.parent_id!)
             ? [byId.get(byId.get(item.id)!.parent_id!)!.name]
@@ -1209,7 +1171,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       let job = started.job
       setContentIndexJob(job)
       for (let attempt = 0; attempt < 3600 && ['queued', 'running', 'cancelling'].includes(job.state); attempt += 1) {
-        await new Promise(resolve => window.setTimeout(resolve, 1000))
+        await waitForAdaptivePoll(attempt, { active: true })
         const status = await api<{ job: ContentIndexJob }>('GET', query('/api/v1/messages/index/status', { job_id: job.job_id }))
         job = status.job
         setContentIndexJob(job)
@@ -1422,12 +1384,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     const selected = dialog
     if (
       !contentFiltersOpen
-      || indexWorkbenchTab !== 'display'
+      
       || !selected
       || selected.display_kind === 'personal'
       || unresolvedSenderCount === 0
     ) {
-      if (contentFiltersOpen && indexWorkbenchTab === 'display' && unresolvedSenderCount === 0) {
+      if (contentFiltersOpen && unresolvedSenderCount === 0) {
         setSenderResolutionState('ready')
       }
       return
@@ -1458,7 +1420,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [
     contentFiltersOpen,
     dialog,
-    indexWorkbenchTab,
+    
     messages.length,
     refreshLocalMessages,
     siteKey,
@@ -1516,13 +1478,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       })))
       await loadContentIndexResults(dialog)
       setIndexEditor(null)
+      void startContentIndex()
       toast.success('اصلاح شما ثبت شد و همین حالا در پیشنهادها و فیلترها اعمال شد.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'ثبت اصلاح ایندکس ناموفق بود.')
     } finally {
       setSavingIndexEditor(false)
     }
-  }, [contentIndexResults, dialog, indexDefinitions, indexEditor, loadContentIndexResults, siteKey])
+  }, [contentIndexResults, dialog, indexDefinitions, indexEditor, loadContentIndexResults, siteKey, startContentIndex])
 
   const dialogCounts = useMemo(() => ({
     all: dialogs.length,
@@ -1532,25 +1495,31 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     favorite: dialogs.filter(item => item.favorite).length,
   }), [dialogs])
 
-  const railTabs: Array<{ value: Tab; label: string; icon: IconName; count: number }> = [
-    { value: 'all', label: 'همه', icon: 'all', count: dialogCounts.all },
-    { value: 'channel', label: 'کانال‌ها', icon: 'channel', count: dialogCounts.channel },
-    { value: 'group', label: 'گروه‌ها', icon: 'group', count: dialogCounts.group },
-    { value: 'personal', label: 'شخصی', icon: 'personal', count: dialogCounts.personal },
-    { value: 'favorite', label: 'منتخب', icon: 'favorite', count: dialogCounts.favorite },
+  const railTabs: Array<{ value: Tab; label: string; count: number }> = [
+    { value: 'all', label: 'همه', count: dialogCounts.all },
+    { value: 'channel', label: 'کانال‌ها', count: dialogCounts.channel },
+    { value: 'group', label: 'گروه‌ها', count: dialogCounts.group },
+    { value: 'personal', label: 'شخصی', count: dialogCounts.personal },
+    { value: 'favorite', label: 'منتخب', count: dialogCounts.favorite },
   ]
 
   const toggleFavorite = async (item: DialogItem) => {
+    const originalDialogs = dialogs;
+    const targetState = !item.favorite;
+    applyDialogs(dialogs.map(entry => entry.peer_key === item.peer_key ? { ...entry, favorite: targetState } : entry));
     try {
-      const response = await api<{ dialog: DialogItem }>('POST', '/api/v1/dialogs/favorite', { site_key: siteKey, peer_key: item.peer_key, favorite: !item.favorite })
-      applyDialogs(dialogs.map(entry => entry.peer_key === item.peer_key ? response.dialog : entry))
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'تغییر منتخب ناموفق بود.') }
+      const response = await api<{ dialog: DialogItem }>('POST', '/api/v1/dialogs/favorite', { site_key: siteKey, peer_key: item.peer_key, favorite: targetState })
+      applyDialogs(originalDialogs.map(entry => entry.peer_key === item.peer_key ? response.dialog : entry))
+    } catch (e) {
+      applyDialogs(originalDialogs);
+      toast.error(e instanceof Error ? e.message : 'خطا در ثبت منتخب')
+    }
   }
 
   const setDisplayKind = async (item: DialogItem, displayKind: DisplayKind) => {
     try {
       const response = await api<{ dialog: DialogItem }>('POST', '/api/v1/dialogs/display-kind', { site_key: siteKey, peer_key: item.peer_key, display_kind: displayKind })
-      applyDialogs(dialogs.map(entry => entry.peer_key === item.peer_key ? response.dialog : entry)); setDialogMenuKey(null)
+      applyDialogs(dialogs.map(entry => entry.peer_key === item.peer_key ? response.dialog : entry))
     } catch (e) { toast.error(e instanceof Error ? e.message : 'اصلاح نوع گفتگو ناموفق بود.') }
   }
 
@@ -1558,134 +1527,140 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     if (!dialog) return
     const albumMessages = messageAlbumLookup.get(message.id)?.messages || [message]
     const usedMessage = albumMessages.find(item => item.usage.used)
-    if (usedMessage) { setActiveUsage({ message: usedMessage, usage: usedMessage.usage }); setComposerOpen(true); return }
+    if (usedMessage && !selectionMode && selectedKeys.length === 0) {
+      setActiveUsage({ message: usedMessage, usage: usedMessage.usage })
+      return
+    }
     const keys = albumMessages.map(item => messageKey(dialog, item))
     setSelectedKeys(current => {
       const remove = keys.every(key => current.includes(key))
       return remove ? current.filter(item => !keys.includes(item)) : [...new Set([...current, ...keys])]
     })
-    setSelectionMode(true); setComposerOpen(true)
+    setSelectionMode(true)
   }
 
   const clearSelection = () => { setSelectedKeys([]); setSelectionMode(false) }
+  const showDialogSection = useCallback((value: Tab) => {
+    setTab(value)
+    if (!chatsDocked) {
+      setComposerOpen(false)
+      setChatsOpen(true)
+    }
+  }, [chatsDocked])
   const logout = async () => {
     if (!confirm('از حساب ایتا خارج شوید؟')) return
     try { await api('POST', '/api/v1/auth/logout'); await onLogout() }
     catch (e) { toast.error(e instanceof Error ? e.message : 'خروج ناموفق بود.') }
   }
+  const logoutSoftware = async () => {
+    if (!confirm('از نرم‌افزار خارج شوید؟ نشست حساب ایتا حذف نمی‌شود.')) return
+    try { await appUser.logout() }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'خروج از نرم‌افزار انجام نشد.') }
+  }
 
-  return <Box className="workspace telegram-workspace" data-theme={resolvedMode} data-media-display={mediaDisplay} onClick={() => { if (dialogMenuKey) setDialogMenuKey(null); if (railMenuOpen) setRailMenuOpen(false) }}>
-    <Box component="main" className="telegram-layout">
-      <Paper component="nav" square elevation={0} className="app-rail" aria-label="بخش‌های برنامه">
-        <Box className="rail-top">
-          <ButtonBase className={`rail-menu-button ${railMenuOpen ? 'active' : ''}`} title="منوی برنامه" onClick={event => { event.stopPropagation(); setRailMenuOpen(value => !value) }}><Icon name="menu" size={24} /></ButtonBase>
-          {railMenuOpen && <Paper elevation={14} className="app-menu-popover menu card" onClick={event => event.stopPropagation()}>
-            <Box className="app-menu-brand"><Box className="brand-mini">EB</Box><Box><strong>Eitaa Bridge</strong><small>{sites.find(site => site.site_key === siteKey)?.base_url || 'سرویس محلی'}</small></Box></Box>
-            <Stack spacing={0.25}>
-              <Button fullWidth variant="text" sx={{ justifyContent: 'flex-start' }} startIcon={<Icon name="settings" />} onClick={() => { setSettingsOpen(true); setRailMenuOpen(false) }}>تنظیمات و سایت‌ها</Button>
-              <Button fullWidth variant="text" sx={{ justifyContent: 'flex-start' }} startIcon={<Icon name="plus" />} onClick={() => { setManualOpen(true); setRailMenuOpen(false) }}>افزودن دستی گفتگو</Button>
-              <Button fullWidth variant="text" sx={{ justifyContent: 'flex-start' }} startIcon={<Icon name="refresh" />} disabled={syncingDialogs} onClick={() => { void syncDialogs(); setRailMenuOpen(false) }}>{syncingDialogs ? 'در حال همگام‌سازی…' : 'همگام‌سازی گفتگوها'}</Button>
-              <Box className="menu-separator" />
-              <Button fullWidth variant="text" sx={{ justifyContent: 'flex-start' }} startIcon={<Icon name="bulk" />} onClick={() => { openBulk(dialog && dialog.display_kind !== 'personal' ? 'members' : 'numbers'); setRailMenuOpen(false) }}>ارسال و دعوت گروهی</Button>
-              <Box className="app-theme-status"><span aria-hidden>☾</span><span>تم برنامه: تاریک</span></Box>
-              <Box className="menu-separator" />
-              <Button fullWidth color="error" variant="text" sx={{ justifyContent: 'flex-start' }} startIcon={<Icon name="logout" />} onClick={() => void logout()}>خروج از حساب</Button>
-            </Stack>
-          </Paper>}
-        </Box>
-        <Box className="rail-tabs">
-          {railTabs.map(item => <ButtonBase key={item.value} className={`rail-tab ${tab === item.value ? 'active' : ''}`} onClick={() => setTab(item.value)} title={item.label}>
-            <span className="rail-icon"><Icon name={item.icon} />{item.count > 0 && <b>{item.count > 999 ? '999+' : item.count}</b>}</span>
-            <span>{item.label}</span>
-          </ButtonBase>)}
-        </Box>
-        <Box className="rail-bottom">
-          <ButtonBase className={`rail-tab contacts-rail ${contactsOpen ? 'active' : ''}`} onClick={() => setContactsOpen(true)} title="مدیریت مخاطبان ایتا و محلی"><span className="rail-icon"><Icon name="personal" /></span><span>مدیریت مخاطبان</span></ButtonBase>
-          <Box className="rail-tab theme-rail" title="تم ثابت تاریک"><span className="rail-icon">☾</span><span>تاریک</span></Box>
-          {!composerDocked && !composerOpen && <ButtonBase className="rail-tab wordpress-rail" disabled={!wordpressAvailable} onClick={() => setComposerOpen(true)} title={wordpressAvailable ? 'وردپرس' : 'ابتدا یک سایت وردپرس با دسترسی کامل تعریف کنید'}><span className="rail-icon"><Icon name="wordpress" /></span><span>وردپرس</span></ButtonBase>}
-        </Box>
-      </Paper>
+  return <Box sx={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden', bgcolor: 'background.default' }}>
+    <Box component="main" sx={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden', display: { xs: 'block', md: 'grid' }, pb: { xs: 'calc(66px + env(safe-area-inset-bottom))', md: 0 }, gridTemplateColumns: { md: composerDocked ? '72px minmax(300px, 22vw) minmax(0, 1fr) minmax(340px, 26vw)' : '72px minmax(280px, 32vw) minmax(0, 1fr)' }, '& > *': { minWidth: 0, minHeight: 0 } }}>
+      <WorkspaceNavigation
+        sections={railTabs}
+        activeSection={tab}
+        userName={appUser.principal?.display_name || 'Eitaa Bridge'}
+        userRole={appUser.principal?.global_role === 'admin' ? 'مدیر نرم‌افزار' : 'کاربر نرم‌افزار'}
+        accountControl={<MessengerAccountMenuControl />}
+        syncing={syncingDialogs}
+        dialogsEnabled={dialogsSupported}
+        wordpressEnabled={wordpressAvailable}
+        onSection={showDialogSection}
+        onSettings={() => setSettingsOpen(true)}
+        onAddDialog={() => setManualOpen(true)}
+        onSync={() => void syncDialogs()}
+        onContacts={() => setContactsOpen(true)}
+        onBulk={() => openBulk(dialog && dialog.display_kind !== 'personal' ? 'members' : 'numbers')}
+        onWordpress={() => { setCommunityOpen(false); setComposerOpen(true) }}
+        onMessengerLogout={() => void logout()}
+        onSoftwareLogout={appUser.enabled ? () => void logoutSoftware() : undefined}
+      />
 
-      <Paper component="aside" square elevation={0} className={`chats-pane ${chatsOpen ? 'drawer-visible' : ''}`}>
-        <div className="chat-list-toolbar">
-          <div className="search-box"><Icon name="search" size={18} /><input value={dialogSearch} onChange={e => setDialogSearch(e.target.value)} placeholder="جست‌وجو" /></div>
-          <button className="toolbar-button" disabled={syncingDialogs} onClick={() => void syncDialogs()} title="همگام‌سازی">{syncingDialogs ? <span className="loading loading-dots loading-sm" /> : <Icon name="refresh" size={19} />}</button>
-          <button className="toolbar-button" onClick={() => setManualOpen(true)} title="افزودن دستی"><Icon name="plus" size={20} /></button>
-          <button className="toolbar-button close-chats" onClick={() => setChatsOpen(false)} title="بستن"><Icon name="close" size={20} /></button>
-        </div>
-        <div className="chat-list-caption"><strong>{railTabs.find(item => item.value === tab)?.label}</strong><span>{filteredDialogs.length} گفتگو</span></div>
-        {filteredDialogs.length > visibleDialogs.length && <Alert severity="info" sx={{ m: 1, py: 0 }}>برای حفظ سرعت، ۵۰۰ گفت‌وگوی نخست نمایش داده شده است؛ برای موارد دیگر جست‌وجو کنید.</Alert>}
-        <div className="dialog-list">
-          {loadingDialogs && !dialogs.length && <div className="empty"><span className="loading loading-dots loading-md" /><small>در حال دریافت گفتگوها</small></div>}
-          {!loadingDialogs && !filteredDialogs.length && <div className="empty">موردی در این بخش نیست.<br/><button className="btn btn-sm btn-ghost" onClick={() => setManualOpen(true)}>افزودن دستی</button></div>}
-          {visibleDialogs.map(item => {
-            const active = dialog?.peer_key === item.peer_key
-            const secondary = item.peer.username ? `@${item.peer.username}` : item.top_message_id ? `آخرین پیام #${item.top_message_id}` : item.source === 'manual' ? 'افزوده‌شده به‌صورت دستی' : 'گفتگو'
-            return <div key={item.peer_key} className={`dialog-row ${active ? 'active' : ''}`} onClick={() => selectDialog(item)}>
-              <DialogAvatar dialog={item} siteKey={siteKey} />
-              <div className="dialog-main"><strong>{titleFor(item)}</strong><span>{secondary}</span></div>
-              <div className="dialog-meta dialog-actions">
-                <button className="dialog-more" onClick={e => { e.stopPropagation(); setDialogMenuKey(current => current === item.peer_key ? null : item.peer_key) }} title="بیشتر"><Icon name="more" size={18} /></button>
-                <button className={`star ${item.favorite ? 'selected' : ''}`} onClick={e => { e.stopPropagation(); void toggleFavorite(item) }} title="منتخب"><Icon name="favorite" size={17} /></button>
-                {item.unread_count > 0 && <b>{item.unread_count > 9999 ? '9999+' : item.unread_count}</b>}
-                {dialogMenuKey === item.peer_key && <div className="dialog-menu menu" onClick={e => e.stopPropagation()}>
-                  <strong>نمایش در فهرست</strong>
-                  {(['channel', 'group', 'personal'] as DisplayKind[]).map(kind => <button key={kind} className={item.display_kind === kind ? 'selected' : ''} onClick={() => void setDisplayKind(item, kind)}>{displayKindLabel(kind)}</button>)}
-                </div>}
-              </div>
-            </div>
-          })}
-        </div>
-      </Paper>
+      <ConversationListPage
+        open={chatsOpen}
+        docked={chatsDocked}
+        loading={loadingDialogs}
+        syncing={syncingDialogs}
+        dialogsEnabled={dialogsSupported}
+        filterLabel={railTabs.find(item => item.value === tab)?.label || 'گفتگوها'}
+        search={dialogSearch}
+        items={visibleDialogs}
+        totalFiltered={filteredDialogs.length}
+        activePeerKey={dialog?.peer_key}
+        renderAvatar={item => <DialogAvatar dialog={item} siteKey={siteKey} />}
+        titleFor={item => titleFor(item)}
+        onSearch={setDialogSearch}
+        onClose={() => setChatsOpen(false)}
+        onSync={() => void syncDialogs()}
+        onAdd={() => setManualOpen(true)}
+        onSelect={selectDialog}
+        onFavorite={item => void toggleFavorite(item)}
+        onDisplayKind={(item, kind) => void setDisplayKind(item, kind)}
+      />
 
-      <Paper component="section" square elevation={0} className="messages-pane">
-        <div className="messages-header">
-          <div className="chat-identity">
-            <button className="toolbar-button mobile-chat-button" onClick={() => setChatsOpen(true)} title="گفتگوها"><Icon name="menu" size={21} /></button>
-            <DialogAvatar dialog={dialog} siteKey={siteKey} small />
-            <div><h2>{titleFor(dialog)}</h2><small>{dialog ? `${messages.length} پیام ذخیره‌شده` : 'گفتگویی انتخاب نشده'}</small></div>
-          </div>
-          <div className="messages-tools">
-            {selectionMode && <><b>{selectedKeys.length} انتخاب</b><button className="btn btn-sm btn-ghost ghost" onClick={clearSelection}>لغو</button></>}
-            <button className="toolbar-button" disabled={!dialog || loadingMessages} onClick={() => void loadNewer(true)} title="بررسی پیام‌های جدید"><Icon name="refresh" size={18} /></button>
-            <button className={`toolbar-button ${mediaDisplay === 'dynamic' ? 'active' : ''}`} disabled={!dialog} onClick={() => setMediaDisplay(value => value === 'dynamic' ? 'framed' : 'dynamic')} title={mediaDisplay === 'dynamic' ? 'نمایش عکس در کادر ثابت' : 'نمایش کامل و پویا بر اساس طول عکس'}>{mediaDisplay === 'dynamic' ? '↕' : '▣'}</button>
-            <button
-              className={`toolbar-button content-filter-toggle ${contentFiltersOpen || !showWordPressUsed || selectedIndexLabel !== null || selectedSenderKey !== null ? 'active' : ''}`}
-              disabled={!dialog}
-              onClick={event => {
-                event.stopPropagation()
-                setContentFiltersOpen(value => !value)
-              }}
-              title="فیلتر و ایندکس محلی"
-            ><Icon name="filter" size={19} /></button>
-            <div className="jalali-filter">
-              <JalaliDatePicker
-                value={jalaliFrom}
-                mode={dateMode}
-                disabled={!dialog || loadingDateRange}
-                busy={loadingDateRange}
-                onMode={setDateMode}
-                onSelect={(value, mode) => void loadFromJalaliDate(value, mode)}
-                onClear={() => void clearDateRange()}
-              />
-            </div>
-            <div className="message-search"><Icon name="search" size={17} /><input value={messageSearch} onChange={e => setMessageSearch(e.target.value)} placeholder="جست‌وجوی پیام" /></div>
-            {!composerDocked && !composerOpen && <button className="btn btn-primary icon-button composer-toggle" disabled={!wordpressAvailable} onClick={() => setComposerOpen(true)} title={wordpressAvailable ? 'وردپرس' : 'ابتدا سایت وردپرس را در تنظیمات تعریف کنید'}><Icon name="wordpress" size={21} /></button>}
-          </div>
-        </div>
-        {!dialog ? <div className="messages-empty"><div className="brand-mark">EB</div><h2>یک گفتگو را انتخاب کنید</h2></div> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} messages={filteredMessages} media={media} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }); setComposerOpen(true) }} />}
+      <Paper component="section" square elevation={0} sx={{ display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr) auto', position: 'relative', minWidth: 0, minHeight: 0, height: { xs: 'calc(100dvh - 66px - env(safe-area-inset-bottom))', md: '100%' }, overflow: 'hidden', bgcolor: theme => theme.palette.mode === 'dark' ? '#0c131b' : '#e7f0ea' }}>
+        {messengerAccounts.featureEnabled && messengerAccounts.capabilityError && <Alert severity="warning" sx={{ borderRadius: 0 }}>{messengerAccounts.capabilityError} عملیات پیام‌رسان تا بازیابی وضعیت غیرفعال می‌ماند.</Alert>}
+        {messengerAccounts.featureEnabled && !messengerAccounts.capabilityLoading && !dialogsSupported && <Alert severity="info" sx={{ borderRadius: 0 }}>خواندن گفتگوها برای حساب انتخاب‌شده پشتیبانی نمی‌شود.</Alert>}
+        <ChatHeader
+          title={titleFor(dialog)}
+          subtitle={dialog ? `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده` : 'گفتگویی انتخاب نشده'}
+          avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small />}
+          selectionCount={selectionMode ? selectedKeys.length : 0}
+          liveState={dialog && historySupported ? liveMessageState : 'idle'}
+          mediaDynamic={mediaDisplay === 'dynamic'}
+          mediaEnabled={Boolean(dialog && mediaReadSupported)}
+          filtersActive={contentFiltersOpen || !showWordPressUsed || selectedIndexLabel !== null || selectedSenderKey !== null}
+          filterEnabled={Boolean(dialog && dialog.display_kind !== 'personal')}
+          indexActive={indexDialogOpen}
+          indexEnabled={Boolean(dialog && (dialog.display_kind === "channel" || dialog.display_kind === "group") && tab === "favorite")}
+          onToggleIndex={() => setIndexDialogOpen(v => !v)}
+          datePicker={<JalaliDatePicker
+            value={jalaliFrom}
+            mode={dateMode}
+            disabled={!dialog || loadingDateRange}
+            busy={loadingDateRange}
+            onMode={setDateMode}
+            onSelect={(value, mode, forceSync) => void loadFromJalaliDate(value, mode, forceSync)}
+            onClear={() => void clearDateRange()}
+          />}
+          search={messageSearch}
+          wordpressEnabled={wordpressAvailable}
+          composerVisible={composerDocked || composerOpen}
+          onOpenChats={() => setChatsOpen(true)}
+          onClearSelection={clearSelection}
+          onToggleMedia={() => setMediaDisplay(value => value === 'dynamic' ? 'framed' : 'dynamic')}
+          onToggleFilters={() => setContentFiltersOpen(value => !value)}
+          onSearch={setMessageSearch}
+          onOpenComposer={() => setComposerOpen(true)}
+        />
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
-      <Paper component="aside" square elevation={0} className={`composer-pane ${composerOpen ? 'drawer-visible' : ''}`}>
-        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressReady={Boolean(activeSite?.credentials_configured)} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} activeUsage={activeUsage} clearUsage={() => setActiveUsage(null)} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
+      <Paper component="aside" square elevation={composerDocked ? 0 : 12} sx={composerDocked ? {
+        position: 'static', minWidth: 0, minHeight: 0, overflow: 'hidden', borderInlineStart: 1, borderColor: 'divider', zIndex: 1,
+      } : {
+        position: 'fixed', zIndex: theme => theme.zIndex.drawer + 2, insetBlock: 0, insetInlineEnd: 0, width: 'min(520px, 94vw)', minWidth: 0, minHeight: 0, overflow: 'hidden', borderInlineStart: 1, borderColor: 'divider', transform: composerOpen ? 'translateX(0)' : 'translateX(105%)', transition: theme => theme.transitions.create('transform', { duration: theme.transitions.duration.shorter }),
+      }}>
+        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressReady={Boolean(activeSite?.credentials_configured)} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
       </Paper>
     </Box>
-    {settingsOpen && <SettingsModal sites={sites} close={() => setSettingsOpen(false)} onChanged={loadSites} />}
+    <UsageInfoDialog activeUsage={activeUsage} clearUsage={() => setActiveUsage(null)} loadHistory={item => { /* will do loadHistory later or let user implement if needed */ }} />
+    <Dialog open={settingsOpen} fullScreen onClose={() => setSettingsOpen(false)}>
+      <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
+        <Suspense fallback={<Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: '100dvh' }}><CircularProgress /><Typography>در حال آماده‌سازی تنظیمات…</Typography></Stack>}>
+          <SettingsPage sites={sites} onClose={() => setSettingsOpen(false)} onChanged={loadSites} />
+        </Suspense>
+      </DialogContent>
+    </Dialog>
     {bulkOpen && <BulkOperationsModal siteKey={siteKey} dialog={dialog} initialMode={bulkMode} initialMemberIds={bulkMemberIds} initialMemberScope={bulkMemberScope} initialNumbers={bulkInitialNumbers} close={() => setBulkOpen(false)} />}
     {membersOpen && <CommunityMembersModal siteKey={siteKey} dialog={dialog} dialogs={dialogs} close={() => setMembersOpen(false)} openBulk={selection => { setMembersOpen(false); openBulk('members', selection.memberIds, [], selection.scope) }} />}
     {manualOpen && <ManualDialogModal siteKey={siteKey} close={() => setManualOpen(false)} onAdded={item => { applyDialogs([item, ...dialogs.filter(d => d.peer_key !== item.peer_key)]); selectDialog(item); setManualOpen(false) }} />}
-    {contactsOpen && <ContactDirectoryModal
+    {contactsOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><ContactDirectoryModal
       siteKey={siteKey}
       close={() => setContactsOpen(false)}
       handoffTargets={phones => { setContactsOpen(false); openBulk('numbers', [], phones) }}
@@ -1721,63 +1696,66 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         setContactsOpen(false)
         selectDialog(target)
       }}
-    />}
+    /></Suspense>}
     {mediaViewer && <MaterialLegacyDialog close={() => setMediaViewer(null)} maxWidth="xl">
-      <div className="media-viewer card material-dialog-surface"><div className="media-viewer-head"><b>{mediaViewer.title}</b><button onClick={() => setMediaViewer(null)}><Icon name="close" /></button></div>
-        <div className="media-viewer-body">{fullMedia[mediaViewer.key] === null || fullMedia[mediaViewer.key] === undefined ? <div className="media-viewer-loading"><Skeleton variant="rectangular" animation="wave" width="min(76vw, 920px)" height="min(68vh, 620px)" /><span>در حال دریافت تصویر اصلی از حافظه یا سرور ایتا…</span></div> : fullMedia[mediaViewer.key] ? <img src={fullMedia[mediaViewer.key] || ''} alt={mediaViewer.title} /> : <div className="error-box">تصویر اصلی در دسترس نیست.</div>}</div>
-      </div>
+      <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 3 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}><Typography fontWeight={850}>{mediaViewer.title}</Typography><IconButton onClick={() => setMediaViewer(null)} aria-label="بستن"><CloseRounded /></IconButton></Stack>
+        <Box sx={{ minHeight: 260, maxHeight: '78dvh', display: 'grid', placeItems: 'center', overflow: 'auto', bgcolor: 'action.hover', p: 1 }}>
+          {fullMedia[mediaViewer.key] === null || fullMedia[mediaViewer.key] === undefined
+            ? <Skeleton variant="rounded" animation="wave" width="min(76vw, 920px)" height="min(68vh, 620px)" />
+            : fullMedia[mediaViewer.key]
+              ? <Box component="img" src={fullMedia[mediaViewer.key] || ''} alt={mediaViewer.title} sx={{ display: 'block', maxWidth: '100%', maxHeight: '74dvh', objectFit: 'contain' }} />
+              : <Alert severity="error">تصویر اصلی در دسترس نیست.</Alert>}
+        </Box>
+      </Paper>
     </MaterialLegacyDialog>}
-    <MaterialIndexWorkbench
+    {contentFiltersOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><MessageFilterDialog
       open={contentFiltersOpen}
       close={() => setContentFiltersOpen(false)}
-      tab={indexWorkbenchTab}
-      setTab={setIndexWorkbenchTab}
       showWordPressUsed={showWordPressUsed}
       setShowWordPressUsed={setShowWordPressUsed}
       selectedIndexLabel={selectedIndexLabel}
       setSelectedIndexLabel={setSelectedIndexLabel}
       selectedSenderKey={selectedSenderKey}
       setSelectedSenderKey={setSelectedSenderKey}
-      indexFilterLabels={indexFilterLabels}
+      indexFilterLabels={indexDefinitions.map(def => ({ id: def.id, name: def.name }))}
       senderFilterOptions={senderFilterOptions}
       senderResolutionState={senderResolutionState}
       unresolvedSenderCount={unresolvedSenderCount}
       filteredMessageCount={filteredMessages.length}
+    /></Suspense>}
+    {indexDialogOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><ContentIndexDialog
+      open={indexDialogOpen}
+      close={() => setIndexDialogOpen(false)}
       contentIndexActive={contentIndexActive}
       contentIndexState={contentIndexJob?.state}
-      contentIndexProcessed={Number(contentIndexProgress.processed_messages || 0)}
-      contentIndexTarget={Number(contentIndexProgress.target_messages || 0)}
+      contentIndexProcessed={contentIndexProgress.processed_messages || 0}
+      contentIndexTarget={contentIndexProgress.target_messages || 0}
       contentIndexPercent={contentIndexPercent}
-      coldStart={Boolean(contentIndexProgress.cold_start)}
+      coldStart={Object.keys(contentIndexResults).length < 5}
       resultCount={Object.keys(contentIndexResults).length}
-      canStart={Boolean(dialog && indexDefinitions.length)}
-      start={() => void startContentIndex()}
-      cancel={() => void cancelContentIndex()}
+      canStart={dialog != null && indexDefinitions.length > 0}
+      start={startContentIndex}
+      cancel={cancelContentIndex}
       definitions={indexDefinitions}
-      categories={categories}
+      categories={categories.map(c => ({ id: c.id, name: c.name }))}
       customIndexName={customIndexName}
       setCustomIndexName={setCustomIndexName}
-      customIndexCategoryId={customIndexCategoryId}
       customIndexKeywords={customIndexKeywords}
       setCustomIndexKeywords={setCustomIndexKeywords}
+      customIndexCategoryId={customIndexCategoryId}
       setCustomIndexCategoryId={setCustomIndexCategoryId}
       addCustomIndex={addCustomIndex}
       selectedDefinitionId={indexKeywordCategoryId}
-      selectDefinition={id => {
-        const definition = indexDefinitions.find(item => item.id === id)
-        setIndexKeywordCategoryId(id)
-        setIndexNameDraft(definition?.name || '')
-        setIndexKeywordDraft((definition?.aliases || []).join('، '))
-        setCustomIndexCategoryId(definition?.wordpressCategoryId || null)
-      }}
+      selectDefinition={setIndexKeywordCategoryId}
       indexNameDraft={indexNameDraft}
       setIndexNameDraft={setIndexNameDraft}
       indexKeywordDraft={indexKeywordDraft}
       setIndexKeywordDraft={setIndexKeywordDraft}
       saveDefinition={saveIndexKeywords}
       deleteDefinition={deleteCustomIndex}
-    />
-    {indexEditor && <MessageIndexEditor
+    /></Suspense>}
+    {indexEditor && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><MessageIndexEditor
       open
       messageLabel={indexEditor.messageIds.length > 1 ? `گالری ${indexEditor.messageIds.length}‌پیامی` : `پیام #${indexEditor.message.id}`}
       definitions={indexDefinitions}
@@ -1786,12 +1764,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       saving={savingIndexEditor}
       close={() => setIndexEditor(null)}
       save={() => void saveMessageIndexFeedback()}
-    />}
-    {((chatsOpen && !chatsDocked) || (composerOpen && !composerDocked)) && <div className="drawer-backdrop visible" onClick={() => { setChatsOpen(false); setComposerOpen(false) }} />}
+    /></Suspense>}
+    {((chatsOpen && !chatsDocked) || (composerOpen && !composerDocked)) && <Box role="presentation" onClick={() => { setChatsOpen(false); setComposerOpen(false) }} sx={{ position: 'fixed', inset: 0, zIndex: theme => theme.zIndex.drawer - 1, bgcolor: 'rgba(0,0,0,.42)', backdropFilter: 'blur(1px)' }} />}
   </Box>
 }
 
-function VirtualMessageList(props: { dialog: DialogItem; messages: MessageItem[]; media: Record<string, string | null>; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
+function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastScroll = useRef(0)
   const nearBottomRef = useRef(true)
@@ -1863,7 +1841,7 @@ function VirtualMessageList(props: { dialog: DialogItem; messages: MessageItem[]
   const restoreMeasuredAnchor = useCallback((key: string, index: number, viewportOffset: number) => {
     const element = parentRef.current
     if (!element) return
-    const row = [...element.querySelectorAll<HTMLElement>('.virtual-row')]
+    const row = [...element.querySelectorAll<HTMLElement>('[data-message-key]')]
       .find(item => item.dataset.messageKey === key)
     if (row) {
       const currentOffset = row.getBoundingClientRect().top - element.getBoundingClientRect().top
@@ -2072,81 +2050,51 @@ function VirtualMessageList(props: { dialog: DialogItem; messages: MessageItem[]
     if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
   }, [])
 
-  return <div ref={parentRef} className="message-scroll">
-    <div className="message-scroll-overlays" aria-hidden="true">
-      {floatingDate && <div className="floating-date">{floatingDate}</div>}
-      {props.loading && <div className="loading-chip"><span className="loading loading-dots loading-sm" /> در حال همگام‌سازی</div>}
-    </div>
-    <div className="message-virtual" style={{ height: virtualizer.getTotalSize() }}>
+  return <Box ref={parentRef} sx={{ position: 'relative', minHeight: 0, overflow: 'auto', overflowAnchor: 'none', scrollbarGutter: 'stable', background: theme => theme.palette.mode === 'dark' ? 'linear-gradient(rgba(12,19,27,.94),rgba(12,19,27,.94)), radial-gradient(circle at 20% 20%,rgba(126,163,146,.16) 1px,transparent 1.5px)' : 'linear-gradient(rgba(231,240,234,.9),rgba(231,240,234,.9)), radial-gradient(circle at 20% 20%,rgba(91,130,73,.18) 1px,transparent 1.5px)', backgroundSize: 'auto, 27px 27px' }}>
+    <Box aria-hidden="true" sx={{ position: 'sticky', zIndex: 8, top: 0, height: 0, width: '100%', pointerEvents: 'none' }}>
+      {floatingDate && <Chip label={floatingDate} size="small" sx={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', bgcolor: 'rgba(29,44,39,.78)', color: '#fff', backdropFilter: 'blur(5px)' }} />}
+      {props.loading && <Chip icon={<CircularProgress size={14} color="inherit" />} label="در حال همگام‌سازی" size="small" sx={{ position: 'absolute', top: 42, left: '50%', transform: 'translateX(-50%)', bgcolor: 'rgba(29,44,39,.78)', color: '#fff', '& .MuiChip-icon': { color: 'inherit' } }} />}
+    </Box>
+    <Box sx={{ width: 'min(760px, calc(100% - 20px))', mx: 'auto', position: 'relative', height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map(row => {
         const message = props.messages[row.index]
         const key = messageKey(props.dialog, message)
         const album = albumLookup.get(message.id)
         const isAlbumFollower = Boolean(album && album.leader.id !== message.id)
-        return <div key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} className={`virtual-row ${isAlbumFollower ? 'album-follower-row' : ''} ${message.id === props.focusMessageId ? 'date-focus-row' : ''}`} style={{ transform: `translateY(${row.start}px)` }}>
-          {!isAlbumFollower && <>
-          {(row.index === 0 || dayKeys[row.index - 1] !== dayKeys[row.index]) && <div className="day-separator"><span>{jalaliDayLabel(message.date)}</span></div>}
-          {row.index === firstUnreadIndex && <div className="unread-separator"><span>{props.dialog.unread_count} پیام خوانده‌نشده</span></div>}
-          <MessageCard dialog={props.dialog} message={message} album={album} media={props.media} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, album?.messages || [message])} openUsage={() => props.openUsage(message)} />
-          </>}
-        </div>
-      })}
-    </div>
-  </div>
-}
-function MessageCard({ dialog, message, album, media, selectedKeys, selectionMode, loadMedia, openFullMedia, toggle, editIndex, openUsage }: { dialog: DialogItem; message: MessageItem; album?: MediaAlbum; media: Record<string, string | null>; selectedKeys: string[]; selectionMode: boolean; loadMedia: (m: MessageItem) => Promise<void>; openFullMedia: (m: MessageItem) => Promise<void>; toggle: () => void; editIndex: () => void; openUsage: () => void }) {
-  const members = album?.messages || [message]
-  const images = members.filter(item => item.media?.is_image)
-  const files = members.filter(item => item.media && !item.media.is_image)
-  const caption = album ? albumCaption(members) : message.text
-  const memberKeys = members.map(item => messageKey(dialog, item))
-  const selected = memberKeys.every(key => selectedKeys.includes(key))
-  const anyUsed = members.some(item => item.usage.used)
-  const allUsed = members.every(item => item.usage.used)
-  const anyStale = members.some(item => item.usage.usage_state === 'stale')
-  const indexedByLabel = new Map<number, IndexPrediction>()
-  for (const item of members) {
-    for (const prediction of item.index_predictions || []) {
-      const current = indexedByLabel.get(prediction.label_id)
-      if (!current || prediction.score > current.score) indexedByLabel.set(prediction.label_id, prediction)
-    }
-  }
-  const indexPredictions = [...indexedByLabel.values()].sort((a, b) => b.score - a.score).slice(0, 5)
-  useEffect(() => {
-    for (const item of images) {
-      if (media[messageKey(dialog, item)] === undefined) void loadMedia(item)
-    }
-  }, [dialog, images, loadMedia, media])
-  const usageClass = anyStale ? 'stale' : allUsed ? 'used' : anyUsed ? 'partly-used' : ''
-  const click = () => selectionMode ? toggle() : anyUsed ? openUsage() : undefined
-  const firstId = members[0].id
-  const lastId = members[members.length - 1].id
-  return <article className={`message-card card ${message.outgoing ? 'outgoing' : ''} ${album ? 'album-card' : ''} ${usageClass} ${selected ? 'selected' : ''}`} onClick={click} onContextMenu={e => { e.preventDefault(); toggle() }}>
-    {album && <div className={`album-label ${album.kind === 'inferred' ? 'inferred-album' : ''}`}>{album.kind === 'inferred' ? `گالری پیشنهادی · ${members.length} تصویر` : `گالری · ${members.length} رسانه`}</div>}
-    {images.length > 0 && <div className={`message-media ${album ? `album-grid album-grid-${Math.min(images.length, 4)}` : ''}`} style={album && images.length > 4 ? { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: `repeat(${Math.ceil(images.length / 3)}, minmax(0, 1fr))` } : undefined}>
-      {images.map(item => {
-        const key = messageKey(dialog, item)
-        const mediaUrl = media[key]
-        return <div className="album-media-cell" key={key}>{mediaUrl ? <img src={mediaUrl} alt="پیش‌نمایش رسانه پیام" title="برای دریافت و نمایش تصویر اصلی کلیک کنید" loading="lazy" decoding="async" draggable onClick={e => { e.stopPropagation(); void openFullMedia(item) }} onDragStart={e => { e.dataTransfer.setData('application/x-eitaa-source', key); e.dataTransfer.effectAllowed = 'copy' }} /> : mediaUrl === null ? <div className="media-placeholder media-skeleton"><Skeleton variant="rectangular" animation="wave" width="100%" height="100%" /><span>در حال دریافت تصویر…</span></div> : <div className="media-placeholder">پیش‌نمایش تصویر</div>}</div>
-      })}
-    </div>}
-    {files.map(item => <div className="file-chip" key={messageKey(dialog, item)}>📎 {item.media?.file_name || item.media?.type}</div>)}
-    {caption && <div className="message-text">{caption}</div>}
-    {indexPredictions.length > 0 && <div className="message-index-badges" aria-label="پیشنهادهای ایندکس محلی">
-      {indexPredictions.map(prediction => <span
-        className={`message-index-badge ${prediction.manual ? 'manual' : ''}`}
-        key={prediction.label_id}
-        title={`${Math.round(prediction.score * 100)}٪${prediction.evidence.length ? ` — نشانه‌ها: ${prediction.evidence.join('، ')}` : ''}`}
-      >{prediction.label_name} <b>{prediction.manual ? 'دستی' : `${Math.round(prediction.score * 100)}٪`}</b></span>)}
-      <button type="button" className="message-index-edit" title="اصلاح ایندکس‌های این پیام" onClick={event => { event.stopPropagation(); editIndex() }}>اصلاح</button>
-    </div>}
-    <div className="message-footer"><span>{album ? `#${firstId}–#${lastId}` : `#${message.id}`}</span><time>{formatDate(album?.last.date || message.date)}</time>{anyUsed && <button className="usage-badge badge" onClick={e => { e.stopPropagation(); openUsage() }}>{anyStale ? 'تغییرکرده' : allUsed ? 'وردپرس' : 'بخشی در وردپرس'}</button>}</div>
-    {(selectionMode || selected) && <input aria-label={album ? 'انتخاب گالری' : 'انتخاب پیام'} className="checkbox checkbox-neutral message-checkmark" type="checkbox" checked={selected} readOnly />}
-    {!selectionMode && !anyUsed && <button className="select-hover btn btn-xs" onClick={e => { e.stopPropagation(); toggle() }}>{album ? 'انتخاب گالری' : 'انتخاب'}</button>}
-  </article>
-}
 
-function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressReady: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; activeUsage: { message: MessageItem; usage: MessageUsage } | null; clearUsage: () => void; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
+        // Calculate timelineGroup
+        const prevMessage = row.index > 0 ? props.messages[row.index - 1] : null
+        const nextMessage = row.index < props.messages.length - 1 ? props.messages[row.index + 1] : null
+
+        const isSameSenderAsPrev = prevMessage && prevMessage.sender_key === message.sender_key && prevMessage.outgoing === message.outgoing
+        const isSameSenderAsNext = nextMessage && nextMessage.sender_key === message.sender_key && nextMessage.outgoing === message.outgoing
+
+        const timeDiffPrev = prevMessage ? new Date(message.date).getTime() - new Date(prevMessage.date).getTime() : Infinity
+        const timeDiffNext = nextMessage ? new Date(nextMessage.date).getTime() - new Date(message.date).getTime() : Infinity
+
+        const groupWithPrev = isSameSenderAsPrev && !albumLookup.has(prevMessage.id)
+        const groupWithNext = isSameSenderAsNext && !albumLookup.has(message.id)
+
+        let timelineGroup: 'none' | 'start' | 'middle' | 'end' = 'none'
+        if (groupWithPrev && groupWithNext) timelineGroup = 'middle'
+        else if (groupWithPrev) timelineGroup = 'end'
+        else if (groupWithNext) timelineGroup = 'start'
+
+        // Wait, for albums, the whole album is one card, so we should consider album's leader.
+        // To be safe, just don't group albums for now, or just let it be.
+
+        return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isAlbumFollower ? 0 : (timelineGroup === 'middle' || timelineGroup === 'end' ? 0.2 : 0.75), height: isAlbumFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isAlbumFollower ? 'strict' : 'layout style', pointerEvents: isAlbumFollower ? 'none' : undefined, transform: `translateY(${row.start}px)`, '& > article': message.id === props.focusMessageId ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => `0 0 0 7px ${theme.palette.action.selected}` } : undefined }}>
+          {!isAlbumFollower && <>
+          {(row.index === 0 || dayKeys[row.index - 1] !== dayKeys[row.index]) && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'text.secondary' }}><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /><Chip label={jalaliDayLabel(message.date)} size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /></Stack>}
+          {row.index === firstUnreadIndex && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'error.main' }}><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /><Chip label={`${props.dialog.unread_count.toLocaleString('fa-IR')} پیام خوانده‌نشده`} size="small" color="error" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /></Stack>}
+          <MessageContentCard siteKey={props.siteKey} timelineGroup={timelineGroup} dialog={props.dialog} message={message} album={album} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, album?.messages || [message])} openUsage={() => props.openUsage(message)} />
+          </>}
+        </Box>
+      })}
+    </Box>
+  </Box>
+}
+function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressReady: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
   const [compositionKey, setCompositionKey] = useState(makeCompositionKey)
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
@@ -2178,7 +2126,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
   }, [editRecord, props.selectedKeys.join('|'), props.suggestedCategoryIds.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = (clearSelection = true) => {
-    setCompositionKey(makeCompositionKey()); setTitle(''); setExcerpt(''); setCategoryIds([]); setTagIds([]); setTagSearch(''); setFeaturedKey(null); setIncludeFeatured(true); setPostStatus('draft'); setConfirmPublish(false); setResult(null); setError(''); setEditRecord(null); setEditSourceKeys([]); props.clearUsage()
+    setCompositionKey(makeCompositionKey()); setTitle(''); setExcerpt(''); setCategoryIds([]); setTagIds([]); setTagSearch(''); setFeaturedKey(null); setIncludeFeatured(true); setPostStatus('draft'); setConfirmPublish(false); setResult(null); setError(''); setEditRecord(null); setEditSourceKeys([])
     if (clearSelection) props.setSelectedKeys([])
   }
 
@@ -2264,6 +2212,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
     setTagSearch('')
   }
 
+
   const createTag = async (requestedName?: string) => {
     const name = (requestedName ?? tagSearch).trim()
     if (!name) return
@@ -2287,106 +2236,74 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
   const exactTagMatch = props.tags.some(term => term.name.trim().toLocaleLowerCase('fa') === normalizedTagSearch)
   const featuredPreview = featuredKey ? props.media[featuredKey] : null
 
-  return <div className="composer-inner">
-    <div className="composer-chrome">
-      <div className="pane-header composer-header">
-        <div className="composer-context">
-          <span className={`composer-context-mark ${props.communityOpen ? 'conversation' : 'wordpress'}`} aria-hidden="true">
-            <Icon name={props.communityOpen ? 'group' : 'wordpress'} size={21} />
-          </span>
-          <div><h2>{props.communityOpen ? 'عملیات گفتگو' : editRecord ? `ویرایش نوشته #${editRecord.post_id}` : 'نوشته جدید وردپرس'}</h2><small>{props.communityOpen ? titleFor(props.dialog) : `${sourceKeys.length} پیام در بدنه`}</small></div>
-        </div>
-        <button type="button" className="close-drawer" aria-label="بستن ستون وردپرس" onClick={props.close}>×</button>
-      </div>
-      <div className="composer-section-tabs tabs tabs-box" role="tablist" aria-label="بخش ستون سوم">
-        <button type="button" role="tab" aria-selected={!props.communityOpen} className={`tab wordpress-tab ${!props.communityOpen ? 'active' : ''}`} disabled={!props.wordpressReady} title={props.wordpressReady ? 'وردپرس' : 'ابتدا سایت و دسترسی وردپرس را تعریف کنید'} onClick={() => props.setCommunityOpen(false)}>وردپرس</button>
-        <button type="button" role="tab" aria-selected={props.communityOpen} className={`tab conversation-tab ${props.communityOpen ? 'active' : ''}`} onClick={() => props.setCommunityOpen(true)}>عملیات گفتگو</button>
-      </div>
-    </div>
-    {props.communityOpen ? <section className="community-panel fieldset bg-base-200 border-base-300 rounded-box border p-4">
-      <legend className="fieldset-legend">{titleFor(props.dialog)}</legend>
-      <div className="community-summary"><div className="avatar small">{initials(titleFor(props.dialog))}</div><div><b>{titleFor(props.dialog)}</b><small>{props.dialog?.peer.username ? `@${props.dialog.peer.username}` : props.dialog ? `Peer ID: ${props.dialog.peer.id}` : 'گفتگویی انتخاب نشده'}</small></div></div>
-      <div className="community-actions">
-        <button type="button" className="btn btn-neutral btn-sm" onClick={() => props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')}>ارسال و دعوت گروهی</button>
-        <button type="button" className="btn btn-outline btn-sm member-management-button" disabled={!props.dialog || props.dialog.display_kind === 'personal'} onClick={props.openMembers}>مدیریت اعضا</button>
-        <small>{!props.dialog ? 'ارسال به شماره‌ها در دسترس است؛ برای عملیات اعضا ابتدا یک گروه یا کانال را انتخاب کنید.' : props.dialog.display_kind === 'personal' ? 'در گفتگوی شخصی، ابزار یکپارچه روی ارسال به شماره‌ها باز می‌شود.' : 'اعضای گفتگو، شماره‌های جدید و دعوت شماره‌ها همگی در یک ابزار و سه تب مستقل قرار دارند.'}</small>
-      </div>
-    </section> : !props.wordpressReady ? <section className="wordpress-unavailable card"><Icon name="wordpress" size={38} /><h3>وردپرس هنوز آماده نیست</h3><p>تا زمانی که یک سایت با نام کاربری و رمز برنامه معتبر تعریف نشده، دریافت دسته‌ها و دکمه‌های ساخت نوشته غیرفعال می‌مانند.</p><button type="button" className="btn btn-neutral" onClick={props.openSettings}>بازکردن تنظیمات سایت‌ها</button></section> : <>
+  return <Box sx={{ height: '100%', minHeight: 0, overflow: 'auto', bgcolor: 'background.default' }}>
+    
+    <Paper square elevation={0} sx={{ position: 'sticky', top: 0, zIndex: 4, p: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Avatar sx={{ bgcolor: props.communityOpen ? 'secondary.main' : 'primary.main' }}>{props.communityOpen ? 'گ' : 'W'}</Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}><Typography fontWeight={900} noWrap>{props.communityOpen ? 'عملیات گفتگو' : editRecord ? `ویرایش نوشته #${editRecord.post_id}` : 'نوشته جدید وردپرس'}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.communityOpen ? titleFor(props.dialog) : `${sourceKeys.length.toLocaleString('fa-IR')} پیام در بدنه`}</Typography></Box>
+        <IconButton aria-label="بستن ستون" onClick={props.close}><CloseRounded /></IconButton>
+      </Stack>
+      <ToggleButtonGroup exclusive fullWidth size="small" value={props.communityOpen ? 'community' : 'wordpress'} onChange={(_event, value) => { if (value) props.setCommunityOpen(value === 'community') }} sx={{ mt: 1 }}>
+        <ToggleButton value="wordpress" disabled={!props.wordpressReady}>وردپرس</ToggleButton>
+        <ToggleButton value="community">عملیات گفتگو</ToggleButton>
+      </ToggleButtonGroup>
+    </Paper>
+    <Stack spacing={1.25} sx={{ p: { xs: 1, sm: 1.5 } }}>
+      {props.communityOpen ? <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack spacing={2}>
+          <Stack direction="row" spacing={1.25} alignItems="center"><Avatar>{initials(titleFor(props.dialog))}</Avatar><Box sx={{ minWidth: 0 }}><Typography fontWeight={850} noWrap>{titleFor(props.dialog)}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.dialog?.peer.username ? `@${props.dialog.peer.username}` : props.dialog ? `Peer ID: ${props.dialog.peer.id}` : 'گفتگویی انتخاب نشده'}</Typography></Box></Stack>
+          <Button variant="contained" onClick={() => props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')}>ارسال و دعوت گروهی</Button>
+          <Button variant="outlined" disabled={!props.dialog || props.dialog.display_kind === 'personal'} onClick={props.openMembers}>مدیریت اعضا</Button>
+          <Typography variant="caption" color="text.secondary">{!props.dialog ? 'ارسال به شماره‌ها در دسترس است؛ برای عملیات اعضا ابتدا یک گروه یا کانال را انتخاب کنید.' : props.dialog.display_kind === 'personal' ? 'در گفتگوی شخصی، ابزار یکپارچه روی ارسال به شماره‌ها باز می‌شود.' : 'اعضا، شماره‌های جدید و دعوت شماره‌ها در تب‌های مستقل ابزار گروهی قرار دارند.'}</Typography>
+        </Stack>
+      </Paper> : !props.wordpressReady ? <Alert severity="info" aria-label="وردپرس آماده نیست" action={<Button color="inherit" onClick={props.openSettings}>تنظیمات</Button>}><Typography fontWeight={850}>وردپرس هنوز آماده نیست</Typography>ابتدا یک سایت و دسترسی معتبر وردپرس تعریف کنید.</Alert> : <>
+        
 
-    {props.activeUsage && !editRecord && <section className="history-card card"><div className="section-title"><h3>سابقه پیام #{props.activeUsage.message.id}</h3><button onClick={props.clearUsage}>×</button></div>
-      {props.activeUsage.usage.compositions.length ? props.activeUsage.usage.compositions.map(item => <div className="history-item" key={item.composition_key}><b>{item.title || `نوشته ${item.post_id}`}</b><span>Post ID: {item.post_id} • {item.status}</span><div><button className="btn btn-sm" onClick={() => void loadHistory(item)}>بارگذاری برای ویرایش</button>{item.post_url && <button className="btn btn-sm btn-ghost" onClick={() => window.eitaaDesktop.openExternal(item.post_url!)}>بازکردن وردپرس</button>}</div></div>) : <div className="history-item"><b>انتقال قدیمی تک‌پیامی</b><span>Post ID: {String(props.activeUsage.usage.external_post_id || '—')}</span>{props.activeUsage.usage.external_url && <button className="btn btn-sm" onClick={() => window.eitaaDesktop.openExternal(props.activeUsage!.usage.external_url!)}>بازکردن وردپرس</button>}<small>این رکورد با Composer چندپیامی ساخته نشده و از این فرم قابل ویرایش نیست.</small></div>}
-    </section>}
+        {editRecord && <Alert severity="warning" action={editRecord.post_url ? <Button color="inherit" size="small" onClick={() => window.eitaaDesktop.openExternal(editRecord.post_url!)}>مشاهده</Button> : undefined}><Typography fontWeight={850}>حالت ویرایش فعال است</Typography>همان Post ID {editRecord.post_id} به‌روزرسانی می‌شود؛ حذف منابع قبلی مجاز نیست و فقط می‌توان پیام تازه افزود.</Alert>}
 
-    {editRecord && <div className="edit-banner alert"><div><b>حالت ویرایش فعال است</b><span>همان Post ID {editRecord.post_id} به‌روزرسانی می‌شود؛ حذف منابع قبلی مجاز نیست، اما می‌توانید پیام‌های جدید را به انتهای نوشته اضافه کنید.</span></div>{editRecord.post_url && <button className="btn btn-sm" onClick={() => window.eitaaDesktop.openExternal(editRecord.post_url!)}>مشاهده</button>}</div>}
-    <fieldset className="fieldset wp-fieldset bg-base-200 border-base-300 rounded-box border p-4">
-      <legend className="fieldset-legend">مشخصات نوشته</legend>
-      <label className="label">سایت مقصد</label><select className="select w-full" value={props.siteKey} disabled={!!editRecord} onChange={e => props.setSiteKey(e.target.value)}>{props.sites.map(site => <option key={site.site_key} value={site.site_key}>{site.site_key} — {site.base_url}</option>)}</select>
-      <label className="label">عنوان مطلب</label><input className="input w-full" value={title} onChange={e => setTitle(e.target.value)} placeholder="عنوان نوشته وردپرس" />
-      <label className="label">چکیده</label><textarea className="textarea w-full" value={excerpt} onChange={e => setExcerpt(e.target.value)} rows={3} placeholder="Excerpt وردپرس" />
-    </fieldset>
+        <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1.25}>
+          <Typography variant="subtitle1" fontWeight={850}>مشخصات نوشته</Typography>
+          <FormControl fullWidth size="small"><InputLabel>سایت مقصد</InputLabel><Select label="سایت مقصد" value={props.siteKey} disabled={Boolean(editRecord)} onChange={e => props.setSiteKey(String(e.target.value))}>{props.sites.map(site => <MenuItem key={site.site_key} value={site.site_key}>{site.site_key} — {site.base_url}</MenuItem>)}</Select></FormControl>
+          <TextField size="small" label="عنوان مطلب" value={title} onChange={e => setTitle(e.target.value)} placeholder="عنوان نوشته وردپرس" />
+          <TextField size="small" multiline minRows={3} label="چکیده" value={excerpt} onChange={e => setExcerpt(e.target.value)} placeholder="Excerpt وردپرس" />
+        </Stack></Paper>
 
-    <fieldset className="fieldset taxonomy-box wp-fieldset bg-base-200 border-base-300 rounded-box border p-4">
-      <legend className="fieldset-legend">دسته‌ها <small>{categoryIds.length} انتخاب</small></legend>
-      <div className="selected-taxonomies" aria-label="دسته‌های انتخاب‌شده">
-        {categoryIds.length ? categoryIds.map(id => { const term = props.categories.find(item => item.id === id); return term ? <button type="button" key={id} className="badge taxonomy-chip" onClick={() => setCategoryIds(current => current.filter(item => item !== id))}>{term.name}<span aria-hidden="true">×</span></button> : null }) : <small>هنوز دسته‌ای انتخاب نشده است.</small>}
-      </div>
-      <div className="checkbox-list category-list" role="tree">{categoryRows.map(({ term, depth }) => <label key={term.id} className={`check-row category-tree-row depth-${Math.min(depth, 6)}`} role="treeitem" aria-level={depth + 1} style={{ paddingInlineStart: `${8 + Math.min(depth, 6) * 20}px` }}><span className="category-branch" aria-hidden="true">{depth ? '↳' : '•'}</span><input className="checkbox checkbox-neutral" type="checkbox" checked={categoryIds.includes(term.id)} onChange={e => setCategoryIds(current => e.target.checked ? [...current, term.id] : current.filter(id => id !== term.id))} /><span>{term.name}</span></label>)}</div>
-    </fieldset>
+        <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}>
+          <Typography variant="subtitle1" fontWeight={850}>دسته‌ها <Typography component="span" variant="caption" color="text.secondary">({categoryIds.length.toLocaleString('fa-IR')} انتخاب)</Typography></Typography>
+          <Stack direction="row" flexWrap="wrap" gap={0.5}>{categoryIds.length ? categoryIds.map(id => { const term = props.categories.find(item => item.id === id); return term ? <Chip key={id} label={term.name} onDelete={() => setCategoryIds(current => current.filter(item => item !== id))} /> : null }) : <Typography variant="caption" color="text.secondary">هنوز دسته‌ای انتخاب نشده است.</Typography>}</Stack>
+          <Box role="tree" sx={{ maxHeight: 260, overflow: 'auto', borderTop: 1, borderColor: 'divider', pt: 0.5 }}>{categoryRows.map(({ term, depth }) => <FormControlLabel key={term.id} role="treeitem" aria-level={depth + 1} control={<Checkbox size="small" checked={categoryIds.includes(term.id)} onChange={e => setCategoryIds(current => e.target.checked ? [...current, term.id] : current.filter(id => id !== term.id))} />} label={term.name} sx={{ display: 'flex', m: 0, pl: `${Math.min(depth, 6) * 18}px`, minHeight: 34 }} />)}</Box>
+        </Stack></Paper>
 
-    <fieldset className="fieldset taxonomy-box wp-fieldset tag-fieldset bg-base-200 border-base-300 rounded-box border p-4">
-      <legend className="fieldset-legend">کلمات کلیدی <small>{tagIds.length} انتخاب</small></legend>
-      <div className="selected-taxonomies selected-tags">{tagIds.length ? tagIds.map(id => { const term = props.tags.find(item => item.id === id); return term ? <button type="button" key={id} className="badge taxonomy-chip tag-chip" onClick={() => setTagIds(current => current.filter(item => item !== id))}>{term.name}<span aria-hidden="true">×</span></button> : null }) : <small>نام یک کلمه کلیدی را تایپ کنید.</small>}</div>
-      <div className="tag-combobox">
-        <input
-          className="input w-full tag-autocomplete-input"
-          value={tagSearch}
-          onChange={e => setTagSearch(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              if (filteredTags.length) chooseTag(filteredTags[0])
-              else if (tagSearch.trim()) void createTag(tagSearch)
-            } else if (e.key === 'Escape') setTagSearch('')
-          }}
-          role="combobox"
-          aria-expanded={Boolean(normalizedTagSearch)}
-          aria-controls="tag-suggestions"
-          autoComplete="off"
-          placeholder="نام کلمه کلیدی را تایپ کنید…"
-        />
-        {normalizedTagSearch && <div id="tag-suggestions" className="tag-suggestions" role="listbox">
-          {filteredTags.map(term => <button type="button" role="option" key={term.id} onMouseDown={e => e.preventDefault()} onClick={() => chooseTag(term)}><b>{term.name}</b><small>انتخاب کلمه کلیدی موجود</small></button>)}
-          {!exactTagMatch && <button type="button" className="create-tag-suggestion" disabled={busy} onMouseDown={e => e.preventDefault()} onClick={() => void createTag(tagSearch)}><b>ساخت «{tagSearch.trim()}»</b><small>کلمه کلیدی جدید در وردپرس</small></button>}
-          {!filteredTags.length && exactTagMatch && <div className="tag-no-result">این کلمه کلیدی قبلاً انتخاب شده است.</div>}
-        </div>}
-      </div>
-      <small className="tag-help">با Enter نخستین پیشنهاد انتخاب می‌شود؛ اگر موردی وجود نداشته باشد، کلمه کلیدی جدید ساخته خواهد شد.</small>
-    </fieldset>
+        <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}>
+          <Typography variant="subtitle1" fontWeight={850}>کلمات کلیدی <Typography component="span" variant="caption" color="text.secondary">({tagIds.length.toLocaleString('fa-IR')} انتخاب)</Typography></Typography>
+          <Stack direction="row" flexWrap="wrap" gap={0.5}>{tagIds.length ? tagIds.map(id => { const term = props.tags.find(item => item.id === id); return term ? <Chip key={id} color="secondary" label={term.name} onDelete={() => setTagIds(current => current.filter(item => item !== id))} /> : null }) : <Typography variant="caption" color="text.secondary">نام یک کلمه کلیدی را تایپ کنید.</Typography>}</Stack>
+          <TextField size="small" label="نام کلمه کلیدی" value={tagSearch} onChange={e => setTagSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (filteredTags.length) chooseTag(filteredTags[0]); else if (tagSearch.trim()) void createTag(tagSearch) } else if (e.key === 'Escape') setTagSearch('') }} role="combobox" aria-expanded={Boolean(normalizedTagSearch)} autoComplete="off" helperText="Enter نخستین پیشنهاد را انتخاب یا کلمه جدید را ایجاد می‌کند." />
+          {normalizedTagSearch && <Paper variant="outlined" role="listbox" sx={{ overflow: 'hidden' }}>{filteredTags.map(term => <ButtonBase role="option" key={term.id} onMouseDown={e => e.preventDefault()} onClick={() => chooseTag(term)} sx={{ display: 'flex', width: '100%', p: 1, justifyContent: 'space-between', textAlign: 'start', '&:hover': { bgcolor: 'action.hover' } }}><Typography fontWeight={750}>{term.name}</Typography><Typography variant="caption" color="text.secondary">انتخاب موجود</Typography></ButtonBase>)}{!exactTagMatch && <ButtonBase disabled={busy} onMouseDown={e => e.preventDefault()} onClick={() => void createTag(tagSearch)} sx={{ display: 'flex', width: '100%', p: 1, justifyContent: 'space-between', textAlign: 'start', color: 'primary.main', '&:hover': { bgcolor: 'action.hover' } }}><Typography fontWeight={750}>ساخت «{tagSearch.trim()}»</Typography><Typography variant="caption">مورد جدید</Typography></ButtonBase>}{!filteredTags.length && exactTagMatch && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', p: 1 }}>این کلمه قبلاً انتخاب شده است.</Typography>}</Paper>}
+        </Stack></Paper>
 
-    <section className="selected-section card"><div className="section-title"><h3>ترتیب بدنه</h3><div className="section-title-actions">{editRecord && props.selectedKeys.some(key => !editSourceKeys.includes(key)) && <button className="btn btn-sm btn-secondary" onClick={appendSelectedToEdit}>افزودن {props.selectedKeys.filter(key => !editSourceKeys.includes(key)).length.toLocaleString('fa-IR')} پیام انتخاب‌شده</button>}{!editRecord && props.selectedKeys.length > 0 && <button onClick={() => props.setSelectedKeys([])}>پاک‌کردن</button>}</div></div>
-      {!sourceKeys.length ? <div className="drop-empty">در ستون پیام‌ها راست‌کلیک کنید و پیام‌ها را انتخاب کنید.</div> : sourceKeys.map((key, index) => {
-        const parsed = parseSourceKey(key); const message = !editRecord ? props.selectedMessages[index] : null
-        return <div key={key} className="selected-source" draggable onDragStart={e => e.dataTransfer.setData('text/plain', String(index))} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); move(Number(e.dataTransfer.getData('text/plain')), index) }}><span className="drag">⋮⋮</span><b>#{parsed.messageId}</b><span>{message?.text.slice(0, 45) || message?.media?.type || `${parsed.peerType}:${parsed.peerId}`}</span>{!editRecord && <button onClick={() => props.setSelectedKeys(props.selectedKeys.filter(item => item !== key))}>×</button>}</div>
-      })}
-    </section>
+        <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}><Typography variant="subtitle1" fontWeight={850}>ترتیب بدنه</Typography><Stack direction="row" gap={0.5}>{editRecord && props.selectedKeys.some(key => !editSourceKeys.includes(key)) && <Button size="small" variant="contained" onClick={appendSelectedToEdit}>افزودن {props.selectedKeys.filter(key => !editSourceKeys.includes(key)).length.toLocaleString('fa-IR')} پیام</Button>}{!editRecord && props.selectedKeys.length > 0 && <Button size="small" color="error" onClick={() => props.setSelectedKeys([])}>پاک‌کردن</Button>}</Stack></Stack>
+          {!sourceKeys.length ? <Alert severity="info">در ستون پیام‌ها، پیام‌های لازم را انتخاب کنید.</Alert> : sourceKeys.map((key, index) => { const parsed = parseSourceKey(key); const message = !editRecord ? props.selectedMessages[index] : null; return <Paper key={key} draggable variant="outlined" onDragStart={e => e.dataTransfer.setData('text/plain', String(index))} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); move(Number(e.dataTransfer.getData('text/plain')), index) }} sx={{ p: 0.75, display: 'grid', gridTemplateColumns: 'auto auto minmax(0,1fr) auto', alignItems: 'center', gap: 0.75, cursor: 'grab' }}><Typography color="text.secondary">⋮⋮</Typography><Typography fontWeight={850}>#{parsed.messageId}</Typography><Typography variant="caption" noWrap>{message?.text.slice(0, 45) || message?.media?.type || `${parsed.peerType}:${parsed.peerId}`}</Typography>{!editRecord && <IconButton size="small" onClick={() => props.setSelectedKeys(props.selectedKeys.filter(item => item !== key))}><CloseRounded fontSize="small" /></IconButton>}</Paper> })}
+        </Stack></Paper>
 
-    <section className={`featured-drop card ${featuredKey ? 'has-image' : ''}`} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }} onDrop={e => { e.preventDefault(); const key = e.dataTransfer.getData('application/x-eitaa-source'); if (sourceKeys.includes(key)) setFeaturedKey(key) }}>
-      <div className="section-title"><h3>تصویر شاخص</h3>{featuredKey && <button onClick={() => setFeaturedKey(null)}>حذف</button>}</div>
-      {featuredPreview ? <img src={featuredPreview} alt="تصویر شاخص" /> : featuredKey ? <p>تصویر شاخص ثبت‌شده: پیام #{parseSourceKey(featuredKey).messageId}</p> : <p>تصویر یک پیام انتخاب‌شده را از ستون وسط اینجا بکشید.</p>}
-      <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={includeFeatured} onChange={e => setIncludeFeatured(e.target.checked)} /> نمایش تصویر شاخص در بدنه</label>
-    </section>
+        <Paper variant="outlined" onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }} onDrop={e => { e.preventDefault(); const key = e.dataTransfer.getData('application/x-eitaa-source'); if (sourceKeys.includes(key)) setFeaturedKey(key) }} sx={{ p: 1.5, borderStyle: 'dashed' }}><Stack spacing={1}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between"><Typography variant="subtitle1" fontWeight={850}>تصویر شاخص</Typography>{featuredKey && <Button size="small" color="error" onClick={() => setFeaturedKey(null)}>حذف</Button>}</Stack>
+          {featuredPreview ? <Box component="img" src={featuredPreview} alt="تصویر شاخص" sx={{ width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 2, bgcolor: 'action.hover' }} /> : <Typography variant="body2" color="text.secondary">{featuredKey ? `تصویر شاخص ثبت‌شده: پیام #${parseSourceKey(featuredKey).messageId}` : 'تصویر یکی از پیام‌های انتخاب‌شده را اینجا بکشید.'}</Typography>}
+          <FormControlLabel control={<Checkbox checked={includeFeatured} onChange={e => setIncludeFeatured(e.target.checked)} />} label="نمایش تصویر شاخص در بدنه" />
+        </Stack></Paper>
 
-    <div className="publish-choice"><label><input name="wordpress_post_status" className="radio radio-secondary" type="radio" checked={postStatus === 'draft'} onChange={() => { setPostStatus('draft'); setConfirmPublish(false) }} /> پیش‌نویس</label><label><input name="wordpress_post_status" className="radio radio-secondary" type="radio" checked={postStatus === 'publish'} onChange={() => setPostStatus('publish')} /> انتشار مستقیم</label></div>
-    {postStatus === 'publish' && <label className="publish-confirm"><input className="checkbox checkbox-neutral" type="checkbox" checked={confirmPublish} onChange={e => setConfirmPublish(e.target.checked)} /> تأیید می‌کنم نوشته بلافاصله عمومی یا به‌روزرسانی شود.</label>}
-    {error && <div className="error-box alert alert-error">{error}</div>}
-    {result && <div className="success-box alert alert-success"><b>{result.outcome === 'composition_created' ? 'نوشته ایجاد شد' : result.outcome === 'composition_updated' ? 'نوشته به‌روزرسانی شد' : 'پیش‌نمایش معتبر است'}</b>{result.post?.id && <span>Post ID: {result.post.id}</span>}{result.plan?.blocked_source_count > 0 && <span>{result.plan.blocked_source_count} پیام قبلاً استفاده شده است.</span>}</div>}
-    <div className="composer-actions">
-      {!editRecord && <button className="btn btn-secondary secondary" disabled={busy} onClick={() => void run('preview')}>پیش‌نمایش</button>}
-      <button className="btn btn-neutral" disabled={busy || !sourceKeys.length || (postStatus === 'publish' && !confirmPublish)} onClick={() => void run(editRecord ? 'update' : 'publish')}>{busy ? <><span className="loading loading-dots loading-sm" /> در حال انجام</> : editRecord ? 'به‌روزرسانی همان نوشته' : postStatus === 'publish' ? 'انتشار' : 'ساخت پیش‌نویس'}</button>
-      <button className="btn btn-ghost link-button" onClick={() => reset(true)}>فرم جدید</button>
-    </div>
-    </>}
-  </div>
+        <Paper variant="outlined" sx={{ p: 1.5 }}><RadioGroup row value={postStatus} onChange={e => { const value = e.target.value as 'draft' | 'publish'; setPostStatus(value); if (value === 'draft') setConfirmPublish(false) }}><FormControlLabel value="draft" control={<Radio />} label="پیش‌نویس" /><FormControlLabel value="publish" control={<Radio />} label="انتشار مستقیم" /></RadioGroup>{postStatus === 'publish' && <FormControlLabel control={<Checkbox checked={confirmPublish} onChange={e => setConfirmPublish(e.target.checked)} />} label="تأیید می‌کنم نوشته بلافاصله عمومی یا به‌روزرسانی شود." />}</Paper>
+        {error && <Alert severity="error">{error}</Alert>}
+        {result && <Alert severity="success"><Typography fontWeight={850}>{result.outcome === 'composition_created' ? 'نوشته ایجاد شد' : result.outcome === 'composition_updated' ? 'نوشته به‌روزرسانی شد' : 'پیش‌نمایش معتبر است'}</Typography>{result.post?.id && <Typography variant="caption">Post ID: {result.post.id}</Typography>}{result.plan?.blocked_source_count > 0 && <Typography variant="caption">{Number(result.plan.blocked_source_count).toLocaleString('fa-IR')} پیام قبلاً استفاده شده است.</Typography>}</Alert>}
+        <Stack direction={{ xs: 'column', sm: 'row' }} gap={1} sx={{ position: 'sticky', bottom: 0, bgcolor: 'background.default', py: 1, zIndex: 2 }}>
+          {!editRecord && <Button variant="outlined" disabled={busy} onClick={() => void run('preview')}>پیش‌نمایش</Button>}
+          <Button variant="contained" disabled={busy || !sourceKeys.length || (postStatus === 'publish' && !confirmPublish)} onClick={() => void run(editRecord ? 'update' : 'publish')} startIcon={busy ? <CircularProgress size={18} color="inherit" /> : undefined}>{busy ? 'در حال انجام' : editRecord ? 'به‌روزرسانی همان نوشته' : postStatus === 'publish' ? 'انتشار' : 'ساخت پیش‌نویس'}</Button>
+          <Button variant="text" onClick={() => reset(true)}>فرم جدید</Button>
+        </Stack>
+      </>}
+    </Stack>
+  </Box>
 }
 
 function ManualDialogModal({ siteKey, close, onAdded }: { siteKey: string; close: () => void; onAdded: (item: DialogItem) => void }) {
@@ -2411,31 +2328,23 @@ function ManualDialogModal({ siteKey, close, onAdded }: { siteKey: string; close
     } catch (e) { setError(e instanceof Error ? e.message : 'افزودن گفتگو ناموفق بود.') }
     finally { setBusy(false) }
   }
-  return <MaterialLegacyDialog close={close} maxWidth="sm"><form className="eb-dialog card material-dialog-surface" aria-label="افزودن دستی گفتگو" onSubmit={submit}><div className="section-title"><h2>افزودن دستی گفتگو</h2><button type="button" className="dialog-close" onClick={close} title="بستن"><Icon name="close" /></button></div>
-    <div className="mode-tabs tabs tabs-box" role="tablist" aria-label="روش افزودن گفتگو"><button type="button" role="tab" aria-selected={mode === 'username'} className={`tab ${mode === 'username' ? 'active' : ''}`} onClick={() => setMode('username')}>با نام کاربری</button><button type="button" role="tab" aria-selected={mode === 'peer'} className={`tab ${mode === 'peer' ? 'active' : ''}`} onClick={() => setMode('peer')}>شناسه و Access Hash</button></div>
-    <fieldset className="fieldset manual-fieldset bg-base-200 border-base-300 rounded-box border p-4">
-      <legend className="fieldset-legend">مشخصات گفتگو</legend>
-      <label className="label">نمایش در رابط</label>
-      <select className="select w-full" value={displayKind} onChange={e => setDisplayKind(e.target.value as DisplayKind)}><option value="channel">کانال</option><option value="group">گروه</option><option value="personal">شخصی</option></select>
-      {mode === 'username' ? <>
-        <label className="label">نام کاربری</label>
-        <input className="input w-full" dir="ltr" value={username} onChange={e => setUsername(e.target.value)} placeholder="username یا @username" />
-      </> : <>
-        <label className="label">نوع فنی Peer</label>
-        <select className="select w-full" value={peerType} onChange={e => setPeerType(e.target.value as PeerType)}><option value="channel">channel</option><option value="chat">chat</option><option value="user">user</option></select>
-        <label className="label">Peer ID</label>
-        <input className="input w-full" dir="ltr" value={peerId} onChange={e => setPeerId(e.target.value)} />
-        <label className="label">Access Hash</label>
-        <input className="input w-full" dir="ltr" value={accessHash} onChange={e => setAccessHash(e.target.value)} placeholder="برای Peer خصوصی معمولاً لازم است" />
-        <label className="label">عنوان نمایشی</label>
-        <input className="input w-full" value={title} onChange={e => setTitle(e.target.value)} />
-        <label className="label">نام کاربری اختیاری</label>
-        <input className="input w-full" dir="ltr" value={username} onChange={e => setUsername(e.target.value)} />
+  return <MaterialLegacyDialog close={close} maxWidth="sm"><Box component="form" aria-label="افزودن دستی گفتگو" onSubmit={submit}>
+    <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}><Stack spacing={1.5}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between"><Typography variant="h6" fontWeight={900}>افزودن دستی گفتگو</Typography><IconButton type="button" onClick={close} aria-label="بستن"><CloseRounded /></IconButton></Stack>
+      <ToggleButtonGroup exclusive fullWidth size="small" value={mode} onChange={(_event, value) => value && setMode(value)} aria-label="روش افزودن گفتگو"><ToggleButton value="username">با نام کاربری</ToggleButton><ToggleButton value="peer">شناسه فنی</ToggleButton></ToggleButtonGroup>
+      <FormControl fullWidth><InputLabel>نمایش در رابط</InputLabel><Select label="نمایش در رابط" value={displayKind} onChange={e => setDisplayKind(e.target.value as DisplayKind)}><MenuItem value="channel">کانال</MenuItem><MenuItem value="group">گروه</MenuItem><MenuItem value="personal">شخصی</MenuItem></Select></FormControl>
+      {mode === 'username' ? <TextField label="نام کاربری" dir="ltr" value={username} onChange={e => setUsername(e.target.value)} placeholder="username یا @username" slotProps={{ htmlInput: { dir: 'ltr' } }} /> : <>
+        <FormControl fullWidth><InputLabel>نوع فنی Peer</InputLabel><Select label="نوع فنی Peer" value={peerType} onChange={e => setPeerType(e.target.value as PeerType)}><MenuItem value="channel">channel</MenuItem><MenuItem value="chat">chat</MenuItem><MenuItem value="user">user</MenuItem></Select></FormControl>
+        <TextField label="Peer ID" value={peerId} onChange={e => setPeerId(e.target.value)} slotProps={{ htmlInput: { dir: 'ltr', inputMode: 'numeric' } }} />
+        <TextField label="Access Hash" value={accessHash} onChange={e => setAccessHash(e.target.value)} helperText="برای Peer خصوصی معمولاً لازم است" slotProps={{ htmlInput: { dir: 'ltr', inputMode: 'numeric' } }} />
+        <TextField label="عنوان نمایشی" value={title} onChange={e => setTitle(e.target.value)} />
+        <TextField label="نام کاربری اختیاری" value={username} onChange={e => setUsername(e.target.value)} slotProps={{ htmlInput: { dir: 'ltr' } }} />
       </>}
-    </fieldset>
-    <div className="notice">اگر یک سوپرگروه از نظر فنی با نوع channel برگردد، نوع فنی را channel و «نمایش در UI» را گروه انتخاب کنید.</div>
-    {error && <div className="error-box">{error}</div>}<div className="modal-actions"><button type="button" className="btn btn-ghost" onClick={close}>انصراف</button><button className="btn btn-neutral" disabled={busy}>{busy ? <><span className="loading loading-dots loading-sm" /> در حال افزودن</> : 'افزودن'}</button></div>
-  </form></MaterialLegacyDialog>
+      <Alert severity="info">اگر سوپرگروه از نظر فنی با نوع channel برگشت، نوع فنی را channel و نمایش رابط را «گروه» انتخاب کنید.</Alert>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Stack direction="row" justifyContent="flex-end" gap={1}><Button type="button" onClick={close}>انصراف</Button><Button type="submit" variant="contained" disabled={busy} startIcon={busy ? <CircularProgress size={18} color="inherit" /> : undefined}>{busy ? 'در حال افزودن' : 'افزودن'}</Button></Stack>
+    </Stack></Paper>
+  </Box></MaterialLegacyDialog>
 }
 
 type CommunityMemberItem = {
@@ -2505,7 +2414,7 @@ function CommunityMembersModal({
 
   const waitTask = async (taskId: string) => {
     for (let attempt = 0; attempt < 3600; attempt += 1) {
-      await new Promise(resolve => window.setTimeout(resolve, 1000))
+      await waitForAdaptivePoll(attempt, { active: true })
       const response = await api<{ task: any }>('GET', query('/api/v1/background/status', { task_id: taskId }))
       if (response.task.status === 'failed') {
         const detail = response.task.error?.message || response.task.error?.error_code || response.task.error_type || 'خطای نامشخص'
@@ -2614,21 +2523,33 @@ function CommunityMembersModal({
   }, [])
   useEffect(() => {
     if (!contactImportActive) return
-    const timer = window.setInterval(() => {
-      void api<{ job: any }>('GET', query('/api/v1/contacts/import/status', { job_id: contactImportJob.job_id }))
-        .then(response => {
+    let cancelled = false
+    const poll = async () => {
+      for (let attempt = 0; !cancelled; attempt += 1) {
+        await waitForAdaptivePoll(attempt, { active: true })
+        if (cancelled) return
+        try {
+          const response = await api<{ job: any }>('GET', query('/api/v1/contacts/import/status', { job_id: contactImportJob.job_id }))
+          if (cancelled) return
           setContactImportJob(response.job)
           if (response.job.state === 'completed') {
             const progress = response.job.progress || {}
             toast.success(`${Number(progress.imported || 0).toLocaleString('fa-IR')} مخاطب جدید و ${Number(progress.updated || 0).toLocaleString('fa-IR')} مخاطب به‌روزشده در دفترچه ثبت شد.`)
             void loadMemberPage(0, false)
+            return
           } else if (response.job.state === 'failed') {
             setError(response.job.error?.message || 'ورود اعضا به دفترچه ناموفق بود.')
+            return
+          } else if (response.job.state === 'cancelled') {
+            return
           }
-        })
-        .catch(() => undefined)
-    }, 1000)
-    return () => window.clearInterval(timer)
+        } catch {
+          if (cancelled) return
+        }
+      }
+    }
+    void poll()
+    return () => { cancelled = true }
   }, [contactImportActive, contactImportJob?.job_id, loadMemberPage])
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy && !contactImportActive) close() }
@@ -2776,70 +2697,34 @@ function CommunityMembersModal({
   }
 
   return <MaterialLegacyDialog close={close} locked={Boolean(busy) || contactImportActive} maxWidth="lg">
-    <section className="eb-dialog members-dialog card material-dialog-surface" aria-label="مدیریت اعضای گفتگو">
-      <div className="section-title"><div><h2>مدیریت اعضای گفتگو</h2><small>{titleFor(dialog)} — Snapshot محلی و بدون نمایش Access Hash</small></div><button className="dialog-close" disabled={Boolean(busy)} onClick={close}><Icon name="close" /></button></div>
-      {!dialog || dialog.display_kind === 'personal' ? <div className="error-box alert alert-error">برای مدیریت اعضا یک گروه یا کانال را انتخاب کنید.</div> : <>
-        <div className="members-toolbar">
-          <div className="message-search"><Icon name="search" size={17} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="جست‌وجوی نام عضو" /></div>
-          <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={sendableOnly} onChange={event => setSendableOnly(event.target.checked)} /> فقط قابل ارسال</label>
-          <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={includeBots} onChange={event => setIncludeBots(event.target.checked)} /> شامل ربات‌ها</label>
-          <button className="btn btn-outline btn-sm" disabled={Boolean(busy) || listBusy} onClick={() => void loadMemberPage(0, false)}>{listBusy ? <span className="loading loading-dots loading-sm" /> : 'بازخوانی محلی'}</button>
-          <button className="btn btn-outline btn-sm" disabled={Boolean(busy) || listBusy || nextOffset === null} onClick={() => void loadAllMembers()}>{busy === 'load-all' ? <span className="loading loading-dots loading-sm" /> : 'بارگذاری همه'}</button>
-          <button className="btn btn-neutral btn-sm" disabled={Boolean(busy)} onClick={() => void syncRemote()}>{busy === 'sync' ? <><span className="loading loading-dots loading-sm" /> همگام‌سازی</> : 'همگام‌سازی از ایتا'}</button>
-        </div>
-        <div className="members-summary card"><span>بارگذاری‌شده: {members.length.toLocaleString('fa-IR')}</span><span>کل نتیجه: {Number(summary?.total_count || members.length).toLocaleString('fa-IR')}</span><span>قابل ارسالِ بارگذاری‌شده: {sendableMembers.length.toLocaleString('fa-IR')}</span><span>انتخاب پایدار: {selected.length.toLocaleString('fa-IR')}</span><span className="contact-eitaa">مخاطب ایتا: {contactCounts.eitaa.toLocaleString('fa-IR')}</span><span>دفترچه محلی: {contactCounts.local.toLocaleString('fa-IR')}</span><span>غیرمخاطب: {contactCounts.none.toLocaleString('fa-IR')}</span></div>
-        {snapshotIncomplete && <div className="alert alert-warning members-snapshot-warning">فهرست محلی فعلاً {snapshotMemberCount.toLocaleString('fa-IR')} عضو از {expectedMemberCount.toLocaleString('fa-IR')} عضو گزارش‌شده را دارد. {busy === 'sync' ? 'برنامه در حال تکمیل خودکار آن از ایتاست.' : 'برای تکمیل فهرست، «همگام‌سازی از ایتا» را دوباره اجرا کنید.'}</div>}
-        {loadAllProgress && <div className="operation-progress card"><div><b>در حال آماده‌سازی نمای کامل</b><span>{loadAllProgress.loaded.toLocaleString('fa-IR')} / {loadAllProgress.total.toLocaleString('fa-IR')}</span></div><progress className="progress progress-success" max={Math.max(1, loadAllProgress.total)} value={loadAllProgress.loaded} /></div>}
-        {syncSummary && <div className={syncSummary.complete_snapshot ? 'notice' : 'alert alert-warning members-snapshot-warning'}>دریافت‌شده: {Number(syncSummary.fetched || 0).toLocaleString('fa-IR')} — جدید: {Number(syncSummary.inserted || 0).toLocaleString('fa-IR')} — به‌روزشده: {Number(syncSummary.updated || 0).toLocaleString('fa-IR')} — وضعیت فهرست: {syncSummary.complete_snapshot ? 'کامل' : `ناقص؛ ${Number(syncSummary.missing_count || 0).toLocaleString('fa-IR')} عضو گزارش‌شده هنوز دریافت نشده`}</div>}
-        <div className="members-select-row"><label><input className="checkbox checkbox-neutral" type="checkbox" checked={allLoadedSelected} onChange={toggleAll} /> انتخاب همه اعضای قابل ارسالِ بارگذاری‌شده</label><button className="btn btn-sm btn-secondary" disabled={!selected.length} onClick={() => openBulk({ scope: 'selected', memberIds: selected })}>ارسال به {selected.length.toLocaleString('fa-IR')} عضو انتخاب‌شده</button><button className="btn btn-sm btn-outline" disabled={!Number(summary?.total_count || 0)} onClick={() => openBulk({ scope: 'all_snapshot', memberIds: [] })}>ارسال به همه اعضای قابل ارسال Snapshot</button></div>
-        <div className="member-mutation-actions card">
-          <div><b>مدیریت عضویت</b><small>حذف فقط برای منتخب‌ها فعال است. دعوت می‌تواند برای منتخب‌ها یا کل Snapshot کامل انجام شود و پیش از اجرا تأیید صریح می‌گیرد.</small></div>
-          <select className="select" value={inviteTargetPeerFile} onChange={event => setInviteTargetPeerFile(event.target.value)}>
-            <option value="">گفتگوی مقصد دعوت…</option>
-            {invitationTargets.map(item => <option key={item.peer_key} value={item.peer_file}>{titleFor(item)}</option>)}
-          </select>
-          <button className="btn btn-sm btn-outline" disabled={!selected.length || Boolean(busy)} onClick={() => void runMemberMutation('invite', false)}>دعوت منتخب‌ها</button>
-          <button className="btn btn-sm btn-outline" disabled={!inviteTargetPeerFile || !Number(summary?.total_count || 0) || Boolean(busy)} onClick={() => void runMemberMutation('invite', true)}>دعوت همه Snapshot</button>
-          <button className="btn btn-sm btn-ghost danger" disabled={!selected.length || Boolean(busy)} onClick={() => void runMemberMutation('remove', false)}>حذف منتخب‌ها از گفتگو</button>
-        </div>
-        {mutationSummary && <div className="operation-progress card"><div><b>{mutationSummary.action === 'remove' ? 'گزارش حذف اعضا' : 'گزارش دعوت اعضا'}</b><span>{mutationSummary.stopped ? 'متوقف‌شده' : 'پایان‌یافته'}</span></div><div className="operation-progress-counts"><span>موفق: {Number(mutationSummary.succeeded || 0).toLocaleString('fa-IR')}</span><span>ناموفق: {Number(mutationSummary.failed || 0).toLocaleString('fa-IR')}</span><span>ردشده: {Number(mutationSummary.skipped || 0).toLocaleString('fa-IR')}</span><span>پردازش: {Number(mutationSummary.processed || 0).toLocaleString('fa-IR')}</span></div>{mutationSummary.stop_reason && <small className="operation-stop-reason" dir="ltr">{mutationSummary.stop_reason}</small>}</div>}
-        <div className="member-contact-import card">
-          <div><b>افزودن به دفترچهٔ محلی</b><small>دادهٔ معتبر مستقیماً از Snapshot محلی خوانده می‌شود؛ Access Hash در UI نمایش داده نمی‌شود.</small></div>
-          {contactCategories.length > 0 && <details><summary>دسته‌های مقصد ({contactCategoryIds.length.toLocaleString('fa-IR')})</summary><div className="contact-category-checks">{contactCategories.map(category => <label key={category.id}><input type="checkbox" className="checkbox checkbox-sm" checked={contactCategoryIds.includes(category.id)} onChange={event => setContactCategoryIds(current => event.target.checked ? [...current, category.id] : current.filter(id => id !== category.id))} /><span>{category.name}</span></label>)}</div></details>}
-          <div className="member-contact-actions"><button className="btn btn-sm btn-neutral" disabled={!selected.length || contactImportActive || Boolean(busy)} onClick={() => void startContactImport(selected)}>افزودن {selected.length.toLocaleString('fa-IR')} منتخب</button><button className="btn btn-sm btn-outline" disabled={!members.length || contactImportActive || Boolean(busy)} onClick={() => void startContactImport()}>افزودن کل نمایه محلی</button>{contactImportActive && <button className="btn btn-sm btn-ghost danger" disabled={contactImportJob.state === 'cancelling'} onClick={() => void api<{ job: any }>('POST', '/api/v1/contacts/import/cancel', { job_id: contactImportJob.job_id }).then(response => setContactImportJob(response.job))}>لغو ایمن</button>}</div>
-          {contactImportJob && <div className={`import-job state-${contactImportJob.state}`}><div><b>{contactImportJob.state === 'completed' ? 'ورود کامل شد' : contactImportJob.state === 'cancelled' ? 'ورود لغو شد' : contactImportJob.state === 'failed' ? 'ورود ناموفق بود' : 'در حال ورود محلی'}</b><span>{Number(contactImportJob.progress?.processed || 0).toLocaleString('fa-IR')} / {Number(contactImportJob.progress?.total || 0).toLocaleString('fa-IR')}</span></div><progress className="progress progress-success" max={Number(contactImportJob.progress?.total || 1)} value={Number(contactImportJob.progress?.processed || 0)} /><small>جدید: {Number(contactImportJob.progress?.imported || 0).toLocaleString('fa-IR')} · به‌روزشده: {Number(contactImportJob.progress?.updated || 0).toLocaleString('fa-IR')} · ردشده/خطا: {(Number(contactImportJob.progress?.skipped || 0) + Number(contactImportJob.progress?.errors || 0)).toLocaleString('fa-IR')}</small></div>}
-        </div>
-        <div className="member-list" role="list" ref={memberListRef}>
-          <div className="member-list-virtual" style={{ height: `${memberVirtualizer.getTotalSize()}px` }}>
-          {virtualMembers.map(virtualRow => {
-            const item = members[virtualRow.index]
-            const id = item.user.peer.id
-            const checked = selected.includes(id)
-            const contactName = item.contact?.display_name?.trim()
-            return <label
-              key={id}
-              data-index={virtualRow.index}
-              ref={memberVirtualizer.measureElement}
-              className={`member-row ${item.sendable ? '' : 'unsendable'}`}
-              role="listitem"
-              style={{ transform: `translateY(${virtualRow.start}px)` }}
-            >
-              <input className="checkbox checkbox-neutral" type="checkbox" disabled={!item.sendable} checked={checked} onChange={() => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} />
-              <span className="avatar small">{initials(contactName || item.user.display_name)}</span>
-              <span className="member-identity"><b>{contactName || item.user.display_name}</b>{contactName && contactName !== item.user.display_name && <small>نام ایتا: {item.user.display_name}</small>}<small>{item.user.phone || `User ID: ${id}`}</small></span>
-              <span className={`member-contact badge state-${item.contact?.state || 'none'}`}>{item.contact?.state === 'eitaa' ? 'مخاطب ایتا' : item.contact?.state === 'local' ? 'دفترچه محلی' : 'غیرمخاطب'}</span>
-              <span className="member-role badge">{item.role}</span>
-              <span className={`member-sendable badge ${item.sendable ? 'ready' : ''}`}>{item.sendable ? 'قابل ارسال' : item.user.is_deleted ? 'حذف‌شده' : 'بدون Access Hash'}</span>
-            </label>
-          })}
-          </div>
-          {loadingMore && <div className="member-list-loading"><span className="loading loading-dots loading-sm" /> دریافت صفحهٔ بعد</div>}
-          {!members.length && !busy && <div className="empty">عضوی در نمایه محلی پیدا نشد. «همگام‌سازی از ایتا» را اجرا کنید.</div>}
-        </div>
+    <Paper component="section" variant="outlined" aria-label="مدیریت اعضای گفتگو" sx={{ p: { xs: 1.25, sm: 2 }, borderRadius: 3 }}><Stack spacing={1.5}>
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1}><Box><Typography variant="h6" fontWeight={900}>مدیریت اعضای گفتگو</Typography><Typography variant="caption" color="text.secondary">{titleFor(dialog)} — Snapshot محلی و بدون نمایش Access Hash</Typography></Box><IconButton disabled={Boolean(busy)} onClick={close} aria-label="بستن"><CloseRounded /></IconButton></Stack>
+      {!dialog || dialog.display_kind === 'personal' ? <Alert severity="error">برای مدیریت اعضا یک گروه یا کانال را انتخاب کنید.</Alert> : <>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'minmax(220px,1fr) auto auto', md: 'minmax(240px,1fr) auto auto auto auto auto' }, gap: 1, alignItems: 'center' }}>
+          <TextField size="small" value={search} onChange={event => setSearch(event.target.value)} label="جست‌وجوی نام عضو" />
+          <FormControlLabel control={<Checkbox checked={sendableOnly} onChange={event => setSendableOnly(event.target.checked)} />} label="فقط قابل ارسال" />
+          <FormControlLabel control={<Checkbox checked={includeBots} onChange={event => setIncludeBots(event.target.checked)} />} label="شامل ربات‌ها" />
+          <Button variant="outlined" disabled={Boolean(busy) || listBusy} onClick={() => void loadMemberPage(0, false)} startIcon={listBusy ? <CircularProgress size={16} /> : undefined}>بازخوانی محلی</Button>
+          <Button variant="outlined" disabled={Boolean(busy) || listBusy || nextOffset === null} onClick={() => void loadAllMembers()} startIcon={busy === 'load-all' ? <CircularProgress size={16} /> : undefined}>بارگذاری همه</Button>
+          <Button variant="contained" disabled={Boolean(busy)} onClick={() => void syncRemote()} startIcon={busy === 'sync' ? <CircularProgress size={16} color="inherit" /> : undefined}>همگام‌سازی از ایتا</Button>
+        </Box>
+        <Stack direction="row" flexWrap="wrap" gap={0.75}><Chip label={`بارگذاری‌شده: ${members.length.toLocaleString('fa-IR')}`} /><Chip label={`کل نتیجه: ${Number(summary?.total_count || members.length).toLocaleString('fa-IR')}`} /><Chip color="success" label={`قابل ارسال: ${sendableMembers.length.toLocaleString('fa-IR')}`} /><Chip color="primary" label={`انتخاب: ${selected.length.toLocaleString('fa-IR')}`} /><Chip label={`مخاطب ایتا: ${contactCounts.eitaa.toLocaleString('fa-IR')}`} /><Chip label={`دفترچه محلی: ${contactCounts.local.toLocaleString('fa-IR')}`} /><Chip label={`غیرمخاطب: ${contactCounts.none.toLocaleString('fa-IR')}`} /></Stack>
+        {snapshotIncomplete && <Alert severity="warning">فهرست محلی فعلاً {snapshotMemberCount.toLocaleString('fa-IR')} عضو از {expectedMemberCount.toLocaleString('fa-IR')} عضو گزارش‌شده را دارد. {busy === 'sync' ? 'برنامه در حال تکمیل خودکار آن از ایتاست.' : 'برای تکمیل فهرست، همگام‌سازی از ایتا را دوباره اجرا کنید.'}</Alert>}
+        {loadAllProgress && <Paper variant="outlined" sx={{ p: 1.25 }}><Stack spacing={0.75}><Stack direction="row" justifyContent="space-between"><Typography fontWeight={750}>در حال آماده‌سازی نمای کامل</Typography><Typography variant="caption">{loadAllProgress.loaded.toLocaleString('fa-IR')} / {loadAllProgress.total.toLocaleString('fa-IR')}</Typography></Stack><LinearProgress variant="determinate" value={Math.min(100, loadAllProgress.loaded / Math.max(1, loadAllProgress.total) * 100)} /></Stack></Paper>}
+        {syncSummary && <Alert severity={syncSummary.complete_snapshot ? 'success' : 'warning'}>دریافت‌شده: {Number(syncSummary.fetched || 0).toLocaleString('fa-IR')} — جدید: {Number(syncSummary.inserted || 0).toLocaleString('fa-IR')} — به‌روزشده: {Number(syncSummary.updated || 0).toLocaleString('fa-IR')} — {syncSummary.complete_snapshot ? 'فهرست کامل است.' : `${Number(syncSummary.missing_count || 0).toLocaleString('fa-IR')} عضو هنوز دریافت نشده است.`}</Alert>}
+        <Paper variant="outlined" sx={{ p: 1.25 }}><Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ md: 'center' }} gap={1}><FormControlLabel sx={{ flex: 1 }} control={<Checkbox checked={allLoadedSelected} onChange={toggleAll} />} label="انتخاب همه اعضای قابل ارسالِ بارگذاری‌شده" /><Button variant="contained" disabled={!selected.length} onClick={() => openBulk({ scope: 'selected', memberIds: selected })}>ارسال به {selected.length.toLocaleString('fa-IR')} عضو انتخاب‌شده</Button><Button variant="outlined" disabled={!Number(summary?.total_count || 0)} onClick={() => openBulk({ scope: 'all_snapshot', memberIds: [] })}>ارسال به همه Snapshot</Button></Stack></Paper>
+        <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}><Box><Typography fontWeight={850}>مدیریت عضویت</Typography><Typography variant="caption" color="text.secondary">حذف برای منتخب‌هاست؛ دعوت برای منتخب‌ها یا Snapshot کامل و با تأیید صریح انجام می‌شود.</Typography></Box><FormControl fullWidth size="small"><InputLabel>گفتگوی مقصد دعوت</InputLabel><Select label="گفتگوی مقصد دعوت" value={inviteTargetPeerFile} onChange={event => setInviteTargetPeerFile(String(event.target.value))}><MenuItem value="">انتخاب نشده</MenuItem>{invitationTargets.map(item => <MenuItem key={item.peer_key} value={item.peer_file}>{titleFor(item)}</MenuItem>)}</Select></FormControl><Stack direction={{ xs: 'column', sm: 'row' }} gap={1}><Button variant="outlined" disabled={!selected.length || Boolean(busy)} onClick={() => void runMemberMutation('invite', false)}>دعوت منتخب‌ها</Button><Button variant="outlined" disabled={!inviteTargetPeerFile || !Number(summary?.total_count || 0) || Boolean(busy)} onClick={() => void runMemberMutation('invite', true)}>دعوت همه Snapshot</Button><Button color="error" disabled={!selected.length || Boolean(busy)} onClick={() => void runMemberMutation('remove', false)}>حذف منتخب‌ها</Button></Stack></Stack></Paper>
+        {mutationSummary && <Alert severity={Number(mutationSummary.failed || 0) || mutationSummary.stopped ? 'warning' : 'success'}><Typography fontWeight={850}>{mutationSummary.action === 'remove' ? 'گزارش حذف اعضا' : 'گزارش دعوت اعضا'} — {mutationSummary.stopped ? 'متوقف‌شده' : 'پایان‌یافته'}</Typography><Stack direction="row" flexWrap="wrap" gap={0.5} mt={0.5}><Chip size="small" color="success" label={`موفق: ${Number(mutationSummary.succeeded || 0).toLocaleString('fa-IR')}`} /><Chip size="small" color="error" label={`ناموفق: ${Number(mutationSummary.failed || 0).toLocaleString('fa-IR')}`} /><Chip size="small" label={`ردشده: ${Number(mutationSummary.skipped || 0).toLocaleString('fa-IR')}`} /><Chip size="small" label={`پردازش: ${Number(mutationSummary.processed || 0).toLocaleString('fa-IR')}`} /></Stack>{mutationSummary.stop_reason && <Typography variant="caption" component="div" dir="ltr" mt={0.5}>{mutationSummary.stop_reason}</Typography>}</Alert>}
+        <Paper variant="outlined" sx={{ p: 1.5 }}><Stack spacing={1}><Box><Typography fontWeight={850}>افزودن به دفترچهٔ محلی</Typography><Typography variant="caption" color="text.secondary">داده معتبر از Snapshot محلی خوانده می‌شود و Access Hash نمایش داده نمی‌شود.</Typography></Box>{contactCategories.length > 0 && <Box sx={{ maxHeight: 150, overflow: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)' } }}>{contactCategories.map(category => <FormControlLabel key={category.id} control={<Checkbox size="small" checked={contactCategoryIds.includes(category.id)} onChange={event => setContactCategoryIds(current => event.target.checked ? [...current, category.id] : current.filter(id => id !== category.id))} />} label={category.name} />)}</Box>}<Stack direction={{ xs: 'column', sm: 'row' }} gap={1}><Button variant="contained" disabled={!selected.length || contactImportActive || Boolean(busy)} onClick={() => void startContactImport(selected)}>افزودن {selected.length.toLocaleString('fa-IR')} منتخب</Button><Button variant="outlined" disabled={!members.length || contactImportActive || Boolean(busy)} onClick={() => void startContactImport()}>افزودن کل نمایه محلی</Button>{contactImportActive && <Button color="error" disabled={contactImportJob.state === 'cancelling'} onClick={() => void api<{ job: any }>('POST', '/api/v1/contacts/import/cancel', { job_id: contactImportJob.job_id }).then(response => setContactImportJob(response.job))}>لغو ایمن</Button>}</Stack>{contactImportJob && <Stack spacing={0.75}><Stack direction="row" justifyContent="space-between"><Typography fontWeight={750}>{contactImportJob.state === 'completed' ? 'ورود کامل شد' : contactImportJob.state === 'cancelled' ? 'ورود لغو شد' : contactImportJob.state === 'failed' ? 'ورود ناموفق بود' : 'در حال ورود محلی'}</Typography><Typography variant="caption">{Number(contactImportJob.progress?.processed || 0).toLocaleString('fa-IR')} / {Number(contactImportJob.progress?.total || 0).toLocaleString('fa-IR')}</Typography></Stack><LinearProgress variant="determinate" value={Math.min(100, Number(contactImportJob.progress?.processed || 0) / Math.max(1, Number(contactImportJob.progress?.total || 1)) * 100)} /><Typography variant="caption" color="text.secondary">جدید: {Number(contactImportJob.progress?.imported || 0).toLocaleString('fa-IR')} · به‌روزشده: {Number(contactImportJob.progress?.updated || 0).toLocaleString('fa-IR')} · ردشده/خطا: {(Number(contactImportJob.progress?.skipped || 0) + Number(contactImportJob.progress?.errors || 0)).toLocaleString('fa-IR')}</Typography></Stack>}</Stack></Paper>
+        <Paper variant="outlined" role="list" ref={memberListRef} sx={{ position: 'relative', height: 'min(48dvh, 520px)', minHeight: 260, overflow: 'auto' }}>
+          <Box sx={{ height: memberVirtualizer.getTotalSize(), position: 'relative' }}>{virtualMembers.map(virtualRow => { const item = members[virtualRow.index]; const id = item.user.peer.id; const checked = selected.includes(id); const contactName = item.contact?.display_name?.trim(); return <Paper component="label" square elevation={0} key={id} data-index={virtualRow.index} ref={memberVirtualizer.measureElement} role="listitem" sx={{ position: 'absolute', top: 0, insetInline: 0, transform: `translateY(${virtualRow.start}px)`, minHeight: 72, p: 1, display: 'grid', gridTemplateColumns: 'auto auto minmax(0,1fr)', gridTemplateRows: 'auto auto', alignItems: 'center', columnGap: 1, opacity: item.sendable ? 1 : 0.58, borderBottom: 1, borderColor: 'divider', cursor: item.sendable ? 'pointer' : 'default' }}><Checkbox disabled={!item.sendable} checked={checked} onChange={() => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} sx={{ gridRow: '1 / -1' }} /><Avatar sx={{ gridRow: '1 / -1', width: 38, height: 38 }}>{initials(contactName || item.user.display_name)}</Avatar><Box sx={{ minWidth: 0 }}><Typography fontWeight={750} noWrap>{contactName || item.user.display_name}</Typography>{contactName && contactName !== item.user.display_name && <Typography variant="caption" color="text.secondary" noWrap>نام ایتا: {item.user.display_name}</Typography>}<Typography variant="caption" color="text.secondary" display="block" noWrap>{item.user.phone || `User ID: ${id}`}</Typography></Box><Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ gridColumn: 3 }}><Chip size="small" label={item.contact?.state === 'eitaa' ? 'مخاطب ایتا' : item.contact?.state === 'local' ? 'دفترچه محلی' : 'غیرمخاطب'} /><Chip size="small" label={item.role} /><Chip size="small" color={item.sendable ? 'success' : 'default'} label={item.sendable ? 'قابل ارسال' : item.user.is_deleted ? 'حذف‌شده' : 'بدون Access Hash'} /></Stack></Paper> })}</Box>
+          {loadingMore && <Stack direction="row" justifyContent="center" alignItems="center" gap={1} sx={{ position: 'sticky', bottom: 8 }}><CircularProgress size={18} /><Typography variant="caption">دریافت صفحهٔ بعد</Typography></Stack>}
+          {!members.length && !busy && <Typography color="text.secondary" textAlign="center" sx={{ p: 4 }}>عضوی در نمایه محلی پیدا نشد. همگام‌سازی از ایتا را اجرا کنید.</Typography>}
+        </Paper>
       </>}
-      {error && <div className="error-box alert alert-error">{error}</div>}
-      <div className="modal-actions"><button className="btn btn-ghost" disabled={Boolean(busy) || contactImportActive} onClick={close}>بستن</button></div>
-    </section>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Stack direction="row" justifyContent="flex-end"><Button disabled={Boolean(busy) || contactImportActive} onClick={close}>بستن</Button></Stack>
+    </Stack></Paper>
   </MaterialLegacyDialog>
 }
 
@@ -2874,7 +2759,7 @@ function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, i
 
   const waitTask = async (taskId: string, onTick?: () => Promise<void>) => {
     for (let attempt = 0; attempt < 3600; attempt += 1) {
-      await new Promise(resolve => window.setTimeout(resolve, 1000))
+      await waitForAdaptivePoll(attempt, { active: true })
       const response = await api<{ task: any }>('GET', query('/api/v1/background/status', { task_id: taskId }))
       if (onTick && attempt % 2 === 0) await onTick()
       if (response.task.status === 'failed') {
@@ -3048,155 +2933,39 @@ function BulkOperationsModal({ siteKey, dialog, initialMode, initialMemberIds, i
 
   const selectedCount = preview?.selected_count ?? preview?.eligible_count ?? 0
   return <MaterialLegacyDialog close={close} locked={Boolean(busy)} maxWidth="lg">
-    <section className="eb-dialog bulk-dialog card material-dialog-surface" aria-label="عملیات گروهی">
-      <div className="section-title"><div><h2>ارسال و دعوت گروهی</h2><small>تمام عملیات با پیش‌نمایش، تأیید و گزارش پایدار هسته انجام می‌شود.</small></div><button className="dialog-close" disabled={Boolean(busy)} onClick={close}><Icon name="close" /></button></div>
-      <div className="mode-tabs tabs tabs-box" role="tablist" aria-label="نوع عملیات گروهی">
-        <button type="button" role="tab" aria-selected={mode === 'members'} className={`tab ${mode === 'members' ? 'active' : ''}`} onClick={() => { setMode('members'); setPreview(null); setResult(null); setProgress(null); setFailures([]); setConfirmed(false) }}>اعضای گفتگوی فعال</button>
-        <button type="button" role="tab" aria-selected={mode === 'numbers'} className={`tab ${mode === 'numbers' ? 'active' : ''}`} onClick={() => { setMode('numbers'); setPreview(null); setResult(null); setProgress(null); setFailures([]); setConfirmed(false) }}>شماره‌های جدید</button>
-        <button type="button" role="tab" aria-selected={mode === 'invite'} className={`tab ${mode === 'invite' ? 'active' : ''}`} onClick={() => { setMode('invite'); setPreview(null); setResult(null); setProgress(null); setFailures([]); setConfirmed(false) }}>دعوت شماره‌ها</button>
-      </div>
-      <div className="bulk-grid">
-        <fieldset className={`fieldset rounded-box border p-4 bulk-recipient-fieldset ${mode === 'invite' ? 'bulk-recipient-fieldset--full' : ''}`}>
-          <legend className="fieldset-legend">گیرندگان</legend>
-          {mode === 'members' ? <div className="notice">مقصد: <b>{titleFor(dialog)}</b><br/>{memberScope === 'selected' ? `${memberIds.length.toLocaleString('fa-IR')} عضو انتخاب‌شده از مدیریت اعضا` : 'دامنه: همه اعضای قابل ارسال از فهرست کامل.'}</div> : <>
-            {mode === 'invite' && <div className="notice invite-explainer"><b>دعوت مستقیم به {titleFor(dialog)}</b><br/>شماره‌ها ابتدا شناسایی می‌شوند و سپس هسته برای افزودن یا دعوت هر حساب به گفتگوی مقصد درخواست می‌فرستد. موفقیت به دسترسی افزودن عضو، نوع گروه/کانال، حریم خصوصی کاربر و محدودیت‌های سرور ایتا وابسته است؛ این عملیات صرفاً لینک دعوت ارسال نمی‌کند.</div>}
-            {mode === 'numbers' && initialNumbers.length > 0 && <div className="notice"><b>{initialNumbers.length.toLocaleString('fa-IR')} گیرنده از سازنده فهرست هدف دفترچه منتقل شد.</b><br/>این انتقال به‌تنهایی هیچ پیامی ارسال نمی‌کند؛ شماره‌ها دوباره در هسته پاک‌سازی و شناسایی می‌شوند و پیش‌نمایش و تأیید صریح لازم است.</div>}
-            <label className="label">نام فهرست</label><input className="input w-full" value={listName} onChange={e => setListName(e.target.value)} />
-            <label className="label">شماره‌ها، هر شماره در یک خط</label><textarea className="textarea w-full phone-input" dir="ltr" value={numbers} onChange={e => { setNumbers(e.target.value); setListId('') }} placeholder="+98912..." />
-            <button className="btn btn-sm btn-outline" onClick={() => void choosePhoneFile()}>انتخاب TXT/CSV</button>
-            {sourceFile && <small className="selected-path" dir="ltr">{sourceFile}</small>}
+    <Paper component="section" variant="outlined" aria-label="عملیات گروهی" sx={{ p: { xs: 1.25, sm: 2 }, borderRadius: 3 }}><Stack spacing={1.5}>
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1}><Box><Typography variant="h6" fontWeight={900}>ارسال و دعوت گروهی</Typography><Typography variant="caption" color="text.secondary">همه عملیات با پیش‌نمایش، تأیید و گزارش پایدار انجام می‌شوند.</Typography></Box><IconButton disabled={Boolean(busy)} onClick={close} aria-label="بستن"><CloseRounded /></IconButton></Stack>
+      <ToggleButtonGroup exclusive fullWidth size="small" value={mode} onChange={(_event, value: BulkMode | null) => { if (!value) return; setMode(value); setPreview(null); setResult(null); setProgress(null); setFailures([]); setConfirmed(false) }} aria-label="نوع عملیات گروهی"><ToggleButton value="members">اعضای گفتگو</ToggleButton><ToggleButton value="numbers">شماره‌های جدید</ToggleButton><ToggleButton value="invite">دعوت شماره‌ها</ToggleButton></ToggleButtonGroup>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: mode === 'invite' ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }, gap: 1.5 }}>
+        <Paper variant="outlined" aria-label="گیرندگان عملیات گروهی" sx={{ p: 1.5 }}><Stack spacing={1.25}><Typography fontWeight={850}>گیرندگان</Typography>
+          {mode === 'members' ? <Alert severity="info">مقصد: <strong>{titleFor(dialog)}</strong><br />{memberScope === 'selected' ? `${memberIds.length.toLocaleString('fa-IR')} عضو انتخاب‌شده از مدیریت اعضا` : 'دامنه: همه اعضای قابل ارسال از فهرست کامل.'}</Alert> : <>
+            {mode === 'invite' && <Alert severity="warning"><Typography fontWeight={850}>دعوت مستقیم به {titleFor(dialog)}</Typography>این عملیات صرفاً لینک دعوت ارسال نمی‌کند؛ شماره‌ها شناسایی و حساب‌ها مستقیماً دعوت می‌شوند. دسترسی افزودن عضو، حریم خصوصی و محدودیت‌های ایتا اعمال می‌شود.</Alert>}
+            {mode === 'numbers' && initialNumbers.length > 0 && <Alert severity="info">{initialNumbers.length.toLocaleString('fa-IR')} گیرنده از دفترچه منتقل شده است؛ پیش‌نمایش و تأیید همچنان الزامی است.</Alert>}
+            <TextField size="small" label="نام فهرست" value={listName} onChange={e => setListName(e.target.value)} />
+            <TextField multiline minRows={6} label="شماره‌ها؛ هر شماره در یک خط" value={numbers} onChange={e => { setNumbers(e.target.value); setListId('') }} placeholder="+98912..." slotProps={{ htmlInput: { dir: 'ltr' } }} />
+            <Button variant="outlined" onClick={() => void choosePhoneFile()}>انتخاب TXT/CSV</Button>
+            {sourceFile && <Typography variant="caption" dir="ltr" sx={{ overflowWrap: 'anywhere' }}>{sourceFile}</Typography>}
           </>}
-          <label className="label">محدودیت آزمایشی</label><input className="input w-full" type="number" min="1" value={testLimit} onChange={e => setTestLimit(e.target.value)} placeholder="خالی = همه" />
-          <label className="label">فاصله بین عملیات (ثانیه)</label><input className="input w-full" type="number" min="0" step="0.5" value={delay} onChange={e => setDelay(e.target.value)} />
-        </fieldset>
-        {mode !== 'invite' && <fieldset className="fieldset rounded-box border p-4 bulk-message-fieldset">
-          <legend className="fieldset-legend">پیام</legend>
-          <div className="bulk-message-kind-row"><label className="label" htmlFor="bulk-message-kind">نوع پیام</label><select id="bulk-message-kind" className="select bulk-message-kind" value={kind} onChange={e => { setKind(e.target.value as any); setFileInfo(null); setPreview(null); setConfirmed(false) }}><option value="text">متن</option><option value="photo">تصویر</option><option value="file">فایل</option></select></div>
-          {kind === 'text' ? <textarea className="textarea w-full message-compose" rows={10} value={text} onChange={e => setText(e.target.value)} placeholder="متن پیام" /> : <div className="bulk-media-compose">
-            <button className="btn btn-outline" onClick={() => void chooseMedia()}>انتخاب فایل</button>
-            {filePath && <small className="selected-path" dir="ltr">{filePath}</small>}
-            {fileInfo && <div className="file-preflight"><b>{fileInfo.name}</b><span>{(fileInfo.size_bytes / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} مگابایت</span><span dir="ltr">{fileInfo.mime_type}</span></div>}
-            <textarea className="textarea w-full bulk-caption" rows={5} value={caption} onChange={e => setCaption(e.target.value)} placeholder="کپشن اختیاری" />
-          </div>}
-        </fieldset>}
-      </div>
-      <div className="bulk-summary card">
-        {!preview ? <span>ابتدا «آماده‌سازی و پیش‌نمایش» را اجرا کنید.</span> : <><b>{selectedCount.toLocaleString('fa-IR')} گیرنده انتخاب شده</b><span>واجد شرایط: {(preview.eligible_count ?? selectedCount).toLocaleString('fa-IR')} — حذف‌شده/نامعتبر: {(preview.skipped_unsendable ?? preview.unresolved_count ?? 0).toLocaleString('fa-IR')}</span></>}
-      </div>
-      {progress?.job && <div className="operation-progress card" data-status={progress.job.status}>
-        <div><b>وضعیت وظیفه: {progress.job.status}</b><span dir="ltr">{progress.job.id}</span></div>
-        <div className="operation-progress-counts"><span>موفق: {Number(progress.job.sent_count || 0).toLocaleString('fa-IR')}</span><span>ناموفق: {Number(progress.job.failed_count || 0).toLocaleString('fa-IR')}</span><span>ردشده: {Number(progress.job.skipped_count || 0).toLocaleString('fa-IR')}</span><span>در انتظار: {Number(progress.pending || 0).toLocaleString('fa-IR')}</span></div>
-        {progress.job.stop_reason && <small className="operation-stop-reason">علت توقف: <span dir="ltr">{progress.job.stop_reason}</span></small>}
-        <div className="operation-job-actions">
-          {['running', 'queued'].includes(progress.job.status) && <button type="button" className="btn btn-xs btn-outline" disabled={Boolean(busy)} onClick={() => void controlJob('pause')}>توقف موقت</button>}
-          {['paused', 'blocked', 'failed'].includes(progress.job.status) && <button type="button" className="btn btn-xs btn-secondary" disabled={Boolean(busy)} onClick={() => void controlJob('resume')}>ادامه گیرندگان باقی‌مانده</button>}
-          {!['completed', 'cancelled'].includes(progress.job.status) && <button type="button" className="btn btn-xs btn-ghost danger" disabled={Boolean(busy)} onClick={() => void controlJob('cancel')}>لغو وظیفه</button>}
-        </div>
-      </div>}
-      {preview && <label className="publish-confirm"><input className="checkbox checkbox-neutral" type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /> گیرندگان، متن/فایل و محدودیت آزمایشی را بررسی کردم و اجرای عملیات را تأیید می‌کنم.</label>}
-      {error && <div className="error-box alert alert-error">{error}</div>}
-      {failures.length > 0 && <div className="recipient-failures alert alert-error"><b>{failures.length.toLocaleString('fa-IR')} خطای گیرنده ثبت شده است</b><div>{failures.slice(0, 12).map((item, index) => <span key={`${item.user?.peer?.id || index}:${item.error_code || item.error_type || index}`}><b>{item.user?.display_name || item.user?.first_name || `کاربر ${item.user?.peer?.id || '—'}`}</b><code dir="ltr">{item.error_code || item.error_type || 'UNKNOWN_ERROR'}</code></span>)}</div>{failures.length > 12 && <small>فقط ۱۲ مورد نخست نمایش داده شده؛ گزارش کامل در هسته SQLite باقی مانده است.</small>}</div>}
-      {result && !failures.length && <div className="success-box alert alert-success"><b>عملیات ثبت و پایان یافت</b><span>وظیفه ID: {job?.id || result?.job_id || '—'}</span><span>گزارش کامل در هسته SQLite باقی می‌ماند و قابل Resume/بررسی است.</span></div>}
-      <div className="modal-actions"><button className="btn btn-ghost" disabled={Boolean(busy)} onClick={close}>بستن</button><button className="btn btn-secondary" disabled={Boolean(busy)} onClick={() => void prepare()}>{busy === 'prepare' ? <span className="loading loading-dots loading-sm" /> : 'آماده‌سازی و پیش‌نمایش'}</button><button className="btn btn-neutral" disabled={Boolean(busy) || !preview || !confirmed || (mode !== 'invite' && kind === 'text' && !text.trim()) || (mode !== 'invite' && kind !== 'text' && !filePath)} onClick={() => void execute()}>{busy === 'run' ? <><span className="loading loading-dots loading-sm" /> در حال اجرا</> : mode === 'invite' ? 'شروع دعوت' : 'شروع ارسال'}</button></div>
-    </section>
-  </MaterialLegacyDialog>
-}
-
-function SettingsModal({ sites, close, onChanged }: { sites: Site[]; close: () => void; onChanged: () => Promise<void> | void }) {
-  const emptySite = { site_key: '', base_url: 'http://localhost', default_status: 'draft', default_category_id: '', timeout_seconds: 30, verify_tls: false, retry_attempts: 2, allow_insecure_http: true, username: '', application_password: '', is_default: false }
-  const [items, setItems] = useState<Site[]>(sites)
-  const [form, setForm] = useState<any>(emptySite)
-  const [busy, setBusy] = useState('')
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  const load = useCallback(async () => {
-    const response = await api<{ sites: Site[] }>('GET', '/api/v1/settings/sites')
-    setItems(response.sites)
-  }, [])
-  useEffect(() => { void load() }, [load])
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) close() }
-    window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey)
-  }, [close, busy])
-  const edit = (site: Site) => setForm({ ...site, default_category_id: site.default_category_id ?? '', username: '', application_password: '' })
-  const sitePayload = () => {
-    const payload: any = { ...form, default_category_id: form.default_category_id === '' ? null : Number(form.default_category_id), timeout_seconds: Number(form.timeout_seconds), retry_attempts: Number(form.retry_attempts) }
-    if (!form.username) delete payload.username
-    if (!form.application_password) delete payload.application_password
-    return payload
-  }
-  const persistForm = async (announce = true) => {
-    const response = await api<{ sites: Site[] }>('POST', '/api/v1/settings/sites/upsert', sitePayload())
-    setItems(response.sites)
-    const saved = response.sites.find(item => item.site_key === form.site_key)
-    if (saved) edit(saved)
-    await onChanged()
-    if (announce) setMessage('تنظیمات سایت ذخیره شد. پیش از هر تغییر نسخه پشتیبان ساخته شد.')
-    return saved
-  }
-  const save = async () => {
-    setBusy('save'); setError(''); setMessage('')
-    try { await persistForm(true) }
-    catch (e) { setError(e instanceof Error ? e.message : 'ذخیره تنظیمات ناموفق بود.') }
-    finally { setBusy('') }
-  }
-  const test = async () => {
-    setBusy('test'); setError(''); setMessage('')
-    try {
-      await persistForm(false)
-      await api('POST', '/api/v1/settings/sites/test', { site_key: form.site_key })
-      setMessage('تنظیمات ذخیره شد و اتصال و احراز هویت وردپرس با موفقیت تأیید شد.')
-    }
-    catch (e) { setError(e instanceof Error ? e.message : 'ذخیره یا آزمون اتصال ناموفق بود.') }
-    finally { setBusy('') }
-  }
-  const makeDefault = async (site: Site) => {
-    setBusy(`default-${site.site_key}`); setError('')
-    try { const response = await api<{ sites: Site[] }>('POST', '/api/v1/settings/sites/default', { site_key: site.site_key }); setItems(response.sites); await onChanged() }
-    catch (e) { setError(e instanceof Error ? e.message : 'تغییر سایت پیش‌فرض ناموفق بود.') }
-    finally { setBusy('') }
-  }
-  const remove = async (site: Site) => {
-    if (!confirm(`سایت «${site.site_key}» حذف شود؟ نسخه پشتیبان تنظیمات باقی می‌ماند.`)) return
-    setBusy(`delete-${site.site_key}`); setError('')
-    try { const response = await api<{ sites: Site[] }>('POST', '/api/v1/settings/sites/delete', { site_key: site.site_key, confirm: true }); setItems(response.sites); setForm(emptySite); await onChanged() }
-    catch (e) { setError(e instanceof Error ? e.message : 'حذف سایت ناموفق بود.') }
-    finally { setBusy('') }
-  }
-  return <MaterialLegacyDialog close={close} locked={Boolean(busy)} maxWidth="lg">
-    <section className="eb-dialog settings-dialog settings-editor card material-dialog-surface" aria-label="سایت‌ها و تنظیمات">
-      <div className="section-title"><div><h2>تنظیمات برنامه و سایت‌ها</h2><small>ظاهر صفحه ورود و اتصال‌های وردپرس از همین پنجره مدیریت می‌شوند.</small></div><button className="dialog-close" disabled={Boolean(busy)} onClick={close}><Icon name="close" /></button></div>
-      <Paper variant="outlined" className="settings-login-appearance">
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="h6">ظاهر صفحه ورود</Typography>
-          <Typography variant="body2" color="text.secondary">تصویر انتخاب‌شده فقط در Runtime محلی برنامه نگهداری می‌شود.</Typography>
-        </Box>
-        <LoginAppearanceSettingsPanel />
-      </Paper>
-      <div className="settings-subheading"><h3>سایت‌ها و دسترسی وردپرس</h3><small>رمز برنامه در فایل محلی .env ذخیره می‌شود و هرگز در UI بازخوانی نمی‌شود.</small></div>
-      <div className="settings-layout">
-        <div className="settings-site-list">
-          <button className="btn btn-sm btn-outline" onClick={() => setForm(emptySite)}>+ سایت جدید</button>
-          {items.map(site => <div className={`site-card card ${form.site_key === site.site_key ? 'selected' : ''}`} key={site.site_key} onClick={() => edit(site)}><div className="site-status-dot" data-ready={site.credentials_configured} /><div><b>{site.site_key}{site.is_default ? ' — پیش‌فرض' : ''}</b><span>{site.base_url}</span><small>{site.credentials_configured ? 'دسترسی آماده' : 'نام کاربری یا رمز برنامه ناقص'}</small></div><div className="site-actions"><button disabled={site.is_default || Boolean(busy)} onClick={e => { e.stopPropagation(); void makeDefault(site) }}>پیش‌فرض</button><button className="danger" disabled={Boolean(busy)} onClick={e => { e.stopPropagation(); void remove(site) }}>حذف</button></div></div>)}
-        </div>
-        <fieldset className="fieldset settings-form rounded-box border p-4">
-          <legend className="fieldset-legend">{form.site_key ? 'ویرایش اتصال' : 'اتصال جدید'}</legend>
-          <label className="label">کلید سایت</label><input className="input w-full" dir="ltr" value={form.site_key} onChange={e => setForm({ ...form, site_key: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })} placeholder="medical-site" />
-          <label className="label">نشانی سایت</label><input className="input w-full" dir="ltr" value={form.base_url} onChange={e => { const base_url = e.target.value; const localHttp = /^http:\/\//i.test(base_url); const https = /^https:\/\//i.test(base_url); setForm({ ...form, base_url, allow_insecure_http: localHttp ? true : form.allow_insecure_http, verify_tls: localHttp ? false : https ? true : form.verify_tls }) }} placeholder="http://localhost یا https://example.com" />
-          <small className="settings-help">برای Laragon روی همین رایانه از <b>http://localhost</b> و برای سیستم اداره از IP خصوصی مانند <b>http://192.168.1.2</b> استفاده کنید.</small>
-          <div className="settings-form-row"><label><span>وضعیت پیش‌فرض</span><select className="select w-full" value={form.default_status} onChange={e => setForm({ ...form, default_status: e.target.value })}><option value="draft">پیش‌نویس</option><option value="pending">در انتظار بررسی</option><option value="private">خصوصی</option><option value="publish">انتشار</option></select></label><label><span>شناسه دسته پیش‌فرض</span><input className="input w-full" type="number" min="1" value={form.default_category_id} onChange={e => setForm({ ...form, default_category_id: e.target.value })} /></label></div>
-          <label className="label">نام کاربری ورود به وردپرس</label><input className="input w-full" dir="ltr" autoComplete="username" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder={form.username_configured ? 'ذخیره شده؛ برای تغییر مقدار جدید وارد کنید' : 'eitaa-user'} />
-          <small className="settings-help warning-help">این مقدار باید همان نام کاربری ورود به وردپرس باشد؛ نامی که هنگام ساخت رمز برنامه انتخاب می‌کنید، نام کاربری نیست.</small>
-          <label className="label">رمز برنامه</label><input className="input w-full" dir="ltr" type="password" autoComplete="new-password" value={form.application_password} onChange={e => setForm({ ...form, application_password: e.target.value })} placeholder={form.application_password_configured ? 'ذخیره شده؛ برای تغییر مقدار جدید وارد کنید' : 'xxxx xxxx xxxx xxxx'} />
-          <div className="settings-form-row"><label><span>زمان انتظار</span><input className="input w-full" type="number" min="1" value={form.timeout_seconds} onChange={e => setForm({ ...form, timeout_seconds: e.target.value })} /></label><label><span>تلاش مجدد</span><input className="input w-full" type="number" min="0" max="5" value={form.retry_attempts} onChange={e => setForm({ ...form, retry_attempts: e.target.value })} /></label></div>
-          <label className="inline-check local-http-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={Boolean(form.allow_insecure_http)} onChange={e => setForm({ ...form, allow_insecure_http: e.target.checked })} /> اجازه HTTP فقط برای localhost، دامنه‌های توسعه محلی و IP خصوصی شبکه</label>
-          <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" disabled={/^http:\/\//i.test(form.base_url)} checked={Boolean(form.verify_tls)} onChange={e => setForm({ ...form, verify_tls: e.target.checked })} /> بررسی گواهی TLS در اتصال HTTPS</label>
-          <label className="inline-check"><input className="checkbox checkbox-neutral" type="checkbox" checked={Boolean(form.is_default)} onChange={e => setForm({ ...form, is_default: e.target.checked })} /> انتخاب به‌عنوان سایت پیش‌فرض</label>
-          <div className="settings-buttons"><button className="btn btn-outline" disabled={Boolean(busy) || !form.site_key} onClick={() => void test()}>{busy === 'test' ? <span className="loading loading-dots loading-sm" /> : 'ذخیره و آزمون اتصال'}</button><button className="btn btn-neutral" disabled={Boolean(busy) || !form.site_key || !form.base_url} onClick={() => void save()}>{busy === 'save' ? <span className="loading loading-dots loading-sm" /> : 'ذخیره تنظیمات'}</button></div>
-        </fieldset>
-      </div>
-      {error && <div className="error-box alert alert-error">{error}</div>}{message && <div className="success-box alert alert-success">{message}</div>}
-      <div className="modal-actions"><button className="btn btn-ghost" onClick={() => void window.eitaaDesktop.openLogs()}>بازکردن گزارش‌ها</button><button className="btn btn-primary" disabled={Boolean(busy)} onClick={close}>بستن</button></div>
-    </section>
+          <TextField size="small" type="number" label="محدودیت آزمایشی" value={testLimit} onChange={e => setTestLimit(e.target.value)} placeholder="خالی = همه" slotProps={{ htmlInput: { min: 1 } }} />
+          <TextField size="small" type="number" label="فاصله بین عملیات (ثانیه)" value={delay} onChange={e => setDelay(e.target.value)} slotProps={{ htmlInput: { min: 0, step: 0.5 } }} />
+        </Stack></Paper>
+        {mode !== 'invite' && <Paper variant="outlined" aria-label="پیام عملیات گروهی" sx={{ p: 1.5 }}><Stack spacing={1.25}><Typography fontWeight={850}>پیام</Typography>
+          <FormControl fullWidth size="small"><InputLabel>نوع پیام</InputLabel><Select label="نوع پیام" value={kind} onChange={e => { setKind(e.target.value as 'text' | 'photo' | 'file'); setFileInfo(null); setPreview(null); setConfirmed(false) }}><MenuItem value="text">متن</MenuItem><MenuItem value="photo">تصویر</MenuItem><MenuItem value="file">فایل</MenuItem></Select></FormControl>
+          {kind === 'text' ? <TextField multiline minRows={10} value={text} onChange={e => setText(e.target.value)} label="متن پیام" /> : <>
+            <Button variant="outlined" onClick={() => void chooseMedia()}>انتخاب فایل</Button>
+            {filePath && <Typography variant="caption" dir="ltr" sx={{ overflowWrap: 'anywhere' }}>{filePath}</Typography>}
+            {fileInfo && <Alert severity="info" aria-label="نتیجه پیش‌بررسی فایل"><Typography fontWeight={750}>{fileInfo.name}</Typography>{(fileInfo.size_bytes / 1024 / 1024).toLocaleString('fa-IR', { maximumFractionDigits: 2 })} مگابایت · <Box component="span" dir="ltr">{fileInfo.mime_type}</Box></Alert>}
+            <TextField multiline minRows={5} value={caption} onChange={e => setCaption(e.target.value)} label="کپشن اختیاری" />
+          </>}
+        </Stack></Paper>}
+      </Box>
+      <Alert severity={preview ? 'success' : 'info'}>{!preview ? 'ابتدا آماده‌سازی و پیش‌نمایش را اجرا کنید.' : <><Typography fontWeight={850}>{Number(selectedCount).toLocaleString('fa-IR')} گیرنده انتخاب شده</Typography>واجد شرایط: {Number(preview.eligible_count ?? selectedCount).toLocaleString('fa-IR')} — حذف‌شده/نامعتبر: {Number(preview.skipped_unsendable ?? preview.unresolved_count ?? 0).toLocaleString('fa-IR')}</>}</Alert>
+      {progress?.job && <Paper variant="outlined" aria-label="پیشرفت عملیات گروهی" data-status={progress.job.status} sx={{ p: 1.5 }}><Stack spacing={1}><Stack direction="row" justifyContent="space-between" gap={1}><Typography fontWeight={850}>وضعیت وظیفه: {progress.job.status}</Typography><Typography variant="caption" dir="ltr" sx={{ overflowWrap: 'anywhere' }}>{progress.job.id}</Typography></Stack><Stack direction="row" flexWrap="wrap" gap={0.5}><Chip color="success" label={`موفق: ${Number(progress.job.sent_count || 0).toLocaleString('fa-IR')}`} /><Chip color="error" label={`ناموفق: ${Number(progress.job.failed_count || 0).toLocaleString('fa-IR')}`} /><Chip label={`ردشده: ${Number(progress.job.skipped_count || 0).toLocaleString('fa-IR')}`} /><Chip label={`در انتظار: ${Number(progress.pending || 0).toLocaleString('fa-IR')}`} /></Stack>{progress.job.stop_reason && <Typography variant="caption">علت توقف: <Box component="span" dir="ltr">{progress.job.stop_reason}</Box></Typography>}<Stack direction={{ xs: 'column', sm: 'row' }} gap={1}>{['running', 'queued'].includes(progress.job.status) && <Button variant="outlined" disabled={Boolean(busy)} onClick={() => void controlJob('pause')}>توقف موقت</Button>}{['paused', 'blocked', 'failed'].includes(progress.job.status) && <Button variant="contained" disabled={Boolean(busy)} onClick={() => void controlJob('resume')}>ادامه گیرندگان باقی‌مانده</Button>}{!['completed', 'cancelled'].includes(progress.job.status) && <Button color="error" disabled={Boolean(busy)} onClick={() => void controlJob('cancel')}>لغو وظیفه</Button>}</Stack></Stack></Paper>}
+      {preview && <FormControlLabel control={<Checkbox checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />} label="گیرندگان، متن یا فایل و محدودیت آزمایشی را بررسی کردم و اجرای عملیات را تأیید می‌کنم." />}
+      {error && <Alert severity="error">{error}</Alert>}
+      {failures.length > 0 && <Alert severity="error" aria-label="خطاهای گیرندگان"><Typography fontWeight={850}>{failures.length.toLocaleString('fa-IR')} خطای گیرنده ثبت شده است</Typography><Stack spacing={0.5} mt={1}>{failures.slice(0, 12).map((item, index) => <Paper variant="outlined" key={`${item.user?.peer?.id || index}:${item.error_code || item.error_type || index}`} sx={{ p: 0.75, display: 'flex', justifyContent: 'space-between', gap: 1 }}><Typography variant="caption" fontWeight={750}>{item.user?.display_name || item.user?.first_name || `کاربر ${item.user?.peer?.id || '—'}`}</Typography><Typography component="code" variant="caption" dir="ltr">{item.error_code || item.error_type || 'UNKNOWN_ERROR'}</Typography></Paper>)}</Stack>{failures.length > 12 && <Typography variant="caption">فقط ۱۲ مورد نخست نمایش داده شده؛ گزارش کامل در هسته باقی مانده است.</Typography>}</Alert>}
+      {result && !failures.length && <Alert severity="success"><Typography fontWeight={850}>عملیات ثبت و پایان یافت</Typography><Typography variant="caption" display="block">وظیفه ID: {job?.id || result?.job_id || '—'}</Typography><Typography variant="caption">گزارش کامل پایدار است و امکان ادامه یا بررسی دارد.</Typography></Alert>}
+      <Stack direction={{ xs: 'column-reverse', sm: 'row' }} justifyContent="flex-end" gap={1}><Button disabled={Boolean(busy)} onClick={close}>بستن</Button><Button variant="outlined" disabled={Boolean(busy)} onClick={() => void prepare()} startIcon={busy === 'prepare' ? <CircularProgress size={18} /> : undefined}>آماده‌سازی و پیش‌نمایش</Button><Button variant="contained" disabled={Boolean(busy) || !preview || !confirmed || (mode !== 'invite' && kind === 'text' && !text.trim()) || (mode !== 'invite' && kind !== 'text' && !filePath)} onClick={() => void execute()} startIcon={busy === 'run' ? <CircularProgress size={18} color="inherit" /> : undefined}>{busy === 'run' ? 'در حال اجرا' : mode === 'invite' ? 'شروع دعوت' : 'شروع ارسال'}</Button></Stack>
+    </Stack></Paper>
   </MaterialLegacyDialog>
 }

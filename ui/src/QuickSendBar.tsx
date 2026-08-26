@@ -7,7 +7,8 @@ import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
 import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
 import KeyboardArrowUpRounded from '@mui/icons-material/KeyboardArrowUpRounded'
 import type { DialogItem } from './lib/types'
-import { api } from './lib/api'
+import { api, getSelectedMessengerAccountId, scopedStorageKey } from './lib/api'
+import { useMessengerAccounts } from './MessengerAccountGate'
 
 type SendMode = 'auto' | 'photo' | 'file'
 
@@ -17,9 +18,10 @@ type Props = {
   onSent?: () => Promise<void> | void
 }
 
-const draftKey = (peerKey: string) => `eitaa-bridge.quick-send.${peerKey}`
+const draftKey = (peerKey: string) => scopedStorageKey(`eitaa-bridge.quick-send.${peerKey}`)
 
 export function QuickSendBar({ siteKey, dialog, onSent }: Props) {
+  const accountState = useMessengerAccounts()
   const [expanded, setExpanded] = useState(false)
   const [text, setText] = useState('')
   const [attachmentPath, setAttachmentPath] = useState<string | null>(null)
@@ -43,13 +45,20 @@ export function QuickSendBar({ siteKey, dialog, onSent }: Props) {
     try { localStorage.setItem(draftKey(dialog.peer_key), JSON.stringify({ text, sendAs })) } catch { /* best effort */ }
   }, [dialog?.peer_key, text, sendAs])
 
-  const canSend = Boolean(dialog && !sending && (text.trim() || attachmentPath))
+  const textSendSupported = !accountState.featureEnabled || accountState.hasCapability('messages.send')
+  const mediaSendSupported = !accountState.featureEnabled || accountState.hasCapability('media.send')
+  const requestedOperationSupported = attachmentPath ? (textSendSupported && mediaSendSupported) : textSendSupported
+  const canSend = Boolean(dialog && !sending && requestedOperationSupported && (text.trim() || attachmentPath))
   const title = useMemo(() => dialog?.peer.title || dialog?.peer.username || 'گفت‌وگو', [dialog])
 
   const chooseAttachment = async () => {
     setError('')
     try {
-      const path = await window.eitaaDesktop.selectUploadFile({ title: 'انتخاب عکس یا فایل', filters: [{ name: 'همه فایل‌ها', extensions: ['*'] }] })
+      const path = await window.eitaaDesktop.selectUploadFile({
+        title: 'انتخاب عکس یا فایل',
+        filters: [{ name: 'همه فایل‌ها', extensions: ['*'] }],
+        messengerAccountId: getSelectedMessengerAccountId() || undefined,
+      })
       if (!path) return
       setAttachmentPath(path)
       setAttachmentName(path.split(/[\\/]/).pop() || 'فایل انتخاب‌شده')
@@ -76,7 +85,7 @@ export function QuickSendBar({ siteKey, dialog, onSent }: Props) {
     finally { setSending(false) }
   }
 
-  return <Paper elevation={8} className="quick-send-shell" sx={{ borderRadius: 0, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+  return <Paper elevation={8} sx={{ borderRadius: 0, borderTop: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
     <Stack direction="row" alignItems="flex-end" spacing={1} sx={{ p: { xs: .75, sm: 1 }, minWidth: 0 }}>
       <Tooltip title={expanded ? 'جمع‌کردن ابزار ارسال' : 'نمایش ابزارهای بیشتر'}>
         <IconButton size="small" onClick={() => setExpanded(value => !value)} aria-label="نمایش ابزارهای ارسال">{expanded ? <KeyboardArrowDownRounded /> : <KeyboardArrowUpRounded />}</IconButton>
@@ -87,16 +96,19 @@ export function QuickSendBar({ siteKey, dialog, onSent }: Props) {
         minRows={1}
         value={text}
         onChange={event => setText(event.target.value)}
-        disabled={!dialog || sending}
-        placeholder={dialog ? `نوشتن پیام برای ${title}` : 'ابتدا یک گفت‌وگو را انتخاب کنید'}
+        disabled={!dialog || sending || !textSendSupported}
+        placeholder={!textSendSupported ? 'ارسال متن برای این حساب پشتیبانی نمی‌شود' : dialog ? `نوشتن پیام برای ${title}` : 'ابتدا یک گفت‌وگو را انتخاب کنید'}
         onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && canSend) { event.preventDefault(); void send() } }}
         sx={{ flex: 1, minWidth: 0, '& .MuiInputBase-root': { alignItems: 'flex-end' } }}
       />
-      <Tooltip title="افزودن عکس یا فایل"><span><IconButton color={attachmentPath ? 'primary' : 'default'} disabled={!dialog || sending} onClick={() => void chooseAttachment()} aria-label="افزودن پیوست"><AttachFileRounded /></IconButton></span></Tooltip>
+      <Tooltip title={mediaSendSupported ? 'افزودن عکس یا فایل' : 'ارسال رسانه برای این حساب پشتیبانی نمی‌شود'}><span><IconButton color={attachmentPath ? 'primary' : 'default'} disabled={!dialog || sending || !mediaSendSupported} onClick={() => void chooseAttachment()} aria-label="افزودن پیوست"><AttachFileRounded /></IconButton></span></Tooltip>
       <Tooltip title="ارسال"><span><IconButton color="primary" disabled={!canSend} onClick={() => void send()} aria-label="ارسال پیام" sx={{ width: 44, height: 44 }}>{sending ? <CircularProgress size={23} /> : <SendRounded />}</IconButton></span></Tooltip>
     </Stack>
-    <Collapse in={expanded || Boolean(attachmentPath) || Boolean(error)}>
+    <Collapse in={expanded || Boolean(attachmentPath) || Boolean(error) || Boolean(accountState.capabilityError) || (accountState.featureEnabled && !accountState.capabilityLoading && !textSendSupported)}>
       <Box sx={{ px: { xs: 1, sm: 1.5 }, pb: 1.25 }}>
+        {accountState.featureEnabled && accountState.capabilityLoading && <Alert severity="info" sx={{ mb: 1 }}>در حال بررسی قابلیت‌های حساب…</Alert>}
+        {accountState.featureEnabled && accountState.capabilityError && <Alert severity="warning" sx={{ mb: 1 }}>{accountState.capabilityError}</Alert>}
+        {accountState.featureEnabled && !accountState.capabilityLoading && !textSendSupported && <Alert severity="info" sx={{ mb: 1 }}>ارسال پیام برای حساب انتخاب‌شده غیرفعال است.</Alert>}
         {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" gap={1}>
           <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
@@ -106,7 +118,7 @@ export function QuickSendBar({ siteKey, dialog, onSent }: Props) {
             </Select>}
           </Stack>
           <Tooltip title="زیرساخت تمپلیت در نسخه بعدی به این بخش متصل می‌شود">
-            <Button disabled startIcon={<AutoAwesomeRounded />} variant="text">تمپلیت‌های پیام</Button>
+            <span><Button disabled startIcon={<AutoAwesomeRounded />} variant="text">تمپلیت‌های پیام</Button></span>
           </Tooltip>
         </Stack>
         <Typography variant="caption" color="text.secondary">Enter برای ارسال و Shift+Enter برای رفتن به خط بعد. پیش‌نویس هر گفت‌وگو به‌صورت محلی نگه‌داری می‌شود.</Typography>

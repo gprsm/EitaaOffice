@@ -2,6 +2,16 @@
 
 بسته شامل تعریف کامل Inno Setup است، اما فایل EXE نهایی باید روی Windows ساخته و امضا شود.
 
+## بستهٔ تمیز قابل‌ممیزی
+
+`package_clean.py` خروجی را از allowlist صریح runtime/source/UI/installer/wheel/doc می‌سازد؛ پیمایش blacklist مبنای انتشار نیست. هر ZIP یک `_release/CONTENT_MANIFEST.json` داخلی با نام، اندازه و SHA-256 و یک receipt بیرونی با SHA-256 کل archive دارد. `--dry-run` هیچ فایل خروجی نمی‌نویسد.
+
+نام traversal/absolute/backslash، duplicate/case collision، hash/manifest mismatch، محدودیت اندازه و الگوی high-confidence secret رد می‌شود. `data/`، `runtime/`، `diagnostics/`، `backups/`، config/session واقعی، scratch/fix/probe، تست‌ها، حافظهٔ داخلی پروژه و client قرنطینه‌شدهٔ Bale وارد release نمی‌شوند؛ fail-closed provider slot باقی است.
+
+wheel Bridge باید پیش از archive با تمام source مجاز byte-parity داشته باشد. builder آفلاین canonical این پروژه `scripts/build_wheel_stdlib.py` است و metadata/entrypoint را از `pyproject.toml` می‌خواند. `build_wheel.bat` همین builder را اجرا می‌کند و cache یا egg-info را پاک نمی‌کند.
+
+پذیرش آفلاین شامل دو build/archive بایت‌یکسان، extract تازه، self-dry-run، compile، نصب wheelها در venv خالی، runtime checker و `pip check` است. این rehearsal جای code-sign، Windows 10/11 acceptance یا نصب واقعی کاربر را نمی‌گیرد.
+
 پیش‌نیاز ایستگاه Build:
 
 - Windows x64

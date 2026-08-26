@@ -27,12 +27,10 @@ def test_edit_mode_can_append_selected_messages_without_removing_old_sources():
 
 def test_bulk_message_composer_is_large_and_responsive():
     app = APP.read_text(encoding="utf-8")
-    css = CSS.read_text(encoding="utf-8")
-    assert 'className="fieldset rounded-box border p-4 bulk-message-fieldset"' in app
-    assert 'className="textarea w-full message-compose" rows={10}' in app
-    assert ".bulk-message-fieldset" in css
-    assert "min-height: clamp(300px, 48vh, 560px)" in css
-    assert "min-height: clamp(240px, 34vh, 430px)" in css
+    assert 'aria-label="پیام عملیات گروهی"' in app
+    assert '<TextField multiline minRows={10}' in app
+    assert "gridTemplateColumns: { xs: '1fr', md: mode === 'invite' ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)' }" in app
+    assert "className=" not in app
 
 
 def test_invite_mode_explains_direct_invite_permissions_and_server_limits():

@@ -11,7 +11,14 @@
     "check": "tsc -b --pretty false",
     "pack:win": "npm run build && electron-packager . EitaaBridge --platform=win32 --arch=x64 --out=release --overwrite --asar --ignore=release --ignore=node_modules/.cache",
     "test:scroll": "node scripts/run-scroll-tests.mjs",
-    "test:grouped-media": "node scripts/run-grouped-media-tests.mjs"
+    "test:grouped-media": "node scripts/run-grouped-media-tests.mjs",
+    "test:phase9-workspace": "node scripts/run-phase9-workspace-tests.mjs",
+    "test:phase9-acceptance": "node scripts/run-phase9-acceptance-tests.mjs",
+    "test:phase10-local-activation": "node scripts/run-phase10-local-activation-tests.mjs",
+    "test:observability": "node scripts/run-observability-tests.mjs",
+    "test:phase11-onboarding": "node scripts/run-phase11-onboarding-tests.mjs",
+    "test:phase11b2": "node scripts/run-phase11b2-orchestration-tests.mjs",
+    "test:mobile-auth-live": "node scripts/run-mobile-auth-live-tests.mjs"
   },
   "dependencies": {
     "@emotion/cache": "11.14.0",
@@ -22,7 +29,6 @@
     "@tanstack/react-virtual": "^3.13.12",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-toastify": "^11.1.0",
     "stylis": "4.3.6",
     "stylis-plugin-rtl": "2.1.1"
   },

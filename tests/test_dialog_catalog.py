@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
+from uuid import uuid4
+
 from eitaa_core import Peer, PeerType, save_peer_file
 
+from eitaa_bridge.infrastructure.data_scope import ProviderAccountScope
 from eitaa_bridge.infrastructure.dialog_catalog import JsonDialogCatalog
 
 
@@ -54,8 +58,6 @@ def test_dialog_catalog_deduplicates_same_peer_key(tmp_path):
 
 
 def test_dialog_catalog_migrates_schema1_and_preserves_ui_metadata(tmp_path):
-    import json
-
     peer = Peer(id=88, type=PeerType.CHANNEL, access_hash=7, title="قدیمی")
     peer_file = tmp_path / "channel-88.json"
     save_peer_file(peer_file, peer)
@@ -92,3 +94,57 @@ def test_dialog_catalog_migrates_schema1_and_preserves_ui_metadata(tmp_path):
     assert item["technical_kind"] == "supergroup"
     assert item["top_message_id"] == 20
     assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 2
+
+
+def test_account_catalog_repairs_only_copied_legacy_peer_paths(tmp_path):
+    account_id = str(uuid4())
+    scope = ProviderAccountScope.for_account(account_id)
+    legacy_root = tmp_path / "data" / "ui-peers"
+    account_root = (
+        tmp_path / "data" / "accounts" / account_id
+        / "provider" / "state" / "ui-peers"
+    )
+    legacy_root.mkdir(parents=True)
+    account_root.mkdir(parents=True)
+    peer = Peer(id=91, type=PeerType.CHANNEL, access_hash=12, title="Migrated")
+    legacy_peer = legacy_root / "channel-91.json"
+    copied_peer = account_root / legacy_peer.name
+    save_peer_file(legacy_peer, peer)
+    save_peer_file(copied_peer, peer)
+    catalog_path = account_root / "catalog.json"
+    catalog = JsonDialogCatalog(
+        catalog_path,
+        base_directory=tmp_path,
+        scope=scope,
+    )
+    catalog.upsert(peer=peer, peer_file=legacy_peer, source="remote")
+
+    assert catalog.repair_migrated_peer_paths() == 1
+    repaired = catalog.get("channel:91")
+    assert repaired is not None
+    assert repaired["peer_file"] == copied_peer.relative_to(tmp_path).as_posix()
+    assert catalog.repair_migrated_peer_paths() == 0
+
+
+def test_account_catalog_does_not_rebase_when_copied_peer_is_missing(tmp_path):
+    account_id = str(uuid4())
+    scope = ProviderAccountScope.for_account(account_id)
+    legacy_root = tmp_path / "data" / "ui-peers"
+    account_root = (
+        tmp_path / "data" / "accounts" / account_id
+        / "provider" / "state" / "ui-peers"
+    )
+    legacy_root.mkdir(parents=True)
+    account_root.mkdir(parents=True)
+    peer = Peer(id=92, type=PeerType.CHANNEL, access_hash=13, title="Missing copy")
+    legacy_peer = legacy_root / "channel-92.json"
+    save_peer_file(legacy_peer, peer)
+    catalog = JsonDialogCatalog(
+        account_root / "catalog.json",
+        base_directory=tmp_path,
+        scope=scope,
+    )
+    created = catalog.upsert(peer=peer, peer_file=legacy_peer, source="remote")
+
+    assert catalog.repair_migrated_peer_paths() == 0
+    assert catalog.get("channel:92")["peer_file"] == created["peer_file"]

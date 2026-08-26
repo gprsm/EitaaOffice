@@ -21,6 +21,7 @@ class IndexLabel:
     id: int
     name: str
     aliases: tuple[str, ...] = ()
+    is_primary: bool = False
 
     def validate(self) -> None:
         if self.id <= 0:
@@ -126,6 +127,14 @@ class PersianNormalizer:
         return tuple(cls.normalize(text).split())
 
 
+_MONTHS = {
+    "فروردین", "اردیبهشت", "خرداد",
+    "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر",
+    "دی", "بهمن", "اسفند"
+}
+
+
 _STOPWORDS = {
     "از",
     "به",
@@ -156,6 +165,9 @@ def _features(text: str) -> Counter[str]:
     content_tokens = tuple(item for item in tokens if item not in _STOPWORDS)
     selected = content_tokens or tokens
     result: Counter[str] = Counter()
+    for token in selected:
+        if token in _MONTHS:
+            result[f"month:{token}"] += 2.0
     for token in selected:
         result[f"w:{token}"] += 1.0
     for left, right in zip(selected, selected[1:]):
@@ -350,13 +362,11 @@ class LightweightContentClassifier:
             if any(phrase in normalized_text for phrase in phrases):
                 score = min(1.0, score + 0.20)
             accepted = score >= self.score_threshold
-            if not accepted and not include_uncertain:
-                continue
             contributions = sorted(
                 (
                     (key, value * positive.get(key, 0.0))
                     for key, value in vector.items()
-                    if key.startswith(("w:", "b:")) and positive.get(key, 0.0) > 0
+                    if key.startswith(("w:", "b:", "month:")) and positive.get(key, 0.0) > 0
                 ),
                 key=lambda item: item[1],
                 reverse=True,
@@ -373,5 +383,24 @@ class LightweightContentClassifier:
                     accepted=accepted,
                 )
             )
+        
+        ranked.sort(key=lambda item: (-item.score, item.label_id))
+        
+        primary_candidates = [c for c in ranked if self._label_by_id[c.label_id].is_primary]
+        if primary_candidates and not any(c.accepted for c in primary_candidates):
+            top_primary = primary_candidates[0]
+            forced = IndexPrediction(
+                label_id=top_primary.label_id,
+                label_name=top_primary.label_name,
+                score=top_primary.score,
+                evidence=top_primary.evidence,
+                accepted=True,
+            )
+            idx = ranked.index(top_primary)
+            ranked[idx] = forced
+            
+        if not include_uncertain:
+            ranked = [c for c in ranked if c.accepted]
+            
         ranked.sort(key=lambda item: (-item.score, item.label_id))
         return tuple(ranked[:max_labels])

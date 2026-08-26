@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from eitaa_core import DialogEntry, Message, Peer, PeerType, save_peer_file
-from eitaa_core.errors import RpcError
+from eitaa_core.errors import NetworkError, RpcError
 
 from eitaa_bridge.application.api import BridgeApplicationApi
 from eitaa_bridge.facade import EitaaBridge
@@ -149,6 +149,14 @@ def test_api_message_sender_names_prefer_eitaa_contacts_then_members(config_file
         "source": "eitaa_contact_sync",
         "phones": [],
     })
+    api._contact_store.upsert_contact({
+        "first_name": "Eitaa",
+        "last_name": "",
+        "username": "generic-contact-title",
+        "eitaa_user_id": 456,
+        "source": "eitaa_contact_sync",
+        "phones": [],
+    })
     api._sender_directory.upsert_users([
         SimpleNamespace(
             peer=Peer(id=789, type=PeerType.USER),
@@ -170,8 +178,8 @@ def test_api_message_sender_names_prefer_eitaa_contacts_then_members(config_file
     assert messages["user:123"]["sender_is_eitaa_contact"] is True
     assert messages["user:123"]["sender_resolution"] == "eitaa_contact"
     assert messages["user:456"]["sender_display_name"] == "نام نمایشی ایتا"
-    assert messages["user:456"]["sender_is_eitaa_contact"] is False
-    assert messages["user:456"]["sender_resolution"] == "community_member"
+    assert messages["user:456"]["sender_is_eitaa_contact"] is True
+    assert messages["user:456"]["sender_resolution"] == "eitaa_contact"
     assert messages["user:789"]["sender_display_name"] == "نام پاسخ تاریخچه"
     assert messages["user:789"]["sender_resolution"] == "history_user"
     assert messages["user:999"]["sender_display_name"] is None
@@ -306,6 +314,49 @@ def test_api_auth_request_code_wraps_unexpected_runtime_failure(config_file, mon
     assert response.payload["error"]["error_code"] == "auth_request_code_failed"
     assert response.payload["error"]["component"] == "authentication"
     assert response.payload["error"]["safe_context"]["error_type"] == "OSError"
+
+
+def test_api_auth_request_code_reports_provider_network_failure(config_file, monkeypatch):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+
+    class AuthService:
+        def request_code(self, phone):
+            raise NetworkError(
+                "provider endpoint unavailable",
+                safe_context={"endpoint": "https://provider.invalid/api"},
+            )
+
+    class Runtime:
+        auth = AuthService()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(
+        "eitaa_bridge.application.api.EitaaAuth.open",
+        lambda *args, **kwargs: Runtime(),
+    )
+    api = BridgeApplicationApi(config_file)
+    response = api.dispatch(
+        "POST",
+        "/api/v1/auth/request-code",
+        body={"phone": "+989121234567"},
+    )
+
+    assert response.status == 400
+    assert response.payload["ok"] is False
+    assert (
+        response.payload["error"]["error_code"]
+        == "auth_provider_network_unreachable"
+    )
+    assert response.payload["error"]["component"] == "authentication"
+    assert response.payload["error"]["safe_context"] == {
+        "error_type": "NetworkError"
+    }
+    serialized = json.dumps(response.payload, ensure_ascii=False)
+    assert "provider.invalid" not in serialized
+    assert "+989121234567" not in serialized
 
 def test_api_auth_request_code_keeps_secret_challenge_in_memory(config_file, monkeypatch):
     monkeypatch.setenv("TEST_WP_USERNAME", "editor")
@@ -621,6 +672,64 @@ def test_api_dialog_sync_uses_core_complete_collection_and_supergroup_kind(confi
     assert dialog["display_kind"] == "group"
     assert dialog["unread_count"] == 7
     assert dialog["participants_count"] == 42
+
+
+def test_api_dialog_live_sync_merges_first_page_without_hiding_older_dialogs(config_file, monkeypatch):
+    from eitaa_core import DialogKind
+
+    older_peer = Peer(id=554, type=PeerType.CHAT, title="گفتگوی قدیمی")
+    recent_peer = Peer(id=555, type=PeerType.CHANNEL, access_hash=123, title="گفتگوی تازه")
+    recent = DialogEntry(
+        peer=recent_peer,
+        top_message_id=901,
+        unread_count=3,
+        kind=DialogKind.CHANNEL,
+    )
+
+    class Discovery:
+        def list_dialogs(self, **kwargs):
+            assert kwargs == {
+                "limit": 100,
+                "offset_date": 0,
+                "offset_id": 0,
+                "offset_peer": None,
+                "exclude_pinned": False,
+            }
+            return SimpleNamespace(
+                dialogs=(recent,), total_count=2, response_type="messages.dialogsSlice",
+                next_cursor=None, parse_warnings=(),
+            )
+
+        def save_peer(self, selected, path):
+            save_peer_file(path, selected)
+
+    class FakeBridge:
+        core = SimpleNamespace(discovery=Discovery())
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api = BridgeApplicationApi(config_file)
+    api.dialog_catalog.upsert(
+        peer=older_peer,
+        peer_file=config_file.parent / "data" / "peers" / "chat-554.json",
+        source="remote",
+        unread_count=0,
+        active=True,
+    )
+
+    response = api.dispatch(
+        "POST", "/api/v1/dialogs/live-sync", body={"site_key": "medical-site"}
+    )
+
+    assert response.status == 200
+    assert response.payload["sync"]["mode"] == "first_page_merge"
+    assert response.payload["sync"]["merged_count"] == 1
+    assert response.payload["dialog_count"] == 2
+    by_key = {item["peer_key"]: item for item in response.payload["dialogs"]}
+    assert by_key["chat:554"]["active"] is True
+    assert by_key["channel:555"]["unread_count"] == 3
 
 
 def test_api_dialog_sync_skips_unusable_remote_peer_without_losing_valid_dialogs(config_file, monkeypatch):

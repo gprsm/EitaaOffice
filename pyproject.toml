@@ -21,6 +21,8 @@ dev = ["pytest>=8,<10"]
 [project.scripts]
 eitaa-bridge = "eitaa_bridge.interfaces.cli:main"
 eitaa-bridge-api = "eitaa_bridge.interfaces.http_api:main"
+eitaa-bridge-windows-lan = "eitaa_bridge.interfaces.windows_lan:main"
+eitaa-bridge-provider-worker = "eitaa_bridge.interfaces.provider_worker:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

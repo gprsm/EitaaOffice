@@ -48,6 +48,8 @@ def test_loopback_server_serves_ui_and_accepts_browser_file_upload(config_file, 
         with urlopen(f"http://{host}:{port}/", timeout=3) as response:
             assert response.status == 200
             assert b"bridge-ui" in response.read()
+            assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+            assert response.headers["X-Frame-Options"] == "DENY"
         request = Request(
             f"http://{host}:{port}/api/v1/files/upload",
             data=b"office-file",

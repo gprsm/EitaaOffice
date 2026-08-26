@@ -10,6 +10,8 @@ from typing import Any, Iterable
 
 from eitaa_core import Peer
 
+from .data_scope import DataScopeError, ProviderAccountScope
+
 
 class JsonDialogCatalog:
     """Bridge-owned UI metadata layered over Core's persistent dialog cache.
@@ -20,13 +22,20 @@ class JsonDialogCatalog:
     files, and an optional human override of the displayed kind.
     """
 
-    SCHEMA = 2
+    SCHEMA = 3
     _DISPLAY_KINDS = {"channel", "group", "personal"}
     _TECHNICAL_KINDS = {"private", "basic_group", "supergroup", "channel", "unknown"}
 
-    def __init__(self, path: str | Path, *, base_directory: str | Path) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        base_directory: str | Path,
+        scope: ProviderAccountScope | None = None,
+    ) -> None:
         self.path = Path(path).expanduser().resolve()
         self.base_directory = Path(base_directory).expanduser().resolve()
+        self.scope = scope or ProviderAccountScope.legacy()
         self._lock = RLock()
 
     @staticmethod
@@ -66,7 +75,7 @@ class JsonDialogCatalog:
 
     def get(self, peer_key: str) -> dict[str, Any] | None:
         with self._lock:
-            value = self._read()["dialogs"].get(peer_key)
+            value = self._read()["dialogs"].get(self._storage_key(peer_key))
             return dict(value) if isinstance(value, dict) else None
 
     def upsert(
@@ -105,7 +114,7 @@ class JsonDialogCatalog:
         peer_key = self.key(peer)
         with self._lock:
             data = self._read()
-            previous = data["dialogs"].get(peer_key, {})
+            previous = data["dialogs"].get(self._storage_key(peer_key), {})
             previous_source = str(previous.get("source") or "")
             stored_source = previous_source if previous_source == "manual" and source == "remote" else source
             entry = {
@@ -141,7 +150,7 @@ class JsonDialogCatalog:
                 "created_at": str(previous.get("created_at") or now),
                 "updated_at": now,
             }
-            data["dialogs"][peer_key] = entry
+            data["dialogs"][self._storage_key(peer_key)] = entry
             self._write(data)
             return dict(entry)
 
@@ -152,6 +161,56 @@ class JsonDialogCatalog:
             count += 1
         return count
 
+    def repair_migrated_peer_paths(self) -> int:
+        """Rebase copied legacy peer files into the selected account boundary.
+
+        Phase 10 copies the complete legacy ``data/ui-peers`` directory into
+        the account-owned provider state.  Older catalogue rows still point at
+        the source directory, though, and the API correctly rejects those
+        paths after account isolation is enabled.  Only rows whose copied file
+        is present below this catalogue are changed; unrelated absolute paths,
+        missing files, and legacy-mode catalogues are left untouched.
+        """
+        if self.scope.is_legacy:
+            return 0
+        legacy_root = (self.base_directory / "data" / "ui-peers").resolve()
+        account_peer_root = self.path.parent.resolve()
+        changed = 0
+        with self._lock:
+            data = self._read()
+            for item in data["dialogs"].values():
+                raw = item.get("peer_file")
+                if not isinstance(raw, str) or not raw.strip():
+                    continue
+                path = Path(raw).expanduser()
+                resolved = (
+                    path.resolve()
+                    if path.is_absolute()
+                    else (self.base_directory / path).resolve()
+                )
+                try:
+                    legacy_relative = resolved.relative_to(legacy_root)
+                except ValueError:
+                    continue
+                candidate = (account_peer_root / legacy_relative).resolve()
+                try:
+                    candidate.relative_to(account_peer_root)
+                except ValueError:
+                    continue
+                if not candidate.is_file():
+                    continue
+                try:
+                    stored = candidate.relative_to(self.base_directory).as_posix()
+                except ValueError:
+                    stored = candidate.as_posix()
+                if stored == raw:
+                    continue
+                item["peer_file"] = stored
+                changed += 1
+            if changed:
+                self._write(data)
+        return changed
+
     def mark_remote_snapshot(self, active_peer_keys: set[str], *, complete: bool) -> int:
         """Hide missing remote rows only after a complete Core snapshot."""
         if not complete:
@@ -159,10 +218,10 @@ class JsonDialogCatalog:
         changed = 0
         with self._lock:
             data = self._read()
-            for peer_key, item in data["dialogs"].items():
+            for item in data["dialogs"].values():
                 if not isinstance(item, dict) or item.get("source") == "manual":
                     continue
-                new_active = peer_key in active_peer_keys
+                new_active = str(item.get("peer_key") or "") in active_peer_keys
                 if bool(item.get("active", True)) != new_active:
                     item["active"] = new_active
                     item["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -204,28 +263,35 @@ class JsonDialogCatalog:
     def _patch(self, peer_key: str, **changes: Any) -> dict[str, Any]:
         with self._lock:
             data = self._read()
-            current = data["dialogs"].get(peer_key)
+            storage_key = self._storage_key(peer_key)
+            current = data["dialogs"].get(storage_key)
             if not isinstance(current, dict):
                 raise KeyError(peer_key)
             current.update(changes)
             current["updated_at"] = datetime.now(timezone.utc).isoformat()
-            data["dialogs"][peer_key] = current
+            data["dialogs"][storage_key] = current
             self._write(data)
             return dict(current)
 
     def _read(self) -> dict[str, Any]:
         if not self.path.exists():
-            return {"schema_version": self.SCHEMA, "dialogs": {}}
+            return self._empty()
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError):
-            return {"schema_version": self.SCHEMA, "dialogs": {}}
+            return self._empty()
         if not isinstance(payload, dict):
-            return {"schema_version": self.SCHEMA, "dialogs": {}}
+            return self._empty()
         schema = payload.get("schema_version")
         dialogs = payload.get("dialogs")
-        if schema not in {1, self.SCHEMA} or not isinstance(dialogs, dict):
-            return {"schema_version": self.SCHEMA, "dialogs": {}}
+        if schema not in {1, 2, self.SCHEMA} or not isinstance(dialogs, dict):
+            return self._empty()
+        if schema == self.SCHEMA and not self.scope.matches(payload.get("scope")):
+            raise DataScopeError(
+                "The dialog catalog belongs to a different account scope.",
+                code="dialog_catalog_scope_mismatch",
+                safe_context={"file_name": self.path.name},
+            )
         if schema == 1:
             for item in dialogs.values():
                 if isinstance(item, dict):
@@ -236,10 +302,30 @@ class JsonDialogCatalog:
                     item.setdefault("megagroup", False)
                     item.setdefault("participants_count", None)
                     item.setdefault("photo_cached_path", None)
-        return {"schema_version": self.SCHEMA, "dialogs": dialogs}
+        normalized: dict[str, dict[str, Any]] = {}
+        for old_key, item in dialogs.items():
+            if not isinstance(item, dict):
+                continue
+            peer_key = str(item.get("peer_key") or old_key)
+            if peer_key.startswith(self.scope.scope_key + ":dialog:"):
+                try:
+                    peer_key = self.scope.strip("dialog", peer_key)
+                except DataScopeError:
+                    continue
+            item["peer_key"] = peer_key
+            normalized[self._storage_key(peer_key)] = item
+        return {
+            "schema_version": self.SCHEMA,
+            "scope": self.scope.safe_summary(),
+            "dialogs": normalized,
+        }
 
     def _write(self, data: dict[str, Any]) -> None:
-        data["schema_version"] = self.SCHEMA
+        data["schema_version"] = 2 if self.scope.is_legacy else self.SCHEMA
+        if self.scope.is_legacy:
+            data.pop("scope", None)
+        else:
+            data["scope"] = self.scope.safe_summary()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         handle, temporary = tempfile.mkstemp(prefix=self.path.name + ".", suffix=".tmp", dir=self.path.parent)
         try:
@@ -254,3 +340,24 @@ class JsonDialogCatalog:
                 os.unlink(temporary)
             except FileNotFoundError:
                 pass
+
+    def _storage_key(self, peer_key: str) -> str:
+        selected = str(peer_key or "").strip()
+        if self.scope.is_legacy:
+            if not selected:
+                raise ValueError("peer_key is required.")
+            return selected
+        if not selected or selected.startswith(self.scope.scope_key + ":dialog:"):
+            if selected.startswith(self.scope.scope_key + ":dialog:"):
+                return selected
+            raise ValueError("peer_key is required.")
+        return self.scope.key("dialog", selected)
+
+    def _empty(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "schema_version": 2 if self.scope.is_legacy else self.SCHEMA,
+            "dialogs": {},
+        }
+        if not self.scope.is_legacy:
+            payload["scope"] = self.scope.safe_summary()
+        return payload

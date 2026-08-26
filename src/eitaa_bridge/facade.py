@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 import threading
@@ -15,7 +15,7 @@ from .application.workflows import (
     PublishStoredMessageToWordPress,
     UploadWordPressMedia,
 )
-from .config import BridgeConfig
+from .config import BridgeConfig, CoreDependencyConfig
 from .errors import CompositionValidationError
 from .domain import (
     DoctorReport,
@@ -30,6 +30,7 @@ from .domain import (
 )
 from .infrastructure.config import BridgeConfigLoader, EnvLoader
 from .infrastructure.composition_store import JsonCompositionStore
+from .infrastructure.data_scope import ProviderAccountScope
 from .infrastructure.diagnostics import BridgeDiagnosticManager
 from .infrastructure.eitaa import CoreBinding, CoreCompatibility
 from .infrastructure.wordpress import WordPressClient, load_wordpress_credentials
@@ -41,6 +42,8 @@ class EitaaBridge:
     config: BridgeConfig
     diagnostics: BridgeDiagnosticManager
     site_key: str
+    data_scope: ProviderAccountScope
+    actor_app_user_id: str | None
     wordpress: WordPressService
     create_text_draft_workflow: CreateTextDraft
     upload_media_workflow: UploadWordPressMedia
@@ -65,10 +68,17 @@ class EitaaBridge:
         wordpress_session: Any | None = None,
         diagnostics: BridgeDiagnosticManager | None = None,
         reuse_core: bool = False,
+        core_config_override: CoreDependencyConfig | None = None,
+        data_scope: ProviderAccountScope | None = None,
+        actor_app_user_id: str | None = None,
     ) -> "EitaaBridge":
         config = BridgeConfigLoader.load(config_path, env_file=env_file)
+        if core_config_override is not None:
+            core_config_override.validate()
+            config = replace(config, core=core_config_override)
         EnvLoader.load(config.env_file)
         diagnostics = diagnostics or BridgeDiagnosticManager(config.diagnostics.root, enabled=config.diagnostics.enabled)
+        selected_scope = data_scope or ProviderAccountScope.legacy()
         site = config.site(site_key)
         # Core/Eitaa operations must remain usable before WordPress is configured.
         # Authenticated WordPress calls validate these credentials lazily in the
@@ -98,13 +108,21 @@ class EitaaBridge:
                 "site_key": site.site_key,
                 "core_opened": core is not None,
                 "wordpress_credentials": credentials.safe_summary(),
+                "data_scope": selected_scope.safe_summary(),
+                "actor_app_user_id": actor_app_user_id,
             },
         )
-        composition_store = JsonCompositionStore(config.composition_state_file)
+        composition_store = JsonCompositionStore(
+            config.composition_state_file,
+            scope=selected_scope,
+            owner_app_user_id=actor_app_user_id,
+        )
         return cls(
             config=config,
             diagnostics=diagnostics,
             site_key=site.site_key,
+            data_scope=selected_scope,
+            actor_app_user_id=actor_app_user_id,
             wordpress=wp_service,
             create_text_draft_workflow=CreateTextDraft(wp_service),
             upload_media_workflow=UploadWordPressMedia(wp_service),
@@ -555,12 +573,28 @@ class EitaaBridge:
         )
 
     @staticmethod
-    def _shared_core_key(config: BridgeConfig) -> tuple[str, str, str]:
+    def _shared_core_key(
+        config: BridgeConfig | CoreDependencyConfig,
+    ) -> tuple[str, str, str]:
+        core = config.core if isinstance(config, BridgeConfig) else config
         return (
-            str(config.core.session_file.resolve()),
-            str(config.core.database_file.resolve()),
-            str(config.core.media_directory.resolve()),
+            str(core.session_file.resolve()),
+            str(core.database_file.resolve()),
+            str(core.media_directory.resolve()),
         )
+
+    @classmethod
+    def close_shared_core(cls, core_config: CoreDependencyConfig) -> None:
+        """Close only the Core owned by one explicit storage boundary."""
+
+        key = cls._shared_core_key(core_config)
+        with cls._shared_core_lock:
+            core = cls._shared_cores.pop(key, None)
+        if core is not None:
+            try:
+                core.close()
+            except Exception:
+                pass
 
     @classmethod
     def close_shared_cores(cls) -> None:

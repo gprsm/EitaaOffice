@@ -13,6 +13,10 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 GMI4_ROOT = ROOT.parent
 ARTIFACTS = GMI4_ROOT / "artifacts"
+GMI_REPORTS = ROOT / "docs" / "reports" / "gmi"
+GMI_REVIEW_ARTIFACTS = GMI_REPORTS / "artifacts"
+GMI4_CHANGED_FILES = GMI_REVIEW_ARTIFACTS / "GMI4_CHANGED_FILES.json"
+GMI4_UNIFIED_DIFF = GMI_REVIEW_ARTIFACTS / "GMI4_UNIFIED.diff"
 BASE_ZIP = ROOT.parents[1] / "MVP6_1_1_GMI3" / "artifacts" / "eitaa_bridge_v0_7_ui_mvp6_1_1_gmi3_index_contacts_lab_WORKING.zip"
 PACKAGE_ROOT = "eitaa_bridge_v0_7_ui_mvp6_1_1_gmi4_contact_sources_handoff"
 WORKING_ZIP = ARTIFACTS / f"{PACKAGE_ROOT}_WORKING.zip"
@@ -21,8 +25,8 @@ SUMS = ARTIFACTS / "GMI4_SHA256SUMS.txt"
 
 GENERATED_COMPARE_EXCLUSIONS = {
     "CHECKSUMS.sha256",
-    "GMI4_CHANGED_FILES.json",
-    "GMI4_UNIFIED.diff",
+    "docs/reports/gmi/artifacts/GMI4_CHANGED_FILES.json",
+    "docs/reports/gmi/artifacts/GMI4_UNIFIED.diff",
     "GMI4_SHA256SUMS.txt",
 }
 EXCLUDED_TOP = {".venv", ".wheel-test", ".git", "node_modules", "artifacts"}
@@ -93,7 +97,8 @@ for name in sorted(set(base) | set(compare_current)):
     elif sha256(baseline).digest() != sha256(path.read_bytes()).digest():
         changes.append({"path": name, "status": "modified", "bytes": path.stat().st_size, "sha256": sha(path)})
 
-(ROOT / "GMI4_CHANGED_FILES.json").write_text(
+GMI_REVIEW_ARTIFACTS.mkdir(parents=True, exist_ok=True)
+GMI4_CHANGED_FILES.write_text(
     json.dumps(
         {
             "base": BASE_ZIP.name,
@@ -129,7 +134,7 @@ for change in changes:
             n=3,
         )
     )
-(ROOT / "GMI4_UNIFIED.diff").write_text("".join(diff_parts), encoding="utf-8")
+GMI4_UNIFIED_DIFF.write_text("".join(diff_parts), encoding="utf-8")
 
 current = current_files()
 checksum_targets = {
@@ -187,22 +192,22 @@ SUMS.write_text(
 )
 (ROOT / "GMI4_SHA256SUMS.txt").write_text(SUMS.read_text(encoding="utf-8"), encoding="utf-8")
 
-review_names = [
-    "GMI4_REVIEW_README.md",
-    "GMI4_ARCHITECTURE_AND_SCOPE.md",
-    "GMI4_MIGRATION_REPORT.md",
-    "GMI4_VALIDATION_REPORT.md",
-    "GMI4_INVARIANTS_REPORT.md",
-    "GMI4_PRIVACY_SCAN.md",
-    "GMI4_WINDOWS_ACCEPTANCE_CHECKLIST.md",
-    "GMI4_UNIFIED.diff",
-    "GMI4_CHANGED_FILES.json",
-    "GMI4_SHA256SUMS.txt",
-    "RELEASE_MANIFEST.json",
+review_files = [
+    (GMI_REPORTS / "GMI4_REVIEW_README.md", "GMI4_REVIEW_README.md"),
+    (GMI_REPORTS / "GMI4_ARCHITECTURE_AND_SCOPE.md", "GMI4_ARCHITECTURE_AND_SCOPE.md"),
+    (GMI_REPORTS / "GMI4_MIGRATION_REPORT.md", "GMI4_MIGRATION_REPORT.md"),
+    (GMI_REPORTS / "GMI4_VALIDATION_REPORT.md", "GMI4_VALIDATION_REPORT.md"),
+    (GMI_REPORTS / "GMI4_INVARIANTS_REPORT.md", "GMI4_INVARIANTS_REPORT.md"),
+    (GMI_REPORTS / "GMI4_PRIVACY_SCAN.md", "GMI4_PRIVACY_SCAN.md"),
+    (ROOT / "docs" / "checklists" / "GMI4_WINDOWS_ACCEPTANCE_CHECKLIST.md", "GMI4_WINDOWS_ACCEPTANCE_CHECKLIST.md"),
+    (GMI4_UNIFIED_DIFF, "GMI4_UNIFIED.diff"),
+    (GMI4_CHANGED_FILES, "GMI4_CHANGED_FILES.json"),
+    (ROOT / "GMI4_SHA256SUMS.txt", "GMI4_SHA256SUMS.txt"),
+    (ROOT / "RELEASE_MANIFEST.json", "RELEASE_MANIFEST.json"),
 ]
 with zipfile.ZipFile(REVIEW_ZIP, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-    for name in review_names:
-        archive.write(ROOT / name, name)
+    for source, archive_name in review_files:
+        archive.write(source, archive_name)
 
 with SUMS.open("a", encoding="utf-8") as handle:
     handle.write(f"{sha(REVIEW_ZIP)}  {REVIEW_ZIP.name}\n")

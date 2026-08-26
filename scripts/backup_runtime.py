@@ -17,38 +17,53 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
-    root = project_root()
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+def create_backup(
+    *,
+    output: Path | None = None,
+    include_media: bool = True,
+    include_logs: bool = False,
+    root: Path | None = None,
+) -> Path:
+    root = (root or project_root()).expanduser().resolve()
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     default_dir = root / "backups" / "runtime"
-    output = args.output or default_dir
-    if output.suffix.lower() != ".zip":
-        output = output / f"eitaa-bridge-backup-{timestamp}.zip"
-    output = output.expanduser().resolve()
-    output.parent.mkdir(parents=True, exist_ok=True)
+    selected_output = output or default_dir
+    if selected_output.suffix.lower() != ".zip":
+        selected_output = selected_output / f"eitaa-bridge-backup-{timestamp}.zip"
+    selected_output = selected_output.expanduser().resolve()
+    selected_output.parent.mkdir(parents=True, exist_ok=True)
 
-    include_media = not args.without_media
-    entries = state_entries(root, include_media=include_media, include_logs=args.include_logs)
+    entries = state_entries(root, include_media=include_media, include_logs=include_logs)
     manifest = manifest_for(
         entries,
         product_version=load_version(root),
         include_media=include_media,
-        include_logs=args.include_logs,
+        include_logs=include_logs,
     )
     manifest["created_local"] = datetime.now().astimezone().isoformat(timespec="seconds")
 
-    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary = selected_output.with_suffix(selected_output.suffix + ".tmp")
     temporary.unlink(missing_ok=True)
     with ZipFile(temporary, "w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
         for entry in entries:
             archive.write(entry.source, f"state/{entry.archive_name}")
         import json
         archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    temporary.replace(output)
+    temporary.replace(selected_output)
+    return selected_output
+
+
+def main() -> int:
+    args = parse_args()
+    include_media = not args.without_media
+    output = create_backup(
+        output=args.output,
+        include_media=include_media,
+        include_logs=args.include_logs,
+    )
     if not args.quiet:
-        print(output)
-        print(f"files={len(entries)} include_media={include_media} include_logs={args.include_logs}")
+        print(output.name)
+        print(f"include_media={include_media} include_logs={args.include_logs}")
     return 0
 
 

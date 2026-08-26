@@ -2,22 +2,51 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
+import json
 from pathlib import Path
 import re
-import shutil
 import sqlite3
+import threading
 from typing import Any, Iterable, Mapping, Sequence
+import uuid
 
 from ..errors import ContactDirectoryError
 
 
-CONTACT_SCHEMA = 1
+CONTACT_SCHEMA = 3
 _PHONE_CLEAN = re.compile(r"[^\d+]")
+_PROVIDER_ID = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+@dataclass(frozen=True, slots=True)
+class ContactMutationContext:
+    """Trusted server-side actor/account context for one shared-directory write."""
+
+    actor_app_user_id: str | None = None
+    messenger_account_id: str | None = None
+    provider: str | None = None
+    request_id: str | None = None
+
+
+def provider_subject_fingerprint(provider: str, provider_user_id: object) -> str:
+    """Return a stable, non-reversible key for an account-scoped provider subject."""
+
+    selected_provider = str(provider or "").strip().lower()
+    selected_subject = str(provider_user_id or "").strip()
+    if not _PROVIDER_ID.fullmatch(selected_provider) or not selected_subject:
+        raise ValueError("Provider identity is not valid.")
+    return hashlib.sha256(
+        f"contact-provider-subject-v1\x00{selected_provider}\x00{selected_subject}".encode(
+            "utf-8"
+        )
+    ).hexdigest()
 
 
 def normalize_phone(value: object) -> str:
@@ -42,6 +71,8 @@ class SQLiteContactStore:
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).expanduser().resolve()
+        self._initialize_lock = threading.RLock()
+        self._initialized = False
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30)
@@ -51,27 +82,24 @@ class SQLiteContactStore:
         return connection
 
     def initialize(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            existed = self.path.exists() and self.path.stat().st_size > 0
-            with self._connect() as connection:
-                version = int(connection.execute("PRAGMA user_version").fetchone()[0])
-                if version > CONTACT_SCHEMA:
-                    raise ContactDirectoryError(
-                        "Contact database is newer than this application.",
-                        safe_context={"database_version": version, "supported_version": CONTACT_SCHEMA},
-                    )
-                if version == 0:
-                    if existed:
-                        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-                        backup = self.path.with_name(f"{self.path.stem}.schema0.{stamp}.bak.sqlite3")
-                        backup_connection = sqlite3.connect(backup)
-                        try:
-                            connection.backup(backup_connection)
-                        finally:
-                            backup_connection.close()
-                    connection.executescript(
-                        """
+        with self._initialize_lock:
+            if self._initialized:
+                return
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                existed = self.path.exists() and self.path.stat().st_size > 0
+                with self._connect() as connection:
+                    version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+                    if version > CONTACT_SCHEMA:
+                        raise ContactDirectoryError(
+                            "Contact database is newer than this application.",
+                            safe_context={"database_version": version, "supported_version": CONTACT_SCHEMA},
+                        )
+                    if version == 0:
+                        if existed:
+                            self._backup_schema(connection, version=0)
+                        connection.executescript(
+                            """
                         BEGIN IMMEDIATE;
                         CREATE TABLE contacts (
                             contact_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +116,10 @@ class SQLiteContactStore:
                             last_resolved_at TEXT,
                             created_at TEXT NOT NULL,
                             updated_at TEXT NOT NULL,
-                            archived_at TEXT
+                            archived_at TEXT,
+                            created_by_app_user_id TEXT,
+                            updated_by_app_user_id TEXT,
+                            revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0)
                         );
                         CREATE UNIQUE INDEX idx_contacts_eitaa_user
                             ON contacts(eitaa_user_id) WHERE eitaa_user_id IS NOT NULL;
@@ -104,7 +135,9 @@ class SQLiteContactStore:
                             category_id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT NOT NULL COLLATE NOCASE UNIQUE,
                             created_at TEXT NOT NULL,
-                            updated_at TEXT NOT NULL
+                            updated_at TEXT NOT NULL,
+                            created_by_app_user_id TEXT,
+                            updated_by_app_user_id TEXT
                         );
                         CREATE TABLE contact_category_members (
                             contact_id INTEGER NOT NULL REFERENCES contacts(contact_id) ON DELETE CASCADE,
@@ -113,17 +146,417 @@ class SQLiteContactStore:
                         );
                         CREATE INDEX idx_contact_category_members_category
                             ON contact_category_members(category_id, contact_id);
-                        PRAGMA user_version=1;
+                        CREATE TABLE contact_provider_registrations (
+                            provider TEXT PRIMARY KEY,
+                            account_kind TEXT NOT NULL,
+                            status TEXT NOT NULL CHECK(status IN ('active','disabled','retired')),
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        );
+                        INSERT INTO contact_provider_registrations(
+                            provider,account_kind,status,created_at,updated_at
+                        ) VALUES
+                            ('eitaa','personal','active',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                            ('bale','personal','active',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                        CREATE TABLE contact_account_bindings (
+                            binding_id TEXT PRIMARY KEY,
+                            contact_id INTEGER NOT NULL REFERENCES contacts(contact_id) ON DELETE CASCADE,
+                            messenger_account_id TEXT NOT NULL,
+                            provider TEXT NOT NULL REFERENCES contact_provider_registrations(provider),
+                            provider_subject_fingerprint TEXT,
+                            reachability TEXT NOT NULL DEFAULT 'unknown'
+                                CHECK(reachability IN ('unknown','reachable','unreachable','blocked')),
+                            safe_reason_code TEXT,
+                            last_resolved_at TEXT,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            created_by_app_user_id TEXT,
+                            updated_by_app_user_id TEXT,
+                            UNIQUE(messenger_account_id, provider, contact_id)
+                        );
+                        CREATE UNIQUE INDEX idx_contact_binding_subject
+                            ON contact_account_bindings(
+                                messenger_account_id,provider,provider_subject_fingerprint
+                            ) WHERE provider_subject_fingerprint IS NOT NULL;
+                        CREATE INDEX idx_contact_bindings_contact
+                            ON contact_account_bindings(contact_id,messenger_account_id,provider);
+                        CREATE TABLE contact_audit_events (
+                            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                            event_id TEXT NOT NULL UNIQUE,
+                            occurred_at TEXT NOT NULL,
+                            actor_app_user_id TEXT,
+                            messenger_account_id TEXT,
+                            provider TEXT,
+                            action TEXT NOT NULL,
+                            entity_type TEXT NOT NULL,
+                            entity_id INTEGER,
+                            request_id TEXT,
+                            safe_metadata_json TEXT NOT NULL,
+                            previous_event_hash TEXT,
+                            event_hash TEXT NOT NULL UNIQUE
+                        );
+                        CREATE INDEX idx_contact_audit_entity
+                            ON contact_audit_events(entity_type,entity_id,sequence DESC);
+                        PRAGMA user_version=3;
                         COMMIT;
                         """
+                        )
+                    elif version == 1:
+                        self._backup_schema(connection, version=1)
+                        connection.executescript(
+                            """
+                        BEGIN IMMEDIATE;
+                        ALTER TABLE contacts ADD COLUMN created_by_app_user_id TEXT;
+                        ALTER TABLE contacts ADD COLUMN updated_by_app_user_id TEXT;
+                        ALTER TABLE contacts ADD COLUMN revision INTEGER NOT NULL DEFAULT 1
+                            CHECK(revision > 0);
+                        ALTER TABLE contact_categories ADD COLUMN created_by_app_user_id TEXT;
+                        ALTER TABLE contact_categories ADD COLUMN updated_by_app_user_id TEXT;
+                        CREATE TABLE contact_provider_registrations (
+                            provider TEXT PRIMARY KEY,
+                            account_kind TEXT NOT NULL,
+                            status TEXT NOT NULL CHECK(status IN ('active','disabled','retired')),
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        );
+                        INSERT INTO contact_provider_registrations(
+                            provider,account_kind,status,created_at,updated_at
+                        ) VALUES
+                            ('eitaa','personal','active',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                            ('bale','personal','active',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                        CREATE TABLE contact_account_bindings (
+                            binding_id TEXT PRIMARY KEY,
+                            contact_id INTEGER NOT NULL REFERENCES contacts(contact_id) ON DELETE CASCADE,
+                            messenger_account_id TEXT NOT NULL,
+                            provider TEXT NOT NULL REFERENCES contact_provider_registrations(provider),
+                            provider_subject_fingerprint TEXT,
+                            reachability TEXT NOT NULL DEFAULT 'unknown'
+                                CHECK(reachability IN ('unknown','reachable','unreachable','blocked')),
+                            safe_reason_code TEXT,
+                            last_resolved_at TEXT,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            created_by_app_user_id TEXT,
+                            updated_by_app_user_id TEXT,
+                            UNIQUE(messenger_account_id, provider, contact_id)
+                        );
+                        CREATE UNIQUE INDEX idx_contact_binding_subject
+                            ON contact_account_bindings(
+                                messenger_account_id,provider,provider_subject_fingerprint
+                            ) WHERE provider_subject_fingerprint IS NOT NULL;
+                        CREATE INDEX idx_contact_bindings_contact
+                            ON contact_account_bindings(contact_id,messenger_account_id,provider);
+                        CREATE TABLE contact_audit_events (
+                            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                            event_id TEXT NOT NULL UNIQUE,
+                            occurred_at TEXT NOT NULL,
+                            actor_app_user_id TEXT,
+                            messenger_account_id TEXT,
+                            provider TEXT,
+                            action TEXT NOT NULL,
+                            entity_type TEXT NOT NULL,
+                            entity_id INTEGER,
+                            request_id TEXT,
+                            safe_metadata_json TEXT NOT NULL,
+                            previous_event_hash TEXT,
+                            event_hash TEXT NOT NULL UNIQUE
+                        );
+                        CREATE INDEX idx_contact_audit_entity
+                            ON contact_audit_events(entity_type,entity_id,sequence DESC);
+                        PRAGMA user_version=3;
+                        COMMIT;
+                        """
+                        )
+                    elif version == 2:
+                        self._backup_schema(connection, version=2)
+                        connection.executescript(
+                            """
+                        PRAGMA foreign_keys=OFF;
+                        BEGIN IMMEDIATE;
+                        CREATE TABLE contact_provider_registrations (
+                            provider TEXT PRIMARY KEY,
+                            account_kind TEXT NOT NULL,
+                            status TEXT NOT NULL CHECK(status IN ('active','disabled','retired')),
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        );
+                        INSERT INTO contact_provider_registrations(
+                            provider,account_kind,status,created_at,updated_at
+                        ) VALUES
+                            ('eitaa','personal','active',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                            ('bale','personal','active',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                        CREATE TABLE contact_account_bindings_v3 (
+                            binding_id TEXT PRIMARY KEY,
+                            contact_id INTEGER NOT NULL REFERENCES contacts(contact_id) ON DELETE CASCADE,
+                            messenger_account_id TEXT NOT NULL,
+                            provider TEXT NOT NULL REFERENCES contact_provider_registrations(provider),
+                            provider_subject_fingerprint TEXT,
+                            reachability TEXT NOT NULL DEFAULT 'unknown'
+                                CHECK(reachability IN ('unknown','reachable','unreachable','blocked')),
+                            safe_reason_code TEXT,
+                            last_resolved_at TEXT,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            created_by_app_user_id TEXT,
+                            updated_by_app_user_id TEXT,
+                            UNIQUE(messenger_account_id, provider, contact_id)
+                        );
+                        INSERT INTO contact_account_bindings_v3
+                            SELECT * FROM contact_account_bindings;
+                        DROP TABLE contact_account_bindings;
+                        ALTER TABLE contact_account_bindings_v3 RENAME TO contact_account_bindings;
+                        CREATE UNIQUE INDEX idx_contact_binding_subject
+                            ON contact_account_bindings(
+                                messenger_account_id,provider,provider_subject_fingerprint
+                            ) WHERE provider_subject_fingerprint IS NOT NULL;
+                        CREATE INDEX idx_contact_bindings_contact
+                            ON contact_account_bindings(contact_id,messenger_account_id,provider);
+                        PRAGMA user_version=3;
+                        COMMIT;
+                        PRAGMA foreign_keys=ON;
+                        """
+                        )
+                    current_version = int(
+                        connection.execute("PRAGMA user_version").fetchone()[0]
                     )
-        except ContactDirectoryError:
-            raise
-        except (OSError, sqlite3.Error) as exc:
-            raise ContactDirectoryError(
-                "Contact database could not be initialized.",
-                safe_context={"error_type": type(exc).__name__, "file_name": self.path.name},
-            ) from exc
+                    if current_version != CONTACT_SCHEMA:
+                        raise ContactDirectoryError(
+                            "Contact database schema migration did not complete.",
+                            safe_context={
+                                "database_version": current_version,
+                                "supported_version": CONTACT_SCHEMA,
+                            },
+                        )
+                    integrity = str(
+                        connection.execute("PRAGMA quick_check").fetchone()[0]
+                    )
+                    foreign_key_rows = connection.execute(
+                        "PRAGMA foreign_key_check"
+                    ).fetchall()
+                    if integrity != "ok" or foreign_key_rows:
+                        raise ContactDirectoryError(
+                            "Contact database integrity verification failed.",
+                            safe_context={
+                                "quick_check": integrity,
+                                "foreign_key_violation_count": len(foreign_key_rows),
+                            },
+                        )
+                    self._initialized = True
+            except ContactDirectoryError:
+                raise
+            except (OSError, sqlite3.Error) as exc:
+                raise ContactDirectoryError(
+                    "Contact database could not be initialized.",
+                    safe_context={"error_type": type(exc).__name__, "file_name": self.path.name},
+                ) from exc
+
+    def _backup_schema(self, connection: sqlite3.Connection, *, version: int) -> Path:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup = self.path.with_name(
+            f"{self.path.stem}.schema{version}.{stamp}.{uuid.uuid4().hex[:8]}.bak.sqlite3"
+        )
+        backup_connection = sqlite3.connect(backup)
+        try:
+            connection.backup(backup_connection)
+        finally:
+            backup_connection.close()
+        return backup
+
+    def reconcile_provider_registrations(
+        self, registrations: Iterable[Mapping[str, object]]
+    ) -> dict[str, int]:
+        """Persist the composition-root provider set without deleting old bindings."""
+
+        self.initialize()
+        normalized: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for registration in registrations:
+            provider = str(registration.get("provider") or "").strip().lower()
+            account_kind = str(registration.get("account_kind") or "").strip().lower()
+            if not _PROVIDER_ID.fullmatch(provider):
+                raise ValueError("Provider registration is not valid.")
+            if account_kind not in {"personal", "bot", "service", "test", "legacy"}:
+                raise ValueError("Provider account kind is not valid.")
+            if provider in seen:
+                raise ValueError("Provider registration is duplicated.")
+            seen.add(provider)
+            normalized.append((provider, account_kind))
+        if not normalized:
+            raise ValueError("At least one provider registration is required.")
+
+        created = updated = unchanged = 0
+        now = _now()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            for provider, account_kind in normalized:
+                existing = connection.execute(
+                    "SELECT account_kind,status FROM contact_provider_registrations WHERE provider=?",
+                    (provider,),
+                ).fetchone()
+                if existing is None:
+                    connection.execute(
+                        """INSERT INTO contact_provider_registrations(
+                            provider,account_kind,status,created_at,updated_at
+                        ) VALUES(?,?,'active',?,?)""",
+                        (provider, account_kind, now, now),
+                    )
+                    created += 1
+                elif str(existing["account_kind"]) != account_kind or str(existing["status"]) != "active":
+                    connection.execute(
+                        """UPDATE contact_provider_registrations
+                            SET account_kind=?,status='active',updated_at=? WHERE provider=?""",
+                        (account_kind, now, provider),
+                    )
+                    updated += 1
+                else:
+                    unchanged += 1
+            connection.commit()
+        return {"created": created, "updated": updated, "unchanged": unchanged}
+
+    @staticmethod
+    def _context(context: ContactMutationContext | None) -> ContactMutationContext:
+        return context or ContactMutationContext()
+
+    @staticmethod
+    def _append_audit(
+        connection: sqlite3.Connection,
+        *,
+        context: ContactMutationContext | None,
+        action: str,
+        entity_type: str,
+        entity_id: int | None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        selected = SQLiteContactStore._context(context)
+        previous = connection.execute(
+            "SELECT event_hash FROM contact_audit_events ORDER BY sequence DESC LIMIT 1"
+        ).fetchone()
+        previous_hash = str(previous["event_hash"]) if previous is not None else None
+        event_id = str(uuid.uuid4())
+        occurred_at = _now()
+        safe_metadata_json = json.dumps(
+            dict(metadata or {}),
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        canonical = json.dumps(
+            {
+                "event_id": event_id,
+                "occurred_at": occurred_at,
+                "actor_app_user_id": selected.actor_app_user_id,
+                "messenger_account_id": selected.messenger_account_id,
+                "provider": selected.provider,
+                "action": action,
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "request_id": selected.request_id,
+                "safe_metadata_json": safe_metadata_json,
+                "previous_event_hash": previous_hash,
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        event_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        connection.execute(
+            """
+            INSERT INTO contact_audit_events(
+                event_id,occurred_at,actor_app_user_id,messenger_account_id,provider,
+                action,entity_type,entity_id,request_id,safe_metadata_json,
+                previous_event_hash,event_hash
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                event_id,
+                occurred_at,
+                selected.actor_app_user_id,
+                selected.messenger_account_id,
+                selected.provider,
+                action,
+                entity_type,
+                entity_id,
+                selected.request_id,
+                safe_metadata_json,
+                previous_hash,
+                event_hash,
+            ),
+        )
+
+    def list_audit_events(
+        self,
+        *,
+        contact_id: int | None = None,
+        limit: int = 200,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return the safe append-only audit trail without contact PII."""
+
+        self.initialize()
+        if not 1 <= int(limit) <= 2_000:
+            raise ValueError("Audit limit must be between 1 and 2000.")
+        where = "WHERE entity_type='contact' AND entity_id=?" if contact_id is not None else ""
+        params: tuple[object, ...] = (
+            (int(contact_id), int(limit)) if contact_id is not None else (int(limit),)
+        )
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""SELECT * FROM contact_audit_events {where}
+                    ORDER BY sequence DESC LIMIT ?""",
+                params,
+            ).fetchall()
+        return tuple(
+            {
+                "sequence": int(row["sequence"]),
+                "event_id": str(row["event_id"]),
+                "occurred_at": str(row["occurred_at"]),
+                "actor_app_user_id": row["actor_app_user_id"],
+                "messenger_account_id": row["messenger_account_id"],
+                "provider": row["provider"],
+                "action": str(row["action"]),
+                "entity_type": str(row["entity_type"]),
+                "entity_id": row["entity_id"],
+                "request_id": row["request_id"],
+                "safe_metadata": json.loads(str(row["safe_metadata_json"])),
+                "previous_event_hash": row["previous_event_hash"],
+                "event_hash": str(row["event_hash"]),
+            }
+            for row in rows
+        )
+
+    def verify_audit_chain(self) -> bool:
+        """Verify ordering and hashes for the complete shared-directory audit chain."""
+
+        self.initialize()
+        previous_hash: str | None = None
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM contact_audit_events ORDER BY sequence"
+            ).fetchall()
+        for row in rows:
+            if row["previous_event_hash"] != previous_hash:
+                return False
+            canonical = json.dumps(
+                {
+                    "event_id": str(row["event_id"]),
+                    "occurred_at": str(row["occurred_at"]),
+                    "actor_app_user_id": row["actor_app_user_id"],
+                    "messenger_account_id": row["messenger_account_id"],
+                    "provider": row["provider"],
+                    "action": str(row["action"]),
+                    "entity_type": str(row["entity_type"]),
+                    "entity_id": row["entity_id"],
+                    "request_id": row["request_id"],
+                    "safe_metadata_json": str(row["safe_metadata_json"]),
+                    "previous_event_hash": row["previous_event_hash"],
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != row["event_hash"]:
+                return False
+            previous_hash = str(row["event_hash"])
+        return True
 
     @staticmethod
     def _contact_dict(connection: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
@@ -161,7 +594,13 @@ class SQLiteContactStore:
             "opt_out": bool(row["opt_out"]),
             "last_resolved_at": row["last_resolved_at"],
             "categories": categories,
+            "created_at": str(row["created_at"]),
             "updated_at": str(row["updated_at"]),
+            "created_by_app_user_id": row["created_by_app_user_id"],
+            "updated_by_app_user_id": row["updated_by_app_user_id"],
+            "created_by": row["created_by_app_user_id"],
+            "updated_by": row["updated_by_app_user_id"],
+            "revision": int(row["revision"]),
         }
 
     def list_contacts(
@@ -225,8 +664,10 @@ class SQLiteContactStore:
         *,
         eitaa_user_ids: Sequence[int] = (),
         phones: Sequence[object] = (),
+        messenger_account_id: str | None = None,
+        include_legacy_global_identity: bool = False,
     ) -> tuple[dict[str, Any], ...]:
-        """Return local contacts matching Eitaa user IDs or normalized phone numbers."""
+        """Return shared contacts matching phones or the selected account's Eitaa IDs."""
 
         self.initialize()
         user_ids = tuple(dict.fromkeys(
@@ -247,8 +688,28 @@ class SQLiteContactStore:
         params: list[object] = []
         if user_ids:
             placeholders = ",".join("?" for _ in user_ids)
-            identity_clauses.append(f"c.eitaa_user_id IN ({placeholders})")
-            params.extend(user_ids)
+            if messenger_account_id:
+                if include_legacy_global_identity:
+                    identity_clauses.append(
+                        f"c.eitaa_user_id IN ({placeholders})"
+                    )
+                    params.extend(user_ids)
+                fingerprints = [
+                    provider_subject_fingerprint("eitaa", value) for value in user_ids
+                ]
+                identity_clauses.append(
+                    f"""EXISTS (
+                        SELECT 1 FROM contact_account_bindings b
+                        WHERE b.contact_id=c.contact_id
+                        AND b.messenger_account_id=? AND b.provider='eitaa'
+                        AND b.provider_subject_fingerprint IN ({placeholders})
+                    )"""
+                )
+                params.append(str(messenger_account_id))
+                params.extend(fingerprints)
+            else:
+                identity_clauses.append(f"c.eitaa_user_id IN ({placeholders})")
+                params.extend(user_ids)
         if normalized_phones:
             placeholders = ",".join("?" for _ in normalized_phones)
             identity_clauses.append(
@@ -310,6 +771,7 @@ class SQLiteContactStore:
             rows = connection.execute(
                 """
                 SELECT c.category_id,c.name,COUNT(p.contact_id) AS member_count
+                    ,c.created_at,c.updated_at,c.created_by_app_user_id,c.updated_by_app_user_id
                 FROM contact_categories c
                 LEFT JOIN contact_category_members m ON m.category_id=c.category_id
                 LEFT JOIN contacts p ON p.contact_id=m.contact_id AND p.archived_at IS NULL
@@ -317,36 +779,75 @@ class SQLiteContactStore:
                 """
             ).fetchall()
         return tuple(
-            {"id": int(row["category_id"]), "name": str(row["name"]), "member_count": int(row["member_count"])}
+            {
+                "id": int(row["category_id"]),
+                "name": str(row["name"]),
+                "member_count": int(row["member_count"]),
+                "created_at": str(row["created_at"]),
+                "updated_at": str(row["updated_at"]),
+                "created_by_app_user_id": row["created_by_app_user_id"],
+                "updated_by_app_user_id": row["updated_by_app_user_id"],
+            }
             for row in rows
         )
 
-    def save_category(self, *, name: str, category_id: int | None = None) -> dict[str, Any]:
+    def save_category(
+        self,
+        *,
+        name: str,
+        category_id: int | None = None,
+        context: ContactMutationContext | None = None,
+    ) -> dict[str, Any]:
         self.initialize()
         selected = name.strip()
         if not selected or len(selected) > 120:
             raise ValueError("Category name must contain 1 to 120 characters.")
         now = _now()
+        selected_context = self._context(context)
         try:
             with self._connect() as connection:
                 if category_id is None:
                     cursor = connection.execute(
-                        "INSERT INTO contact_categories(name,created_at,updated_at) VALUES(?,?,?)",
-                        (selected, now, now),
+                        """INSERT INTO contact_categories(
+                            name,created_at,updated_at,created_by_app_user_id,updated_by_app_user_id
+                        ) VALUES(?,?,?,?,?)""",
+                        (
+                            selected,
+                            now,
+                            now,
+                            selected_context.actor_app_user_id,
+                            selected_context.actor_app_user_id,
+                        ),
                     )
                     category_id = int(cursor.lastrowid)
+                    action = "category.created"
                 else:
                     cursor = connection.execute(
-                        "UPDATE contact_categories SET name=?,updated_at=? WHERE category_id=?",
-                        (selected, now, int(category_id)),
+                        """UPDATE contact_categories
+                            SET name=?,updated_at=?,updated_by_app_user_id=COALESCE(?,updated_by_app_user_id)
+                            WHERE category_id=?""",
+                        (selected, now, selected_context.actor_app_user_id, int(category_id)),
                     )
                     if cursor.rowcount != 1:
                         raise ValueError("Contact category was not found.")
+                    action = "category.updated"
+                self._append_audit(
+                    connection,
+                    context=selected_context,
+                    action=action,
+                    entity_type="category",
+                    entity_id=int(category_id),
+                )
             return next(item for item in self.list_categories() if item["id"] == category_id)
         except sqlite3.IntegrityError as exc:
             raise ValueError("A category with this name already exists.") from exc
 
-    def delete_category(self, category_id: int) -> None:
+    def delete_category(
+        self,
+        category_id: int,
+        *,
+        context: ContactMutationContext | None = None,
+    ) -> None:
         """Delete only the local category; contacts survive by foreign-key design."""
 
         self.initialize()
@@ -356,6 +857,157 @@ class SQLiteContactStore:
             )
             if cursor.rowcount != 1:
                 raise ValueError("Contact category was not found.")
+            self._append_audit(
+                connection,
+                context=context,
+                action="category.deleted",
+                entity_type="category",
+                entity_id=int(category_id),
+            )
+
+    def _merge_duplicate_contacts(
+        self,
+        connection: sqlite3.Connection,
+        contact_ids: Sequence[int],
+        *,
+        context: ContactMutationContext | None,
+    ) -> tuple[int, tuple[int, ...]]:
+        """Merge contacts bridged by one imported row into the oldest numeric record."""
+
+        ordered = tuple(sorted({int(value) for value in contact_ids}))
+        winner_id = ordered[0]
+        loser_ids = ordered[1:]
+        for loser_id in loser_ids:
+            winner = connection.execute(
+                "SELECT * FROM contacts WHERE contact_id=?", (winner_id,)
+            ).fetchone()
+            loser = connection.execute(
+                "SELECT * FROM contacts WHERE contact_id=?", (loser_id,)
+            ).fetchone()
+            if winner is None or loser is None:
+                raise ValueError("A duplicate contact disappeared during merge.")
+
+            merged_text: dict[str, str] = {}
+            for field in (
+                "first_name",
+                "last_name",
+                "username",
+                "organization",
+                "notes",
+                "source",
+            ):
+                winner_value = str(winner[field] or "")
+                loser_value = str(loser[field] or "")
+                merged_text[field] = winner_value or loser_value
+            winner_eitaa_id = winner["eitaa_user_id"]
+            loser_eitaa_id = loser["eitaa_user_id"]
+            merged_eitaa_id = winner_eitaa_id or loser_eitaa_id
+            merged_access_hash = str(winner["access_hash"] or "") or str(
+                loser["access_hash"] or ""
+            )
+            # Release a legacy global identity before moving it to the winner.
+            if winner_eitaa_id is None and loser_eitaa_id is not None:
+                connection.execute(
+                    "UPDATE contacts SET eitaa_user_id=NULL,access_hash='' WHERE contact_id=?",
+                    (loser_id,),
+                )
+            connection.execute(
+                """
+                UPDATE contacts SET
+                    first_name=?,last_name=?,username=?,organization=?,notes=?,source=?,
+                    eitaa_user_id=?,access_hash=?,sendable=?,opt_out=?,
+                    last_resolved_at=COALESCE(last_resolved_at,?),
+                    created_at=CASE WHEN created_at <= ? THEN created_at ELSE ? END,
+                    created_by_app_user_id=COALESCE(created_by_app_user_id,?),
+                    updated_at=?,updated_by_app_user_id=COALESCE(?,updated_by_app_user_id),
+                    revision=revision+1
+                WHERE contact_id=?
+                """,
+                (
+                    merged_text["first_name"],
+                    merged_text["last_name"],
+                    merged_text["username"],
+                    merged_text["organization"],
+                    merged_text["notes"],
+                    merged_text["source"],
+                    merged_eitaa_id,
+                    merged_access_hash,
+                    1 if bool(winner["sendable"]) or bool(loser["sendable"]) else 0,
+                    1 if bool(winner["opt_out"]) or bool(loser["opt_out"]) else 0,
+                    loser["last_resolved_at"],
+                    str(loser["created_at"]),
+                    str(loser["created_at"]),
+                    loser["created_by_app_user_id"],
+                    _now(),
+                    self._context(context).actor_app_user_id,
+                    winner_id,
+                ),
+            )
+            connection.execute(
+                "UPDATE contact_phones SET contact_id=? WHERE contact_id=?",
+                (winner_id, loser_id),
+            )
+            connection.execute(
+                """INSERT OR IGNORE INTO contact_category_members(contact_id,category_id)
+                    SELECT ?,category_id FROM contact_category_members WHERE contact_id=?""",
+                (winner_id, loser_id),
+            )
+            bindings = connection.execute(
+                "SELECT * FROM contact_account_bindings WHERE contact_id=?",
+                (loser_id,),
+            ).fetchall()
+            for binding in bindings:
+                existing = connection.execute(
+                    """SELECT * FROM contact_account_bindings
+                        WHERE contact_id=? AND messenger_account_id=? AND provider=?""",
+                    (
+                        winner_id,
+                        binding["messenger_account_id"],
+                        binding["provider"],
+                    ),
+                ).fetchone()
+                if existing is None:
+                    connection.execute(
+                        "UPDATE contact_account_bindings SET contact_id=? WHERE binding_id=?",
+                        (winner_id, binding["binding_id"]),
+                    )
+                    continue
+                connection.execute(
+                    "DELETE FROM contact_account_bindings WHERE binding_id=?",
+                    (binding["binding_id"],),
+                )
+                subject = existing["provider_subject_fingerprint"] or binding[
+                    "provider_subject_fingerprint"
+                ]
+                reachability = (
+                    "reachable"
+                    if "reachable" in {existing["reachability"], binding["reachability"]}
+                    else str(existing["reachability"])
+                )
+                connection.execute(
+                    """UPDATE contact_account_bindings
+                        SET provider_subject_fingerprint=?,reachability=?,updated_at=?,
+                            updated_by_app_user_id=COALESCE(?,updated_by_app_user_id)
+                        WHERE binding_id=?""",
+                    (
+                        subject,
+                        reachability,
+                        _now(),
+                        self._context(context).actor_app_user_id,
+                        existing["binding_id"],
+                    ),
+                )
+            connection.execute("DELETE FROM contacts WHERE contact_id=?", (loser_id,))
+        if loser_ids:
+            self._append_audit(
+                connection,
+                context=context,
+                action="contact.records_merged",
+                entity_type="contact",
+                entity_id=winner_id,
+                metadata={"merged_contact_ids": list(loser_ids), "merged_count": len(loser_ids)},
+            )
+        return winner_id, loser_ids
 
     def upsert_contact(
         self,
@@ -364,6 +1016,7 @@ class SQLiteContactStore:
         duplicate_policy: str = "skip",
         category_policy: str = "replace",
         status_policy: str = "replace",
+        context: ContactMutationContext | None = None,
     ) -> dict[str, Any]:
         self.initialize()
         if duplicate_policy not in {"skip", "update"}:
@@ -395,6 +1048,7 @@ class SQLiteContactStore:
             raise ValueError("At least one phone number, username, or Eitaa user ID is required.")
         category_ids = tuple(dict.fromkeys(int(value) for value in payload.get("category_ids", [])))
         now = _now()
+        selected_context = self._context(context)
         try:
             with self._connect() as connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -405,19 +1059,30 @@ class SQLiteContactStore:
                         f"SELECT DISTINCT contact_id FROM contact_phones WHERE normalized_phone IN ({placeholders})",
                         phones,
                     ).fetchall()
-                duplicate_ids = {int(row["contact_id"]) for row in duplicate_rows}
+                phone_duplicate_ids = {
+                    int(row["contact_id"]) for row in duplicate_rows
+                }
+                duplicate_ids = set(phone_duplicate_ids)
+                eitaa_duplicate_id: int | None = None
                 if eitaa_user_id is not None:
                     eitaa_row = connection.execute(
                         "SELECT contact_id FROM contacts WHERE eitaa_user_id=?",
                         (eitaa_user_id,),
                     ).fetchone()
                     if eitaa_row is not None:
-                        duplicate_ids.add(int(eitaa_row["contact_id"]))
-                if len(duplicate_ids) > 1:
+                        eitaa_duplicate_id = int(eitaa_row["contact_id"])
+                        duplicate_ids.add(eitaa_duplicate_id)
+                if (
+                    eitaa_duplicate_id is not None
+                    and phone_duplicate_ids
+                    and any(
+                        value != eitaa_duplicate_id for value in phone_duplicate_ids
+                    )
+                ):
                     raise ValueError(
                         "The phone number and Eitaa user ID belong to different existing contacts."
                     )
-                duplicate_id = next(iter(duplicate_ids), None)
+                duplicate_id = min(duplicate_ids) if duplicate_ids else None
                 if requested_id is None and duplicate_id is not None and duplicate_policy == "skip":
                     row = connection.execute(
                         "SELECT * FROM contacts WHERE contact_id=?", (duplicate_id,)
@@ -426,6 +1091,13 @@ class SQLiteContactStore:
                     result = self._contact_dict(connection, row)
                     result["duplicate"] = True
                     return result
+                merged_contact_ids: tuple[int, ...] = ()
+                if requested_id is None and len(duplicate_ids) > 1:
+                    duplicate_id, merged_contact_ids = self._merge_duplicate_contacts(
+                        connection,
+                        tuple(duplicate_ids),
+                        context=selected_context,
+                    )
                 contact_id = requested_id or duplicate_id
                 existing_row = (
                     connection.execute(
@@ -475,7 +1147,11 @@ class SQLiteContactStore:
                         if status_policy == "preserve" and existing_row is not None
                         else bool_field("sendable", True)
                     ),
-                    "opt_out": bool_field("opt_out", False),
+                    "opt_out": (
+                        int(existing_row["opt_out"])
+                        if status_policy == "preserve" and existing_row is not None
+                        else bool_field("opt_out", False)
+                    ),
                     "last_resolved_at": (
                         payload.get("last_resolved_at")
                         if "last_resolved_at" in payload
@@ -488,12 +1164,20 @@ class SQLiteContactStore:
                         INSERT INTO contacts(
                             first_name,last_name,username,eitaa_user_id,access_hash,
                             organization,notes,source,sendable,opt_out,last_resolved_at,
-                            created_at,updated_at
-                        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                            created_at,updated_at,created_by_app_user_id,
+                            updated_by_app_user_id,revision
+                        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
                         """,
-                        (*fields.values(), now, now),
+                        (
+                            *fields.values(),
+                            now,
+                            now,
+                            selected_context.actor_app_user_id,
+                            selected_context.actor_app_user_id,
+                        ),
                     )
                     contact_id = int(cursor.lastrowid)
+                    action = "contact.created"
                 else:
                     if duplicate_id is not None and requested_id is not None and duplicate_id != requested_id:
                         raise ValueError("A phone number is already assigned to another contact.")
@@ -502,12 +1186,15 @@ class SQLiteContactStore:
                         """
                         UPDATE contacts SET first_name=?,last_name=?,username=?,eitaa_user_id=?,
                             access_hash=?,organization=?,notes=?,source=?,sendable=?,opt_out=?,
-                            last_resolved_at=?,updated_at=?,archived_at=NULL WHERE contact_id=?
+                            last_resolved_at=?,updated_at=?,archived_at=NULL,
+                            updated_by_app_user_id=COALESCE(?,updated_by_app_user_id),
+                            revision=revision+1 WHERE contact_id=?
                         """,
-                        (*values, now, contact_id),
+                        (*values, now, selected_context.actor_app_user_id, contact_id),
                     )
                     if cursor.rowcount != 1:
                         raise ValueError("Contact was not found.")
+                    action = "contact.updated"
                 for phone in phones:
                     connection.execute(
                         "INSERT OR IGNORE INTO contact_phones(contact_id,normalized_phone,created_at) VALUES(?,?,?)",
@@ -531,6 +1218,19 @@ class SQLiteContactStore:
                     "INSERT OR IGNORE INTO contact_category_members(contact_id,category_id) VALUES(?,?)",
                     [(contact_id, category_id) for category_id in category_ids],
                 )
+                self._append_audit(
+                    connection,
+                    context=selected_context,
+                    action=action,
+                    entity_type="contact",
+                    entity_id=int(contact_id),
+                    metadata={
+                        "category_count": len(category_ids),
+                        "duplicate_match": duplicate_id is not None,
+                        "merged_record_count": len(merged_contact_ids),
+                        "phone_count": len(phones),
+                    },
+                )
                 connection.commit()
                 row = connection.execute(
                     "SELECT * FROM contacts WHERE contact_id=?", (contact_id,)
@@ -538,6 +1238,8 @@ class SQLiteContactStore:
                 result = self._contact_dict(connection, row)
                 if duplicate_id is not None:
                     result["merged"] = True
+                if merged_contact_ids:
+                    result["merged_contact_ids"] = list(merged_contact_ids)
                 return result
         except sqlite3.IntegrityError as exc:
             raise ValueError("Contact conflicts with an existing unique phone or Eitaa ID.") from exc
@@ -548,6 +1250,7 @@ class SQLiteContactStore:
         category_ids: Sequence[int],
         *,
         operation: str,
+        context: ContactMutationContext | None = None,
     ) -> dict[str, Any]:
         """Add, remove, or replace a local contact's category memberships."""
 
@@ -593,8 +1296,18 @@ class SQLiteContactStore:
                     [(int(contact_id), category_id) for category_id in selected_ids],
                 )
             connection.execute(
-                "UPDATE contacts SET updated_at=? WHERE contact_id=?",
-                (now, int(contact_id)),
+                """UPDATE contacts SET updated_at=?,
+                    updated_by_app_user_id=COALESCE(?,updated_by_app_user_id),
+                    revision=revision+1 WHERE contact_id=?""",
+                (now, self._context(context).actor_app_user_id, int(contact_id)),
+            )
+            self._append_audit(
+                connection,
+                context=context,
+                action="contact.categories_updated",
+                entity_type="contact",
+                entity_id=int(contact_id),
+                metadata={"category_count": len(selected_ids), "operation": operation},
             )
             connection.commit()
             refreshed = connection.execute(
@@ -603,15 +1316,30 @@ class SQLiteContactStore:
             ).fetchone()
             return self._contact_dict(connection, refreshed)
 
-    def archive_contact(self, contact_id: int) -> None:
+    def archive_contact(
+        self,
+        contact_id: int,
+        *,
+        context: ContactMutationContext | None = None,
+    ) -> None:
         self.initialize()
         with self._connect() as connection:
+            now = _now()
             cursor = connection.execute(
-                "UPDATE contacts SET archived_at=?,updated_at=? WHERE contact_id=? AND archived_at IS NULL",
-                (_now(), _now(), int(contact_id)),
+                """UPDATE contacts SET archived_at=?,updated_at=?,
+                    updated_by_app_user_id=COALESCE(?,updated_by_app_user_id),
+                    revision=revision+1 WHERE contact_id=? AND archived_at IS NULL""",
+                (now, now, self._context(context).actor_app_user_id, int(contact_id)),
             )
             if cursor.rowcount != 1:
                 raise ValueError("Contact was not found or was already archived.")
+            self._append_audit(
+                connection,
+                context=context,
+                action="contact.archived",
+                entity_type="contact",
+                entity_id=int(contact_id),
+            )
 
     def import_rows(
         self,
@@ -623,6 +1351,7 @@ class SQLiteContactStore:
         status_policy: str = "replace",
         cancel_event: Any | None = None,
         progress: Any | None = None,
+        context: ContactMutationContext | None = None,
     ) -> dict[str, Any]:
         imported = updated = duplicates = errors = processed = 0
         contact_ids: list[int] = []
@@ -646,6 +1375,7 @@ class SQLiteContactStore:
                     duplicate_policy=duplicate_policy,
                     category_policy=category_policy,
                     status_policy=status_policy,
+                    context=context,
                 )
                 contact_id = int(result["id"])
                 if contact_id not in contact_ids:
@@ -677,6 +1407,191 @@ class SQLiteContactStore:
             "contact_ids": contact_ids,
             "cancelled": False,
         }
+
+    @staticmethod
+    def _binding_dict(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "binding_id": str(row["binding_id"]),
+            "contact_id": int(row["contact_id"]),
+            "messenger_account_id": str(row["messenger_account_id"]),
+            "provider": str(row["provider"]),
+            "provider_subject_present": bool(row["provider_subject_fingerprint"]),
+            "reachability": str(row["reachability"]),
+            "safe_reason_code": row["safe_reason_code"],
+            "last_resolved_at": row["last_resolved_at"],
+            "created_at": str(row["created_at"]),
+            "updated_at": str(row["updated_at"]),
+        }
+
+    def record_account_binding(
+        self,
+        *,
+        contact_id: int,
+        messenger_account_id: str,
+        provider: str,
+        provider_user_id: object | None = None,
+        reachability: str = "reachable",
+        safe_reason_code: str | None = None,
+        last_resolved_at: str | None = None,
+        context: ContactMutationContext | None = None,
+    ) -> dict[str, Any]:
+        """Upsert one provider identity without storing credentials or raw provider IDs."""
+
+        self.initialize()
+        account_id = str(messenger_account_id or "").strip()
+        selected_provider = str(provider or "").strip().lower()
+        if not account_id:
+            raise ValueError("Messenger account is required for a contact binding.")
+        try:
+            parsed_account_id = uuid.UUID(account_id)
+        except (ValueError, AttributeError) as exc:
+            raise ValueError("Messenger account is not valid.") from exc
+        if parsed_account_id.version != 4 or str(parsed_account_id) != account_id:
+            raise ValueError("Messenger account is not valid.")
+        if not _PROVIDER_ID.fullmatch(selected_provider):
+            raise ValueError("Contact binding provider is not valid.")
+        if reachability not in {"unknown", "reachable", "unreachable", "blocked"}:
+            raise ValueError("Contact binding reachability is not valid.")
+        fingerprint = (
+            provider_subject_fingerprint(selected_provider, provider_user_id)
+            if provider_user_id not in (None, "")
+            else None
+        )
+        selected_context = self._context(context)
+        if (
+            selected_context.messenger_account_id
+            and selected_context.messenger_account_id != account_id
+        ):
+            raise ValueError("Contact binding does not match the trusted account context.")
+        if selected_context.provider and selected_context.provider != selected_provider:
+            raise ValueError("Contact binding does not match the trusted provider context.")
+        now = _now()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            registered_provider = connection.execute(
+                """SELECT provider FROM contact_provider_registrations
+                    WHERE provider=? AND status='active'""",
+                (selected_provider,),
+            ).fetchone()
+            if registered_provider is None:
+                raise ValueError("Contact binding provider is not registered.")
+            contact = connection.execute(
+                "SELECT contact_id FROM contacts WHERE contact_id=? AND archived_at IS NULL",
+                (int(contact_id),),
+            ).fetchone()
+            if contact is None:
+                raise ValueError("Contact was not found.")
+            canonical_contact_id = int(contact_id)
+            if fingerprint:
+                subject_binding = connection.execute(
+                    """SELECT contact_id FROM contact_account_bindings
+                        WHERE messenger_account_id=? AND provider=?
+                        AND provider_subject_fingerprint=?""",
+                    (account_id, selected_provider, fingerprint),
+                ).fetchone()
+                if (
+                    subject_binding is not None
+                    and int(subject_binding["contact_id"]) != canonical_contact_id
+                ):
+                    canonical_contact_id, _ = self._merge_duplicate_contacts(
+                        connection,
+                        (canonical_contact_id, int(subject_binding["contact_id"])),
+                        context=selected_context,
+                    )
+            existing = connection.execute(
+                """SELECT * FROM contact_account_bindings
+                    WHERE contact_id=? AND messenger_account_id=? AND provider=?""",
+                (canonical_contact_id, account_id, selected_provider),
+            ).fetchone()
+            if existing is None:
+                binding_id = str(uuid.uuid4())
+                connection.execute(
+                    """INSERT INTO contact_account_bindings(
+                        binding_id,contact_id,messenger_account_id,provider,
+                        provider_subject_fingerprint,reachability,safe_reason_code,
+                        last_resolved_at,created_at,updated_at,
+                        created_by_app_user_id,updated_by_app_user_id
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        binding_id,
+                        canonical_contact_id,
+                        account_id,
+                        selected_provider,
+                        fingerprint,
+                        reachability,
+                        str(safe_reason_code or "")[:120] or None,
+                        last_resolved_at,
+                        now,
+                        now,
+                        selected_context.actor_app_user_id,
+                        selected_context.actor_app_user_id,
+                    ),
+                )
+                action = "contact.account_binding_created"
+            else:
+                binding_id = str(existing["binding_id"])
+                connection.execute(
+                    """UPDATE contact_account_bindings SET
+                        provider_subject_fingerprint=COALESCE(?,provider_subject_fingerprint),
+                        reachability=?,safe_reason_code=?,
+                        last_resolved_at=COALESCE(?,last_resolved_at),updated_at=?,
+                        updated_by_app_user_id=COALESCE(?,updated_by_app_user_id)
+                        WHERE binding_id=?""",
+                    (
+                        fingerprint,
+                        reachability,
+                        str(safe_reason_code or "")[:120] or None,
+                        last_resolved_at,
+                        now,
+                        selected_context.actor_app_user_id,
+                        binding_id,
+                    ),
+                )
+                action = "contact.account_binding_updated"
+            self._append_audit(
+                connection,
+                context=selected_context,
+                action=action,
+                entity_type="contact",
+                entity_id=canonical_contact_id,
+                metadata={
+                    "provider_subject_present": fingerprint is not None,
+                    "reachability": reachability,
+                    "safe_reason_code": str(safe_reason_code or "")[:120] or None,
+                },
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM contact_account_bindings WHERE binding_id=?",
+                (binding_id,),
+            ).fetchone()
+            return self._binding_dict(row)
+
+    def selected_account_bindings(
+        self,
+        contact_ids: Sequence[int],
+        *,
+        messenger_account_id: str,
+        provider: str,
+    ) -> dict[int, dict[str, Any]]:
+        """Return only bindings for the already-authorized selected account."""
+
+        self.initialize()
+        selected_ids = tuple(dict.fromkeys(int(value) for value in contact_ids))
+        if not selected_ids:
+            return {}
+        selected_provider = str(provider or "").strip().lower()
+        if not _PROVIDER_ID.fullmatch(selected_provider):
+            raise ValueError("Contact binding provider is not valid.")
+        placeholders = ",".join("?" for _ in selected_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""SELECT * FROM contact_account_bindings
+                    WHERE messenger_account_id=? AND provider=?
+                    AND contact_id IN ({placeholders})""",
+                (str(messenger_account_id), selected_provider, *selected_ids),
+            ).fetchall()
+        return {int(row["contact_id"]): self._binding_dict(row) for row in rows}
 
     def build_targets(
         self,
