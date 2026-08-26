@@ -1,6 +1,13 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
-## انتشار GitHub در جریان
+## دستور دائمی انتشار سناریوهای نهایی
+
+- از 2026-08-26، پس از نهایی‌شدن و عبور تست‌های هر سناریو، Agent مجاز و موظف است snapshot همان سناریو را با commit دقیق روی شاخهٔ کاری اختصاصی GitHub push و local/remote hash را verify کند.
+- این مجوز شامل push/merge مستقیم `main`، force-push یا انتشار snapshot ناقص/قرمز/دارای دادهٔ عملیاتی نیست؛ جزئیات الزام‌آور در `AGENTS.md` و `CODEX_ANTIGRAVITY_COLLABORATION_PROTOCOL.md` ثبت است.
+
+## انتشار GitHub بسته‌شده — checkpointهای تاریخی
+
+- closure نهایی Run=`STAB-GIT-R01` با remote hash=`89f3551f...` verify شد؛ GitHub main=`a4df3ec...` بدون تغییر و backup محلی محفوظ ماند. سطرهای زیر مسیر checkpointها را برای جلوگیری از حذف تاریخ نگه می‌دارند.
 
 - Run=`STAB-GIT-R01`: commit اولیه PyCharm با hash=`f4464ef8...` شامل 7213 فایل و بیش از 6000 temp/cache بود و هنوز روی GitHub نبود.
 - backup بازیابی‌پذیر `codex/backup-pycharm-f4464ef` ساخته شد؛ هیچ لاگ یا فایل محلی حذف نمی‌شود.

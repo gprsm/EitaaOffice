@@ -60,6 +60,14 @@ Handoff جاری: [ANTIGRAVITY_STABILIZATION_CURRENT.md](../handoffs/ANTIGRAVITY
 - داده‌های عملیاتی، Login/Send/WordPress/Firewall/Proxy/Port و Git stage/commit/push تابع AGENTS و تأیید صریح‌اند.
 - Bale در تثبیت فعلی فقط fail-closed و اصلاح می‌شود؛ قابلیت تازه توسعه داده نمی‌شود.
 
+## مجوز دائمی انتشار محصول نهایی
+
+- کاربر در 2026-08-26 دستور داد پس از رسیدن هر سناریو به محصول نهایی، نتیجه در GitHub push شود. این دستور مجوز دائمی `stage/commit/push` برای همان snapshot نهایی و آزموده‌شده است و لازم نیست در پایان هر سناریو دوباره پرسیده شود.
+- پیش از commit باید scope فایل‌ها، نبود دادهٔ عملیاتی/credential، تست‌های متناسب، کنترل اسناد و وضعیت remote سنجیده و در Ledger/Execution Log ثبت شود.
+- commit باید پیام مرتبط با سناریو داشته باشد و push فقط روی شاخهٔ کاری اختصاصی انجام شود. `main`، merge، force-push، حذف branch/tag و بازنویسی remote history بدون دستور صریح جداگانه ممنوع‌اند.
+- اگر محصول هنوز نهایی نیست، تست قرمز است، credential/دادهٔ عملیاتی مشکوک است یا GitHub قابل دسترسی نیست، push انجام نمی‌شود؛ blocker و اقدام بعدی دقیق ثبت و به کاربر اعلام می‌شود.
+- پس از push، برابری local/remote hash و ثابت‌ماندن `main` کنترل می‌شود. لینک branch/PR، commit نهایی و نتیجهٔ verify در handoff کاربر اعلام می‌گردد.
+
 ## به‌روزرسانی Handoff جاری
 
 پس از هر Run معنادار، `docs/handoffs/ANTIGRAVITY_STABILIZATION_CURRENT.md` باید شامل این موارد شود:
@@ -72,4 +80,3 @@ Handoff جاری: [ANTIGRAVITY_STABILIZATION_CURRENT.md](../handoffs/ANTIGRAVITY
 - اولین فرمان دقیق ادامه.
 
 گزارش تاریخی phase در فایل جدا حفظ می‌شود؛ Handoff جاری یک pointer قابل‌به‌روزرسانی است.
-

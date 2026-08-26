@@ -1285,3 +1285,13 @@
 - tracking config: remote=`origin` و merge=`refs/heads/codex/stabilization-g09`؛ status هیچ ahead/behind یا tracked worktree change نشان نداد.
 - shorthand اختیاری `@{u}` در PowerShell parser error داد؛ retry فقط‌خواندنی config/status PASS، state change=0 و product failure=false.
 - closure=`COMPLETE / PUSH_VERIFIED / MAIN_UNCHANGED / BACKUP_PRESERVED`. commit همین closure باید با push عادی منتشر و hash آن در handoff گفتگو verify شود؛ خودارجاعی hash داخل همان commit ممکن نیست.
+
+### V-157 — ثبت مجوز دائمی انتشار سناریوی نهایی
+
+- تاریخ: 2026-08-26
+- سطح: `USER STANDING AUTHORIZATION / GIT PUBLICATION GOVERNANCE`
+- Run: `STAB-GIT-R02`
+- دستور کاربر: پس از رسیدن به محصول نهایی در هر سناریو، نتیجه در GitHub push شود.
+- قرارداد ثبت‌شده: snapshot باید نهایی، آزموده‌شده، مستندسازی‌شده و فاقد credential/data عملیاتی باشد؛ commit پیام دقیق دارد و push روی شاخهٔ کاری اختصاصی انجام می‌شود.
+- exclusions: push/merge مستقیم main، force-push، حذف ref، بازنویسی remote history و انتشار snapshot ناقص/قرمز بدون دستور صریح جداگانه مجاز نیست.
+- پس از هر push، local/remote hash و ثابت‌ماندن main verify و نتیجه در handoff ثبت می‌شود. این policy در `AGENTS.md`، قرارداد همکاری و handoff جاری درج شد.

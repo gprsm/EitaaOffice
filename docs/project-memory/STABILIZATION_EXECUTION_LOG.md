@@ -3432,3 +3432,26 @@ live_provider_or_operational_action: 0
 approval_ref: user-approved-cleanup-and-github-push-with-log-preservation
 output_summary: push دوم و tracking تأیید، main ثابت و Run کامل شد؛ hash commit closure پس از push نهایی در تحویل گفتگو ثبت می‌شود.
 ```
+
+### STAB-GIT-R02-S01 — ثبت دستور دائمی انتشار محصول نهایی
+
+```yaml
+event_id: STAB-GIT-R02-S01
+event: USER_STANDING_FINAL_PRODUCT_GITHUB_PUBLICATION_AUTHORIZATION
+started_at: 2026-08-26T22:54:30+03:30
+ended_at: 2026-08-26T22:55:52.4427828+03:30
+goal_id: GIT-PUBLICATION-GOVERNANCE
+run_id: STAB-GIT-R02
+state_before: PER_TASK_EXPLICIT_GIT_AUTHORIZATION
+state_after: STANDING_FINAL_SCENARIO_PUBLICATION_AUTHORIZATION_ACTIVE
+actor: user_and_codex
+action_kind: DOCUMENTATION_ONLY_POLICY_UPDATE
+cwd: <project-root>
+authorization: {stage: final_tested_scenario_only, commit: precise_message_required, push: dedicated_working_branch_required, repeat_confirmation_required: false}
+excluded_without_separate_explicit_command: [direct_main_push_or_merge, force_push, remote_history_rewrite, ref_deletion, incomplete_or_red_snapshot, credential_or_operational_data]
+prepush_requirements: [scope_audit, relevant_tests_green, documentation_controls_green, privacy_and_operational_scan, remote_precheck]
+postpush_requirements: [local_remote_hash_equal, main_unchanged, handoff_with_branch_and_commit]
+files_recorded: [AGENTS.md, docs/project-memory/CODEX_ANTIGRAVITY_COLLABORATION_PROTOCOL.md, docs/handoffs/ANTIGRAVITY_STABILIZATION_CURRENT.md, docs/project-memory/VALIDATION_LEDGER.md, docs/project-memory/STABILIZATION_EXECUTION_LOG.md]
+approval_ref: user-standing-final-product-github-push-command
+output_summary: مجوز دائمی انتشار هر سناریوی نهایی با guardهای تست، privacy، شاخهٔ اختصاصی و حفاظت main ثبت شد.
+```
