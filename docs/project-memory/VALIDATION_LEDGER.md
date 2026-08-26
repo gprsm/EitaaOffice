@@ -1309,3 +1309,13 @@
 - release: دو archive محلی بایت‌یکسان با file_count=282، SHA=`077d316d5a546fa20eff39a9e77205e57756050ed293884bd34d09cba52a7f3e`، content-set=`36012dbba19eb2b464bfa5df2de37006157e7515a774784738bc9d57fadcc1ff` و privacy finding صفر. diff با archive پیشین فقط source patch بود.
 - documentation/release checks: refresh، integrity، stale، link، Release Manifest JSON و package dry-run همگی PASS؛ dry-run=`282`، content-set exact و write=0.
 - محدودیت: Computer Use در initialize/retry/reset-retry پیش از window selection یا input با خطای محیطی path-not-found متوقف شد؛ visual recheck کاربر pending است. message/login/OTP/WordPress/Bale/operational write=0.
+
+### V-159 — انتشار و راستی‌آزمایی commit اصلی G-10
+
+- تاریخ: 2026-08-26
+- سطح: `GITHUB WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `STAB-G10-R01`
+- pre-push: remote branch=`4f70ecd9af734685befa38ed31a6c7818d1c6803` و main=`a4df3ecf2bcd4ab658c5361afdc287444694fcd2`.
+- commit اصلی=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` با پیام دقیق `fix(ui): show latest messages for selected groups` و 12 فایل آزموده‌شده/مستند ساخته شد.
+- push عادی فقط به `codex/stabilization-g09` موفق بود؛ post-push remote branch دقیقاً=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` و main بدون تغییر ماند.
+- force/merge/main push/ref deletion=0؛ secret scan نامزد=0؛ operational data/message/Provider action=0. commit مستندی همین verify پس از ثبت با push عادی منتشر می‌شود.

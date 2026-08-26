@@ -7,6 +7,7 @@
 - RED=`1 failed / 5 passed`، contract GREEN=`1/1`، targeted=`11/11`، full Backend=`657/657` با skip صفر، تمام ۹ runner UI، TypeScript و build 1015-module سبزند. source/dist patch SHA یکسان=`6de1ad48...` است.
 - archiveهای محلی نهایی G-10 بایت‌یکسان، 282فایلی و دارای SHA=`077d316d...`، content-set=`36012dbb...` و privacy finding صفرند.
 - Computer Use پیش از انتخاب پنجره/input سه بار با خطای زیرساختی path-not-found شکست خورد؛ تأیید بصری کاربر باقی است. هیچ پیام آزمایشی، login/OTP، WordPress، Bale یا write دادهٔ عملیاتی انجام نشد.
+- commit اصلی=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` روی `codex/stabilization-g09` push و remote hash برابر تأیید شد؛ GitHub main=`a4df3ecf...` بدون تغییر است. commit مستندی closure با push عادی همین شاخه دنبال می‌شود.
 - مرجع: `docs/reports/stabilization/G10_SELECTED_GROUP_STALE_TIMELINE_REPAIR_REPORT_2026-08-26.md`؛ Ledger=`V-158`؛ Run=`STAB-G10-R01`.
 
 ## دستور دائمی انتشار سناریوهای نهایی

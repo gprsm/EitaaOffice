@@ -3537,3 +3537,27 @@ privacy_and_operational_effect: {release_findings: 0, message_send: 0, operation
 next_action: exact_scope_git_stage_commit_push_and_remote_verify
 output_summary: حافظهٔ مهندسی و نامزد release هم‌تراز و آمادهٔ انتشار عادی روی شاخهٔ کاری هستند.
 ```
+
+### STAB-G10-R01-S04 — commit اصلی، push و verify شاخهٔ کاری
+
+```yaml
+event_id: STAB-G10-R01-S04
+event: FINAL_SCENARIO_COMMIT_PUSH_AND_REMOTE_VERIFICATION
+started_at: 2026-08-26T23:22:46.8856815+03:30
+ended_at: 2026-08-26T23:25:35.3506616+03:30
+goal_id: G-10
+run_id: STAB-G10-R01
+state_before: TESTED_DOCUMENTED_READY_TO_PUBLISH
+state_after: PRIMARY_COMMIT_PUSH_VERIFIED_DOCUMENTATION_CLOSURE_PENDING
+actor: codex
+action_kind: USER_STANDING_AUTHORIZED_GIT_PUBLICATION
+cwd: <project-root>
+candidate: {files: 12, high_confidence_secret_findings: 0, operational_data_files: 0}
+prepush_remote: {working_branch: 4f70ecd9af734685befa38ed31a6c7818d1c6803, main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2}
+commit: {hash: 407cd418c2249fb6d9b51827e0601d9ca883d0d0, subject: 'fix(ui): show latest messages for selected groups'}
+push: {branch: codex/stabilization-g09, force: false, result: PASS}
+postpush_remote: {working_branch: 407cd418c2249fb6d9b51827e0601d9ca883d0d0, main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true, main_unchanged: true}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, message_send]
+next_action: documentation_closure_commit_normal_push_and_final_remote_verify
+output_summary: commit اصلی G-10 روی شاخهٔ کاری منتشر و با حفظ کامل main زنده تأیید شد.
+```

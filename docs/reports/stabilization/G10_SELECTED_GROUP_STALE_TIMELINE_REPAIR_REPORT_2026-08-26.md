@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-26  
 Run: `STAB-G10-R01`  
-وضعیت: `COMPLETE / TESTED / PUBLICATION_PENDING`
+وضعیت: `COMPLETE / TESTED / PUBLISHED_TO_WORKING_BRANCH`
 
 ## گزارش کاربر و مجوز
 
@@ -54,3 +54,7 @@ Run: `STAB-G10-R01`
 ## نتیجه
 
 F-049 بسته است. مسیر آخرین پیام‌ها دیگر به checkpoint قدیمی منحرف نمی‌شود و بازکردن گروه، پنجرهٔ تازه‌ترین پیام‌های محلیِ همگام‌شده را می‌گیرد. تأیید بصری مستقیم به‌علت خرابی زیرساخت Computer Use اجرا نشد، اما علت در pre-image با RED قطعی، دادهٔ جاری با SQLite اثبات و قرارداد source/dist/full regression سبز شد.
+
+## انتشار Git
+
+commit اصلی G-10 با hash=`407cd418c2249fb6d9b51827e0601d9ca883d0d0` و پیام `fix(ui): show latest messages for selected groups` روی `codex/stabilization-g09` push شد. remote branch دقیقاً با commit محلی برابر و GitHub `main` همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` است؛ force/merge/main push انجام نشد.
