@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-27  
 Run: `STAB-G11-R01`  
-وضعیت: `CODE_COMPLETE / FULLY_TESTED / OFFLINE_ARTIFACT_GREEN / PUBLICATION_PENDING / USER_VISUAL_RECHECK_PENDING`
+وضعیت: `COMPLETE / FULLY_TESTED / OFFLINE_ARTIFACT_GREEN / PUBLISHED_TO_WORKING_BRANCH / USER_VISUAL_RECHECK_PENDING`
 
 ## گزارش کاربر و مرز محرمانگی
 
@@ -65,4 +65,4 @@ F-050 در سطح کد، build، HTTP contract، full regression، wheel، archi
 
 ## انتشار Git
 
-commit/push عادی روی شاخهٔ کاری `codex/stabilization-g09` پس از سبزشدن کنترل اسناد انجام و نتیجهٔ remote/main در closure مستندی ثبت می‌شود. push/merge مستقیم main، force-push و انتشار دادهٔ عملیاتی مجاز نیست.
+commit اصلی G-11 با hash=`8fe8d90d507fccb9bec586feb81c1f28d71d64fc` و پیام `fix(ui): invalidate cached runtime patches` به‌صورت عادی روی `codex/stabilization-g09` push شد. remote branch دقیقاً همان hash و GitHub main همچنان `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` است. push/merge مستقیم main، force-push، حذف ref و انتشار دادهٔ عملیاتی انجام نشد. commit مستندی closure همین verify را با push عادی دوم ثبت می‌کند.

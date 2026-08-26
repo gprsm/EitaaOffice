@@ -3640,3 +3640,27 @@ privacy_and_operational_effect: {raw_title_or_ids_logged: false, message_send: 0
 next_action: documentation_checks_then_standing_authorized_working_branch_commit_push_verify
 output_summary: artifact و نصب آفلاین G-11 سبز؛ تأیید زنده پس از restart کاربر pending و انتشار Git پس از کنترل اسناد انجام می‌شود.
 ```
+
+### STAB-G11-R01-S04 — commit اصلی، push و verify شاخهٔ کاری
+
+```yaml
+event_id: STAB-G11-R01-S04
+event: G11_FINAL_SCENARIO_COMMIT_PUSH_AND_REMOTE_VERIFY
+started_at: 2026-08-27T01:10:00+03:30
+ended_at: 2026-08-27T01:20:00+03:30
+goal_id: G-11
+run_id: STAB-G11-R01
+state_before: TESTED_DOCUMENTED_READY_FOR_GIT_PUBLICATION
+state_after: PRIMARY_COMMIT_PUSH_VERIFIED_DOCUMENTATION_CLOSURE_PENDING
+actor: codex
+action_kind: USER_STANDING_AUTHORIZED_GIT_PUBLICATION
+cwd: <project-root>
+candidate: {files: 16, raw_group_title_hits: 0, high_confidence_credential_file_hits: 0, operational_root_files: 0, unstaged_tracked_files: 0}
+prepush_remote: {working_branch: 7c70954dbc073048531898c09cce9cf66e1c927f, main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2}
+commit: {hash: 8fe8d90d507fccb9bec586feb81c1f28d71d64fc, subject: "fix(ui): invalidate cached runtime patches"}
+push: {branch: codex/stabilization-g09, force: false, result: PASS}
+postpush_remote: {working_branch: 8fe8d90d507fccb9bec586feb81c1f28d71d64fc, main: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true, main_unchanged: true}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, message_send, operational_data_write]
+next_action: documentation_closure_commit_normal_push_and_final_remote_verify
+output_summary: commit اصلی G-11 روی شاخهٔ کاری منتشر و با ثابت‌ماندن main زنده تأیید شد.
+```

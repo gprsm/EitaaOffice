@@ -8,8 +8,8 @@
 - RED=`3 failed / 6 passed`، GREEN=`9/9`، related=`54/54`، full Backend نهایی=`658/658` با skip صفر، تمام ۹ runner UI، TypeScript و build 1015-module سبزند. wheel دوبار بایت‌یکسان و parity 90/0 است.
 - archiveهای canonical G-11 پس از ثبت ADR-40 بایت‌یکسان، 282فایلی، SHA=`08c5d5dd...` و content-set=`4ec774ed...` هستند؛ internal verifier/privacy و fresh venv آفلاین با `--no-index` سبز است. archive hash قبلی فقط checkpoint پیش از هم‌ترازی معماری بود و با `--force` جایگزین شد.
 - Computer Use پیش از input شکست خورد و برنامه هنگام loopback check اجرا نبود؛ Agent آن را بدون اجازه start نکرد. پذیرش Live فقط نیازمند بستن/اجرای دوبارهٔ برنامه و بازکردن گروه نمونه توسط کاربر است؛ پاک‌کردن cache/data لازم نیست.
-- هیچ پیام آزمایشی، login/OTP، WordPress، Bale یا write دادهٔ عملیاتی انجام نشد. commit/push G-11 پس از کنترل اسناد روی همان شاخهٔ کاری انجام و در V-162 ثبت می‌شود.
-- مرجع: `docs/reports/stabilization/G11_RUNTIME_PATCH_CACHE_BUSTING_REPAIR_REPORT_2026-08-27.md`؛ Ledger=`V-160/V-161`؛ Run=`STAB-G11-R01`.
+- هیچ پیام آزمایشی، login/OTP، WordPress، Bale یا write دادهٔ عملیاتی انجام نشد. commit اصلی G-11=`8fe8d90d507fccb9bec586feb81c1f28d71d64fc` روی شاخهٔ کاری push و remote hash برابر تأیید شد؛ GitHub main=`a4df3ecf...` بدون تغییر است.
+- مرجع: `docs/reports/stabilization/G11_RUNTIME_PATCH_CACHE_BUSTING_REPAIR_REPORT_2026-08-27.md`؛ Ledger=`V-160/V-161/V-162`؛ Run=`STAB-G11-R01`.
 
 ## دستور دائمی انتشار سناریوهای نهایی
 
@@ -107,12 +107,12 @@
 
 وضعیت: `G-09 COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE`  
 آخرین ازسرگیری: 2026-08-26T18:03:00+03:30  
-آخرین checkpoint: 2026-08-27T01:05:00+03:30  
+آخرین checkpoint: 2026-08-27T01:20:00+03:30  
 Agent نویسنده: `Codex`  
-آخرین Run بسته: `STAB-G10-R01`  
-Run جاری: `STAB-G11-R01 / GIT_PUBLICATION_PENDING`  
-آخرین زیرمرحلهٔ بسته: `G-11 / CODE_AND_AUTOMATED_ACCEPTANCE_COMPLETE`  
-Goal فعال: `G-11 PUBLICATION / USER_VISUAL_RECHECK_PENDING`
+آخرین Run بسته: `STAB-G11-R01`  
+Run جاری: `NONE`  
+آخرین زیرمرحلهٔ بسته: `G-11 / PUBLISHED / USER_VISUAL_RECHECK_PENDING`  
+Goal فعال: `NONE / WAITING_FOR_USER_VISUAL_RECHECK`
 
 ## دستور کاربر
 

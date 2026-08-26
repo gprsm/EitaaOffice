@@ -1348,3 +1348,14 @@
 - receipt probe نخست property ناموجود را مانند یک finding شمرد؛ schema canonical با `verification` خوانده و success داخلی تأیید شد. product/package failure=false.
 - کنترل اسناد: refresh، integrity، stale و link check همگی PASS؛ گزارش در سطر 185 `REPORTS_INDEX.md` قابل‌کشف است. package dry-run نهایی=282/content-set=`4ec774ed...`/write0 و Release Manifest JSON=PASS با SHA=`b89f4c2a592a9dc12f8f12cdd115fa05b5a686498f5f9cf4c450dc927f6d8f9c`.
 - پذیرش=`G11_CODE_AND_AUTOMATED_ACCEPTANCE_COMPLETE / USER_VISUAL_RECHECK_PENDING / GIT_PUBLICATION_PENDING`; پیام/Provider/Login/OTP/WordPress/Bale/data write=0.
+
+### V-162 — انتشار commit اصلی G-11 و حفاظت main
+
+- تاریخ: 2026-08-27
+- سطح: `GITHUB WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `STAB-G11-R01`
+- candidate=16 فایل دقیق؛ raw title گروه=0، high-confidence credential file hit=0 و operational root file=0. unstaged tracked file=0 پیش از commit.
+- pre-push remote: working branch=`7c70954dbc073048531898c09cce9cf66e1c927f` و main=`a4df3ecf2bcd4ab658c5361afdc287444694fcd2`.
+- commit اصلی=`8fe8d90d507fccb9bec586feb81c1f28d71d64fc` با پیام `fix(ui): invalidate cached runtime patches` و 16 فایل ساخته شد.
+- push عادی فقط به `codex/stabilization-g09` موفق بود؛ post-push remote branch دقیقاً برابر commit محلی و main بدون تغییر ماند.
+- force/merge/main push/ref deletion=0؛ Provider/message/data action=0. commit مستندی closure با push عادی دوم منتشر و hash نهایی در تحویل گفتگو verify می‌شود.

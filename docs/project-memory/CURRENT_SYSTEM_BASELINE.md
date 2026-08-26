@@ -3,7 +3,7 @@
 تاریخ مبنا: ۲۰۲۶-۰۸-۲۵  
 آخرین همسان‌سازی: G-11 و اصلاح تحویل cache-busted رابط در ۲۰۲۶-۰۸-۲۷  
 وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-161، F-039 تا F-050 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+منابع شاهد جاری: V-103، V-108 تا V-162، F-039 تا F-050 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
 
 Milestone تثبیت 2026-08-25: G-00 یک baseline deterministic و قابل‌بازگشت از 613 فایل امن با receipt/SHA-256 ایجاد و repository ریشه را به تاریخچهٔ محلی `legacy/main` متصل کرد. هیچ stage/commit انجام نشده است. V-103 روی snapshot منتقل‌شده Backend=`587 collected / 585 passed / 2 failed` و دو contract شکستهٔ UI را ثبت کرد؛ بنابراین نتیجه‌های قدیمی `590/590` وضعیت جاری را اثبات نمی‌کنند.
 
