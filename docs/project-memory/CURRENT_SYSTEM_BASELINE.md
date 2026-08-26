@@ -1,9 +1,9 @@
 # وضعیت پایهٔ فعلی پروژه
 
 تاریخ مبنا: ۲۰۲۶-۰۸-۲۵  
-آخرین همسان‌سازی: G-09-E و پذیرش فنی آفلاین در ۲۰۲۶-۰۸-۲۶  
+آخرین همسان‌سازی: G-10 و اصلاح timeline گروه منتخب در ۲۰۲۶-۰۸-۲۶  
 وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-148، F-039 تا F-048 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+منابع شاهد جاری: V-103، V-108 تا V-158، F-039 تا F-049 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
 
 Milestone تثبیت 2026-08-25: G-00 یک baseline deterministic و قابل‌بازگشت از 613 فایل امن با receipt/SHA-256 ایجاد و repository ریشه را به تاریخچهٔ محلی `legacy/main` متصل کرد. هیچ stage/commit انجام نشده است. V-103 روی snapshot منتقل‌شده Backend=`587 collected / 585 passed / 2 failed` و دو contract شکستهٔ UI را ثبت کرد؛ بنابراین نتیجه‌های قدیمی `590/590` وضعیت جاری را اثبات نمی‌کنند.
 
@@ -36,6 +36,8 @@ Milestone G-08-E: full نخست `655/656` فقط به‌علت wheel شش فای
 Milestone G-09: dry-run 282فایلی بدون write، دو archive نهایی بایت‌یکسان با SHA=`6ff12e2b...` و privacy finding صفر، extract 283فایلی، wheel parity 90/0 drift و fresh venv کاملاً آفلاین سبز شدند. archiveهای B پس از همسوسازی Architecture تاریخی شدند و artifact نهایی E دوباره ساخته/نصب شد. full Backend نهایی=`656/656` با skip صفر، هر ۹ runner UI، TypeScript و build 1015-module سبزند. کاربر در 2026-08-26 پذیرش G-09 را صریحاً ثبت کرد؛ code-sign/Windows visual/real-user installer هنوز بیرونی‌اند و Production release مجاز اعلام نمی‌شود.
 
 Milestone Git publish: قواعد ignore امن برای جلوگیری از ورود temp/cache و اسکریپت‌های یک‌بارمصرف به GitHub افزوده شد. نامزد نهایی نسبت به مبنای GitHub شامل 426 فایل و فاقد temp/cache، دادهٔ عملیاتی، DB، کپی پژوهشی Bale و scratch script است. چون `.gitignore` عضو release allowlist است، دو archive canonical نهایی با SHA=`481ed1be...` و content-set=`43c67c2e...` ساخته شدند؛ diff محتوایی با archive میانی فقط `.gitignore`، privacy finding صفر و wheel/source بدون drift است. این تغییر کد محصول یا پذیرش G-09 را عوض نمی‌کند.
+
+Milestone G-10: ممیزی فقط‌خواندنی و ماسک‌شده نشان داد sync و SQLite گروه منتخب جاری‌اند، اما runtime patch موقعیت مطالعه، درخواست صفحهٔ نخست پیام‌ها را با checkpoint قدیمی بازنویسی می‌کرد و پیام‌های تازه را از پنجرهٔ UI بیرون می‌گذاشت. قرارداد RED با `1 failed / 5 passed` ثبت و بازنویسی `before_id/limit` حذف شد؛ fetch اکنون request اصلی را دست‌نخورده می‌فرستد. regression هدفمند=`11/11`، full Backend=`657/657`، هر ۹ runner UI، TypeScript و build 1015-module سبزند. archive نهایی 282 فایل، privacy finding صفر و SHA=`077d316d...` دارد. تأیید بصری مستقیم به‌علت خرابی زیرساخت Computer Use اجرا نشد؛ هیچ پیام، login، OTP، Bale یا write عملیاتی انجام نشد.
 
 ## فصل ۱ — وضعیت فازها
 

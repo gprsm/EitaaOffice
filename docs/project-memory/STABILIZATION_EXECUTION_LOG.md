@@ -3455,3 +3455,85 @@ files_recorded: [AGENTS.md, docs/project-memory/CODEX_ANTIGRAVITY_COLLABORATION_
 approval_ref: user-standing-final-product-github-push-command
 output_summary: مجوز دائمی انتشار هر سناریوی نهایی با guardهای تست، privacy، شاخهٔ اختصاصی و حفاظت main ثبت شد.
 ```
+
+### STAB-G10-R01-S01 — ممیزی ماسک‌شده، تشخیص علت و RED
+
+```yaml
+event_id: STAB-G10-R01-S01
+event: SELECTED_GROUP_STALE_TIMELINE_MASKED_DIAGNOSIS_AND_RED
+started_at: 2026-08-26T22:56:00+03:30
+ended_at: 2026-08-26T23:05:00+03:30
+goal_id: G-10
+run_id: STAB-G10-R01
+state_before: USER_REPORTED_SELECTED_GROUP_ONE_MONTH_STALE
+state_after: ROOT_CAUSE_CONFIRMED_RED_VERIFIED
+actor: codex
+action_kind: READ_AND_TEST
+cwd: <project-root>
+authorization: {messenger_view: true, saved_messages_send_if_needed: true, third_party_send: false}
+computer_use:
+  attempts: 3
+  reset_attempts: 1
+  result: BLOCKED_BEFORE_WINDOW_SELECTION
+  failure_class: environment
+  error_summary: kernel_assets_path_not_found
+  input_or_click_count: 0
+masked_live_read: {catalog_active_favorite_count: 1, local_message_count: 674, catalog_top_equals_local_max: true, latest_local_day: current_day, operational_write: 0}
+masked_log_scan: {files_scanned: 91, relevant_records: 5613, sync_success_types_present: true, failure_records: 0}
+tool_events:
+  - {attempt_id: STAB-G10-R01-S01-A01, scope: masked_db_probe_orchestration, result: FAIL, failure_class: environment, error_summary: TextEncoder_unavailable, state_change: 0}
+  - {attempt_id: STAB-G10-R01-S01-A02, retry_of: STAB-G10-R01-S01-A01, result: FAIL, failure_class: environment, error_summary: btoa_unavailable, state_change: 0}
+  - {attempt_id: STAB-G10-R01-S01-A03, retry_of: STAB-G10-R01-S01-A02, result: PASS, access: read_only}
+  - {attempt_id: STAB-G10-R01-S01-A04, scope: masked_log_scan, result: PARTIAL, error_summary: two_null_array_index_warnings, state_change: 0}
+  - {attempt_id: STAB-G10-R01-S01-A05, retry_of: STAB-G10-R01-S01-A04, result: PASS, null_guard: true}
+root_cause: runtime_patch_rewrote_messages_list_before_id_and_limit_from_persisted_checkpoint
+red_test: {result: EXPECTED_FAIL, passed: 5, failed: 1, product_regression_confirmed: true}
+privacy: {raw_title: not_recorded, raw_peer_or_account_id: not_recorded, message_text: not_recorded}
+message_send_count: 0
+output_summary: دادهٔ محلی و sync جاری بود؛ redirect درخواست history به checkpoint قدیمی علت قطعی و با RED تثبیت شد.
+```
+
+### STAB-G10-R01-S02 — اصلاح request، regression و reconciliation انتشار
+
+```yaml
+event_id: STAB-G10-R01-S02
+event: REMOVE_READING_CHECKPOINT_PAGINATION_REWRITE_AND_VALIDATE
+started_at: 2026-08-26T23:05:00+03:30
+ended_at: 2026-08-26T23:20:17.0371045+03:30
+goal_id: G-10
+run_id: STAB-G10-R01
+state_before: ROOT_CAUSE_CONFIRMED_RED_VERIFIED
+state_after: DOCUMENTATION_AND_PUBLICATION_PENDING
+actor: codex
+action_kind: WRITE_TEST_BUILD_GENERATE
+cwd: <project-root>
+product_change: messages_list_fetch_preserves_original_input_and_init
+source_dist_sha256: 6de1ad483e2c97af76fd070abca34464d5ff158094ba7e0634d470620efc9893
+validation: {source_contract: 1/1_pass, targeted: 11/11_pass, full_backend: 657/657_pass, collected_files: 74, skipped: 0, ui_runners: 9/9_pass, typescript: pass, vite_modules: 1015}
+release: {archive_count: 2, byte_identical: true, file_count: 282, sha256: 077d316d5a546fa20eff39a9e77205e57756050ed293884bd34d09cba52a7f3e, content_set_sha256: 36012dbba19eb2b464bfa5df2de37006157e7515a774784738bc9d57fadcc1ff, privacy_findings: 0}
+external_effect: test_temp
+operational_data_write: 0
+message_login_otp_wordpress_bale: 0
+output_summary: بازنویسی pagination حذف و مجموعهٔ کامل آزمون و بستهٔ نهایی سبز شد؛ فقط کنترل اسناد و انتشار Git باقی است.
+```
+
+### STAB-G10-R01-S03 — کنترل اسناد و آماده‌سازی انتشار
+
+```yaml
+event_id: STAB-G10-R01-S03
+event: DOCUMENTATION_INTEGRITY_RELEASE_DRY_RUN_AND_PUBLICATION_READINESS
+started_at: 2026-08-26T23:20:17.0371045+03:30
+ended_at: 2026-08-26T23:22:46.8856815+03:30
+goal_id: G-10
+run_id: STAB-G10-R01
+state_before: DOCUMENTATION_AND_PUBLICATION_PENDING
+state_after: TESTED_DOCUMENTED_READY_TO_PUBLISH
+actor: codex
+action_kind: GENERATE_TEST
+cwd: <project-root>
+documentation_checks: {refresh: pass, integrity: pass, stale: pass, links: pass, release_manifest_json: pass}
+package_dry_run: {result: pass, file_count: 282, content_set_sha256: 36012dbba19eb2b464bfa5df2de37006157e7515a774784738bc9d57fadcc1ff, output_write: 0}
+privacy_and_operational_effect: {release_findings: 0, message_send: 0, operational_write: 0}
+next_action: exact_scope_git_stage_commit_push_and_remote_verify
+output_summary: حافظهٔ مهندسی و نامزد release هم‌تراز و آمادهٔ انتشار عادی روی شاخهٔ کاری هستند.
+```

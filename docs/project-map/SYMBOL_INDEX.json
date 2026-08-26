@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "d48233a339b58b7f",
+  "source_fingerprint": "7598f53583ef98d6",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -15632,9 +15632,14 @@
           "line": 57
         },
         {
+          "name": "test_saved_reading_position_never_rewrites_the_latest_message_request",
+          "kind": "function",
+          "line": 68
+        },
+        {
           "name": "test_runtime_patch_does_not_add_network_writes_for_reading_positions",
           "kind": "function",
-          "line": 71
+          "line": 78
         }
       ]
     },
@@ -17705,67 +17710,67 @@
         {
           "name": "rowForKey",
           "kind": "script symbol",
-          "line": 181
+          "line": 172
         },
         {
           "name": "scrollContainer",
           "kind": "script symbol",
-          "line": 183
+          "line": 174
         },
         {
           "name": "currentPeer",
           "kind": "script symbol",
-          "line": 184
+          "line": 175
         },
         {
           "name": "styleConfirmedRows",
           "kind": "script symbol",
-          "line": 197
+          "line": 188
         },
         {
           "name": "visibleRows",
           "kind": "script symbol",
-          "line": 233
+          "line": 224
         },
         {
           "name": "saveCheckpoint",
           "kind": "script symbol",
-          "line": 241
+          "line": 232
         },
         {
           "name": "bindScroll",
           "kind": "script symbol",
-          "line": 262
+          "line": 253
         },
         {
           "name": "onScroll",
           "kind": "script symbol",
-          "line": 268
+          "line": 259
         },
         {
           "name": "interrupt",
           "kind": "script symbol",
-          "line": 269
+          "line": 260
         },
         {
           "name": "scrollRowToOffset",
           "kind": "script symbol",
-          "line": 281
+          "line": 272
         },
         {
           "name": "installReadingMarker",
           "kind": "script symbol",
-          "line": 288
+          "line": 279
         },
         {
           "name": "restoreActivePeer",
           "kind": "script symbol",
-          "line": 308
+          "line": 299
         },
         {
           "name": "attempt",
           "kind": "script symbol",
-          "line": 316
+          "line": 307
         }
       ]
     },

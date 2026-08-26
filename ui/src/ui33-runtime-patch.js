@@ -131,25 +131,16 @@
 
   const originalFetch = window.fetch.bind(window)
   window.fetch = async (input, init) => {
-    let nextInput = input
-    let nextInit = init
     let path = ''
     try {
       const rawUrl = typeof input === 'string' ? input : input.url
       path = new URL(rawUrl, window.location.href).pathname
-      if (path === '/api/v1/messages/list' && typeof init?.body === 'string') {
-        const body = JSON.parse(init.body)
-        const dialog = peerByFile.get(body.peer_file)
-        const checkpoint = dialog && Number(dialog.unread_count || 0) <= 0 ? readingPositions[dialog.peer_key] : null
-        if (!body.before_id && !body.date_from && checkpoint?.lastVisibleId) {
-          body.before_id = Number(checkpoint.lastVisibleId) + 1
-          body.limit = Math.max(Number(body.limit || 0), 120)
-          nextInit = { ...init, body: JSON.stringify(body) }
-        }
-      }
     } catch { /* preserve original request */ }
 
-    const response = await originalFetch(nextInput, nextInit)
+    // Reading-position restoration is a presentation concern.  Rewriting the
+    // first-page history request around a persisted checkpoint can hide newer
+    // messages even when synchronization and local storage are current.
+    const response = await originalFetch(input, init)
     if (!response.ok || response.status === 204) return response
     if (![
       '/api/v1/dialogs/list',
@@ -161,8 +152,8 @@
     try {
       const payload = await response.clone().json()
       let requestPeerFile = ''
-      if (typeof nextInit?.body === 'string') {
-        try { requestPeerFile = JSON.parse(nextInit.body).peer_file || '' } catch { /* ignore */ }
+      if (typeof init?.body === 'string') {
+        try { requestPeerFile = JSON.parse(init.body).peer_file || '' } catch { /* ignore */ }
       }
       if (path === '/api/v1/dialogs/list') updateDialogMaps(payload)
       if (path === '/api/v1/messages/list') applyUsageToMessages(payload, requestPeerFile)

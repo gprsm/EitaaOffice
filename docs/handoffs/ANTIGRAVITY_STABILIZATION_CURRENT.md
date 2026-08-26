@@ -1,5 +1,14 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
+## closure فنی G-10 — timeline قدیمی گروه منتخب
+
+- گزارش کاربر دربارهٔ نمایش پیام‌های حدود یک ماه قبل بررسی شد. catalog و SQLite به‌صورت فقط‌خواندنی و بدون ثبت عنوان/شناسه/متن نشان دادند sync و persistence تا همان روز جاری‌اند؛ پس مشکل Provider یا «منتخب» نبود.
+- علت F-049 در `ui/src/ui33-runtime-patch.js` بود: checkpoint موقعیت مطالعه، `before_id/limit` درخواست عادی صفحهٔ نخست را بازنویسی می‌کرد. این بازنویسی حذف شد و request اکنون با `originalFetch(input, init)` دست‌نخورده ارسال می‌شود؛ scroll restoration صرفاً concern نمایشی باقی ماند.
+- RED=`1 failed / 5 passed`، contract GREEN=`1/1`، targeted=`11/11`، full Backend=`657/657` با skip صفر، تمام ۹ runner UI، TypeScript و build 1015-module سبزند. source/dist patch SHA یکسان=`6de1ad48...` است.
+- archiveهای محلی نهایی G-10 بایت‌یکسان، 282فایلی و دارای SHA=`077d316d...`، content-set=`36012dbb...` و privacy finding صفرند.
+- Computer Use پیش از انتخاب پنجره/input سه بار با خطای زیرساختی path-not-found شکست خورد؛ تأیید بصری کاربر باقی است. هیچ پیام آزمایشی، login/OTP، WordPress، Bale یا write دادهٔ عملیاتی انجام نشد.
+- مرجع: `docs/reports/stabilization/G10_SELECTED_GROUP_STALE_TIMELINE_REPAIR_REPORT_2026-08-26.md`؛ Ledger=`V-158`؛ Run=`STAB-G10-R01`.
+
 ## دستور دائمی انتشار سناریوهای نهایی
 
 - از 2026-08-26، پس از نهایی‌شدن و عبور تست‌های هر سناریو، Agent مجاز و موظف است snapshot همان سناریو را با commit دقیق روی شاخهٔ کاری اختصاصی GitHub push و local/remote hash را verify کند.

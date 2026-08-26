@@ -1295,3 +1295,17 @@
 - قرارداد ثبت‌شده: snapshot باید نهایی، آزموده‌شده، مستندسازی‌شده و فاقد credential/data عملیاتی باشد؛ commit پیام دقیق دارد و push روی شاخهٔ کاری اختصاصی انجام می‌شود.
 - exclusions: push/merge مستقیم main، force-push، حذف ref، بازنویسی remote history و انتشار snapshot ناقص/قرمز بدون دستور صریح جداگانه مجاز نیست.
 - پس از هر push، local/remote hash و ثابت‌ماندن main verify و نتیجه در handoff ثبت می‌شود. این policy در `AGENTS.md`، قرارداد همکاری و handoff جاری درج شد.
+
+### V-158 — G-10 رفع timeline قدیمی گروه منتخب
+
+- تاریخ: 2026-08-26
+- سطح: `MASKED LIVE READ / RED-GREEN / FULL REGRESSION / RELEASE RECONCILIATION`
+- Run: `STAB-G10-R01`
+- شاهد فقط‌خواندنی: catalog/SQLite برای peer ماسک‌شده، 674 پیام محلی و برابری top catalog با max محلی را نشان دادند؛ جدیدترین تاریخ همان روز بود. اسکن 91 فایل و 5613 رکورد مرتبط، success eventهای sync/upsert/search/dialog و failure record صفر داشت. هیچ عنوان، شناسه یا متن خصوصی ثبت نشد.
+- RED: `tests/test_ui33_usage_reading_position.py` روی pre-image برابر `5 passed / 1 failed`؛ failure دقیقاً نبود قرارداد fetch دست‌نخورده بود.
+- GREEN: source contract=`1/1` و targeted runtime patch + mobile concurrency=`11/11`.
+- build: TypeScript و Vite PASS با 1015 module؛ runtime patch source/dist دارای SHA یکسان=`6de1ad483e2c97af76fd070abca34464d5ff158094ba7e0634d470620efc9893`.
+- regression: full Backend=`657/657` در 74 فایل، failure/error/skip=0؛ هر ۹ runner UI نیز PASS.
+- release: دو archive محلی بایت‌یکسان با file_count=282، SHA=`077d316d5a546fa20eff39a9e77205e57756050ed293884bd34d09cba52a7f3e`، content-set=`36012dbba19eb2b464bfa5df2de37006157e7515a774784738bc9d57fadcc1ff` و privacy finding صفر. diff با archive پیشین فقط source patch بود.
+- documentation/release checks: refresh، integrity، stale، link، Release Manifest JSON و package dry-run همگی PASS؛ dry-run=`282`، content-set exact و write=0.
+- محدودیت: Computer Use در initialize/retry/reset-retry پیش از window selection یا input با خطای محیطی path-not-found متوقف شد؛ visual recheck کاربر pending است. message/login/OTP/WordPress/Bale/operational write=0.

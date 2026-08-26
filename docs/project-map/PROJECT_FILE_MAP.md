@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 316
-- اثرانگشت منبع: `d48233a339b58b7f`
+- اثرانگشت منبع: `7598f53583ef98d6`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -266,7 +266,7 @@
 | `tests/test_ui2_scroll_repair.py` | Python test | 8 | — |
 | `tests/test_ui31_composer_refinement.py` | Python test | 4 | — |
 | `tests/test_ui32_composer_usage_layout.py` | Python test | 5 | — |
-| `tests/test_ui33_usage_reading_position.py` | Python test | 5 | — |
+| `tests/test_ui33_usage_reading_position.py` | Python test | 6 | — |
 | `tests/test_ui3_dialog_operations.py` | Python test | 6 | — |
 | `tests/test_ui_repair.py` | Python test | 8 | — |
 | `tests/test_wordpress_client.py` | Python test | 33 | — |

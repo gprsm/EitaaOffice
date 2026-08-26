@@ -584,3 +584,17 @@
 - اثر نهایی: scanner همهٔ account scopeها را opaque می‌پوشاند؛ background/lifecycle failure مادی cataloged/correlated است؛ logger write failure و disk/retention health قابل‌مشاهده و Support Bundle روی malformed input fail-safe است.
 - مرز closure: فقط آفلاین/مصنوعی؛ Web metrics OBS-008 deferred، داده و عملیات Live خارج. این closure release readiness اعلام نمی‌کند.
 - Trigger ابطال: تغییر scanner discovery/report، RuntimeLogger emit/health، retention policy، Event Catalog/background lifecycle یا Support Bundle.
+
+### F-049 — runtime patch پنجرهٔ گروه منتخب را به checkpoint قدیمی منحرف می‌کرد
+
+- وضعیت: `CLOSED / G-10_FIXED_AND_FULLY_TESTED / VISUAL_RECHECK_PENDING`
+- تاریخ: 2026-08-26
+- شدت: زیاد
+- دامنه: fetch wrapper موقعیت مطالعه در `ui/src/ui33-runtime-patch.js` و قرارداد متناظر.
+- یافتهٔ ماسک‌شده: catalog و SQLite فقط‌خواندنی نشان دادند peer منتخب فعال است، 674 پیام محلی دارد، top catalog با max محلی برابر و جدیدترین تاریخ متعلق به همان روز است؛ failure log مرتبط صفر بود. عنوان، peer/account id و متن پیام ثبت نشد.
+- علت: در گفتگوی بدون unread، checkpoint ذخیره‌شده `before_id` را به `lastVisibleId + 1` و `limit` را حداقل 120 می‌کرد. در نتیجه هر بار بازکردن/refresh پس از sync نیز پنجرهٔ قدیمی دوباره درخواست می‌شد.
+- RED: قرارداد منع بازنویسی request روی pre-image برابر `1 failed / 5 passed` بود.
+- اصلاح: body و pagination دیگر تغییر نمی‌کنند و fetch اصلی با `input/init` دست‌نخورده اجرا می‌شود؛ metadata WordPress و scroll restoration در سطح نمایش حفظ شده‌اند.
+- GREEN: contract=`1/1`، targeted runtime/mobile=`11/11`، full Backend=`657/657` بدون failure/error/skip، تمام runnerهای UI، TypeScript و build سبزند؛ source/dist hash یکسان=`6de1ad483e2c97af76fd070abca34464d5ff158094ba7e0634d470620efc9893`.
+- اثر عملیاتی: پیام/login/OTP/Provider write/Bale صفر. مشاهدهٔ بصری به‌علت شکست زیرساخت Computer Use پیش از input اجرا نشد و باید پس از راه‌اندازی build تازه توسط کاربر تأیید شود.
+- Trigger ابطال: بازگشت هرگونه بازنویسی `messages/list` با checkpoint، تغییر قرارداد pagination یا تغییر معماری scroll restoration.

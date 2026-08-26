@@ -63,9 +63,16 @@ def test_unread_point_overrides_remembered_position_and_saved_location_remains_a
     assert remembered_branch in patch
     assert patch.index(unread_branch) < patch.index(remembered_branch)
     assert "ادامه از آخرین موقعیت" in patch
-    assert "checkpoint?.lastVisibleId" in patch
-    assert "body.before_id = Number(checkpoint.lastVisibleId) + 1" in patch
-    assert "body.limit = Math.max(Number(body.limit || 0), 120)" in patch
+
+
+def test_saved_reading_position_never_rewrites_the_latest_message_request():
+    patch = PATCH_SOURCE.read_text(encoding="utf-8")
+    fetch_wrapper = patch[patch.index("window.fetch = async"):patch.index("const rowForKey")]
+
+    assert "originalFetch(input, init)" in fetch_wrapper
+    assert "body.before_id =" not in fetch_wrapper
+    assert "body.limit =" not in fetch_wrapper
+    assert "checkpoint?.lastVisibleId" not in fetch_wrapper
 
 
 def test_runtime_patch_does_not_add_network_writes_for_reading_positions():
