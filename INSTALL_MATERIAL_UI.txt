@@ -1,9 +1,0 @@
-Eitaa Bridge GMI 4.1 — Material UI
-
-1) این بسته را در یک پوشه تازه Extract کنید؛ روی نسخه قبلی کپی نکنید.
-2) Node.js 24 LTS x64 را نصب کنید و مطمئن شوید node و npm در PATH هستند.
-3) برای نخستین Build، دسترسی به https://registry.npmjs.org لازم است.
-4) install_app.bat را اجرا کنید.
-5) سپس run_doctor.bat و EitaaBridge.bat را اجرا کنید.
-
-نکته: ui\dist موجود در بسته فقط Artefact سازگاری نسخه قبلی است و نشانگر Material UI ندارد. Installer آن را اجرا نمی‌کند و Build تازه را می‌سازد.
