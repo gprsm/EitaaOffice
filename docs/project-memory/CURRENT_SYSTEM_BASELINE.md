@@ -3,7 +3,7 @@
 تاریخ مبنا: ۲۰۲۶-۰۸-۲۷
 آخرین همسان‌سازی: UX-WP-AVATAR-R02؛ پنل اختیاری WordPress، دروازهٔ نقش و اولویت آواتار در ۲۰۲۶-۰۸-۲۷
 وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-162، V-169/V-170، V-180 تا V-182، F-039 تا F-050، F-056 و F-061؛ شناسه‌های میانی برای کار موازی ایندکس رزرو شده‌اند و در این snapshot حضور ندارند.
+منابع شاهد جاری: V-103، V-108 تا V-162، V-169/V-170، V-180 تا V-183، F-039 تا F-050، F-056 و F-061؛ شناسه‌های میانی برای کار موازی ایندکس رزرو شده‌اند و در این snapshot حضور ندارند.
 
 Milestone UX-WP-AVATAR-R02: پنل WordPress برای هر scope با default خاموش opt-in است؛ در حالت پنهان taxonomy request اجرا نمی‌شود و فقط عملیات گفتگو دیده می‌شود. این عملیات فقط برای active group/channel با نقش server-derived owner/admin فعال است. گفت‌وگوی فعال از priority avatar بالاتر بهره می‌گیرد، آواتارهای فهرست delayed/background هستند و پیام فعال همچنان مقدم است؛ Provider session سریال باقی می‌ماند. cache خراب تصویر بازسازی می‌شود. full Backend=`664/664`، تمام UI runnerها، TypeScript/build، wheel/archive deterministic و fresh-install آفلاین سبزند؛ Live/Provider/WordPress انجام نشد.
 

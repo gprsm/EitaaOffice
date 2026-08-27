@@ -1426,4 +1426,15 @@
 - fresh-install attempt نخست worktree به‌علت omission `vendor/runtime` از `find-links` شکست خورد. attempt نخست clone نیز چون wheelهای runtime به‌درستی Git-ignored و در staging حاضر نبودند، archive 277فایلی غیرقابل‌نصب ساخت. پس از افزودن mechanical wheelhouse فقط به staging، archive نهایی 283فایلی با `dist + vendor + vendor/runtime` و `--no-index` نصب شد؛ runtime checker=`ok=true/failures=0`، `pip check` و import ایزولهٔ `dialog_permissions` PASS. wheelهای ignored در candidate Git stage نمی‌شوند.
 - کنترل خود candidate: اجرای نخست pytest فقط به Temp غیرقابل‌دسترسی حساب میزبان خورد؛ retry با basetemp صریح workspace=`101/101`. Phase 9=`19/19`. grouped-media نخست از cwd نادرست clone و نبود npm متوقف شد؛ retry از `ui/` با TypeScript read-only پروژهٔ اصلی=`29/29`. هیچ فایل محصول برای retry تغییر نکرد.
 - اسناد: F-061، ADR-47، baseline/spec/structure/handoff، گزارش feature و Execution Log ثبت شدند؛ کنترل freshness/integrity/link پس از refresh جداگانه اجرا می‌شود.
-- عملیات: شبکه، Login/OTP، Send، WordPress، Member mutation، Provider Live و فایل عملیاتی صفر. نتیجه=`OFFLINE_AUTOMATED_ACCEPTED / GIT_PUBLICATION_PENDING / NOT_PRODUCTION_RELEASE_AUTHORIZED`.
+- عملیات: شبکه، Login/OTP، Send، WordPress، Member mutation، Provider Live و فایل عملیاتی صفر. نتیجه=`OFFLINE_AUTOMATED_ACCEPTED / PRIMARY_GIT_PUBLISHED / DOCUMENTATION_CLOSURE_READY / NOT_PRODUCTION_RELEASE_AUTHORIZED`.
+
+### V-183 — انتشار ایزولهٔ WordPress/role/avatar و حفاظت main
+
+- تاریخ: 2026-08-27
+- سطح: `GITHUB DEDICATED WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `UX-WP-AVATAR-R02`
+- candidate اصلی=34 فایل؛ high-confidence secret hit=0، full Iran phone hit=0، operational/workbook/index-work path=0. artifactهای موقت، archive، basetemp، `dist/` و `vendor/runtime` ignored در stage نبودند.
+- commit اصلی=`c1f71ac94b1643495e022b121f99b15f69fe0dfa`، parent=`50f4224664cf3f4b7871c129988f934828fe8bc2` و subject=`feat(ui): gate WordPress and prioritize dialog avatars`.
+- push عادی fast-forward روی `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
+- root worktree branch=`codex/stabilization-g09` و HEAD=`95624acf...` باقی ماند و index آن خالی بود؛ فایل‌های dirty و کار هم‌زمان ایندکس reset/checkout/stage نشدند.
+- force-push، main push/merge، ref deletion، Provider/Login/OTP/Send/WordPress/Member mutation و operational write صفر. commit closure فقط همین ثبت و generated docs آن را fast-forward می‌کند؛ hash نهایی در تحویل گفتگو و remote verify ثبت می‌شود.

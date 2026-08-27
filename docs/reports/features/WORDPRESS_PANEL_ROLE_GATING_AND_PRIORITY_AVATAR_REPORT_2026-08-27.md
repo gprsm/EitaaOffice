@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-27
 Run: `UX-WP-AVATAR-R02`
-وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / GIT_PUBLICATION_PENDING`
+وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / GITHUB_PRIMARY_PUBLISHED / DOCUMENTATION_CLOSURE_READY`
 
 ## نتیجه
 
@@ -41,6 +41,10 @@ Run: `UX-WP-AVATAR-R02`
 ## حریم خصوصی و اثر عملیاتی
 
 هیچ حساب واقعی، OTP، Session، پیام، WordPress، Provider mutation یا سرویس زنده باز یا فراخوانی نشد. فایل‌های `bridge.json`، `.env`، `data/`، `runtime/`، `diagnostics/` و `backups/` دست‌نخورده ماندند. آزمون‌ها فقط fixture مصنوعی، wheel، archive و venv موقت ساختند. raw metadata، peer/account id، عنوان گفتگو، متن پیام، شماره و credential در log یا گزارش ثبت نشده است.
+
+## انتشار GitHub
+
+snapshot از commit قبلی شاخهٔ سناریو با parent=`50f4224664cf3f4b7871c129988f934828fe8bc2` ساخته شد. commit اصلی `c1f71ac94b1643495e022b121f99b15f69fe0dfa` با پیام `feat(ui): gate WordPress and prioritize dialog avatars` و 34 فایل source/test/doc به‌صورت push عادی روی `codex/message-avatar-grouping` منتشر شد. remote hash دقیقاً برابر commit بود و GitHub `main` پیش و پس از push برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` ماند. high-confidence secret و مسیر عملیاتی در stage صفر بود؛ workbook، artifactهای آزمون، wheelhouse ignored و work ایندکس وارد commit نشدند. commit closure فقط V-183 و اسناد تولیدشوندهٔ همین ثبت را fast-forward می‌کند.
 
 ## فایل‌های اصلی
 

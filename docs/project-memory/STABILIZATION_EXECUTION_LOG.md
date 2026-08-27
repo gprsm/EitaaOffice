@@ -3810,3 +3810,24 @@ operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
 next_action: refresh_and_document_checks_then_isolated_git_publication
 output_summary: artifactها deterministic/privacy-safe و نصب آفلاین سبز؛ انتشار باید کار موازی ایندکس را خارج نگه دارد.
 ```
+
+### UX-WP-AVATAR-R02-S03 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S03
+event: ISOLATED_SCENARIO_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-27T20:45:00+03:30
+ended_at: 2026-08-27T21:05:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+isolation: {temporary_clone: true, root_branch: codex/stabilization-g09, root_head: 95624acfdf50bdb7b34f683da3c33fb99981c1a7, root_index_changed: false, parallel_index_work_included: false}
+candidate: {files: 34, high_confidence_secret_hits: 0, full_iran_phone_hits: 0, operational_paths: 0, workbook_or_index_files: 0, ignored_artifacts_staged: 0}
+commit: {hash: c1f71ac94b1643495e022b121f99b15f69fe0dfa, parent: 50f4224664cf3f4b7871c129988f934828fe8bc2, subject: "feat(ui): gate WordPress and prioritize dialog avatars"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: c1f71ac94b1643495e022b121f99b15f69fe0dfa, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+approval_retry: {first_ls_remote_review_timeout: true, external_effect: 0, second_read_only_retry: PASS}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی سناریو بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
+```
