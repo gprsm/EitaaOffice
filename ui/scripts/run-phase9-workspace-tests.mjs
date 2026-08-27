@@ -81,6 +81,20 @@ await checkAsync('one failed avatar task does not stall the next task', async ()
   assert.equal(await next, 'next')
 })
 
+await checkAsync('selected avatar promotion overtakes queued background avatars', async () => {
+  const queue = createAsyncTaskQueue(1)
+  let releaseRunning
+  const runningGate = new Promise(resolveGate => { releaseRunning = resolveGate })
+  const order = []
+  const running = queue.run(async () => { await runningGate }, { priority: 10, key: 'running' })
+  const selected = queue.run(async () => { order.push('selected') }, { priority: 30, key: 'selected', delayMs: 500 })
+  const visible = queue.run(async () => { order.push('visible') }, { priority: 20, key: 'visible' })
+  assert.equal(queue.promote('selected', 0), true)
+  releaseRunning()
+  await Promise.all([running, selected, visible])
+  assert.deepEqual(order, ['selected', 'visible'])
+})
+
 check('avatar loader is cache-first, account-scoped, and split into two lanes', () => {
   const loader = source('src/lib/avatarLoader.ts')
   assert.match(loader, /cached_only: true/)
@@ -88,6 +102,9 @@ check('avatar loader is cache-first, account-scoped, and split into two lanes', 
   assert.match(loader, /avatarCacheQueue/)
   assert.match(loader, /avatarRemoteQueue/)
   assert.match(loader, /requestStorageScope !== getClientStoragePrefix\(\)/)
+  assert.match(loader, /request_priority: requestState\.priority/)
+  assert.match(loader, /createAsyncTaskQueue\(3\)/)
+  assert.match(loader, /avatarRemoteQueue\.promote/)
 })
 
 check('long-running workspace jobs use adaptive polling', () => {

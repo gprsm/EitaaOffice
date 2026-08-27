@@ -1,7 +1,7 @@
 # فهرست گزارش‌ها و اسناد دسته‌بندی‌شده
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
-تعداد کل اسناد فهرست‌شده: 177
+تعداد کل اسناد فهرست‌شده: 178
 
 
 ## گزارش فازها
@@ -132,6 +132,7 @@
 - [`UI3_3_DEFERRED_ISSUES.md`](reports/features/UI3_3_DEFERRED_ISSUES.md)
 - [`UI_MVP6_1_FINAL_VALIDATION_REPORT.md`](reports/features/UI_MVP6_1_FINAL_VALIDATION_REPORT.md)
 - [`WORDPRESS_DARK_CONTRAST_REPORT_2026-07-26.md`](reports/features/WORDPRESS_DARK_CONTRAST_REPORT_2026-07-26.md)
+- [`WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`](reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md)
 
 ## گزارش معماری
 

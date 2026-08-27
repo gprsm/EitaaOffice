@@ -25,8 +25,10 @@ class EitaaPriority(IntEnum):
     ACTIVE_MESSAGES = 10
     DIALOG_PAGE = 20
     MEDIA_PREVIEW = 30
+    ACTIVE_AVATAR = 40
     AVATAR = 50
     BACKGROUND = 70
+    AVATAR_BACKGROUND = 80
     READ_RECEIPT = 100
 
 

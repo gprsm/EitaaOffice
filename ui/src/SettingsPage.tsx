@@ -10,6 +10,7 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material'
@@ -68,10 +69,14 @@ export function SettingsPage({
   sites,
   onChanged,
   onClose,
+  showWordPressPanel,
+  onShowWordPressPanelChange,
 }: {
   sites: Site[]
   onChanged: () => Promise<void> | void
   onClose: () => void
+  showWordPressPanel: boolean
+  onShowWordPressPanelChange: (value: boolean) => void
 }) {
   const [items, setItems] = useState<Site[]>(sites)
   const [form, setForm] = useState<SiteForm>(emptySite)
@@ -236,6 +241,22 @@ export function SettingsPage({
 
       <AppUserManagementPanel />
       <MessengerAccountManagementPanel />
+
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
+        <Stack spacing={1}>
+          <Typography variant="h6">نمایش پنل وردپرس</Typography>
+          <FormControlLabel
+            control={<Switch checked={showWordPressPanel} onChange={event => onShowWordPressPanelChange(event.target.checked)} />}
+            label="پنل ساخت و انتشار نوشتهٔ وردپرس نمایش داده شود"
+          />
+          <Typography variant="body2" color="text.secondary">
+            این گزینه به‌صورت پیش‌فرض خاموش است. تا وقتی روشن نباشد و دسترسی یک سایت کامل نشده باشد، دسته‌ها و برچسب‌های وردپرس بررسی نمی‌شوند و فقط عملیات گفتگو نمایش داده می‌شود.
+          </Typography>
+          {showWordPressPanel && !items.some(site => site.credentials_configured) && <Alert severity="info">
+            پنل درخواست شده است، اما ابتدا باید نشانی، نام کاربری و رمز برنامهٔ یک سایت وردپرس را کامل و آزمون کنید.
+          </Alert>}
+        </Stack>
+      </Paper>
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={2}>

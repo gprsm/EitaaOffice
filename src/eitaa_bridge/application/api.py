@@ -106,6 +106,7 @@ from ..infrastructure.diagnostics import (
     observability_disk_health,
     prune_old_diagnostic_runs,
 )
+from ..infrastructure.eitaa.dialog_permissions import consume_dialog_account_roles
 from ..providers.registry import default_provider_registry
 from ..providers.contracts import (
     ProviderAccountContext,
@@ -6107,9 +6108,11 @@ class BridgeApplicationApi:
         cached_path = Path(str(cached)).expanduser() if cached else None
         if cached_path and not cached_path.is_absolute():
             cached_path = (self.base_directory / cached_path).resolve()
-        if bool(payload.get("cached_only")) and (not cached_path or not cached_path.exists()):
+        if cached_path is not None and not self._valid_avatar_file(cached_path):
+            cached_path = None
+        if bool(payload.get("cached_only")) and cached_path is None:
             return {"ok": True, "peer_key": peer_key, "avatar_present": False, "cached_only": True}
-        if not cached_path or not cached_path.exists():
+        if cached_path is None:
             def operation() -> Path | None:
                 with self._open_bridge(
                     self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
@@ -6123,15 +6126,22 @@ class BridgeApplicationApi:
                     file_name = f"{source_peer.type.value}_{source_peer.id}_{source_photo.photo_id}.jpg"
                     result = bridge.core.media.download(
                         source_photo,
-                        MediaDownloadOptions(output_directory=output, file_name=file_name, overwrite=False, max_bytes=8 * 1024 * 1024),
+                        MediaDownloadOptions(output_directory=output, file_name=file_name, overwrite=True, max_bytes=8 * 1024 * 1024),
                     )
                     path = result.path
+                    if not self._valid_avatar_file(path):
+                        return None
                     bridge.core.discovery.set_cached_photo_path(source_peer, source_photo.photo_id, path)
                     return path
 
+            request_priority = str(payload.get("request_priority") or "background").strip().lower()
             cached_path = self._run_eitaa(
-                priority=EitaaPriority.AVATAR,
-                kind="dialogs.avatar",
+                priority=(
+                    EitaaPriority.ACTIVE_AVATAR
+                    if request_priority == "active"
+                    else EitaaPriority.AVATAR_BACKGROUND
+                ),
+                kind=("dialogs.avatar.active" if request_priority == "active" else "dialogs.avatar.background"),
                 callback=operation,
             )
             if cached_path is None:
@@ -6141,13 +6151,41 @@ class BridgeApplicationApi:
             except ValueError:
                 stored = str(cached_path.resolve())
             entry = self.dialog_catalog.set_photo_cached_path(peer_key, stored)
+        if not self._valid_avatar_file(cached_path):
+            return {"ok": True, "peer_key": peer_key, "avatar_present": False}
         data = cached_path.read_bytes()
-        mime_type = mimetypes.guess_type(cached_path.name)[0] or "image/jpeg"
+        mime_type = self._avatar_mime_type(data)
         return {
             "ok": True, "peer_key": peer_key, "avatar_present": True,
             "mime_type": mime_type, "bytes": len(data),
             "data_url": f"data:{mime_type};base64,{base64.b64encode(data).decode('ascii')}",
         }
+
+    @staticmethod
+    def _avatar_mime_type(data: bytes) -> str:
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png"
+        if data.startswith((b"GIF87a", b"GIF89a")):
+            return "image/gif"
+        if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+            return "image/webp"
+        return "image/jpeg"
+
+    @classmethod
+    def _valid_avatar_file(cls, path: Path) -> bool:
+        try:
+            if not path.is_file() or not 3 <= path.stat().st_size <= 8 * 1024 * 1024:
+                return False
+            with path.open("rb") as stream:
+                header = stream.read(16)
+        except OSError:
+            return False
+        return (
+            header.startswith(b"\xff\xd8\xff")
+            or header.startswith(b"\x89PNG\r\n\x1a\n")
+            or header.startswith((b"GIF87a", b"GIF89a"))
+            or (header.startswith(b"RIFF") and header[8:12] == b"WEBP")
+        )
 
     def _merge_core_dialogs(
         self, bridge: EitaaBridge, entries: Any, *, source: str, complete: bool,
@@ -6158,6 +6196,7 @@ class BridgeApplicationApi:
         selected_keys: set[str] = set()
         counts: dict[str, int] = {}
         skipped_unusable = 0
+        account_roles = consume_dialog_account_roles()
         for entry in entries:
             peer = entry.peer
             if peer.type in {PeerType.USER, PeerType.CHANNEL} and peer.access_hash is None:
@@ -6190,6 +6229,7 @@ class BridgeApplicationApi:
                 participants_count=entry.participants_count,
                 photo_cached_path=entry.photo_cached_path,
                 active=True,
+                account_role=account_roles.get(peer_key),
             )
         combined_keys = active_keys if active_keys is not None else selected_keys
         combined_keys.update(selected_keys)

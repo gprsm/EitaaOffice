@@ -2,18 +2,24 @@ import { api, getClientStoragePrefix } from './api'
 import { createAsyncTaskQueue } from './avatarQueue.mjs'
 
 type AvatarCacheEntry = { value: string | null; expiresAt: number }
+export type DialogAvatarPriority = 'active' | 'visible' | 'background'
+type AvatarRequestState = {
+  promise: Promise<string | null>
+  priority: DialogAvatarPriority
+}
 
 const avatarCache = new Map<string, AvatarCacheEntry>()
-const avatarRequests = new Map<string, Promise<string | null>>()
+const avatarRequests = new Map<string, AvatarRequestState>()
 const POSITIVE_TTL_MS = 60 * 60 * 1000
 const NEGATIVE_TTL_MS = 2 * 60 * 1000
 const FAILURE_TTL_MS = 15 * 1000
 
-// Cached-only requests never open the provider bridge, so they can progress in
-// parallel. Remote avatar work remains serialized because the Eitaa session is
-// shared and must not execute overlapping provider operations.
-const avatarCacheQueue = createAsyncTaskQueue(6)
-const avatarRemoteQueue = createAsyncTaskQueue(1)
+// Cached-only probes and HTTP waits progress independently. The backend keeps
+// the shared provider session serialized while honoring active/background
+// priorities, so browser concurrency never overlaps provider operations.
+const avatarCacheQueue = createAsyncTaskQueue(8)
+const avatarRemoteQueue = createAsyncTaskQueue(3)
+const priorityValue = (priority: DialogAvatarPriority) => ({ active: 0, visible: 10, background: 20 }[priority])
 
 const scopedKeyFor = (storageScope: string, siteKey: string, peerKey: string) => `${storageScope}:${siteKey}:${peerKey}`
 const keyFor = (siteKey: string, peerKey: string) => scopedKeyFor(getClientStoragePrefix(), siteKey, peerKey)
@@ -28,14 +34,29 @@ export function peekDialogAvatar(siteKey: string, peerKey: string): string | nul
   return entry.value
 }
 
-export function loadDialogAvatar(siteKey: string, peerKey: string): Promise<string | null> {
+export function loadDialogAvatar(
+  siteKey: string,
+  peerKey: string,
+  priority: DialogAvatarPriority = 'background',
+): Promise<string | null> {
   const requestStorageScope = getClientStoragePrefix()
   const key = scopedKeyFor(requestStorageScope, siteKey, peerKey)
   const cached = peekDialogAvatar(siteKey, peerKey)
   if (cached !== undefined) return Promise.resolve(cached)
   const running = avatarRequests.get(key)
-  if (running) return running
-  
+  if (running) {
+    if (priorityValue(priority) < priorityValue(running.priority)) {
+      running.priority = priority
+      avatarCacheQueue.promote(key, priorityValue(priority))
+      avatarRemoteQueue.promote(key, priorityValue(priority))
+    }
+    return running.promise
+  }
+
+  const requestState: AvatarRequestState = {
+    promise: Promise.resolve(null),
+    priority,
+  }
   const request = (async () => {
     try {
       const cachedResponse = await avatarCacheQueue.run(async () => {
@@ -45,7 +66,7 @@ export function loadDialogAvatar(siteKey: string, peerKey: string): Promise<stri
           peer_key: peerKey,
           cached_only: true,
         })
-      })
+      }, { priority: priorityValue(requestState.priority), key })
       if (requestStorageScope !== getClientStoragePrefix()) return null
       if (cachedResponse?.avatar_present && cachedResponse.data_url) {
         avatarCache.set(key, { value: cachedResponse.data_url, expiresAt: Date.now() + POSITIVE_TTL_MS })
@@ -55,10 +76,15 @@ export function loadDialogAvatar(siteKey: string, peerKey: string): Promise<stri
       const response = await avatarRemoteQueue.run(async () => {
         if (requestStorageScope !== getClientStoragePrefix()) return null
         return api<{ data_url?: string; avatar_present?: boolean }>('POST', '/api/v1/dialogs/avatar', {
-        site_key: siteKey,
-        peer_key: peerKey,
-        cached_only: false,
-      })
+          site_key: siteKey,
+          peer_key: peerKey,
+          cached_only: false,
+          request_priority: requestState.priority,
+        })
+      }, {
+        priority: priorityValue(requestState.priority),
+        key,
+        delayMs: requestState.priority === 'active' ? 0 : 350,
       })
       if (requestStorageScope !== getClientStoragePrefix()) return null
       const value = response?.avatar_present && response.data_url ? response.data_url : null
@@ -73,8 +99,9 @@ export function loadDialogAvatar(siteKey: string, peerKey: string): Promise<stri
       return null
     }
   })().finally(() => avatarRequests.delete(key))
-  
-  avatarRequests.set(key, request)
+
+  requestState.promise = request
+  avatarRequests.set(key, requestState)
   return request
 }
 

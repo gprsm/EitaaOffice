@@ -52,6 +52,9 @@ src/eitaa_bridge/
 | `src/eitaa_bridge/application/eitaa_provider_worker.py` | allowlist و fence درخواست‌های Provider RPC در Process Worker |
 | `src/eitaa_bridge/application/process_runtime.py` | Parent-side allowlist برای درخواست‌های عمومی Process Runtime |
 | `src/eitaa_bridge/application/api.py` | مرز HTTP، از جمله onboarding حساب پیام‌رسان با AppUser session و CSRF |
+| `src/eitaa_bridge/infrastructure/dialog_catalog.py` | کاتالوگ account-scoped گفتگو، role معتبر حساب و capability محاسبه‌شدهٔ مدیریت گروه/کانال |
+| `src/eitaa_bridge/infrastructure/eitaa/dialog_permissions.py` | استخراج fail-closed نقش owner/admin از metadata معتبر Eitaa بدون نگه‌داری raw payload |
+| `src/eitaa_bridge/application/scheduler.py` | سریال‌سازی نشست مشترک Eitaa با اولویت پیام فعال، آواتار فعال و کار پس‌زمینه |
 | `src/eitaa_bridge/providers/eitaa/application_adapter.py` | ترجمهٔ سازگاری Eitaa پشت قرارداد عمومی؛ runtime lifetime همچنان مال EitaaRuntimeRegistry است |
 | `src/eitaa_bridge/infrastructure/coordinator/store.py` | تراکنش، مالکیت، idempotency، سقف حساب و audit چندحسابی |
 | `src/eitaa_bridge/infrastructure/coordinator/receipts.py` | claim/complete پایدار، account-scoped و privacy-safe برای mutationهای Provider |
@@ -86,9 +89,9 @@ Design System فعال فقط Material UI است. componentهای بصری از 
 - `ui/src/ChatHeader.tsx`: عنوان، وضعیت دریافت خودکار، فیلتر و جست‌وجوی پیام؛
 - `ui/src/MessageContentCard.tsx`: Card Material هر پیام یا گروه متوالی، Header نویسنده، بلوک‌های مرتب متن/رسانه/فایل، Collapse و Actionهای انتخاب/ایندکس/استفاده؛
 - `ui/src/lib/groupedMedia.ts`: مدل آلبوم رسمی/استنباطی و گروه محتوایی پنج‌دقیقه‌ای پیش از filter؛
-- `ui/src/lib/avatarLoader.ts` و `avatarQueue.mjs`: cache حساب‌محور، lane مستقل cached-only/remote و صف task با failure isolation؛
+- `ui/src/lib/avatarLoader.ts` و `avatarQueue.mjs`: cache حساب‌محور، lane مستقل cached-only/remote، promotion گفت‌وگوی فعال و صف task delayed/background با failure isolation؛
 - `ui/src/LoginExperience.tsx`: Surface مرکزی و mobile-first ورود بدون panel معماری؛ lifecycle و بازیابی نشست در controller احراز هویت `App.tsx` می‌ماند؛
-- `ui/src/SettingsPage.tsx`: تنظیمات جدا از workspace، شامل تنها کنترل Material پورت داخلی شبکه/وب؛
+- `ui/src/SettingsPage.tsx`: تنظیمات جدا از workspace، شامل کنترل پورت داخلی شبکه/وب و opt-in پیش‌فرض‌خاموش نمایش پنل WordPress؛
 - `ui/src/ContactDirectoryModal.tsx`: دفترچهٔ Material و virtualized؛
 - `ui/src/MaterialToast.tsx`: صف Snackbar/Alert با buffer رخدادهای پیش از mount.
 

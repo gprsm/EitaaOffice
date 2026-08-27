@@ -3758,3 +3758,55 @@ excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operatio
 next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
 output_summary: سناریو بدون ورود work ایندکس روی شاخهٔ اختصاصی GitHub منتشر و ثابت‌ماندن main تأیید شد.
 ```
+
+## UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و صف اولویت‌دار آواتار
+
+### UX-WP-AVATAR-R02-S01 — RED، پیاده‌سازی و regression
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S01
+event: WORDPRESS_OPT_IN_ROLE_GATE_AND_AVATAR_PRIORITY_IMPLEMENTATION
+started_at: 2026-08-27T18:00:00+03:30
+ended_at: 2026-08-27T20:05:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: SOURCE_TEST_BUILD
+red:
+  dialog_role_module: FAIL_EXPECTED_MISSING
+  queue_promotion: FAIL_EXPECTED_MISSING
+  wordpress_setting_contract: FAIL_EXPECTED_MISSING
+contract:
+  wordpress: {default_visible: false, taxonomy_requires_visible_and_active_site_credentials: true}
+  community: {dialog_types: [group, channel], active_required: true, roles: [owner, admin], unknown_fail_closed: true}
+  eitaa_priority: {active_messages: 10, active_avatar: 40, avatar: 50, background: 70, avatar_background: 80, provider_session_serial: true}
+  avatar_cache: {max_bytes: 8388608, formats: [jpeg, png, gif, webp], corrupt_cache_repaired: true}
+targeted: {direct_role_catalog_api: 7/7, related_backend_ui: 56/56, phase9_workspace: 19/19, grouped: 29/29, scroll: 10/10, typescript: PASS}
+backend_full_partitions: [207, 97, 105, 61, 42, 152]
+backend_full: {passed: 664, failed: 0, errors: 0, skipped: 0}
+ui_full: {canonical_runners: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+privacy: {raw_tl_or_peer_logged: false, live_data_read: false}
+external_effect: controlled_test_and_ui_dist_artifacts_only
+output_summary: WordPress opt-in، دروازهٔ نقش fail-closed و صف آواتار اولویت‌دار با regression کامل سبز شدند.
+```
+
+### UX-WP-AVATAR-R02-S02 — wheel، بستهٔ deterministic و fresh install
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S02
+event: DETERMINISTIC_WHEEL_PACKAGE_FRESH_INSTALL_AND_DOCUMENTATION
+started_at: 2026-08-27T20:05:00+03:30
+ended_at: 2026-08-27T20:27:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: PACKAGE_OFFLINE_INSTALL_DOCUMENT
+wheel: {worktree_builds: 2, worktree_byte_identical: true, worktree_sha256: f2c3872d4985c26e77877262991739cd65a7ebcfd35c9b642612ee158cea5be9, git_candidate_lf_sha256: 23cd95cfbb9ac47e9ca057406e2008eba16854d03adfa159e9ce628fdf534b51, git_ignored_release_artifact: true}
+candidate_archive: {files: 283, content_set: 702bd412fca521092c5927e2cec4257ea5f23edf62525df4debd52a28a8c155d, count: 2, byte_identical: true, sha256: 307d00b82fb1ff0ec30d5c05b2c55a18b23726901b35e2301ce5c0cda520cc00, internal_privacy_verifier: PASS, parallel_index_files: 0}
+fresh_install_attempt_a: {result: TEST_COMMAND_ERROR, reason: vendor_runtime_find_links_omitted, product_change: 0}
+fresh_install_attempt_b: {result: CANDIDATE_ARCHIVE_DEPENDENCY_ERROR, files: 277, reason: git_ignored_runtime_wheelhouse_absent_from_clone_staging, product_change: 0}
+fresh_install_retry: {runtime_wheelhouse_staged_only: true, runtime_wheels_git_ignored: true, network: 0, pip_no_index: true, wheelhouses: [dist, vendor, vendor/runtime], install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS}
+isolated_candidate_checks: {pytest_attempt_a: ENV_HOST_TEMP_PERMISSION, pytest_retry_with_workspace_basetemp: 101/101, phase9: 19/19, grouped_attempt_a: ENV_WRONG_CWD_AND_NPM_ABSENT, grouped_retry_from_ui_with_read_only_typescript: 29/29, product_change_for_retries: 0}
+documentation_scope: [F-061, V-181, V-182, ADR-47, baseline, specification, structure, handoff, feature_report, execution_log]
+operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
+next_action: refresh_and_document_checks_then_isolated_git_publication
+output_summary: artifactها deterministic/privacy-safe و نصب آفلاین سبز؛ انتشار باید کار موازی ایندکس را خارج نگه دارد.
+```

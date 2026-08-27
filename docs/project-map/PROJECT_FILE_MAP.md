@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 262
-- اثرانگشت منبع: `10be53905d1634bb`
+- تعداد فایل‌های نقشه: 264
+- اثرانگشت منبع: `f0f0ea1acea94807`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -42,7 +42,7 @@
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 47 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/api.py` | Application | 266 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 268 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 0 | Bale Personal Client research framework. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
@@ -114,6 +114,7 @@
 | `src/eitaa_bridge/infrastructure/dialog_catalog.py` | Infrastructure | 19 | — |
 | `src/eitaa_bridge/infrastructure/eitaa/__init__.py` | Infrastructure | 0 | — |
 | `src/eitaa_bridge/infrastructure/eitaa/core_binding.py` | Infrastructure | 8 | Composition through the public eitaa_core package only. |
+| `src/eitaa_bridge/infrastructure/eitaa/dialog_permissions.py` | Infrastructure | 4 | Capture safe current-account management hints from pinned Core dialog data. |
 | `src/eitaa_bridge/infrastructure/eitaa/sender_directory.py` | Infrastructure | 14 | Persist human-readable message authors exposed by Eitaa history responses. |
 | `src/eitaa_bridge/infrastructure/eitaa/session_ownership.py` | Infrastructure | 9 | Explicit, side-effect-free ownership contract for Eitaa session storage. |
 | `src/eitaa_bridge/infrastructure/windows_lan.py` | Infrastructure | 15 | — |
@@ -146,7 +147,7 @@
 | `tests/test_account_runtime.py` | Python test | 12 | — |
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
-| `tests/test_application_api.py` | Python test | 39 | — |
+| `tests/test_application_api.py` | Python test | 40 | — |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 27 | — |
 | `tests/test_composer_workflow.py` | Python test | 48 | — |
@@ -159,7 +160,8 @@
 | `tests/test_core_binding.py` | Python test | 4 | — |
 | `tests/test_deployment_port_settings.py` | Python test | 4 | — |
 | `tests/test_diagnostics.py` | Python test | 4 | — |
-| `tests/test_dialog_catalog.py` | Python test | 6 | — |
+| `tests/test_dialog_catalog.py` | Python test | 7 | — |
+| `tests/test_dialog_permissions.py` | Python test | 3 | — |
 | `tests/test_env_and_credentials.py` | Python test | 6 | — |
 | `tests/test_facade_and_cli.py` | Python test | 11 | — |
 | `tests/test_g04_identity_privacy_stabilization.py` | Python test | 4 | — |
@@ -213,7 +215,7 @@
 | `tests/test_ui32_composer_usage_layout.py` | Python test | 5 | — |
 | `tests/test_ui33_usage_reading_position.py` | Python test | 7 | — |
 | `tests/test_ui3_dialog_operations.py` | Python test | 6 | — |
-| `tests/test_ui_repair.py` | Python test | 9 | — |
+| `tests/test_ui_repair.py` | Python test | 10 | — |
 | `tests/test_wordpress_client.py` | Python test | 33 | — |
 | `tests/test_wordpress_taxonomies.py` | Python test | 5 | — |
 | `ui/electron/main.cjs` | Electron shell | 24 | — |
@@ -231,7 +233,7 @@
 | `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 68 | — |
+| `ui/src/App.tsx` | React UI | 70 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 11 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |
@@ -244,7 +246,7 @@
 | `ui/src/HeaderMessageSearch.tsx` | React UI | 3 | — |
 | `ui/src/lib/accountScope.mjs` | React UI | 3 | — |
 | `ui/src/lib/api.ts` | React UI | 17 | — |
-| `ui/src/lib/avatarLoader.ts` | React UI | 6 | — |
+| `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
 | `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
 | `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |
 | `ui/src/lib/polling.mjs` | React UI | 3 | — |

@@ -8,7 +8,9 @@ API = ROOT / "src" / "eitaa_bridge" / "application" / "api.py"
 
 def test_third_pane_dialog_operations_are_connected():
     app = APP.read_text(encoding="utf-8")
-    assert "props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')" in app
+    assert "props.openBulk('members')" in app
+    assert "disabled={!props.communityEnabled}" in app
+    assert "canManageCommunity(dialog)" in app
     assert "دعوت شماره‌ها" in app
     assert "شماره‌های جدید" in app
     assert "onClick={props.openMembers}" in app

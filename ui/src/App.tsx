@@ -14,7 +14,7 @@ import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isN
 import type { MessageScrollMemory, ScrollAnchor, TopPaginationGate } from './lib/scrollMath'
 import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, SenderFilterOption, Site, Term } from './lib/types'
 import { QuickSendBar } from './QuickSendBar'
-import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
+import { clearDialogAvatarCache, loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
 import { waitForAdaptivePoll } from './lib/polling.mjs'
 import { LoginAppearanceProvider, LoginSurface } from './LoginExperience'
 import { AppUserGate, AppUserLogoutButton, useAppUser } from './AppUserGate'
@@ -58,7 +58,17 @@ function initials(title: string) {
   return clean ? clean.slice(0, 2) : 'ا'
 }
 
-function DialogAvatar({ dialog, siteKey, small = false }: { dialog: DialogItem | null; siteKey: string; small?: boolean }) {
+function canManageCommunity(dialog: DialogItem | null): boolean {
+  return Boolean(
+    dialog
+    && dialog.active !== false
+    && (dialog.display_kind === 'group' || dialog.display_kind === 'channel')
+    && dialog.can_manage_community
+    && (dialog.account_role === 'owner' || dialog.account_role === 'admin')
+  )
+}
+
+function DialogAvatar({ dialog, siteKey, small = false, priority = 'background' }: { dialog: DialogItem | null; siteKey: string; small?: boolean; priority?: 'active' | 'background' }) {
   const ref = useRef<HTMLDivElement>(null)
   const [src, setSrc] = useState<string | null | undefined>(() => dialog ? peekDialogAvatar(siteKey, dialog.peer_key) : null)
   useEffect(() => { setSrc(dialog ? peekDialogAvatar(siteKey, dialog.peer_key) : null) }, [dialog?.peer_key, siteKey])
@@ -66,21 +76,28 @@ function DialogAvatar({ dialog, siteKey, small = false }: { dialog: DialogItem |
     const element = ref.current
     if (!element || !dialog || !siteKey || src !== undefined) return
     let active = true
+    const load = () => {
+      void loadDialogAvatar(siteKey, dialog.peer_key, priority)
+        .then(value => { if (active) setSrc(value) })
+        .catch(() => { if (active) setSrc(null) })
+    }
+    if (priority === 'active') {
+      load()
+      return () => { active = false }
+    }
     const observer = new IntersectionObserver(entries => {
       if (!entries.some(entry => entry.isIntersecting)) return
       observer.disconnect()
-      void loadDialogAvatar(siteKey, dialog.peer_key)
-        .then(value => { if (active) setSrc(value) })
-        .catch(() => { if (active) setSrc(null) })
+      load()
     }, { rootMargin: '220px' })
     observer.observe(element)
     return () => { active = false; observer.disconnect() }
-  }, [dialog, siteKey, src])
+  }, [dialog, priority, siteKey, src])
   return <Avatar ref={ref} sx={{ width: small ? 34 : 46, height: small ? 34 : 46, flex: '0 0 auto', bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 800 }}>
     {src === undefined
       ? <Skeleton variant="circular" animation="wave" width="100%" height="100%" />
       : src
-        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" onError={() => setSrc(null)} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" onError={() => { if (dialog) clearDialogAvatarCache(siteKey, dialog.peer_key); setSrc(null) }} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : initials(titleFor(dialog))}
   </Avatar>
 }
@@ -384,6 +401,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [composerOpen, setComposerOpen] = useState(false)
   const [chatsOpen, setChatsOpen] = useState(() => window.matchMedia('(max-width: 899px)').matches)
   const [communityOpen, setCommunityOpen] = useState(false)
+  const [showWordPressPanel, setShowWordPressPanel] = useState(() => readStored<boolean>(STORAGE.showWordPressPanel, false))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkMode, setBulkMode] = useState<BulkMode>('members')
@@ -417,6 +435,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [dateJump, setDateJump] = useState<{ messageId: number; epoch: number } | null>(null)
   const activeSite = useMemo(() => sites.find(site => site.site_key === siteKey), [sites, siteKey])
   const wordpressAvailable = useMemo(() => sites.some(site => site.credentials_configured), [sites])
+  const wordpressPanelReady = showWordPressPanel && Boolean(activeSite?.credentials_configured)
+  const wordpressPanelAvailable = showWordPressPanel && wordpressAvailable
+  const communityEnabled = canManageCommunity(dialog)
   const viewportPageSize = useMemo(() => Math.max(20, Math.min(80, Math.ceil(window.innerHeight / 90) + 10)), [])
   const lastReadRef = useRef<Record<string, number>>({})
   const syncTimesRef = useRef<Record<string, number>>(readStored<Record<string, number>>(STORAGE.syncTimes, {}))
@@ -456,16 +477,33 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [sessionWarning])
   useEffect(() => { writeStored(STORAGE.tab, tab) }, [tab])
   useEffect(() => { writeStored(STORAGE.mediaDisplay, mediaDisplay) }, [mediaDisplay])
+  useEffect(() => { writeStored(STORAGE.showWordPressPanel, showWordPressPanel) }, [showWordPressPanel])
+  useEffect(() => {
+    if (!showWordPressPanel) {
+      setCommunityOpen(true)
+      setShowWordPressUsed(true)
+    }
+  }, [showWordPressPanel])
   useEffect(() => { if (siteKey) writeStored(STORAGE.siteKey, siteKey) }, [siteKey])
   useEffect(() => { if (dialog) writeStored(STORAGE.peerKey, dialog.peer_key) }, [dialog?.peer_key])
 
   const openBulk = useCallback((mode: BulkMode, memberIds: number[] = [], numbers: string[] = [], memberScope: MemberScope = memberIds.length ? 'selected' : 'all_snapshot') => {
+    if (!canManageCommunity(dialog)) {
+      toast.error('عملیات گفتگو فقط برای گروه یا کانال فعالی مجاز است که حساب انتخاب‌شده در آن مالک یا مدیر باشد.')
+      return
+    }
     setBulkMode(mode)
     setBulkMemberIds(memberIds)
     setBulkMemberScope(memberScope)
     setBulkInitialNumbers(numbers)
     setBulkOpen(true)
-  }, [])
+  }, [dialog])
+
+  useEffect(() => {
+    if (communityEnabled) return
+    setBulkOpen(false)
+    setMembersOpen(false)
+  }, [communityEnabled])
 
   const applyDialogs = useCallback((items: DialogItem[]) => {
     setDialogs(items)
@@ -578,7 +616,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [applyDialogs, dialogsSupported, siteKey, syncingDialogs])
 
   const loadTerms = useCallback(async (force = false) => {
-    if (!siteKey || !activeSite?.credentials_configured) {
+    if (!siteKey || !showWordPressPanel || !activeSite?.credentials_configured) {
       setCategories([]); setTags([])
       return
     }
@@ -597,7 +635,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       if (!cached) toast.error(e instanceof Error ? e.message : 'دریافت دسته‌ها و کلمات کلیدی ناموفق بود.')
       else toast.warning('دسته‌ها و کلمات کلیدی از حافظه محلی نمایش داده شدند؛ تازه‌سازی وردپرس فعلاً ناموفق بود.')
     }
-  }, [siteKey, activeSite?.credentials_configured])
+  }, [siteKey, activeSite?.credentials_configured, showWordPressPanel])
 
   const listMessages = useCallback(async (selected: DialogItem, beforeId?: number, limit = viewportPageSize) => {
     if (!historySupported) return []
@@ -1570,13 +1608,16 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         accountControl={<MessengerAccountMenuControl />}
         syncing={syncingDialogs}
         dialogsEnabled={dialogsSupported}
-        wordpressEnabled={wordpressAvailable}
+        wordpressVisible={showWordPressPanel}
+        wordpressEnabled={wordpressPanelAvailable}
+        communityEnabled={communityEnabled}
         onSection={showDialogSection}
         onSettings={() => setSettingsOpen(true)}
         onAddDialog={() => setManualOpen(true)}
         onSync={() => void syncDialogs()}
         onContacts={() => setContactsOpen(true)}
-        onBulk={() => openBulk(dialog && dialog.display_kind !== 'personal' ? 'members' : 'numbers')}
+        onBulk={() => openBulk('members')}
+        onCommunity={() => { setCommunityOpen(true); setComposerOpen(true) }}
         onWordpress={() => { setCommunityOpen(false); setComposerOpen(true) }}
         onMessengerLogout={() => void logout()}
         onSoftwareLogout={appUser.enabled ? () => void logoutSoftware() : undefined}
@@ -1593,7 +1634,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         items={visibleDialogs}
         totalFiltered={filteredDialogs.length}
         activePeerKey={dialog?.peer_key}
-        renderAvatar={item => <DialogAvatar dialog={item} siteKey={siteKey} />}
+        renderAvatar={item => <DialogAvatar dialog={item} siteKey={siteKey} priority={item.peer_key === dialog?.peer_key ? 'active' : 'background'} />}
         titleFor={item => titleFor(item)}
         onSearch={setDialogSearch}
         onClose={() => setChatsOpen(false)}
@@ -1610,7 +1651,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         <ChatHeader
           title={titleFor(dialog)}
           subtitle={dialog ? `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده` : 'گفتگویی انتخاب نشده'}
-          avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small />}
+          avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small priority="active" />}
           selectionCount={selectionMode ? selectedKeys.length : 0}
           liveState={dialog && historySupported ? liveMessageState : 'idle'}
           mediaDynamic={mediaDisplay === 'dynamic'}
@@ -1630,14 +1671,16 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
             onClear={() => void clearDateRange()}
           />}
           search={messageSearch}
-          wordpressEnabled={wordpressAvailable}
+          wordpressVisible={showWordPressPanel}
+          wordpressEnabled={wordpressPanelAvailable}
+          communityEnabled={communityEnabled}
           composerVisible={composerDocked || composerOpen}
           onOpenChats={() => setChatsOpen(true)}
           onClearSelection={clearSelection}
           onToggleMedia={() => setMediaDisplay(value => value === 'dynamic' ? 'framed' : 'dynamic')}
           onToggleFilters={() => setContentFiltersOpen(value => !value)}
           onSearch={setMessageSearch}
-          onOpenComposer={() => setComposerOpen(true)}
+          onOpenComposer={() => { setCommunityOpen(!wordpressPanelAvailable); setComposerOpen(true) }}
         />
         {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
@@ -1648,14 +1691,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       } : {
         position: 'fixed', zIndex: theme => theme.zIndex.drawer + 2, insetBlock: 0, insetInlineEnd: 0, width: 'min(520px, 94vw)', minWidth: 0, minHeight: 0, overflow: 'hidden', borderInlineStart: 1, borderColor: 'divider', transform: composerOpen ? 'translateX(0)' : 'translateX(105%)', transition: theme => theme.transitions.create('transform', { duration: theme.transitions.duration.shorter }),
       }}>
-        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressReady={Boolean(activeSite?.credentials_configured)} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
+        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressVisible={showWordPressPanel} wordpressReady={wordpressPanelReady} communityEnabled={communityEnabled} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
       </Paper>
     </Box>
     <UsageInfoDialog activeUsage={activeUsage} clearUsage={() => setActiveUsage(null)} loadHistory={item => { /* will do loadHistory later or let user implement if needed */ }} />
     <Dialog open={settingsOpen} fullScreen onClose={() => setSettingsOpen(false)}>
       <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
         <Suspense fallback={<Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: '100dvh' }}><CircularProgress /><Typography>در حال آماده‌سازی تنظیمات…</Typography></Stack>}>
-          <SettingsPage sites={sites} onClose={() => setSettingsOpen(false)} onChanged={loadSites} />
+          <SettingsPage sites={sites} onClose={() => setSettingsOpen(false)} onChanged={loadSites} showWordPressPanel={showWordPressPanel} onShowWordPressPanelChange={setShowWordPressPanel} />
         </Suspense>
       </DialogContent>
     </Dialog>
@@ -1714,6 +1757,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     {contentFiltersOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><MessageFilterDialog
       open={contentFiltersOpen}
       close={() => setContentFiltersOpen(false)}
+      wordpressEnabled={wordpressPanelReady}
       showWordPressUsed={showWordPressUsed}
       setShowWordPressUsed={setShowWordPressUsed}
       selectedIndexLabel={selectedIndexLabel}
@@ -2081,7 +2125,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
     </Box>
   </Box>
 }
-function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressReady: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
+function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressVisible: boolean; wordpressReady: boolean; communityEnabled: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
   const [compositionKey, setCompositionKey] = useState(makeCompositionKey)
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
@@ -2098,6 +2142,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
   const [editRecord, setEditRecord] = useState<CompositionRecord | null>(null)
   const [editSourceKeys, setEditSourceKeys] = useState<string[]>([])
   const categoryRows = useMemo(() => categoryTree(props.categories), [props.categories])
+  const communityView = !props.wordpressVisible || props.communityOpen
 
   const sourceKeys = editRecord ? editSourceKeys : props.selectedKeys
   useEffect(() => {
@@ -2227,21 +2272,22 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
     
     <Paper square elevation={0} sx={{ position: 'sticky', top: 0, zIndex: 4, p: 1.25, borderBottom: 1, borderColor: 'divider' }}>
       <Stack direction="row" alignItems="center" spacing={1}>
-        <Avatar sx={{ bgcolor: props.communityOpen ? 'secondary.main' : 'primary.main' }}>{props.communityOpen ? 'گ' : 'W'}</Avatar>
-        <Box sx={{ flex: 1, minWidth: 0 }}><Typography fontWeight={900} noWrap>{props.communityOpen ? 'عملیات گفتگو' : editRecord ? `ویرایش نوشته #${editRecord.post_id}` : 'نوشته جدید وردپرس'}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.communityOpen ? titleFor(props.dialog) : `${sourceKeys.length.toLocaleString('fa-IR')} پیام در بدنه`}</Typography></Box>
+        <Avatar sx={{ bgcolor: communityView ? 'secondary.main' : 'primary.main' }}>{communityView ? 'گ' : 'W'}</Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}><Typography fontWeight={900} noWrap>{communityView ? 'عملیات گفتگو' : editRecord ? `ویرایش نوشته #${editRecord.post_id}` : 'نوشته جدید وردپرس'}</Typography><Typography variant="caption" color="text.secondary" noWrap>{communityView ? titleFor(props.dialog) : `${sourceKeys.length.toLocaleString('fa-IR')} پیام در بدنه`}</Typography></Box>
         <IconButton aria-label="بستن ستون" onClick={props.close}><CloseRounded /></IconButton>
       </Stack>
-      <ToggleButtonGroup exclusive fullWidth size="small" value={props.communityOpen ? 'community' : 'wordpress'} onChange={(_event, value) => { if (value) props.setCommunityOpen(value === 'community') }} sx={{ mt: 1 }}>
+      {props.wordpressVisible && <ToggleButtonGroup exclusive fullWidth size="small" value={communityView ? 'community' : 'wordpress'} onChange={(_event, value) => { if (value) props.setCommunityOpen(value === 'community') }} sx={{ mt: 1 }}>
         <ToggleButton value="wordpress" disabled={!props.wordpressReady}>وردپرس</ToggleButton>
-        <ToggleButton value="community">عملیات گفتگو</ToggleButton>
-      </ToggleButtonGroup>
+        <ToggleButton value="community" disabled={!props.communityEnabled}>عملیات گفتگو</ToggleButton>
+      </ToggleButtonGroup>}
     </Paper>
     <Stack spacing={1.25} sx={{ p: { xs: 1, sm: 1.5 } }}>
-      {props.communityOpen ? <Paper variant="outlined" sx={{ p: 2 }}>
+      {communityView ? <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={1.25} alignItems="center"><Avatar>{initials(titleFor(props.dialog))}</Avatar><Box sx={{ minWidth: 0 }}><Typography fontWeight={850} noWrap>{titleFor(props.dialog)}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.dialog?.peer.username ? `@${props.dialog.peer.username}` : props.dialog ? `Peer ID: ${props.dialog.peer.id}` : 'گفتگویی انتخاب نشده'}</Typography></Box></Stack>
-          <Button variant="contained" onClick={() => props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')}>ارسال و دعوت گروهی</Button>
-          <Button variant="outlined" disabled={!props.dialog || props.dialog.display_kind === 'personal'} onClick={props.openMembers}>مدیریت اعضا</Button>
+          {!props.communityEnabled && <Alert severity="info">عملیات گفتگو فقط برای گروه یا کانال فعال است که حساب انتخاب‌شده در آن مالک یا مدیر باشد.</Alert>}
+          <Button variant="contained" disabled={!props.communityEnabled} onClick={() => props.openBulk('members')}>ارسال و دعوت گروهی</Button>
+          <Button variant="outlined" disabled={!props.communityEnabled} onClick={props.openMembers}>مدیریت اعضا</Button>
           <Typography variant="caption" color="text.secondary">{!props.dialog ? 'ارسال به شماره‌ها در دسترس است؛ برای عملیات اعضا ابتدا یک گروه یا کانال را انتخاب کنید.' : props.dialog.display_kind === 'personal' ? 'در گفتگوی شخصی، ابزار یکپارچه روی ارسال به شماره‌ها باز می‌شود.' : 'اعضا، شماره‌های جدید و دعوت شماره‌ها در تب‌های مستقل ابزار گروهی قرار دارند.'}</Typography>
         </Stack>
       </Paper> : !props.wordpressReady ? <Alert severity="info" aria-label="وردپرس آماده نیست" action={<Button color="inherit" onClick={props.openSettings}>تنظیمات</Button>}><Typography fontWeight={850}>وردپرس هنوز آماده نیست</Typography>ابتدا یک سایت و دسترسی معتبر وردپرس تعریف کنید.</Alert> : <>

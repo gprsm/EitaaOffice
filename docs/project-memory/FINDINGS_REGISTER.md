@@ -629,3 +629,16 @@
 - شناسهٔ F-056 برای جلوگیری از برخورد با F-051 تا F-055 در کار موازی ایندکس رزرو شد؛ فایل‌های آن کار در این commit نیستند.
 - مرجع: `docs/reports/features/CONSECUTIVE_MESSAGE_GROUPING_AND_AVATAR_RESILIENCE_REPORT_2026-08-27.md`، ADR-44 و V-169/V-170.
 - Trigger بازبینی: تغییر threshold/identity/day rule، ساخت lookup پس از filter، parallel کردن نشست Provider، تغییر Core photo codec/catalog یا گزارش شکست بصری روی دادهٔ واقعی.
+
+### F-061 — WordPress opt-in، نقش fail-closed و صف کم‌اولویت آواتار تکمیل شد
+
+- وضعیت: `CLOSED_CODE_AND_FULL_AUTOMATED_ACCEPTANCE / LIVE_RECHECK_OPTIONAL`
+- تاریخ: 2026-08-27
+- دامنه: نمایش پنل WordPress، taxonomy fetch، عملیات گروه/کانال، role hint حساب و بارگیری آواتار.
+- مسئله: UI حتی بدون نیاز جاری WordPress، surface و مسیر بررسی taxonomy را عرضه می‌کرد؛ عملیات گفتگو شاهد قابل‌اعتماد مالک/مدیر نداشت؛ آواتار فهرست نیز از نظر اولویت با گفت‌وگوی فعال تمایز کافی نداشت و cache خراب می‌توانست نقص را پایدار کند.
+- اصلاح: پنل WordPress با default خاموش و شرط credential opt-in شد؛ taxonomy در حالت خاموش request نمی‌شود. نقش owner/admin از parse معتبر dialog به catalog منتقل و eligibility فقط برای active group/channel به‌شکل fail-closed محاسبه می‌شود. آواتار فعال/background صف و اولویت جدا، promotion، idle delay و اعتبارسنجی magic/size دارد، در حالی که نشست Provider همچنان سریال است.
+- محدودیت صادقانه: Channel/Supergroup owner/admin و basic-group creator قابل تشخیص‌اند؛ basic-group admin غیرمالک در قرارداد Core جاری شاهد کافی ندارد و `unknown` باقی می‌ماند. dialogهای قبلی نیز برای پرشدن نقش نیازمند sync بعدی‌اند. نبود photo reference معتبر همچنان با initials مهار می‌شود.
+- GREEN: full Backend=`664/664` در partitionهای کامل، تمام runnerهای UI، TypeScript و build 1016-module سبز؛ wheel و archiveها deterministic و fresh-install آفلاین سبز است.
+- حریم خصوصی/عملیات: Live/Login/OTP/Send/Member mutation/WordPress/Provider operation و دادهٔ عملیاتی صفر؛ فقط fixture و artifact کنترل‌شده.
+- مرجع: ADR-47، V-181/V-182 و `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`.
+- Trigger بازبینی: تغییر TL dialog flags/Core codec، role contract، taxonomy loading، scheduler priority، avatar validation یا گزارش شکست روی دادهٔ واقعی.

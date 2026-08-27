@@ -36,6 +36,7 @@ from ..infrastructure.eitaa.sender_directory import (
     configure_sender_directory,
     sender_directory_scope,
 )
+from ..infrastructure.eitaa.dialog_permissions import install_dialog_permission_capture
 from ..infrastructure.eitaa.session_ownership import (
     EitaaSessionOwnership,
     SessionOwnershipMode,
@@ -50,6 +51,9 @@ from ..infrastructure.coordinator import (
 )
 from .scheduler import EitaaOperationScheduler, EitaaPriority
 from .process_runtime import EitaaProcessRuntime, EitaaProcessWorkerClient
+
+
+install_dialog_permission_capture()
 
 
 def _utc_now() -> str:

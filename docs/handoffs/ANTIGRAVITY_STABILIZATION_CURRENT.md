@@ -1,5 +1,14 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
+## سناریوی UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و اولویت آواتار
+
+- تنظیم «نمایش پنل WordPress» افزوده و default آن خاموش است. در حالت خاموش فقط «عملیات گفتگو» نمایش داده می‌شود و category/tag request اجرا نمی‌شود؛ در حالت روشن نیز taxonomy به credential سایت فعال نیاز دارد.
+- عملیات گفتگو فقط برای گفت‌وگوی فعال group/channel با نقش catalog برابر owner/admin فعال است. نقش از parse معتبر Eitaa می‌آید و unknown/member/personal/inactive fail-closed هستند. Channel/Supergroup کامل پوشش دارد؛ basic-group admin غیرمالک در Core جاری قابل‌اثبات نیست و بسته می‌ماند. catalogهای قبلی با sync بعدی role می‌گیرند.
+- پیام‌های گفت‌وگوی فعال اولویت 10، آواتار فعال 40 و آواتار پس‌زمینه 80 دارد. browser cache/HTTP lane مستقل و promotion دارد، ولی scheduler Backend تمام Provider callها را برای نشست مشترک سریال می‌کند.
+- cache تصویر صفر/خراب/بزرگ یا با magic نامعتبر miss و overwrite می‌شود؛ نبود photo reference معتبر امن به initials برمی‌گردد.
+- GREEN: Backend=`664/664` در شش partition کامل، تمام runnerهای UI، TypeScript/build 1016-module، wheel/archive deterministic و fresh-install آفلاین. candidate نهایی archive SHA=`307d00b8...0cc00` و wheel SHA=`23cd95cf...34b51` است؛ wheelhouse runtime فقط در staging بسته و خارج از Git می‌ماند.
+- Live/Login/OTP/Send/Member mutation/WordPress/Provider و دادهٔ عملیاتی صفر. مرجع=`F-061 / ADR-47 / V-181..V-182` و گزارش `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`. Git publication پس از snapshot ایزوله ثبت می‌شود.
+
 ## سناریوی UX-MESSAGE-AVATAR-R01 — ادغام پیام و تاب‌آوری آواتار
 
 - پیام‌ها/پست‌ها و آلبوم‌های مجاور یک فرستنده تا پنج دقیقه، بدون عبور از روز نمایشی، در یک Card ادغام می‌شوند. text→image، image→text، چند run عکس، فایل و دو آلبوم پشت‌سرهم پوشش دارند؛ persistence هر پیام مستقل مانده است.

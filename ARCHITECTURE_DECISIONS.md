@@ -375,3 +375,13 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - نبود photo reference قابل استفاده، privacy Provider یا دادهٔ stale با initials مهار می‌شود. تغییر contact codec/Core برای نگه‌داری عکس User یک سناریوی مستقل است و از این تصمیم استنتاج نمی‌شود.
 - شمارهٔ ۴۴ برای جلوگیری از برخورد با ADR-41 تا ADR-43 در کار موازی ایندکس رزرو شده است؛ این commit محتوای آن کار را شامل نمی‌شود.
 - مرجع: F-056، V-169/V-170 و `docs/reports/features/CONSECUTIVE_MESSAGE_GROUPING_AND_AVATAR_RESILIENCE_REPORT_2026-08-27.md`.
+
+## ۴۷. پنل WordPress opt-in و عملیات گفتگو مبتنی بر نقش قابل‌اثبات است
+
+- WordPress یک integration اختیاری است؛ surface آن با setting حساب/کاربر و default خاموش نمایش داده می‌شود. خاموش‌بودن باید پیش از هر taxonomy HTTP اثر کند و روشن‌بودن بدون credential سایت فعال نیز category/tag fetch را مجاز نمی‌کند.
+- در حالت پنهان، surface اصلی فقط «عملیات گفتگو» است. این عملیات فقط برای dialog فعال از نوع group/channel و نقش حساب `owner` یا `admin` فعال می‌شود؛ personal، inactive، member و unknown همگی fail-closed هستند.
+- نقش client-authoritative نیست. فقط metadataای که parser معتبر Provider پذیرفته است به catalog حساب‌محور منتقل می‌شود و capability در read دوباره از role محاسبه می‌گردد. raw TL payload، peer/account id و متن خصوصی وارد observability نمی‌شوند.
+- نبود signal معتبر نباید با حدس جبران شود. در Core جاری، Channel/Supergroup owner/admin و creator گروه پایه قابل اثبات‌اند؛ basic-group admin غیرمالک unknown می‌ماند تا قرارداد self-role معتبر افزوده شود.
+- آواتار گفت‌وگوی فعال از آواتارهای پس‌زمینه جلو می‌افتد، اما پیام‌های گفت‌وگوی فعال اولویت بالاتری دارند. cache/HTTP می‌توانند مستقل و bounded باشند؛ تمام تماس‌های نشست مشترک Eitaa همچنان در scheduler Backend سریال می‌مانند.
+- cache فقط وقتی معتبر است که نوع تصویر پشتیبانی‌شده، اندازهٔ محدود و محتوای غیرتهی داشته باشد. cache خراب miss است و overwrite کنترل‌شده می‌شود؛ نبود reference یا failure به initials امن ختم می‌شود.
+- مرجع: F-061، V-181/V-182 و `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`.

@@ -1401,3 +1401,29 @@
 - push عادی شاخهٔ تازهٔ `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس از push برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
 - force-push/main push/merge/ref deletion=0؛ Provider/message/login/OTP/WordPress/data action=0.
 - commit closure فقط همین ثبت انتشار و mapهای تولیدشده را fast-forward می‌کند؛ hash نهایی آن در تحویل گفتگو و remote verify ثبت می‌شود.
+
+### V-181 — RED و پذیرش هدفمند WordPress/role/avatar priority
+
+- تاریخ: 2026-08-27
+- سطح: `CONTRACT RED / UNIT / UI STATIC / TARGETED INTEGRATION`
+- Run: `UX-WP-AVATAR-R02`
+- علت بررسی مجدد: درخواست صریح کاربر برای default مخفی WordPress، منع taxonomy check پیش از config، محدودکردن عملیات به owner/admin و اولویت idle آواتار.
+- REDهای معتبر: test نقش با نبود `dialog_permissions`، Phase 9 با نبود `queue.promote` و UI contract با نبود `showWordPressPanel` شکست خوردند.
+- GREEN: نقش/parser/catalog/API مستقیم=`7 passed`؛ مجموعهٔ هدفمند Backend/UI=`56 passed`؛ Phase 9 workspace=`19/19`، grouped-media=`29/29`، scroll=`10/10` و TypeScript=`PASS`.
+- قرارداد: WordPress default=false و credential-gated؛ community eligibility فقط active group/channel + server-derived owner/admin؛ active avatar قابل promotion و background delayed؛ Provider session serial.
+- cache repair: فایل صفر/خراب/بزرگ یا magic نامعتبر miss، overwrite و validation پس از download؛ MIME از magic استخراج می‌شود.
+- حریم خصوصی/اثر بیرونی: فقط دادهٔ مصنوعی؛ raw TL/peer/account/message/credential log نشد و هیچ Live/Provider/WordPress mutation انجام نشد.
+
+### V-182 — regression کامل، wheel، بسته و نصب تازهٔ سناریوی WordPress/Avatar
+
+- تاریخ: 2026-08-27
+- سطح: `FULL REGRESSION / BUILD / DETERMINISTIC WHEEL / OFFLINE PACKAGE / FRESH INSTALL`
+- Run: `UX-WP-AVATAR-R02`
+- Backend کامل به‌علت سقف زمان ابزار در شش partition بدون overlap/gap اجرا شد: `207 + 97 + 105 + 61 + 42 + 152 = 664 passed`؛ failure/error/skip صفر.
+- UI کامل: همهٔ runnerهای canonical سبز؛ Phase 9 workspace=`19/19`، grouped=`29/29`، scroll=`10/10`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Observability=`PASS`، Phase 11 onboarding=`7/7`، Phase 11-B2=`6/6` و mobile/auth/live contract=`PASS`. TypeScript و build 1016-module نیز PASS.
+- wheel worktree A/B بایت‌یکسان=`f2c3872d...5be9` بود؛ candidate پس از LF normalization دوباره ساخته و release dist آن SHA-256=`23cd95cfbb9ac47e9ca057406e2008eba16854d03adfa159e9ce628fdf534b51` شد. parity مربوط سبز است؛ `dist/` طبق policy Git ignore و خارج از commit است.
+- archive نهایی candidate=`283 files / content-set 702bd412fca521092c5927e2cec4257ea5f23edf62525df4debd52a28a8c155d`. دو archive بایت‌یکسان SHA-256=`307d00b82fb1ff0ec30d5c05b2c55a18b23726901b35e2301ce5c0cda520cc00` و verifier داخلی privacy/path/hash/manifest PASS؛ فایل‌های work ایندکس صفر.
+- fresh-install attempt نخست worktree به‌علت omission `vendor/runtime` از `find-links` شکست خورد. attempt نخست clone نیز چون wheelهای runtime به‌درستی Git-ignored و در staging حاضر نبودند، archive 277فایلی غیرقابل‌نصب ساخت. پس از افزودن mechanical wheelhouse فقط به staging، archive نهایی 283فایلی با `dist + vendor + vendor/runtime` و `--no-index` نصب شد؛ runtime checker=`ok=true/failures=0`، `pip check` و import ایزولهٔ `dialog_permissions` PASS. wheelهای ignored در candidate Git stage نمی‌شوند.
+- کنترل خود candidate: اجرای نخست pytest فقط به Temp غیرقابل‌دسترسی حساب میزبان خورد؛ retry با basetemp صریح workspace=`101/101`. Phase 9=`19/19`. grouped-media نخست از cwd نادرست clone و نبود npm متوقف شد؛ retry از `ui/` با TypeScript read-only پروژهٔ اصلی=`29/29`. هیچ فایل محصول برای retry تغییر نکرد.
+- اسناد: F-061، ADR-47، baseline/spec/structure/handoff، گزارش feature و Execution Log ثبت شدند؛ کنترل freshness/integrity/link پس از refresh جداگانه اجرا می‌شود.
+- عملیات: شبکه، Login/OTP، Send، WordPress، Member mutation، Provider Live و فایل عملیاتی صفر. نتیجه=`OFFLINE_AUTOMATED_ACCEPTED / GIT_PUBLICATION_PENDING / NOT_PRODUCTION_RELEASE_AUTHORIZED`.

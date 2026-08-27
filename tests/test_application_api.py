@@ -10,6 +10,7 @@ from eitaa_core import DialogEntry, Message, Peer, PeerType, save_peer_file
 from eitaa_core.errors import NetworkError, RpcError
 
 from eitaa_bridge.application.api import BridgeApplicationApi
+from eitaa_bridge.application.scheduler import EitaaPriority
 from eitaa_bridge.facade import EitaaBridge
 
 
@@ -710,6 +711,10 @@ def test_api_dialog_live_sync_merges_first_page_without_hiding_older_dialogs(con
             pass
 
     monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    monkeypatch.setattr(
+        "eitaa_bridge.application.api.consume_dialog_account_roles",
+        lambda: {"channel:555": "admin"},
+    )
     api = BridgeApplicationApi(config_file)
     api.dialog_catalog.upsert(
         peer=older_peer,
@@ -730,6 +735,8 @@ def test_api_dialog_live_sync_merges_first_page_without_hiding_older_dialogs(con
     by_key = {item["peer_key"]: item for item in response.payload["dialogs"]}
     assert by_key["chat:554"]["active"] is True
     assert by_key["channel:555"]["unread_count"] == 3
+    assert by_key["channel:555"]["account_role"] == "admin"
+    assert by_key["channel:555"]["can_manage_community"] is True
 
 
 def test_api_dialog_sync_skips_unusable_remote_peer_without_losing_valid_dialogs(config_file, monkeypatch):
@@ -1016,6 +1023,71 @@ def test_api_cached_only_avatar_never_opens_remote_core(config_file, tmp_path, m
     assert response.status == 200
     assert response.payload["avatar_present"] is False
     assert response.payload["cached_only"] is True
+
+
+def test_api_active_avatar_repairs_corrupt_cache_at_active_avatar_priority(
+    config_file, tmp_path, monkeypatch
+):
+    peer_file = tmp_path / "peer-avatar-repair.json"
+    corrupt = tmp_path / "corrupt-avatar.jpg"
+    recovered = tmp_path / "recovered-avatar.jpg"
+    save_peer_file(peer_file, PEER)
+    corrupt.write_bytes(b"")
+    captured = {}
+    photo = SimpleNamespace(photo_id=88)
+
+    class Discovery:
+        def cached_dialogs(self, **kwargs):
+            return (DialogEntry(peer=PEER, top_message_id=1, photo=photo),)
+
+        def set_cached_photo_path(self, peer, photo_id, path):
+            assert peer == PEER
+            assert photo_id == 88
+            assert path == recovered
+
+    class Media:
+        def download(self, selected_photo, options):
+            assert selected_photo is photo
+            assert options.overwrite is True
+            recovered.write_bytes(b"\xff\xd8\xffrecovered")
+            return SimpleNamespace(path=recovered)
+
+    class FakeBridge:
+        core = SimpleNamespace(discovery=Discovery(), media=Media())
+        config = SimpleNamespace(core=SimpleNamespace(media_directory=tmp_path / "media"))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api = BridgeApplicationApi(config_file)
+    api.dialog_catalog.upsert(
+        peer=PEER,
+        peer_file=peer_file,
+        source="remote",
+        photo_cached_path=str(corrupt),
+    )
+
+    def run_immediately(**kwargs):
+        captured.update(kwargs)
+        return kwargs["callback"]()
+
+    monkeypatch.setattr(api, "_run_eitaa", run_immediately)
+    response = api.dispatch(
+        "POST",
+        "/api/v1/dialogs/avatar",
+        body={
+            "site_key": "medical-site",
+            "peer_key": f"channel:{PEER.id}",
+            "request_priority": "active",
+        },
+    )
+
+    assert response.status == 200
+    assert response.payload["avatar_present"] is True
+    assert response.payload["mime_type"] == "image/jpeg"
+    assert captured["priority"] is EitaaPriority.ACTIVE_AVATAR
+    assert api.dialog_catalog.get(f"channel:{PEER.id}")["photo_cached_path"] == "recovered-avatar.jpg"
 
 def test_api_date_range_sync_uses_active_message_priority(config_file, tmp_path, monkeypatch):
     monkeypatch.setenv("TEST_WP_USERNAME", "editor")

@@ -52,7 +52,9 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - دریافت خودکار near-real-time پیام گفتگوی باز و فهرست گفتگوها؛ merge محدود بدون reload و بدون retry mutation.
 - ادغام دیداری پیام/آلبوم‌های مجاور یک فرستنده در همان روز و با فاصلهٔ حداکثر پنج دقیقه، با حفظ ترتیب متن/عکس/فایل و شناسهٔ مستقل هر پیام منبع.
 - بارگیری آواتار cache-first و account-scoped با lane مستقل cache/remote، failure isolation و fallback امن initials؛ عملیات remote Provider باید با قرارداد session مشترک هم‌پوشانی نکند.
-- integrationهای WordPress برای site/content/media، به‌صورت اختیاری.
+- بارگیری محتوای گفت‌وگوی فعال بالاترین اولویت را دارد؛ آواتار همان گفتگو قابل promotion و آواتار فهرست delayed/background است. cache خراب باید پیش از نمایش/ثبت تشخیص و قابل‌بازیابی باشد.
+- integrationهای WordPress برای site/content/media، به‌صورت opt-in با پنل پیش‌فرض مخفی؛ taxonomy فقط پس از نمایش صریح پنل و وجود credential سایت فعال خوانده می‌شود.
+- عملیات گفتگو فقط برای group/channel فعال با نقش قابل‌اثبات owner/admin حساب انتخابی فعال است؛ unknown/member/personal/inactive به‌شکل fail-closed بسته‌اند.
 - endpoint امن Capability برای هر MessengerAccount و guard عمومی Dialog/History/Send/Media/Contacts.
 - endpointهای v2 حساب‌محور برای Dialog/History/Text Send/Media read/Contact list/upsert با context سروری، correlation/deadline، payload allowlist، تأیید mutation و idempotency پایدار.
 
