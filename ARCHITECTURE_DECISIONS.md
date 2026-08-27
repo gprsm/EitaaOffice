@@ -364,3 +364,14 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - runtime patch سازگاری بخشی از رفتار اجرایی محصول است، نه فایل تزئینی. build نام آن را از ۱۶ نویسهٔ نخست SHA-256 محتوای source می‌سازد، نسخه‌های ثابت/قدیمی همان patch را از `dist/assets` حذف و دقیقاً همان نام را پیش از bundle اصلی در index تزریق می‌کند.
 - برابری source/dist، انطباق hash نام فایل با محتوا، نبود URL ثابت و cache header هر دو نوع asset قرارداد آزموده‌شده‌اند. تغییر finalizer، static server یا نام‌گذاری asset این شواهد را منقضی می‌کند.
 - restart یا refresh نباید سازوکار اصلی invalidation باشد؛ هر تغییر محتوای runtime patch باید URL تازه بسازد. راه‌اندازی برنامه و تأیید بصری کاربر همچنان برای پذیرش Live مستقل است.
+
+## ۴۴. گروه محتوایی پنج‌دقیقه‌ای و صف دولایهٔ آواتار
+
+- واحد دیداری timeline می‌تواند چند پیام منبع داشته باشد. پیام‌ها/آلبوم‌های مجاور فقط وقتی ادغام می‌شوند که identity فرستنده یکسان، ترتیب زمانی معتبر، فاصلهٔ هر واحد حداکثر 300 ثانیه و روز نمایشی یکسان باشد. آلبوم Provider واحد اتمیک است، ولی می‌تواند با پیام یا آلبوم بعدی همان فرستنده ادغام شود.
+- lookup گروه باید از پنجرهٔ کامل پیش از filter ساخته شود. fallback فرستندهٔ ورودی فقط برای personal/channel مجاز است؛ group بدون sender identity ادغام نمی‌شود تا پیام افراد ناشناس یکی نشود.
+- یک Card گروهی ترتیب text/image/file را حفظ می‌کند، اما selection، index feedback، usage، unread، focus و scroll semantics تمام member IDها را نگه می‌دارند. ادغام presentation مجوز ادغام یا حذف رکوردهای persistence نیست.
+- بارگیری آواتار cache-first است: probeهای cached-only در lane مستقل و پرتعداد اجرا می‌شوند و فقط miss وارد lane remote می‌شود. failure هر task باید resolve امن/TTL کوتاه داشته و lane را متوقف نکند؛ key و اجرای هر مرحله account-scoped است.
+- remote avatar concurrency عمداً یک است، چون Eitaa Core از session مشترک استفاده می‌کند و عملیات Provider نباید overlap شوند. استقلال UI/HTTP/cache/failure به معنی parallel کردن ناامن Provider نیست.
+- نبود photo reference قابل استفاده، privacy Provider یا دادهٔ stale با initials مهار می‌شود. تغییر contact codec/Core برای نگه‌داری عکس User یک سناریوی مستقل است و از این تصمیم استنتاج نمی‌شود.
+- شمارهٔ ۴۴ برای جلوگیری از برخورد با ADR-41 تا ADR-43 در کار موازی ایندکس رزرو شده است؛ این commit محتوای آن کار را شامل نمی‌شود.
+- مرجع: F-056، V-169/V-170 و `docs/reports/features/CONSECUTIVE_MESSAGE_GROUPING_AND_AVATAR_RESILIENCE_REPORT_2026-08-27.md`.

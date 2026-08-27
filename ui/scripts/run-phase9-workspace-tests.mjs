@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { accountScopeIsCurrent, accountStateKey, captureAccountScope } from '../src/lib/accountScope.mjs'
 import { adaptivePollDelay } from '../src/lib/polling.mjs'
+import { createAsyncTaskQueue } from '../src/lib/avatarQueue.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const source = name => readFileSync(resolve(here, '..', name), 'utf8')
@@ -12,6 +13,10 @@ const check = (name, callback) => {
   callback()
   passed += 1
   
+}
+const checkAsync = async (name, callback) => {
+  await callback()
+  passed += 1
 }
 
 check('account scope captures one immutable request account', () => {
@@ -53,6 +58,38 @@ check('Workspace remounts and module caches include account scope', () => {
   assert.match(source('src/lib/avatarLoader.ts'), /getClientStoragePrefix\(\)/)
 })
 
+await checkAsync('avatar cache probes and remote downloads use independent queues', async () => {
+  const cacheQueue = createAsyncTaskQueue(2)
+  const remoteQueue = createAsyncTaskQueue(1)
+  let releaseRemote
+  const remoteGate = new Promise(resolveGate => { releaseRemote = resolveGate })
+  const slowRemote = remoteQueue.run(async () => {
+    await remoteGate
+    return 'remote'
+  })
+  const fastCache = cacheQueue.run(async () => 'cached')
+  assert.equal(await fastCache, 'cached')
+  releaseRemote()
+  assert.equal(await slowRemote, 'remote')
+})
+
+await checkAsync('one failed avatar task does not stall the next task', async () => {
+  const queue = createAsyncTaskQueue(1)
+  const failed = queue.run(async () => { throw new Error('isolated failure') })
+  const next = queue.run(async () => 'next')
+  await assert.rejects(failed, /isolated failure/)
+  assert.equal(await next, 'next')
+})
+
+check('avatar loader is cache-first, account-scoped, and split into two lanes', () => {
+  const loader = source('src/lib/avatarLoader.ts')
+  assert.match(loader, /cached_only: true/)
+  assert.match(loader, /cached_only: false/)
+  assert.match(loader, /avatarCacheQueue/)
+  assert.match(loader, /avatarRemoteQueue/)
+  assert.match(loader, /requestStorageScope !== getClientStoragePrefix\(\)/)
+})
+
 check('long-running workspace jobs use adaptive polling', () => {
   const app = source('src/App.tsx')
   assert.ok((app.match(/waitForAdaptivePoll/g) || []).length >= 6)
@@ -92,8 +129,6 @@ check('microphase 2.3: favorite section is highlighted and positioned center on 
   assert.match(navigation, /'all', 'channel', 'favorite', 'group', 'personal'/)
   assert.match(navigation, /transform: 'translateY\(-8px\)'/)
 })
-
-process.stdout.write(`# ${passed}/${passed} Phase 9 workspace assertions passed\n`)
 
 check('microphase 3.1: header search is an overlay that captures focus', () => {
   const search = source('src/HeaderMessageSearch.tsx')

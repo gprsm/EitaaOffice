@@ -3664,3 +3664,77 @@ excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operatio
 next_action: documentation_closure_commit_normal_push_and_final_remote_verify
 output_summary: commit اصلی G-11 روی شاخهٔ کاری منتشر و با ثابت‌ماندن main زنده تأیید شد.
 ```
+
+## UX-MESSAGE-AVATAR-R01 — ادغام پیام‌های متوالی و تاب‌آوری آواتار
+
+### UX-MESSAGE-AVATAR-R01-S01 — تحلیل pre-image و RED قرارداد
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S01
+event: CONSECUTIVE_CONTENT_GROUPING_AND_AVATAR_QUEUE_RED
+started_at: 2026-08-27T08:20:00+03:30
+ended_at: 2026-08-27T08:45:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: READ_ONLY_DIAGNOSIS_AND_CONTROLLED_TEST_WRITE
+preimage: {head: 95624acfdf50bdb7b34f683da3c33fb99981c1a7, app_sha: 2a606c86..., message_card_sha: af2fcbb4..., grouping_sha: 32ad994d..., avatar_loader_sha: c1386ae4...}
+root_causes:
+  - visual grouping did not apply its time gap and excluded albums from adjacent content
+  - one three-slot avatar queue mixed cached-only potential work with remote downloads
+  - avatar rejection/unmount/account-switch handling and site-prefix cache clear were incomplete
+  - some sender photos have no usable Core photo reference and require initials fallback
+red:
+  grouped_media: {result: FAIL_EXPECTED, reason: buildMessageGroupLookup_missing}
+  workspace_queue: {result: FAIL_EXPECTED, reason: avatarQueue_module_missing}
+  python_contract: {result: FAIL_EXPECTED, passed: 6, failed: 1, reason: cached_only_two_lane_missing}
+privacy: {real_dialog_or_message_content_read: false, raw_peer_or_account_logged: false}
+external_effect: 0
+output_summary: RED معتبر دو قرارداد محصول را پیش از implementation ثابت کرد.
+```
+
+### UX-MESSAGE-AVATAR-R01-S02 — پیاده‌سازی و پذیرش هدفمند
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S02
+event: FIVE_MINUTE_MIXED_MESSAGE_GROUP_AND_TWO_LANE_AVATAR_IMPLEMENTATION
+started_at: 2026-08-27T08:45:00+03:30
+ended_at: 2026-08-27T09:12:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: SOURCE_TEST_BUILD
+message_contract: {max_gap_seconds: 300, same_display_day: true, pre_filter_lookup: true, provider_albums_atomic: true, mixed_order_preserved: true, group_unknown_sender_merge: false}
+avatar_contract: {cache_lane_concurrency: 6, remote_lane_concurrency: 1, cache_first: true, failure_ttl_seconds: 15, negative_ttl_seconds: 120, account_scope_rechecked: true, promise_failure_isolated: true}
+targeted:
+  grouped_media: 29/29
+  phase9_workspace_and_queue: 18/18
+  ui_material_python: 42/42
+  typescript: PASS
+  build: {result: PASS, modules: 1016, historical_large_chunk_warning: true}
+ui_regression: {canonical_runners: 9/9, scroll: 10/10, phase9_acceptance: 13/13, phase10: 7/7, phase11_onboarding: 7/7, phase11b2: 6/6}
+backend_full: {passed: 659, failed: 0, errors: 0, skipped: 0}
+operational_effect: controlled_test_and_ui_dist_artifacts_only
+provider_or_message_send: 0
+output_summary: گروه محتوایی و صف مستقل آواتار پیاده شد و کل regression کد/UI سبز است.
+```
+
+### UX-MESSAGE-AVATAR-R01-S03 — بسته‌بندی reproducible، fresh install و اسناد
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S03
+event: REPRODUCIBLE_OFFLINE_PACKAGE_FRESH_INSTALL_AND_DOCUMENTATION
+started_at: 2026-08-27T09:12:00+03:30
+ended_at: 2026-08-27T09:28:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: PACKAGE_OFFLINE_INSTALL_DOCUMENT
+package_tests: 15/15
+dry_run: {files: 282, write: 0, content_set: 35f58c157d019424f2f8987e57b59897f79fb150bfd733158f9852ee4c6c34c2, isolated_from_parallel_index_work: true}
+archives: {count: 2, byte_identical: true, file_count: 282, entries_with_manifest: 283, sha256: 1c52502df5bf19e51bf57dc684b5193065ad65d7db04296101c72feedcfb6900, internal_privacy_verifier: PASS}
+fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103}
+isolated_snapshot_checks: {docs: PASS, phase9: 18/18, grouped_attempt_a: ENV_ENOENT_NPM_WITHOUT_NODE_MODULES, grouped_retry_read_only_typescript_node_path: 29/29, product_change_for_retry: 0}
+documentation_scope: [F-056, V-169, V-170, ADR-44, baseline, specification, structure, handoff, feature_report, execution_log]
+concurrent_work_isolation: {index_improvement_files_detected: true, overwritten: false, included_in_scenario_commit: false, workbook_in_candidate: false}
+operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
+next_action: final_document_checks_then_isolated_working_branch_commit_push_verify
+output_summary: snapshot تازه reproducible/privacy-safe و نصب آفلاین سبز؛ Git باید فقط hunks همین سناریو را منتشر کند.
+```

@@ -614,3 +614,18 @@
 - انتشار آفلاین: wheel SHA=`ba05c810...`، دو archive canonical پس از ثبت ADR-40 با 282 فایل و SHA بایت‌یکسان=`08c5d5dd...` و content-set=`4ec774ed...`، verifier/privacy داخلی PASS و fresh venv فقط با wheelهای محلی و `--no-index` سبز است.
 - محدودیت شاهد: برنامه هنگام validation نهایی HTTP اجرا نبود و اتصال loopback رد شد؛ برنامه بدون اجازه راه‌اندازی نشد. تأیید بصری پس از بستن و اجرای دوبارهٔ برنامه هنوز بر عهدهٔ کاربر است و تا آن زمان ادعای Live-verified ثبت نمی‌شود.
 - Trigger ابطال: URL ثابت برای runtime patch، cache immutable روی asset بدون content hash، تغییر finalizer/static serving یا گزارش تکرار نمایش تاریخ قدیمی پس از restart.
+
+### F-056 — ادغام محتوایی پیام‌های متوالی و تفکیک مسیر آواتار تکمیل شد
+
+- وضعیت: `CLOSED_CODE_AND_FULL_AUTOMATED_ACCEPTANCE / USER_VISUAL_RECHECK_OPTIONAL`
+- تاریخ: 2026-08-27
+- دامنه: timeline پیام، آلبوم/رسانهٔ ترکیبی، انتخاب و پیمایش مجازی، cache و صف آواتار حساب‌محور.
+- مسئله: grouping قبلی فقط Cardهای جدا را از نظر گوشه و فاصله شبیه یک مجموعه می‌کرد، حد زمانی محاسبه‌شده اعمال نمی‌شد و آلبوم با متن/آلبوم بعدی ادغام نمی‌شد. صف سه‌تایی آواتار نیز cache probe و remote fetch را مخلوط می‌کرد؛ کار remote کند cache hitهای دیگر را عقب می‌انداخت و failure/stale account به‌اندازهٔ کافی مهار نمی‌شد.
+- اصلاح: `buildMessageGroupLookup` آلبوم‌های موجود و همهٔ محتوای متوالی یک فرستنده را تا پنج دقیقه و در همان روز نمایشی یک واحد می‌کند. renderer ترتیب text/image/file را حفظ، selection/index/usage/read/focus را روی همهٔ اعضا اعمال و follower مجازی را صفرارتفاع می‌کند. آواتار cache-first با صف cache شش‌تایی و remote تک‌صف امن، failure TTL کوتاه، scope guard و prefix صحیح پاک‌سازی اجرا می‌شود.
+- محدودیت داده: Core جاری photo reference مخاطب را از contact codec به مدل User منتقل نمی‌کند. عکس فرستندهٔ گروهی فقط اگر همان User در dialog catalog reference قابل استفاده داشته باشد بارگیری می‌شود؛ نبود/مخفی‌بودن/stale بودن reference به initials امن برمی‌گردد. گروه/کانال و personal dialog معمولاً reference مستقیم دارند و از صف تازه بهره می‌برند.
+- RED: grouped-media به‌علت نبود API تازه و Phase 9 به‌علت نبود module صف شکست خورد؛ contract Python نیز نبود cached-only/two-lane را ثابت کرد.
+- GREEN: grouped-media=`29/29`، queue/workspace=`18/18`، UI/Material regression=`42/42`، تمام ۹ runner UI، TypeScript و build 1016-module، full Backend=`659/659` سبز است.
+- حریم خصوصی/عملیات: دادهٔ واقعی، login/OTP، ارسال، WordPress، Provider mutation و فایل عملیاتی صفر؛ فقط fixture مصنوعی و artifact آزمون/بسته‌بندی ایجاد شد.
+- شناسهٔ F-056 برای جلوگیری از برخورد با F-051 تا F-055 در کار موازی ایندکس رزرو شد؛ فایل‌های آن کار در این commit نیستند.
+- مرجع: `docs/reports/features/CONSECUTIVE_MESSAGE_GROUPING_AND_AVATAR_RESILIENCE_REPORT_2026-08-27.md`، ADR-44 و V-169/V-170.
+- Trigger بازبینی: تغییر threshold/identity/day rule، ساخت lookup پس از filter، parallel کردن نشست Provider، تغییر Core photo codec/catalog یا گزارش شکست بصری روی دادهٔ واقعی.

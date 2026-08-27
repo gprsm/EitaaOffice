@@ -17,7 +17,7 @@ const entry = path.resolve('src/lib/groupedMedia.ts')
 const source = await readFile(entry, 'utf8')
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
 const encoded = Buffer.from(compiled).toString('base64')
-const { albumCaption, buildAlbumLookup } = await import(`data:text/javascript;base64,${encoded}`)
+const { albumCaption, buildAlbumLookup, buildMessageGroupLookup, messageGroupText } = await import(`data:text/javascript;base64,${encoded}`)
 
 function message(id, groupedId, text = '', options = {}) {
   return {
@@ -26,6 +26,8 @@ function message(id, groupedId, text = '', options = {}) {
     text,
     date: options.date || new Date(Date.UTC(2026, 0, 1, 10, 0, id)).toISOString(),
     sender_key: options.senderKey || null,
+    sender_username: options.senderUsername || null,
+    outgoing: options.outgoing || false,
     reply_to_message_id: options.replyTo ?? null,
     media: options.image ? { is_image: true, type: 'photo' } : null,
   }
@@ -76,4 +78,44 @@ assert.equal(inferredLookup.has(50), false, 'more than 120 seconds must break an
 assert.equal(inferredLookup.has(60), false, 'non-adjacent message ids must break an inferred gallery')
 assert.equal(inferredLookup.has(70), false, 'different reply contexts must break an inferred gallery')
 
-console.log('# 16/16 grouped-media UI model assertions passed')
+const timelineMessages = [
+  message(80, null, 'متن پیش از عکس', { senderKey: 'user:20', date: '2026-01-01T15:00:00Z' }),
+  message(81, null, '', { image: true, senderKey: 'user:20', date: '2026-01-01T15:01:00Z' }),
+  message(82, null, '', { image: true, senderKey: 'user:20', date: '2026-01-01T15:02:00Z' }),
+  message(83, null, 'متن پس از عکس', { senderKey: 'user:20', date: '2026-01-01T15:03:00Z' }),
+  message(90, 9100, '', { image: true, senderKey: 'user:30', date: '2026-01-01T16:00:00Z' }),
+  message(91, 9100, '', { image: true, senderKey: 'user:30', date: '2026-01-01T16:00:05Z' }),
+  message(92, 9200, '', { image: true, senderKey: 'user:30', date: '2026-01-01T16:00:10Z' }),
+  message(93, 9200, '', { image: true, senderKey: 'user:30', date: '2026-01-01T16:00:15Z' }),
+  message(100, null, 'الف', { senderKey: 'user:40', date: '2026-01-01T17:00:00Z' }),
+  message(101, null, 'ب', { senderKey: 'user:41', date: '2026-01-01T17:00:10Z' }),
+  message(102, null, 'ج', { senderKey: 'user:40', date: '2026-01-01T17:00:20Z' }),
+  message(110, null, 'قدیمی', { senderKey: 'user:50', date: '2026-01-01T18:00:00Z' }),
+  message(111, null, 'جدید', { senderKey: 'user:50', date: '2026-01-01T18:05:01Z' }),
+  message(120, null, 'خروجی یک', { outgoing: true, date: '2026-01-01T19:00:00Z' }),
+  message(121, null, 'خروجی دو', { outgoing: true, date: '2026-01-01T19:00:10Z' }),
+  message(130, null, 'پیش از نیمه‌شب', { senderKey: 'user:60', date: '2026-01-01T23:59:55+03:30' }),
+  message(131, null, 'پس از نیمه‌شب', { senderKey: 'user:60', date: '2026-01-02T00:00:05+03:30' }),
+]
+const timelineLookup = buildMessageGroupLookup(timelineMessages)
+
+assert.deepEqual(timelineLookup.get(80).messages.map(item => item.id), [80, 81, 82, 83], 'text-photo-photo-text must render as one sender block')
+assert.equal(timelineLookup.get(80), timelineLookup.get(83), 'every mixed-content member resolves to one group')
+assert.equal(messageGroupText(timelineLookup.get(80).messages), 'متن پیش از عکس\n\nمتن پس از عکس', 'group text keeps chronological content')
+assert.deepEqual(timelineLookup.get(90).messages.map(item => item.id), [90, 91, 92, 93], 'back-to-back server albums from one sender must merge')
+assert.equal(timelineLookup.get(90).kind, 'timeline', 'merged albums become one timeline group')
+assert.equal(timelineLookup.has(100), false, 'an intervening sender keeps the first message independent')
+assert.equal(timelineLookup.has(102), false, 'messages are not merged across an intervening sender')
+assert.equal(timelineLookup.has(110), false, 'more than five minutes breaks the group')
+assert.equal(timelineLookup.has(111), false, 'the later message after the gap remains independent')
+assert.equal(timelineLookup.get(120), timelineLookup.get(121), 'outgoing messages group without sender metadata')
+assert.equal(timelineLookup.has(130), false, 'a local display-day boundary breaks the group')
+assert.equal(timelineLookup.has(131), false, 'the new display day begins a separate block')
+
+const fallbackLookup = buildMessageGroupLookup([
+  message(140, null, 'یک', { date: '2026-01-01T20:00:00Z' }),
+  message(141, null, 'دو', { date: '2026-01-01T20:00:10Z' }),
+], { fallbackIncomingSenderKey: 'dialog:personal:1' })
+assert.equal(fallbackLookup.get(140), fallbackLookup.get(141), 'personal/channel fallback identity can group missing sender metadata')
+
+console.log('# 29/29 grouped-media UI model assertions passed')

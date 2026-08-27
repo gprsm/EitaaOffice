@@ -8,8 +8,8 @@ import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import { api, ApiError, AUTH_SESSION_INVALID_EVENT, query, scopedStorageKey } from './lib/api'
-import { albumCaption, buildAlbumLookup } from './lib/groupedMedia'
-import type { MediaAlbum } from './lib/groupedMedia'
+import { buildMessageGroupLookup, messageGroupText } from './lib/groupedMedia'
+import type { MessageGroup } from './lib/groupedMedia'
 import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isNearBottom, mergeMessagesById, shouldAutoFollow, stableMessageKey, updateTopPaginationGate } from './lib/scrollMath'
 import type { MessageScrollMemory, ScrollAnchor, TopPaginationGate } from './lib/scrollMath'
 import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, SenderFilterOption, Site, Term } from './lib/types'
@@ -80,7 +80,7 @@ function DialogAvatar({ dialog, siteKey, small = false }: { dialog: DialogItem |
     {src === undefined
       ? <Skeleton variant="circular" animation="wave" width="100%" height="100%" />
       : src
-        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" onError={() => setSrc(null)} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : initials(titleFor(dialog))}
   </Avatar>
 }
@@ -1310,12 +1310,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     ],
   })), [contentIndexResults, hasContentIndex, messages])
 
-  const messageAlbumLookup = useMemo(() => buildAlbumLookup(indexedMessages), [indexedMessages])
+  const messageGroupLookup = useMemo(() => buildMessageGroupLookup(indexedMessages, {
+    fallbackIncomingSenderKey: dialog && dialog.display_kind !== 'group' ? dialog.peer_key : null,
+  }), [dialog, indexedMessages])
 
   const filteredMessages = useMemo(() => {
     const q = messageSearch.trim().toLowerCase()
     return indexedMessages.filter(item => {
-      const members = messageAlbumLookup.get(item.id)?.messages || [item]
+      const members = messageGroupLookup.get(item.id)?.messages || [item]
       if (!showWordPressUsed && members.some(member => member.usage.used)) return false
       if (
         selectedIndexLabel !== null
@@ -1330,7 +1332,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       ) return false
       return true
     })
-  }, [indexedMessages, messageAlbumLookup, messageSearch, selectedIndexLabel, selectedSenderKey, showWordPressUsed])
+  }, [indexedMessages, messageGroupLookup, messageSearch, selectedIndexLabel, selectedSenderKey, showWordPressUsed])
 
   const indexFilterLabels = useMemo(() => {
     const labels = new Map<number, string>()
@@ -1525,13 +1527,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
 
   const toggleMessage = (message: MessageItem) => {
     if (!dialog) return
-    const albumMessages = messageAlbumLookup.get(message.id)?.messages || [message]
-    const usedMessage = albumMessages.find(item => item.usage.used)
+    const groupMessages = messageGroupLookup.get(message.id)?.messages || [message]
+    const usedMessage = groupMessages.find(item => item.usage.used)
     if (usedMessage && !selectionMode && selectedKeys.length === 0) {
       setActiveUsage({ message: usedMessage, usage: usedMessage.usage })
       return
     }
-    const keys = albumMessages.map(item => messageKey(dialog, item))
+    const keys = groupMessages.map(item => messageKey(dialog, item))
     setSelectedKeys(current => {
       const remove = keys.every(key => current.includes(key))
       return remove ? current.filter(item => !keys.includes(item)) : [...new Set([...current, ...keys])]
@@ -1637,7 +1639,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           onSearch={setMessageSearch}
           onOpenComposer={() => setComposerOpen(true)}
         />
-        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
@@ -1769,7 +1771,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   </Box>
 }
 
-function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
+function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastScroll = useRef(0)
   const nearBottomRef = useRef(true)
@@ -1784,7 +1786,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   const [floatingDate, setFloatingDate] = useState('')
   const memoryKey = props.readReceiptsEnabled ? props.dialog.peer_key : `${props.dialog.peer_key}:filtered`
   const dayKeys = useMemo(() => props.messages.map(message => jalaliDayKey(message.date)), [props.messages])
-  const albumLookup = useMemo(() => buildAlbumLookup(props.messages), [props.messages])
+  const groupLookup = props.groupLookup
 
   const firstUnreadCandidateIndex = useMemo(() => {
     if (!props.messages.length || props.dialog.unread_count <= 0) return -1
@@ -1798,9 +1800,9 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   const firstUnreadIndex = useMemo(() => {
     if (firstUnreadCandidateIndex < 0) return -1
     const candidate = props.messages[firstUnreadCandidateIndex]
-    const album = candidate ? albumLookup.get(candidate.id) : undefined
-    return album ? props.messages.findIndex(message => message.id === album.leader.id) : firstUnreadCandidateIndex
-  }, [albumLookup, firstUnreadCandidateIndex, props.messages])
+    const group = candidate ? groupLookup.get(candidate.id) : undefined
+    return group ? props.messages.findIndex(message => message.id === group.leader.id) : firstUnreadCandidateIndex
+  }, [firstUnreadCandidateIndex, groupLookup, props.messages])
 
   const virtualizer = useVirtualizer({
     count: props.messages.length,
@@ -1809,10 +1811,10 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
     estimateSize: index => {
       let message = props.messages[index]
       if (!message) return 120
-      const album = albumLookup.get(message.id)
-      if (album && album.leader.id !== message.id) return 0
-      const caption = album ? albumCaption(album.messages) : message.text
-      if (album) message = { ...message, text: caption, text_length: caption.length }
+      const group = groupLookup.get(message.id)
+      if (group && group.leader.id !== message.id) return 0
+      const caption = group ? messageGroupText(group.messages) : message.text
+      if (group) message = { ...message, text: caption, text_length: caption.length }
       const hasDaySeparator = index === 0 || dayKeys[index - 1] !== dayKeys[index]
       return estimateMessageRowSize(message, hasDaySeparator, index === firstUnreadIndex)
     },
@@ -1861,7 +1863,8 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       .filter(row => row.index >= firstUnreadIndex && row.start >= scrollTop - 1 && row.end <= viewportBottom)
       .map(row => props.messages[row.index])
       .filter((message): message is MessageItem => Boolean(message) && !message.outgoing)
-      .flatMap(message => albumLookup.get(message.id)?.messages || [message])
+      .filter(message => !groupLookup.has(message.id) || groupLookup.get(message.id)?.leader.id === message.id)
+      .flatMap(message => groupLookup.get(message.id)?.messages || [message])
       .filter(message => !message.outgoing)
     if (!visible.length) return
     const maxId = Math.max(...visible.map(message => message.id))
@@ -1873,7 +1876,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       void props.markRead(props.dialog, maxId, remaining)
       readTimer.current = null
     }, 2200)
-  }, [albumLookup, firstUnreadIndex, props.dialog, props.markRead, props.messages, props.readReceiptsEnabled, virtualizer])
+  }, [firstUnreadIndex, groupLookup, props.dialog, props.markRead, props.messages, props.readReceiptsEnabled, virtualizer])
 
   useEffect(() => {
     const element = parentRef.current
@@ -2004,7 +2007,9 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   useLayoutEffect(() => {
     if (!props.focusMessageId || !props.focusEpoch) return
     const element = parentRef.current
-    const targetIndex = props.messages.findIndex(message => message.id === props.focusMessageId)
+    const focusedGroup = groupLookup.get(props.focusMessageId)
+    const targetMessageId = focusedGroup?.leader.id || props.focusMessageId
+    const targetIndex = props.messages.findIndex(message => message.id === targetMessageId)
     if (!element || targetIndex < 0) return
     positioned.current = true
     programmaticScroll.current = true
@@ -2018,7 +2023,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       })
     })
     return () => window.cancelAnimationFrame(firstFrame)
-  }, [persistScrollMemory, props.focusEpoch, props.focusMessageId, props.messages, virtualizer])
+  }, [groupLookup, persistScrollMemory, props.focusEpoch, props.focusMessageId, props.messages, virtualizer])
 
   useLayoutEffect(() => {
     const currentTailId = props.messages[props.messages.length - 1]?.id ?? null
@@ -2059,35 +2064,17 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       {virtualizer.getVirtualItems().map(row => {
         const message = props.messages[row.index]
         const key = messageKey(props.dialog, message)
-        const album = albumLookup.get(message.id)
-        const isAlbumFollower = Boolean(album && album.leader.id !== message.id)
+        const group = groupLookup.get(message.id)
+        const isGroupFollower = Boolean(group && group.leader.id !== message.id)
+        const focused = group
+          ? group.messages.some(member => member.id === props.focusMessageId)
+          : message.id === props.focusMessageId
 
-        // Calculate timelineGroup
-        const prevMessage = row.index > 0 ? props.messages[row.index - 1] : null
-        const nextMessage = row.index < props.messages.length - 1 ? props.messages[row.index + 1] : null
-
-        const isSameSenderAsPrev = prevMessage && prevMessage.sender_key === message.sender_key && prevMessage.outgoing === message.outgoing
-        const isSameSenderAsNext = nextMessage && nextMessage.sender_key === message.sender_key && nextMessage.outgoing === message.outgoing
-
-        const timeDiffPrev = prevMessage ? new Date(message.date).getTime() - new Date(prevMessage.date).getTime() : Infinity
-        const timeDiffNext = nextMessage ? new Date(nextMessage.date).getTime() - new Date(message.date).getTime() : Infinity
-
-        const groupWithPrev = isSameSenderAsPrev && !albumLookup.has(prevMessage.id)
-        const groupWithNext = isSameSenderAsNext && !albumLookup.has(message.id)
-
-        let timelineGroup: 'none' | 'start' | 'middle' | 'end' = 'none'
-        if (groupWithPrev && groupWithNext) timelineGroup = 'middle'
-        else if (groupWithPrev) timelineGroup = 'end'
-        else if (groupWithNext) timelineGroup = 'start'
-
-        // Wait, for albums, the whole album is one card, so we should consider album's leader.
-        // To be safe, just don't group albums for now, or just let it be.
-
-        return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isAlbumFollower ? 0 : (timelineGroup === 'middle' || timelineGroup === 'end' ? 0.2 : 0.75), height: isAlbumFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isAlbumFollower ? 'strict' : 'layout style', pointerEvents: isAlbumFollower ? 'none' : undefined, transform: `translateY(${row.start}px)`, '& > article': message.id === props.focusMessageId ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => `0 0 0 7px ${theme.palette.action.selected}` } : undefined }}>
-          {!isAlbumFollower && <>
+        return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isGroupFollower ? 0 : 0.75, height: isGroupFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isGroupFollower ? 'strict' : 'layout style', pointerEvents: isGroupFollower ? 'none' : undefined, transform: `translateY(${row.start}px)`, '& > article': focused ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => `0 0 0 7px ${theme.palette.action.selected}` } : undefined }}>
+          {!isGroupFollower && <>
           {(row.index === 0 || dayKeys[row.index - 1] !== dayKeys[row.index]) && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'text.secondary' }}><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /><Chip label={jalaliDayLabel(message.date)} size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /></Stack>}
           {row.index === firstUnreadIndex && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'error.main' }}><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /><Chip label={`${props.dialog.unread_count.toLocaleString('fa-IR')} پیام خوانده‌نشده`} size="small" color="error" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /></Stack>}
-          <MessageContentCard siteKey={props.siteKey} timelineGroup={timelineGroup} dialog={props.dialog} message={message} album={album} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, album?.messages || [message])} openUsage={() => props.openUsage(message)} />
+          <MessageContentCard siteKey={props.siteKey} dialog={props.dialog} message={message} group={group} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, group?.messages || [message])} openUsage={() => props.openUsage(group?.messages.find(item => item.usage.used) || message)} />
           </>}
         </Box>
       })}

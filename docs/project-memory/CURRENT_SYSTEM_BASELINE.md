@@ -1,9 +1,11 @@
 # وضعیت پایهٔ فعلی پروژه
 
-تاریخ مبنا: ۲۰۲۶-۰۸-۲۵  
-آخرین همسان‌سازی: G-11 و اصلاح تحویل cache-busted رابط در ۲۰۲۶-۰۸-۲۷  
+تاریخ مبنا: ۲۰۲۶-۰۸-۲۷
+آخرین همسان‌سازی: UX-MESSAGE-AVATAR-R01؛ ادغام پیام متوالی و صف مستقل آواتار در ۲۰۲۶-۰۸-۲۷
 وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-162، F-039 تا F-050 و گزارش‌های تثبیت؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+منابع شاهد جاری: V-103، V-108 تا V-162، V-169/V-170، F-039 تا F-050 و F-056؛ شناسه‌های میانی برای کار موازی ایندکس رزرو شده‌اند و در این snapshot حضور ندارند.
+
+Milestone UX-MESSAGE-AVATAR-R01: پیام‌ها و آلبوم‌های مجاور یک فرستنده تا پنج دقیقه و در همان روز نمایشی یک Card محتوایی می‌شوند؛ متن، run عکس و فایل به ترتیب timeline حفظ می‌شوند و انتخاب/ایندکس/usage/unread/focus همهٔ member IDها را نگه می‌دارند. آواتار cache-first و account-scoped است؛ lane سریع cached-only از lane remote تک‌صف امن جداست و failure یک peer بقیه را reject یا متوقف نمی‌کند. full Backend=`659/659`، هر ۹ runner UI، TypeScript و build 1016-module سبز است. نبود photo reference بعضی Userهای گروهی محدودیت Core است و امن به initials برمی‌گردد؛ عملیات Live/Provider انجام نشد.
 
 Milestone تثبیت 2026-08-25: G-00 یک baseline deterministic و قابل‌بازگشت از 613 فایل امن با receipt/SHA-256 ایجاد و repository ریشه را به تاریخچهٔ محلی `legacy/main` متصل کرد. هیچ stage/commit انجام نشده است. V-103 روی snapshot منتقل‌شده Backend=`587 collected / 585 passed / 2 failed` و دو contract شکستهٔ UI را ثبت کرد؛ بنابراین نتیجه‌های قدیمی `590/590` وضعیت جاری را اثبات نمی‌کنند.
 
@@ -112,7 +114,8 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 - صفحهٔ ورود اکنون دکمهٔ «کاربر جدید هستم» دارد و ثبت‌نام خودخدمت در شبکهٔ خصوصی، بدون امکان انتخاب نقش مدیر، انجام می‌شود.
 - سطح‌های فعال React فقط از Material UI و `theme/sx` استفاده می‌کنند؛ `className` و stylesheetهای اختصاصی قدیمی از graph اجرایی حذف شده‌اند.
 - مسیرهای اصلی UI به `WorkspaceNavigation`، `ConversationListPage`، `ChatHeader`، `SettingsPage`، `ContactDirectoryModal`، Gateهای Auth/Account و `MaterialToast` تفکیک شده‌اند؛ `App.tsx` orchestration state مشترک را نگه می‌دارد.
-- محتوای هر پیام در module مستقل `MessageContentCard.tsx` و با Cardهای Material نمایش داده می‌شود؛ نام نویسنده در Header است، نام Contact اولویت دارد مگر عنوان عمومی `Eitaa/ایتا` باشد، و رسانه/گالری/متن بلند/انتخاب/ایندکس/WordPress در همان component حفظ شده‌اند.
+- محتوای پیام در module مستقل `MessageContentCard.tsx` و با Cardهای Material نمایش داده می‌شود؛ پیام‌ها/آلبوم‌های متوالی همان فرستنده تا پنج دقیقه یک Card هستند و ترتیب متن، عکس و فایل حفظ می‌شود. نام نویسنده در Header است، نام Contact اولویت دارد مگر عنوان عمومی `Eitaa/ایتا` باشد، و انتخاب/ایندکس/WordPress روی همهٔ اعضای گروه اعمال می‌شود.
+- آواتار گفتگو cache-first، account-scoped و failure-isolated است. cache probe و remote fetch lane مستقل دارند؛ remote برای حفاظت session مشترک Eitaa سریال می‌ماند. personal با sender key ناقص از peer گفتگو استفاده می‌کند و نبود/خرابی photo reference به initials برمی‌گردد.
 - صفحهٔ ورود Material در مرکز و mobile-first است و panel معرفی معماری ندارد. نشست قطعی نامعتبر به‌صورت backup-safe و audit‌شده بازیابی و درخواست کد خودکار آغاز می‌شود؛ نشست سالم هرگز با `automatic_recovery` archive نمی‌شود و OTP/رمز دوم Provider همچنان الزامی‌اند.
 - نشست AppUser و نشست Provider در client lifecycle مستقل‌اند؛ invalid شدن Eitaa توکن CSRF کاربر نرم‌افزار را پاک نمی‌کند. OTP رقم فارسی/عربی، فاصله و directional mark را امن نرمال می‌کند، خطای کد اشتباه/منقضی متن قابل اقدام دارد و دریافت کد تازه بدون افشای جزئیات نشست ممکن است.
 - فونت runtime رابط `IRANSans` است و وزن‌های 400/700 از دو فایل محلی موجود، مستقیماً در `MuiCssBaseline` ثبت می‌شوند؛ fallback سیستم فقط در صورت شکست فایل استفاده می‌شود.

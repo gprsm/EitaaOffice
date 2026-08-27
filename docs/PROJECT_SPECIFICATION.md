@@ -50,6 +50,8 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - رابط React RTL در Electron یا Web/LAN کنترل‌شده.
 - Design System الزامی Material UI، shell موبایل/دسکتاپ مشترک‌منطق، safe-area و touch target حداقل 44px.
 - دریافت خودکار near-real-time پیام گفتگوی باز و فهرست گفتگوها؛ merge محدود بدون reload و بدون retry mutation.
+- ادغام دیداری پیام/آلبوم‌های مجاور یک فرستنده در همان روز و با فاصلهٔ حداکثر پنج دقیقه، با حفظ ترتیب متن/عکس/فایل و شناسهٔ مستقل هر پیام منبع.
+- بارگیری آواتار cache-first و account-scoped با lane مستقل cache/remote، failure isolation و fallback امن initials؛ عملیات remote Provider باید با قرارداد session مشترک هم‌پوشانی نکند.
 - integrationهای WordPress برای site/content/media، به‌صورت اختیاری.
 - endpoint امن Capability برای هر MessengerAccount و guard عمومی Dialog/History/Send/Media/Contacts.
 - endpointهای v2 حساب‌محور برای Dialog/History/Text Send/Media read/Contact list/upsert با context سروری، correlation/deadline، payload allowlist، تأیید mutation و idempotency پایدار.

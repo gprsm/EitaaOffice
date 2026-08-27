@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 316
-- اثرانگشت منبع: `930b9912607f599c`
+- تعداد فایل‌های نقشه: 262
+- اثرانگشت منبع: `10be53905d1634bb`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -19,50 +19,6 @@
 | `scripts/create_diagnostics_bundle.py` | Operations/tooling | 11 | — |
 | `scripts/create_shortcuts.ps1` | Operations/tooling | 0 | — |
 | `scripts/doctor.py` | Operations/tooling | 0 | — |
-| `scripts/extract_block.py` | Operations/tooling | 0 | — |
-| `scripts/extract_helpers.py` | Operations/tooling | 0 | — |
-| `scripts/extract_jalali.py` | Operations/tooling | 0 | — |
-| `scripts/extracted_block.ts` | Operations/tooling | 30 | — |
-| `scripts/find_end.py` | Operations/tooling | 0 | — |
-| `scripts/find_fav.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app2.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app3.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app4.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app_final.js` | Operations/tooling | 0 | — |
-| `scripts/fix_app_index_props.js` | Operations/tooling | 0 | — |
-| `scripts/fix_app_index_props_real.js` | Operations/tooling | 0 | — |
-| `scripts/fix_app_re.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app_syntax.js` | Operations/tooling | 0 | — |
-| `scripts/fix_appuser.js` | Operations/tooling | 0 | — |
-| `scripts/fix_appuser.py` | Operations/tooling | 0 | — |
-| `scripts/fix_border.js` | Operations/tooling | 0 | — |
-| `scripts/fix_chatheader.js` | Operations/tooling | 0 | — |
-| `scripts/fix_chatheader.py` | Operations/tooling | 0 | — |
-| `scripts/fix_contracts.py` | Operations/tooling | 0 | — |
-| `scripts/fix_db.py` | Operations/tooling | 0 | — |
-| `scripts/fix_favorite.py` | Operations/tooling | 0 | — |
-| `scripts/fix_helpers.py` | Operations/tooling | 0 | — |
-| `scripts/fix_helpers_re.py` | Operations/tooling | 0 | — |
-| `scripts/fix_icon.js` | Operations/tooling | 0 | — |
-| `scripts/fix_identity.py` | Operations/tooling | 0 | — |
-| `scripts/fix_imports.py` | Operations/tooling | 0 | — |
-| `scripts/fix_index_props.js` | Operations/tooling | 0 | — |
-| `scripts/fix_indexEnabled.py` | Operations/tooling | 0 | — |
-| `scripts/fix_pagination.js` | Operations/tooling | 0 | — |
-| `scripts/fix_search.py` | Operations/tooling | 0 | — |
-| `scripts/fix_skeleton.js` | Operations/tooling | 0 | — |
-| `scripts/fix_style.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test2.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test3.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test4.py` | Operations/tooling | 0 | — |
-| `scripts/fix_tests.js` | Operations/tooling | 0 | — |
-| `scripts/fix_tooltip.js` | Operations/tooling | 0 | — |
-| `scripts/fix_zindex.py` | Operations/tooling | 0 | — |
-| `scripts/gen_filter_dialog.js` | Operations/tooling | 1 | — |
-| `scripts/gen_index_dialog.js` | Operations/tooling | 2 | — |
-| `scripts/get_prompt.js` | Operations/tooling | 0 | — |
 | `scripts/gmi4_smoke.py` | Operations/tooling | 2 | Deterministic no-network smoke suite for source and installed-wheel validation. |
 | `scripts/migrate_legacy_account.py` | Operations/tooling | 6 | Interactive, no-network migration utility for the initial legacy Eitaa account. |
 | `scripts/office_runtime.py` | Operations/tooling | 54 | — |
@@ -74,24 +30,13 @@
 | `scripts/phase10_log_redaction_verify.py` | Operations/tooling | 7 | Scan every runtime JSONL log without echoing paths, account ids, or values. |
 | `scripts/phase10_rewrap_app_auth_key.py` | Operations/tooling | 1 | Rewrap the live AppUser subject key for stable local-machine execution. |
 | `scripts/phase10d_copy_rehearsal.py` | Operations/tooling | 4 | Restore and roll back a verified backup only inside an isolated temporary copy. |
-| `scripts/phase5_grouping.js` | Operations/tooling | 0 | — |
 | `scripts/prepare_windows_release.py` | Operations/tooling | 3 | — |
-| `scripts/read_btn.py` | Operations/tooling | 0 | — |
-| `scripts/read_sync.py` | Operations/tooling | 0 | — |
 | `scripts/refresh_project_docs.py` | Operations/tooling | 11 | Generate safe project maps and document indexes without reading runtime data. |
 | `scripts/restore_runtime.py` | Operations/tooling | 6 | — |
 | `scripts/runtime_state.py` | Operations/tooling | 9 | — |
 | `scripts/scan_diagnostics_bundle.py` | Operations/tooling | 5 | Verify a diagnostics ZIP without echoing any bundled value. |
-| `scripts/screenshot.ps1` | Operations/tooling | 0 | — |
 | `scripts/stabilization_baseline.py` | Operations/tooling | 14 | — |
 | `scripts/sync_ui_fonts.py` | Operations/tooling | 2 | — |
-| `scripts/test_api.py` | Operations/tooling | 0 | — |
-| `scripts/test_unprotect.py` | Operations/tooling | 0 | — |
-| `scripts/update_app.js` | Operations/tooling | 0 | — |
-| `scripts/update_docs_phase3.js` | Operations/tooling | 0 | — |
-| `scripts/update_findings.py` | Operations/tooling | 0 | — |
-| `scripts/update_ledger.py` | Operations/tooling | 0 | — |
-| `scripts/update_tests.js` | Operations/tooling | 0 | — |
 | `scripts/write_iexpress_sed.py` | Operations/tooling | 1 | — |
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
@@ -268,7 +213,7 @@
 | `tests/test_ui32_composer_usage_layout.py` | Python test | 5 | — |
 | `tests/test_ui33_usage_reading_position.py` | Python test | 7 | — |
 | `tests/test_ui3_dialog_operations.py` | Python test | 6 | — |
-| `tests/test_ui_repair.py` | Python test | 8 | — |
+| `tests/test_ui_repair.py` | Python test | 9 | — |
 | `tests/test_wordpress_client.py` | Python test | 33 | — |
 | `tests/test_wordpress_taxonomies.py` | Python test | 5 | — |
 | `ui/electron/main.cjs` | Electron shell | 24 | — |
@@ -283,7 +228,7 @@
 | `ui/scripts/run-phase11-onboarding-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase11b2-orchestration-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase9-acceptance-tests.mjs` | UI validation | 2 | — |
-| `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 2 | — |
+| `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
 | `ui/src/App.tsx` | React UI | 68 | — |
@@ -299,15 +244,16 @@
 | `ui/src/HeaderMessageSearch.tsx` | React UI | 3 | — |
 | `ui/src/lib/accountScope.mjs` | React UI | 3 | — |
 | `ui/src/lib/api.ts` | React UI | 17 | — |
-| `ui/src/lib/avatarLoader.ts` | React UI | 5 | — |
-| `ui/src/lib/groupedMedia.ts` | React UI | 6 | — |
+| `ui/src/lib/avatarLoader.ts` | React UI | 6 | — |
+| `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
+| `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |
 | `ui/src/lib/polling.mjs` | React UI | 3 | — |
 | `ui/src/lib/scrollMath.ts` | React UI | 8 | — |
 | `ui/src/lib/types.ts` | React UI | 0 | — |
 | `ui/src/LoginExperience.tsx` | React UI | 6 | — |
 | `ui/src/main.tsx` | React UI | 7 | — |
 | `ui/src/MaterialToast.tsx` | React UI | 3 | — |
-| `ui/src/MessageContentCard.tsx` | React UI | 7 | — |
+| `ui/src/MessageContentCard.tsx` | React UI | 8 | — |
 | `ui/src/MessageFilterDialog.tsx` | React UI | 1 | — |
 | `ui/src/MessageIndexEditor.tsx` | React UI | 1 | — |
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |

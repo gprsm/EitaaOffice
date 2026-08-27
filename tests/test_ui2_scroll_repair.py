@@ -64,8 +64,8 @@ def test_late_media_and_status_overlays_do_not_change_scroll_flow_height():
     app = (APP.read_text(encoding="utf-8") + (APP.parent / "utils" / "helpers.tsx").read_text(encoding="utf-8"))
     message_card = MESSAGE_CARD.read_text(encoding="utf-8")
 
-    assert "aspectRatio: album || mediaDisplay === 'framed' ? '4 / 3' : 'auto'" in message_card
-    assert "objectFit: album ? 'cover' : 'contain'" in message_card
+    assert "aspectRatio: gallery || mediaDisplay === 'framed' ? '4 / 3' : 'auto'" in message_card
+    assert "objectFit: gallery ? 'cover' : 'contain'" in message_card
     assert '<Box aria-hidden="true" sx={{ position: \'sticky\'' in app
     assert "height: 0" in app and "pointerEvents: 'none'" in app
     assert "overflowAnchor: 'none'" in app

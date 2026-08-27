@@ -1,5 +1,14 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
+## سناریوی UX-MESSAGE-AVATAR-R01 — ادغام پیام و تاب‌آوری آواتار
+
+- پیام‌ها/پست‌ها و آلبوم‌های مجاور یک فرستنده تا پنج دقیقه، بدون عبور از روز نمایشی، در یک Card ادغام می‌شوند. text→image، image→text، چند run عکس، فایل و دو آلبوم پشت‌سرهم پوشش دارند؛ persistence هر پیام مستقل مانده است.
+- lookup از پیام‌های کامل پیش از filter ساخته می‌شود؛ در گروه sender ناشناس ادغام نمی‌شود. selection، index، usage، unread، focus و virtual scroll memberهای گروه را حفظ می‌کنند.
+- آواتار cache-first است: cached-only lane مستقل شش‌تایی دارد و remote lane برای حفاظت session مشترک Eitaa تک‌صف می‌ماند. failure TTL کوتاه، stale-account guard، cache-prefix صحیح، image error fallback و personal peer fallback افزوده شد.
+- بعضی Userهای گروهی photo reference قابل استفاده در Core ندارند؛ این مورد با initials مهار می‌شود و اصلاح codec/schema سناریوی جداست. گروه/کانال و personal dialog دارای reference از صف تازه بهره می‌برند.
+- REDهای برنامه‌ریزی‌شده نبود group API/queue را ثابت کردند. GREEN: grouped=`29/29`، workspace/queue=`18/18`، UI regression=`42/42`، تمام ۹ runner UI، TypeScript، build 1016-module و full Backend=`659/659`.
+- هیچ Live/Provider/Login/OTP/Send/WordPress یا فایل عملیاتی لمس نشد. مرجع=`F-056 / ADR-44 / V-169..V-170` و گزارش feature متناظر است؛ شناسه‌های میانی متعلق به کار موازی ایندکس و خارج از این commit هستند.
+
 ## closure فنی G-11 — تحویل cache-busted پیام‌های تازه
 
 - گزارش پس از G-10 ثابت کرد گروه نمونه در UI هنوز ۶ مرداد را نشان می‌دهد، در حالی که storage جاری همان peer 674 پیام تا ۴ شهریور و 254 پیام پس از checkpoint قدیمی دارد. storage تاریخی دقیقاً روی ۶ مرداد متوقف بود؛ عنوان، شناسه و متن پیام در لاگ مهندسی ثبت نشد.

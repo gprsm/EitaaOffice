@@ -109,5 +109,25 @@ def test_dialog_sync_and_avatar_ui_do_not_report_benign_or_fetch_remote_work():
     assert "IntersectionObserver" in app
     assert "loadDialogAvatar" in app
     assert "peekDialogAvatar" in app
+    assert "cached_only: true" in loader
     assert "cached_only: false" in loader
     assert "avatarRequests" in loader
+    assert "avatarCacheQueue" in loader
+    assert "avatarRemoteQueue" in loader
+    assert "requestStorageScope !== getClientStoragePrefix()" in loader
+    assert "FAILURE_TTL_MS" in loader
+
+
+def test_consecutive_sender_messages_render_as_one_mixed_content_group():
+    app = (ROOT / "ui" / "src" / "App.tsx").read_text(encoding="utf-8")
+    card = (ROOT / "ui" / "src" / "MessageContentCard.tsx").read_text(encoding="utf-8")
+    grouping = (ROOT / "ui" / "src" / "lib" / "groupedMedia.ts").read_text(encoding="utf-8")
+
+    assert "MESSAGE_GROUP_MAX_GAP_SECONDS = 5 * 60" in grouping
+    assert "buildMessageGroupLookup" in app
+    assert "fallbackIncomingSenderKey" in app
+    assert "groupLookup={messageGroupLookup}" in app
+    assert "timelineGroup" not in app
+    assert "buildContentBlocks" in card
+    assert "group?.messages || [message]" in card
+    assert "authorPeerKey" in card

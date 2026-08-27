@@ -84,7 +84,9 @@ Design System فعال فقط Material UI است. componentهای بصری از 
 - `ui/src/WorkspaceNavigation.tsx`: rail دسکتاپ، bottom navigation موبایل و منوی Material؛
 - `ui/src/ConversationListPage.tsx`: فهرست، جست‌وجو، unread و عملیات گفتگو؛
 - `ui/src/ChatHeader.tsx`: عنوان، وضعیت دریافت خودکار، فیلتر و جست‌وجوی پیام؛
-- `ui/src/MessageContentCard.tsx`: Card Material هر پیام، Header نویسنده، رسانه/گالری، Collapse متن و Actionهای انتخاب/ایندکس/استفاده؛
+- `ui/src/MessageContentCard.tsx`: Card Material هر پیام یا گروه متوالی، Header نویسنده، بلوک‌های مرتب متن/رسانه/فایل، Collapse و Actionهای انتخاب/ایندکس/استفاده؛
+- `ui/src/lib/groupedMedia.ts`: مدل آلبوم رسمی/استنباطی و گروه محتوایی پنج‌دقیقه‌ای پیش از filter؛
+- `ui/src/lib/avatarLoader.ts` و `avatarQueue.mjs`: cache حساب‌محور، lane مستقل cached-only/remote و صف task با failure isolation؛
 - `ui/src/LoginExperience.tsx`: Surface مرکزی و mobile-first ورود بدون panel معماری؛ lifecycle و بازیابی نشست در controller احراز هویت `App.tsx` می‌ماند؛
 - `ui/src/SettingsPage.tsx`: تنظیمات جدا از workspace، شامل تنها کنترل Material پورت داخلی شبکه/وب؛
 - `ui/src/ContactDirectoryModal.tsx`: دفترچهٔ Material و virtualized؛

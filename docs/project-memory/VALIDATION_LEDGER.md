@@ -1359,3 +1359,33 @@
 - commit اصلی=`8fe8d90d507fccb9bec586feb81c1f28d71d64fc` با پیام `fix(ui): invalidate cached runtime patches` و 16 فایل ساخته شد.
 - push عادی فقط به `codex/stabilization-g09` موفق بود؛ post-push remote branch دقیقاً برابر commit محلی و main بدون تغییر ماند.
 - force/merge/main push/ref deletion=0؛ Provider/message/data action=0. commit مستندی closure با push عادی دوم منتشر و hash نهایی در تحویل گفتگو verify می‌شود.
+
+### V-169 — RED ادغام محتوایی و صف مستقل آواتار
+
+- تاریخ: 2026-08-27
+- سطح: `STATIC / CONTRACT RED / EXPECTED FAILURE`
+- Run: `UX-MESSAGE-AVATAR-R01`
+- علت بررسی مجدد: درخواست صریح کاربر برای ادغام همهٔ نوع‌های محتوای متوالی و گزارش بارگیری‌نشدن آواتار، همراه با تغییر برنامه‌ریزی‌شدهٔ قرارداد مرکزی UI.
+- pre-image: HEAD=`95624acf...`؛ `App.tsx=2a606c86...`، `MessageContentCard.tsx=af2fcbb4...`، `groupedMedia.ts=32ad994d...` و `avatarLoader.ts=c1386ae4...`.
+- grouped-media RED: runner پس از افزودن scenarioهای text→image، image→text، دو آلبوم، sender/gap/day boundary با `TypeError: buildMessageGroupLookup is not a function` شکست خورد.
+- avatar RED: Phase 9 workspace با `ERR_MODULE_NOT_FOUND` برای `avatarQueue.mjs` شکست خورد؛ contract Python نیز `6 passed / 1 failed` و نبود `cached_only: true`/دو lane را نشان داد.
+- تشخیص: timeline قبلی time diff را اعمال نمی‌کرد و آلبوم را کنار می‌گذاشت. صف واحد سه‌تایی cache/remote، failure propagation، stale account و prefix پاک‌سازی ناقص داشت. محدودیت مستقل Core برای User photo reference نیز با initials قابل مهار است، نه با parallel Provider call.
+- اثر عملیاتی: صفر؛ داده/نشست/Provider/پیام واقعی خوانده یا تغییر داده نشد.
+- نتیجه: RED معتبر و implementation مجاز در F-056/ADR-44 تعریف شد.
+
+### V-170 — پذیرش کامل ادغام پیام، آواتار و بستهٔ آفلاین
+
+- تاریخ: 2026-08-27
+- سطح: `UNIT / UI CONTRACT / FULL REGRESSION / BUILD / OFFLINE PACKAGE / FRESH INSTALL`
+- Run: `UX-MESSAGE-AVATAR-R01`
+- هدفمند: grouped-media=`29/29`، Phase 9 workspace/queue=`18/18`، Python UI/Material/scroll=`42/42` و TypeScript=`PASS`.
+- UI کامل: هر ۹ runner canonical سبز؛ scroll=`10/10`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Phase 11 onboarding=`7/7` و Phase 11-B2=`6/6`. build Vite با 1016 module PASS و warning تاریخی chunk بزرگ غیرمسدودکننده بود.
+- Backend کامل: `659/659 passed`، failure/error/skip=0؛ افزایش یک تست نسبت به G-11 به guard تازهٔ گروه/صف UI مربوط است.
+- package tests=`15/15`. dry-run نامزد Git ایزوله=282 فایل، write=0 و content-set=`35f58c157d019424f2f8987e57b59897f79fb150bfd733158f9852ee4c6c34c2`.
+- archiveهای ایزوله A/B هر دو 282 فایل مجاز/283 entry، SHA-256 بایت‌یکسان=`1c52502df5bf19e51bf57dc684b5193065ad65d7db04296101c72feedcfb6900` و verifier داخلی privacy/hash/path/manifest=PASS دارند.
+- fresh install دقیق archive A فقط با `--no-index` و wheelهای local PASS؛ runtime checker=`ok=true/failures=0`، `pip check`، isolated import و Event Catalog=103 سبز است.
+- کنترل snapshot ایزوله: integrity/freshness/link و Phase 9=`18/18` سبز بود. grouped-media نخست فقط به‌علت نبود `node_modules` و fallback به executable ناموجود `npm` با `ENOENT` متوقف شد؛ retry بدون تغییر فایل و با TypeScript read-only workspace از `NODE_PATH` برابر `29/29` PASS بود.
+- اسناد canonical: F-056، ADR-44، baseline/spec/structure/handoff، گزارش feature و Execution Log همسو شدند. refresh، memory integrity، generated freshness، link check و `git diff --check` همگی exit code صفر داشتند.
+- حریم خصوصی/عملیات: message send/login/OTP/Provider/WordPress/Bale/data write=0؛ فقط dist/test/package/fresh-venv artifact کنترل‌شده ایجاد شد و هیچ operational root وارد candidate Git نمی‌شود.
+- شناسه‌های V-169/V-170 برای جداسازی از V-163 تا V-168 کار موازی ایندکس رزرو شدند؛ فایل‌های آن کار در این commit نیستند.
+- نتیجه: `OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED / GIT_PUBLICATION_PENDING`.

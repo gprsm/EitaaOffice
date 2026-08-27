@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "930b9912607f599c",
+  "source_fingerprint": "10be53905d1634bb",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -251,438 +251,6 @@
     },
     {
       "path": "scripts/doctor.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/extract_block.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/extract_helpers.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/extract_jalali.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/extracted_block.ts",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": [
-        {
-          "name": "normalizeLoginCodeInput",
-          "kind": "script symbol",
-          "line": 5
-        },
-        {
-          "name": "messageKey",
-          "kind": "script symbol",
-          "line": 12
-        },
-        {
-          "name": "titleFor",
-          "kind": "script symbol",
-          "line": 14
-        },
-        {
-          "name": "displayKindLabel",
-          "kind": "script symbol",
-          "line": 15
-        },
-        {
-          "name": "categoryTree",
-          "kind": "script symbol",
-          "line": 18
-        },
-        {
-          "name": "compare",
-          "kind": "script symbol",
-          "line": 23
-        },
-        {
-          "name": "append",
-          "kind": "script symbol",
-          "line": 35
-        },
-        {
-          "name": "readStored",
-          "kind": "script symbol",
-          "line": 57
-        },
-        {
-          "name": "writeStored",
-          "kind": "script symbol",
-          "line": 64
-        },
-        {
-          "name": "mediaUrl",
-          "kind": "script symbol",
-          "line": 72
-        },
-        {
-          "name": "parseSourceKey",
-          "kind": "script symbol",
-          "line": 78
-        },
-        {
-          "name": "jalaliDayLabel",
-          "kind": "script symbol",
-          "line": 83
-        },
-        {
-          "name": "jalaliDayKey",
-          "kind": "script symbol",
-          "line": 88
-        },
-        {
-          "name": "temporalIndexPredictions",
-          "kind": "script symbol",
-          "line": 93
-        },
-        {
-          "name": "div",
-          "kind": "script symbol",
-          "line": 116
-        },
-        {
-          "name": "mod",
-          "kind": "script symbol",
-          "line": 118
-        },
-        {
-          "name": "jalCal",
-          "kind": "script symbol",
-          "line": 119
-        },
-        {
-          "name": "g2d",
-          "kind": "script symbol",
-          "line": 142
-        },
-        {
-          "name": "d2g",
-          "kind": "script symbol",
-          "line": 149
-        },
-        {
-          "name": "j2d",
-          "kind": "script symbol",
-          "line": 159
-        },
-        {
-          "name": "jalaliToGregorian",
-          "kind": "script symbol",
-          "line": 164
-        },
-        {
-          "name": "parseJalaliDate",
-          "kind": "script symbol",
-          "line": 168
-        },
-        {
-          "name": "jalaliParts",
-          "kind": "script symbol",
-          "line": 179
-        },
-        {
-          "name": "read",
-          "kind": "script symbol",
-          "line": 182
-        },
-        {
-          "name": "jalaliYmd",
-          "kind": "script symbol",
-          "line": 185
-        },
-        {
-          "name": "jalaliMonthLength",
-          "kind": "script symbol",
-          "line": 189
-        },
-        {
-          "name": "JalaliDatePicker",
-          "kind": "script symbol",
-          "line": 198
-        },
-        {
-          "name": "close",
-          "kind": "script symbol",
-          "line": 215
-        },
-        {
-          "name": "key",
-          "kind": "script symbol",
-          "line": 216
-        },
-        {
-          "name": "moveMonth",
-          "kind": "script symbol",
-          "line": 223
-        }
-      ]
-    },
-    {
-      "path": "scripts/find_end.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/find_fav.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app2.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app3.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app4.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app_final.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app_index_props.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app_index_props_real.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app_re.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_app_syntax.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_appuser.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_appuser.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_border.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_chatheader.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_chatheader.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_contracts.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_db.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_favorite.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_helpers.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_helpers_re.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_icon.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_identity.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_imports.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_index_props.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_indexEnabled.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_pagination.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_search.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_skeleton.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_style.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_test.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_test2.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_test3.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_test4.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_tests.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_tooltip.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/fix_zindex.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/gen_filter_dialog.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": [
-        {
-          "name": "MessageFilterDialog",
-          "kind": "script symbol",
-          "line": 36
-        }
-      ]
-    },
-    {
-      "path": "scripts/gen_index_dialog.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": [
-        {
-          "name": "kindLabel",
-          "kind": "script symbol",
-          "line": 49
-        },
-        {
-          "name": "ContentIndexDialog",
-          "kind": "script symbol",
-          "line": 58
-        }
-      ]
-    },
-    {
-      "path": "scripts/get_prompt.js",
       "role": "Operations/tooling",
       "summary": "",
       "symbols": []
@@ -1230,12 +798,6 @@
       ]
     },
     {
-      "path": "scripts/phase5_grouping.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
       "path": "scripts/prepare_windows_release.py",
       "role": "Operations/tooling",
       "summary": "",
@@ -1256,18 +818,6 @@
           "line": 21
         }
       ]
-    },
-    {
-      "path": "scripts/read_btn.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/read_sync.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
     },
     {
       "path": "scripts/refresh_project_docs.py",
@@ -1453,12 +1003,6 @@
       ]
     },
     {
-      "path": "scripts/screenshot.ps1",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
       "path": "scripts/stabilization_baseline.py",
       "role": "Operations/tooling",
       "summary": "",
@@ -1551,48 +1095,6 @@
           "line": 66
         }
       ]
-    },
-    {
-      "path": "scripts/test_api.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/test_unprotect.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/update_app.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/update_docs_phase3.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/update_findings.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/update_ledger.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
-    },
-    {
-      "path": "scripts/update_tests.js",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
     },
     {
       "path": "scripts/write_iexpress_sed.py",
@@ -15729,6 +15231,11 @@
           "name": "test_dialog_sync_and_avatar_ui_do_not_report_benign_or_fetch_remote_work",
           "kind": "function",
           "line": 103
+        },
+        {
+          "name": "test_consecutive_sender_messages_render_as_one_mixed_content_group",
+          "kind": "function",
+          "line": 121
         }
       ]
     },
@@ -16250,12 +15757,17 @@
         {
           "name": "source",
           "kind": "script symbol",
-          "line": 9
+          "line": 10
         },
         {
           "name": "check",
           "kind": "script symbol",
-          "line": 11
+          "line": 12
+        },
+        {
+          "name": "checkAsync",
+          "kind": "script symbol",
+          "line": 17
         }
       ]
     },
@@ -16426,227 +15938,227 @@
         {
           "name": "toggleFavorite",
           "kind": "script symbol",
-          "line": 1505
+          "line": 1507
         },
         {
           "name": "setDisplayKind",
           "kind": "script symbol",
-          "line": 1518
+          "line": 1520
         },
         {
           "name": "toggleMessage",
           "kind": "script symbol",
-          "line": 1525
+          "line": 1527
         },
         {
           "name": "clearSelection",
           "kind": "script symbol",
-          "line": 1541
+          "line": 1543
         },
         {
           "name": "logout",
           "kind": "script symbol",
-          "line": 1550
+          "line": 1552
         },
         {
           "name": "logoutSoftware",
           "kind": "script symbol",
-          "line": 1555
+          "line": 1557
         },
         {
           "name": "VirtualMessageList",
           "kind": "script symbol",
-          "line": 1771
+          "line": 1773
         },
         {
           "name": "markInteraction",
           "kind": "script symbol",
-          "line": 1881
+          "line": 1884
         },
         {
           "name": "processScroll",
           "kind": "script symbol",
-          "line": 1882
+          "line": 1885
         },
         {
           "name": "onScroll",
           "kind": "script symbol",
-          "line": 1911
+          "line": 1914
         },
         {
           "name": "Composer",
           "kind": "script symbol",
-          "line": 2097
+          "line": 2084
         },
         {
           "name": "reset",
           "kind": "script symbol",
-          "line": 2127
+          "line": 2114
         },
         {
           "name": "buildSources",
           "kind": "script symbol",
-          "line": 2132
+          "line": 2119
         },
         {
           "name": "composition",
           "kind": "script symbol",
-          "line": 2144
+          "line": 2131
         },
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 2146
+          "line": 2133
         },
         {
           "name": "move",
           "kind": "script symbol",
-          "line": 2175
+          "line": 2162
         },
         {
           "name": "appendSelectedToEdit",
           "kind": "script symbol",
-          "line": 2180
+          "line": 2167
         },
         {
           "name": "loadHistory",
           "kind": "script symbol",
-          "line": 2193
+          "line": 2180
         },
         {
           "name": "chooseTag",
           "kind": "script symbol",
-          "line": 2209
+          "line": 2196
         },
         {
           "name": "createTag",
           "kind": "script symbol",
-          "line": 2214
+          "line": 2201
         },
         {
           "name": "ManualDialogModal",
           "kind": "script symbol",
-          "line": 2308
+          "line": 2295
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 2320
+          "line": 2307
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 2323
+          "line": 2310
         },
         {
           "name": "CommunityMembersModal",
           "kind": "script symbol",
-          "line": 2373
+          "line": 2360
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 2414
+          "line": 2401
         },
         {
           "name": "mergeMembers",
           "kind": "script symbol",
-          "line": 2452
+          "line": 2439
         },
         {
           "name": "loadAllMembers",
           "kind": "script symbol",
-          "line": 2488
+          "line": 2475
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 2527
+          "line": 2514
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 2555
+          "line": 2542
         },
         {
           "name": "syncRemote",
           "kind": "script symbol",
-          "line": 2559
+          "line": 2546
         },
         {
           "name": "toggleAll",
           "kind": "script symbol",
-          "line": 2592
+          "line": 2579
         },
         {
           "name": "startContactImport",
           "kind": "script symbol",
-          "line": 2640
+          "line": 2627
         },
         {
           "name": "runMemberMutation",
           "kind": "script symbol",
-          "line": 2656
+          "line": 2643
         },
         {
           "name": "BulkOperationsModal",
           "kind": "script symbol",
-          "line": 2730
+          "line": 2717
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 2756
+          "line": 2743
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 2759
+          "line": 2746
         },
         {
           "name": "chooseMedia",
           "kind": "script symbol",
-          "line": 2773
+          "line": 2760
         },
         {
           "name": "choosePhoneFile",
           "kind": "script symbol",
-          "line": 2778
+          "line": 2765
         },
         {
           "name": "messagePayload",
           "kind": "script symbol",
-          "line": 2782
+          "line": 2769
         },
         {
           "name": "ensurePhoneList",
           "kind": "script symbol",
-          "line": 2795
+          "line": 2782
         },
         {
           "name": "prepare",
           "kind": "script symbol",
-          "line": 2812
+          "line": 2799
         },
         {
           "name": "loadJobReport",
           "kind": "script symbol",
-          "line": 2851
+          "line": 2838
         },
         {
           "name": "loadFailures",
           "kind": "script symbol",
-          "line": 2857
+          "line": 2844
         },
         {
           "name": "controlJob",
           "kind": "script symbol",
-          "line": 2863
+          "line": 2850
         },
         {
           "name": "execute",
           "kind": "script symbol",
-          "line": 2881
+          "line": 2868
         }
       ]
     },
@@ -17125,29 +16637,51 @@
       "summary": "",
       "symbols": [
         {
-          "name": "pumpQueue",
+          "name": "scopedKeyFor",
           "kind": "script symbol",
-          "line": 13
+          "line": 17
         },
         {
           "name": "keyFor",
           "kind": "script symbol",
-          "line": 20
+          "line": 19
         },
         {
           "name": "peekDialogAvatar",
           "kind": "script symbol",
-          "line": 22
+          "line": 20
         },
         {
           "name": "loadDialogAvatar",
           "kind": "script symbol",
-          "line": 32
+          "line": 30
+        },
+        {
+          "name": "request",
+          "kind": "script symbol",
+          "line": 38
         },
         {
           "name": "clearDialogAvatarCache",
           "kind": "script symbol",
-          "line": 61
+          "line": 80
+        }
+      ]
+    },
+    {
+      "path": "ui/src/lib/avatarQueue.mjs",
+      "role": "React UI",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "createAsyncTaskQueue",
+          "kind": "script symbol",
+          "line": 1
+        },
+        {
+          "name": "pump",
+          "kind": "script symbol",
+          "line": 8
         }
       ]
     },
@@ -17159,32 +16693,62 @@
         {
           "name": "createAlbum",
           "kind": "script symbol",
-          "line": 13
+          "line": 26
         },
         {
           "name": "isInferredCandidate",
           "kind": "script symbol",
-          "line": 18
+          "line": 31
         },
         {
           "name": "sameReplyContext",
           "kind": "script symbol",
-          "line": 26
+          "line": 39
         },
         {
           "name": "closeInTime",
           "kind": "script symbol",
-          "line": 30
+          "line": 43
         },
         {
           "name": "buildAlbumLookup",
           "kind": "script symbol",
-          "line": 37
+          "line": 50
         },
         {
           "name": "albumCaption",
           "kind": "script symbol",
-          "line": 90
+          "line": 103
+        },
+        {
+          "name": "senderIdentity",
+          "kind": "script symbol",
+          "line": 115
+        },
+        {
+          "name": "localDayKey",
+          "kind": "script symbol",
+          "line": 123
+        },
+        {
+          "name": "canJoinMessageUnits",
+          "kind": "script symbol",
+          "line": 129
+        },
+        {
+          "name": "createMessageGroup",
+          "kind": "script symbol",
+          "line": 146
+        },
+        {
+          "name": "buildMessageGroupLookup",
+          "kind": "script symbol",
+          "line": 169
+        },
+        {
+          "name": "messageGroupText",
+          "kind": "script symbol",
+          "line": 210
         }
       ]
     },
@@ -17372,37 +16936,42 @@
         {
           "name": "formatDate",
           "kind": "script symbol",
-          "line": 48
+          "line": 51
         },
         {
           "name": "authorLabel",
           "kind": "script symbol",
-          "line": 53
+          "line": 56
         },
         {
           "name": "authorInitials",
           "kind": "script symbol",
-          "line": 65
+          "line": 68
         },
         {
           "name": "MessageAuthorAvatar",
           "kind": "script symbol",
-          "line": 71
+          "line": 74
+        },
+        {
+          "name": "buildContentBlocks",
+          "kind": "script symbol",
+          "line": 92
         },
         {
           "name": "ImageWithSkeleton",
           "kind": "script symbol",
-          "line": 85
+          "line": 118
         },
         {
           "name": "MessageContentCard",
           "kind": "script symbol",
-          "line": 104
+          "line": 137
         },
         {
           "name": "handleCardClick",
           "kind": "script symbol",
-          "line": 150
+          "line": 181
         }
       ]
     },
