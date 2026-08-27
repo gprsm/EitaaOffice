@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-27
 Run: `UX-MESSAGE-AVATAR-R01`
-وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / GIT_PUBLICATION_PENDING`
+وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / GITHUB_DEDICATED_BRANCH_PUBLISHED`
 
 ## نتیجه
 
@@ -56,4 +56,6 @@ Run: `UX-MESSAGE-AVATAR-R01`
 
 ## دروازه‌های باقی‌مانده
 
-پذیرش فعلی خودکار و آفلاین است. مشاهدهٔ بصری روی دادهٔ واقعی بدون mutation می‌تواند توسط کاربر انجام شود، اما برای صحت contract لازم نیست. رفع عکس کاربران گروهی که photo reference در Core ندارند، تغییر جداگانهٔ مدل/codec و migration احتمالی است و در این Run حدس زده یا فعال نشده است. تصمیم canonical این Run در ADR-44 و شواهد آن در V-169/V-170 ثبت می‌شود. انتشار Git در ثبت جداگانهٔ همین Run و فقط روی شاخهٔ کاری انجام می‌شود.
+پذیرش فعلی خودکار و آفلاین است. مشاهدهٔ بصری روی دادهٔ واقعی بدون mutation می‌تواند توسط کاربر انجام شود، اما برای صحت contract لازم نیست. رفع عکس کاربران گروهی که photo reference در Core ندارند، تغییر جداگانهٔ مدل/codec و migration احتمالی است و در این Run حدس زده یا فعال نشده است. تصمیم canonical این Run در ADR-44 و شواهد آن در V-169/V-170/V-180 ثبت شده است.
+
+انتشار Git به‌صورت ایزوله روی `codex/message-avatar-grouping` انجام شد. commit اصلی `97022f36...85fef` با remote برابر verify و `main` روی `a4df3ecf...fcd2` ثابت ماند. فایل‌های work موازی ایندکس، workbook و artifactها در candidate نبودند.

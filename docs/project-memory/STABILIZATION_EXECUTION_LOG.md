@@ -3738,3 +3738,23 @@ operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
 next_action: final_document_checks_then_isolated_working_branch_commit_push_verify
 output_summary: snapshot تازه reproducible/privacy-safe و نصب آفلاین سبز؛ Git باید فقط hunks همین سناریو را منتشر کند.
 ```
+
+### UX-MESSAGE-AVATAR-R01-S04 — commit ایزوله، push و remote verify
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S04
+event: ISOLATED_SCENARIO_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-27T18:15:00+03:30
+ended_at: 2026-08-27T18:31:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+isolation: {temporary_index: true, isolated_worktree_snapshot: true, active_worktree_index_changed: false, parallel_index_work_included: false}
+candidate: {files: 22, high_confidence_secret_hits: 0, operational_root_files: 0, workbook_files: 0, artifacts: 0}
+commit: {hash: 97022f36b8ce7bda7547af9bfcea117e4fb85fef, parent: 95624acfdf50bdb7b34f683da3c33fb99981c1a7, subject: "feat(ui): group messages and isolate avatar loading"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: 97022f36b8ce7bda7547af9bfcea117e4fb85fef, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, message_send, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: سناریو بدون ورود work ایندکس روی شاخهٔ اختصاصی GitHub منتشر و ثابت‌ماندن main تأیید شد.
+```
