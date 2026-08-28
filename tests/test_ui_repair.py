@@ -24,7 +24,7 @@ def test_visible_tabs_use_one_active_contract_and_no_fixed_header_offset():
     assert 'name="composer_sections"' not in app
     assert 'name="manual_dialog_mode"' not in app
     assert '<ToggleButton value="wordpress"' in app
-    assert '<ToggleButton value="community" disabled={!props.communityEnabled}>عملیات گفتگو</ToggleButton>' in app
+    assert '<ToggleButton value="community">عملیات گفتگو</ToggleButton>' in app
     assert '<ToggleButton value="username">با نام کاربری</ToggleButton>' in app
     assert '<ToggleButton value="peer">شناسه فنی</ToggleButton>' in app
     assert "<ToggleButtonGroup exclusive fullWidth" in app
@@ -100,7 +100,7 @@ def test_wordpress_ui_keeps_category_tree_and_stays_quiet_without_credentials():
     assert 'aria-label="وردپرس آماده نیست"' in app
 
 
-def test_wordpress_panel_is_opt_in_and_community_operations_are_role_gated():
+def test_wordpress_panel_is_opt_in_and_community_operations_are_not_role_gated():
     app = (ROOT / "ui" / "src" / "App.tsx").read_text(encoding="utf-8")
     helpers = (ROOT / "ui" / "src" / "utils" / "helpers.tsx").read_text(encoding="utf-8")
     settings = (ROOT / "ui" / "src" / "SettingsPage.tsx").read_text(encoding="utf-8")
@@ -110,7 +110,10 @@ def test_wordpress_panel_is_opt_in_and_community_operations_are_role_gated():
     assert "readStored<boolean>(STORAGE.showWordPressPanel, false)" in app
     assert "wordpressPanelReady" in app
     assert "!showWordPressPanel || !activeSite?.credentials_configured" in app
-    assert "canManageCommunity(dialog)" in app
+    assert "canUseCommunityOperations" not in app
+    assert "canManageCommunity" not in app
+    assert "communityEnabled" not in app
+    assert "props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')" in app
     assert "نمایش پنل وردپرس" in settings
     assert "account_role?: 'owner' | 'admin' | 'member' | 'unknown'" in types
     assert "can_manage_community?: boolean" in types

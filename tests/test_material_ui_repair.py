@@ -182,7 +182,7 @@ def test_contact_and_community_large_lists_use_incremental_virtual_rendering() -
 def test_member_management_button_keeps_readable_contrast() -> None:
     app = read("App.tsx") + read("utils/helpers.tsx")
     theme = read("theme.ts")
-    assert '<Button variant="outlined" disabled={!props.communityEnabled} onClick={props.openMembers}>مدیریت اعضا</Button>' in app
+    assert '<Button variant="outlined" disabled={!props.dialog || props.dialog.display_kind === \'personal\'} onClick={props.openMembers}>مدیریت اعضا</Button>' in app
     assert "containedPrimary: { color: '#07131f' }" in theme
     assert "MuiButton" in theme
 

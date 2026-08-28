@@ -1438,3 +1438,32 @@
 - push عادی fast-forward روی `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
 - root worktree branch=`codex/stabilization-g09` و HEAD=`95624acf...` باقی ماند و index آن خالی بود؛ فایل‌های dirty و کار هم‌زمان ایندکس reset/checkout/stage نشدند.
 - force-push، main push/merge، ref deletion، Provider/Login/OTP/Send/WordPress/Member mutation و operational write صفر. commit closure فقط همین ثبت و generated docs آن را fast-forward می‌کند؛ hash نهایی در تحویل گفتگو و remote verify ثبت می‌شود.
+
+### V-200 — RED و GREEN بازگردانی سطح عملیات گفتگو
+
+- تاریخ: 2026-08-28
+- سطح: `USER DECISION / STATIC CONTRACT RED-GREEN / TYPESCRIPT`
+- Run: `UX-COMMUNITY-ROLLBACK-R03`
+- علت بررسی مجدد: گزارش صریح کاربر از غیرفعال‌ماندن پنل در گفت‌وگوی مدیریتی و دستور صریح بازگردانی به رفتار قبل، پس از تغییر مؤثر R02.
+- RED نخستِ حذف role gate=`2 failed`؛ سپس مقایسه با parent پیش از R02 نشان داد بازگردانی کامل سطح باید personal/بدون انتخاب را نیز به حالت شماره‌ها هدایت کند. RED دقیق بازگشت کامل=`2 failed`.
+- GREEN نهایی هدفمند=`4/4`: toggle عملیات بدون disabled؛ حذف helper/prop `communityEnabled`؛ Header/Navigation قابل‌بازشدن؛ group/channel→members و personal/no-dialog→numbers؛ مدیریت اعضا فقط بدون group/channel غیرفعال.
+- TypeScript در worktree اصلی مشترک=`PASS`. اجرای candidate بدون dependency محلی فقط به `tsc not recognized` خورد و تغییر محصول نداد؛ validation نهایی candidate با toolchain read-only ریشه در V-201 انجام می‌شود.
+- role metadata در type/catalog باقی است، ولی در helper یا prop فعال‌سازی UI مصرف نمی‌شود. WordPress و avatar scheduler/cache source تغییر نکردند.
+- حریم خصوصی/اثر بیرونی: حساب واقعی، عنوان/شناسه گفتگو، پیام، Login/OTP، Send، Member mutation، WordPress، Provider و فایل عملیاتی صفر. فقط test cache/dist احتمالی کنترل‌شده.
+- شناسهٔ V-200 برای جلوگیری از collision با کار موازی ایندکس رزرو شد.
+- Trigger تکرار: تغییر `App.tsx`، `ChatHeader.tsx`، `WorkspaceNavigation.tsx` یا مسیر Bulk/Member eligibility.
+
+### V-201 — regression کامل، build، بسته و fresh-install بازگردانی عملیات گفتگو
+
+- تاریخ: 2026-08-28
+- سطح: `FULL REGRESSION / UI CONTRACT / BUILD / PACKAGE / OFFLINE FRESH INSTALL`
+- Run: `UX-COMMUNITY-ROLLBACK-R03`
+- Backend candidate نخست=`662 passed / 2 failed`: wheel قدیمی candidate یک mismatch داشت و `ui/dist` عمداً در clone نبود. wheel deterministic از همان snapshot بازسازی و build همسان root پس از اثبات برابری نرمال‌شدهٔ همهٔ 65 فایل UI به candidate منتقل و با finalizer همان candidate هم‌تراز شد؛ دو retry هدفمند=`2/2` و full نهایی=`664/664`، failure/skip صفر.
+- UI: هر ۹ runner canonical سبز؛ scroll=`10/10`، grouped-media=`29/29`، Phase 9 workspace=`19/19`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Observability=`PASS`، Phase 11 onboarding=`7/7`، Phase 11-B2=`6/6` و mobile/auth/live=`PASS`. TypeScript=`PASS` و Vite build=`1016 modules / PASS`؛ warning تاریخی chunk بزرگ nonblocking است.
+- برابری candidate/root: مقایسهٔ byte نخست به‌علت CRLF/LF شش فایل را متفاوت نشان داد؛ مقایسهٔ متن نرمال‌شده همان شش فایل و سپس تمام 65 فایل source/script/config UI را `missing=0 / different=0` تأیید کرد. invocation نخست جدول hash فقط ParserError داشت و هیچ فایل را تغییر نداد.
+- wheel تازه SHA-256=`22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40` و parity سبز است. package dry-run=`283 files`; دو archive pre-closure بایت‌یکسان، privacy/path/hash verifier=`PASS`. پس از ثبت اسناد نهایی، archive A/B یک بار دیگر بدون تغییر source بازتولید و verify شد.
+- fresh-install exact archive pre-closure فقط با `--no-index` و wheelhouseهای `dist/vendor/vendor/runtime` سبز: install=`PASS`، runtime checker=`ok=true/failures=0`، `pip check=PASS`، import واقعاً زیر prefix venv تازه، Event Catalog=103 و entrypoint=4. اسناد closure wheel/dependency را تغییر نمی‌دهند.
+- رخدادهای محیطی ثبت‌شده: candidate مستقیم `tsc not recognized` چون node_modules ندارد؛ copy نخست build به‌علت استفاده از `-LiteralPath` با wildcard خطا داد و retry ایمن با `-Path` موفق شد؛ patch runtime کپی‌شده نخست CRLF/LF mismatch داشت و finalizer خود candidate آن را بدون تغییر source اصلاح کرد.
+- کنترل اسناد پس از refresh: memory integrity، generated freshness، link check و `git diff --check` باید همگی صفر باشند؛ نتیجهٔ نهایی همین Run فقط در صورت سبزشدن این چهار دروازه قابل انتشار است.
+- عملیات: network download، نصب سیستم/کاربر، Live، Login/OTP، Send، Member mutation، WordPress، Provider و operational file صفر. artifactها فقط زیر مسیر candidate آزمون ساخته شدند و stage نمی‌شوند.
+- Trigger تکرار: هر تغییر source/test/UI/package/installer یا wheel/dependency پس از این snapshot.

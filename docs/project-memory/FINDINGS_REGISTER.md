@@ -641,4 +641,18 @@
 - GREEN: full Backend=`664/664` در partitionهای کامل، تمام runnerهای UI، TypeScript و build 1016-module سبز؛ wheel و archiveها deterministic و fresh-install آفلاین سبز است.
 - حریم خصوصی/عملیات: Live/Login/OTP/Send/Member mutation/WordPress/Provider operation و دادهٔ عملیاتی صفر؛ فقط fixture و artifact کنترل‌شده.
 - مرجع: ADR-47، V-181/V-182 و `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`.
+- جایگزینی: بند role-gated فعال‌سازی UI از 2026-08-28 با F-070/ADR-60 جایگزین شد؛ WordPress opt-in و اصلاحات آواتار این Finding همچنان معتبرند.
 - Trigger بازبینی: تغییر TL dialog flags/Core codec، role contract، taxonomy loading، scheduler priority، avatar validation یا گزارش شکست روی دادهٔ واقعی.
+
+### F-070 — role gate رابط باعث false-negative و غیرفعال‌شدن عملیات گفتگو شد
+
+- وضعیت: `CLOSED_CODE_AND_FULL_AUTOMATED_ACCEPTANCE / USER_VISUAL_RECHECK_OPTIONAL`
+- تاریخ: 2026-08-28
+- دامنه: فعال‌سازی پنل عملیات گفتگو در Header، Navigation و Composer؛ انتخاب حالت اعضا/شماره‌ها؛ role hint کاتالوگ.
+- رخداد: کاربر گزارش کرد پنل حتی برای کانال/گروهی که حساب او مدیر است غیرفعال می‌ماند و صریحاً بازگردانی رفتار قبل را خواست. signal نقش در Core/catalog می‌تواند برای رکورد قدیمی، basic group یا پاسخ ناقص/stale نامعلوم بماند؛ بنابراین استفاده از آن برای disable کردن سطح UI false-negative می‌سازد.
+- اصلاح: helper و prop سراسری `communityEnabled` حذف شد؛ پنل و ورودی‌های آن همیشه قابل‌بازشدن‌اند. group/channel حالت اعضا و personal/بدون انتخاب حالت شماره‌ها را باز می‌کنند. فقط دکمهٔ مدیریت اعضا بدون group/channel غیرفعال است.
+- حفظ مرز: `account_role` و `can_manage_community` حذف یا جعل نشدند و صرفاً از authorization رابط کنار گذاشته شدند. preflight، تأییدها و محدودیت‌های Backend/Provider پابرجاست؛ هیچ ارسال یا mutation زنده اجرا نشد.
+- RED/GREEN: دو contract هدفمند ابتدا شکست مورد انتظار داشتند؛ پس از بازگردانی، چهار contract هدفمند سبز شدند. full Backend=`664/664`، تمام ۹ runner UI، TypeScript/build، wheel parity، archive deterministic/privacy-safe و fresh-install آفلاین نیز در V-201 پذیرفته شدند.
+- شناسهٔ F-070 عمداً بیرون از بازهٔ نزدیک کار موازی ایندکس رزرو شد؛ فایل‌های آن کار در این snapshot نیستند.
+- مرجع: ADR-60، V-200 و `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md`.
+- Trigger بازبینی: تغییر مسیر Composer/Bulk، قرارداد authorization سمت Backend/Provider، یا تصمیم تازهٔ کاربر برای role gating قابل‌اعتماد.

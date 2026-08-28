@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "f0f0ea1acea94807",
+  "source_fingerprint": "872d083733503797",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -15232,27 +15232,27 @@
         {
           "name": "test_members_modal_supports_sync_selection_and_targeted_send",
           "kind": "function",
-          "line": 20
+          "line": 22
         },
         {
           "name": "test_bulk_file_path_has_preflight_progress_and_failure_details",
           "kind": "function",
-          "line": 33
+          "line": 35
         },
         {
           "name": "test_background_errors_keep_safe_core_details",
           "kind": "function",
-          "line": 43
+          "line": 45
         },
         {
           "name": "test_bulk_jobs_can_be_paused_resumed_and_cancelled_from_ui",
           "kind": "function",
-          "line": 50
+          "line": 52
         },
         {
           "name": "test_local_operation_reports_do_not_wait_for_remote_scheduler_lock",
           "kind": "function",
-          "line": 58
+          "line": 60
         }
       ]
     },
@@ -15297,19 +15297,19 @@
           "line": 90
         },
         {
-          "name": "test_wordpress_panel_is_opt_in_and_community_operations_are_role_gated",
+          "name": "test_wordpress_panel_is_opt_in_and_community_operations_are_not_role_gated",
           "kind": "function",
           "line": 103
         },
         {
           "name": "test_dialog_sync_and_avatar_ui_do_not_report_benign_or_fetch_remote_work",
           "kind": "function",
-          "line": 119
+          "line": 122
         },
         {
           "name": "test_consecutive_sender_messages_render_as_one_mixed_content_group",
           "kind": "function",
-          "line": 137
+          "line": 140
         }
       ]
     },
@@ -15900,349 +15900,344 @@
           "line": 56
         },
         {
-          "name": "canManageCommunity",
+          "name": "DialogAvatar",
           "kind": "script symbol",
           "line": 60
         },
         {
-          "name": "DialogAvatar",
-          "kind": "script symbol",
-          "line": 70
-        },
-        {
           "name": "load",
           "kind": "script symbol",
-          "line": 79
+          "line": 69
         },
         {
           "name": "makeCompositionKey",
           "kind": "script symbol",
-          "line": 104
+          "line": 94
         },
         {
           "name": "MaterialLegacyDialog",
           "kind": "script symbol",
-          "line": 109
+          "line": 99
         },
         {
           "name": "App",
           "kind": "script symbol",
-          "line": 119
+          "line": 109
         },
         {
           "name": "MobileShell",
           "kind": "script symbol",
-          "line": 130
+          "line": 120
         },
         {
           "name": "DesktopShell",
           "kind": "script symbol",
-          "line": 134
+          "line": 124
         },
         {
           "name": "EitaaApp",
           "kind": "script symbol",
-          "line": 138
+          "line": 128
         },
         {
           "name": "recoverInvalidSession",
           "kind": "script symbol",
-          "line": 161
+          "line": 151
         },
         {
           "name": "Splash",
           "kind": "script symbol",
-          "line": 179
+          "line": 169
         },
         {
           "name": "StartupError",
           "kind": "script symbol",
-          "line": 189
+          "line": 179
         },
         {
           "name": "SessionRecovery",
           "kind": "script symbol",
-          "line": 197
+          "line": 187
         },
         {
           "name": "LoginGate",
           "kind": "script symbol",
-          "line": 233
+          "line": 223
         },
         {
           "name": "applyCodeChallenge",
           "kind": "script symbol",
-          "line": 250
+          "line": 240
         },
         {
           "name": "requestFreshCode",
           "kind": "script symbol",
-          "line": 258
+          "line": 248
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 271
+          "line": 261
         },
         {
           "name": "recoverPhoneIdentity",
           "kind": "script symbol",
-          "line": 318
+          "line": 308
         },
         {
           "name": "Workspace",
           "kind": "script symbol",
-          "line": 364
+          "line": 354
         },
         {
           "name": "update",
           "kind": "script symbol",
-          "line": 457
+          "line": 446
         },
         {
           "name": "closeTransientPanels",
           "kind": "script symbol",
-          "line": 466
+          "line": 455
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 782
+          "line": 761
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 935
+          "line": 914
         },
         {
           "name": "applyUsage",
           "kind": "script symbol",
-          "line": 1064
+          "line": 1043
         },
         {
           "name": "toggleFavorite",
           "kind": "script symbol",
-          "line": 1545
+          "line": 1524
         },
         {
           "name": "setDisplayKind",
           "kind": "script symbol",
-          "line": 1558
+          "line": 1537
         },
         {
           "name": "toggleMessage",
           "kind": "script symbol",
-          "line": 1565
+          "line": 1544
         },
         {
           "name": "clearSelection",
           "kind": "script symbol",
-          "line": 1581
+          "line": 1560
         },
         {
           "name": "logout",
           "kind": "script symbol",
-          "line": 1590
+          "line": 1569
         },
         {
           "name": "logoutSoftware",
           "kind": "script symbol",
-          "line": 1595
+          "line": 1574
         },
         {
           "name": "VirtualMessageList",
           "kind": "script symbol",
-          "line": 1817
+          "line": 1794
         },
         {
           "name": "markInteraction",
           "kind": "script symbol",
-          "line": 1928
+          "line": 1905
         },
         {
           "name": "processScroll",
           "kind": "script symbol",
-          "line": 1929
+          "line": 1906
         },
         {
           "name": "onScroll",
           "kind": "script symbol",
-          "line": 1958
+          "line": 1935
         },
         {
           "name": "Composer",
           "kind": "script symbol",
-          "line": 2128
+          "line": 2105
         },
         {
           "name": "reset",
           "kind": "script symbol",
-          "line": 2159
+          "line": 2136
         },
         {
           "name": "buildSources",
           "kind": "script symbol",
-          "line": 2164
+          "line": 2141
         },
         {
           "name": "composition",
           "kind": "script symbol",
-          "line": 2176
+          "line": 2153
         },
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 2178
+          "line": 2155
         },
         {
           "name": "move",
           "kind": "script symbol",
-          "line": 2207
+          "line": 2184
         },
         {
           "name": "appendSelectedToEdit",
           "kind": "script symbol",
-          "line": 2212
+          "line": 2189
         },
         {
           "name": "loadHistory",
           "kind": "script symbol",
-          "line": 2225
+          "line": 2202
         },
         {
           "name": "chooseTag",
           "kind": "script symbol",
-          "line": 2241
+          "line": 2218
         },
         {
           "name": "createTag",
           "kind": "script symbol",
-          "line": 2246
+          "line": 2223
         },
         {
           "name": "ManualDialogModal",
           "kind": "script symbol",
-          "line": 2341
+          "line": 2317
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 2353
+          "line": 2329
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 2356
+          "line": 2332
         },
         {
           "name": "CommunityMembersModal",
           "kind": "script symbol",
-          "line": 2406
+          "line": 2382
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 2447
+          "line": 2423
         },
         {
           "name": "mergeMembers",
           "kind": "script symbol",
-          "line": 2485
+          "line": 2461
         },
         {
           "name": "loadAllMembers",
           "kind": "script symbol",
-          "line": 2521
+          "line": 2497
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 2560
+          "line": 2536
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 2588
+          "line": 2564
         },
         {
           "name": "syncRemote",
           "kind": "script symbol",
-          "line": 2592
+          "line": 2568
         },
         {
           "name": "toggleAll",
           "kind": "script symbol",
-          "line": 2625
+          "line": 2601
         },
         {
           "name": "startContactImport",
           "kind": "script symbol",
-          "line": 2673
+          "line": 2649
         },
         {
           "name": "runMemberMutation",
           "kind": "script symbol",
-          "line": 2689
+          "line": 2665
         },
         {
           "name": "BulkOperationsModal",
           "kind": "script symbol",
-          "line": 2763
+          "line": 2739
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 2789
+          "line": 2765
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 2792
+          "line": 2768
         },
         {
           "name": "chooseMedia",
           "kind": "script symbol",
-          "line": 2806
+          "line": 2782
         },
         {
           "name": "choosePhoneFile",
           "kind": "script symbol",
-          "line": 2811
+          "line": 2787
         },
         {
           "name": "messagePayload",
           "kind": "script symbol",
-          "line": 2815
+          "line": 2791
         },
         {
           "name": "ensurePhoneList",
           "kind": "script symbol",
-          "line": 2828
+          "line": 2804
         },
         {
           "name": "prepare",
           "kind": "script symbol",
-          "line": 2845
+          "line": 2821
         },
         {
           "name": "loadJobReport",
           "kind": "script symbol",
-          "line": 2884
+          "line": 2860
         },
         {
           "name": "loadFailures",
           "kind": "script symbol",
-          "line": 2890
+          "line": 2866
         },
         {
           "name": "controlJob",
           "kind": "script symbol",
-          "line": 2896
+          "line": 2872
         },
         {
           "name": "execute",
           "kind": "script symbol",
-          "line": 2914
+          "line": 2890
         }
       ]
     },
@@ -17749,12 +17744,12 @@
         {
           "name": "close",
           "kind": "script symbol",
-          "line": 102
+          "line": 100
         },
         {
           "name": "invoke",
           "kind": "script symbol",
-          "line": 103
+          "line": 101
         }
       ]
     }

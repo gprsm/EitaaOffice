@@ -3831,3 +3831,54 @@ excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operatio
 next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
 output_summary: commit اصلی سناریو بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
 ```
+
+## UX-COMMUNITY-ROLLBACK-R03 — بازگردانی دسترسی عملیات گفتگو
+
+### UX-COMMUNITY-ROLLBACK-R03-S01 — RED، مقایسهٔ pre-image و پیاده‌سازی
+
+```yaml
+event_id: UX-COMMUNITY-ROLLBACK-R03-S01
+event: CONVERSATION_OPERATIONS_UI_ROLE_GATE_ROLLBACK
+started_at: 2026-08-28T05:40:00+03:30
+ended_at: 2026-08-28T06:03:30+03:30
+run_id: UX-COMMUNITY-ROLLBACK-R03
+actor: codex
+action_kind: USER_REQUESTED_SOURCE_TEST_DOCUMENT
+trigger: user_reported_false_negative_and_requested_previous_behavior
+red: {role_gate_removal_contract: 2_failed, exact_pre_r02_behavior_contract: 2_failed}
+preimage_contract: {surface_always_openable: true, group_or_channel_default: members, personal_or_no_dialog_default: numbers, member_management_requires_group_or_channel: true}
+implementation: {community_gate_helper_removed: true, community_enabled_prop_removed: true, header_navigation_enabled: true, composer_toggle_enabled: true, role_metadata_deleted: false}
+targeted_green: 4/4
+typescript_root_toolchain: PASS
+candidate_typescript_attempt: {result: TOOLCHAIN_NOT_LOCAL, reason: tsc_not_recognized, product_change: 0}
+wordpress_or_avatar_source_changed: false
+live_or_provider_effect: 0
+private_data_read_or_logged: false
+next_action: full_ui_backend_document_package_validation
+output_summary: سطح عملیات گفتگو دقیقاً به رفتار پیش از R02 بازگشت؛ role hint دیگر UI را قفل نمی‌کند.
+```
+
+### UX-COMMUNITY-ROLLBACK-R03-S02 — regression، build، package و fresh-install
+
+```yaml
+event_id: UX-COMMUNITY-ROLLBACK-R03-S02
+event: COMMUNITY_ROLLBACK_FULL_ACCEPTANCE_AND_OFFLINE_PACKAGE
+started_at: 2026-08-28T06:03:30+03:30
+ended_at: 2026-08-28T06:35:00+03:30
+run_id: UX-COMMUNITY-ROLLBACK-R03
+actor: codex
+action_kind: FULL_TEST_BUILD_PACKAGE_OFFLINE_INSTALL
+backend_attempt_a: {passed: 662, failed: 2, reasons: [stale_candidate_wheel_one_mismatch, candidate_ui_dist_absent], product_change: 0}
+artifact_repair: {wheel_rebuilt_from_candidate: true, ui_files_normalized_equal: 65/65, candidate_finalizer_run: true}
+backend_targeted_retry: 2/2
+backend_full_final: 664/664
+ui: {canonical_runners: PASS, typescript: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+wheel: {sha256: 22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40, source_parity: PASS}
+package: {files: 283, dry_run: PASS, two_archives_byte_identical: true, privacy_path_hash_verifier: PASS}
+fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103, entrypoints: 4}
+environment_retries: [candidate_tsc_missing_node_modules, hash_table_parser_error, wildcard_literal_copy_error, copied_runtime_patch_line_endings]
+product_change_for_retries: 0
+operational_or_live_effect: 0
+next_action: final_document_checks_and_isolated_git_publication
+output_summary: بازگردانی UI با full regression، build و نصب تازهٔ آفلاین پذیرفته شد.
+```

@@ -1,11 +1,13 @@
 # وضعیت پایهٔ فعلی پروژه
 
-تاریخ مبنا: ۲۰۲۶-۰۸-۲۷
-آخرین همسان‌سازی: UX-WP-AVATAR-R02؛ پنل اختیاری WordPress، دروازهٔ نقش و اولویت آواتار در ۲۰۲۶-۰۸-۲۷
+تاریخ مبنا: ۲۰۲۶-۰۸-۲۸
+آخرین همسان‌سازی: UX-COMMUNITY-ROLLBACK-R03؛ بازگردانی دسترسی پنل «عملیات گفتگو» در ۲۰۲۶-۰۸-۲۸
 وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-162، V-169/V-170، V-180 تا V-183، F-039 تا F-050، F-056 و F-061؛ شناسه‌های میانی برای کار موازی ایندکس رزرو شده‌اند و در این snapshot حضور ندارند.
+منابع شاهد جاری: V-103، V-108 تا V-162، V-169/V-170، V-180 تا V-183، V-200، F-039 تا F-050، F-056، F-061 و F-070؛ شناسه‌های تازهٔ R03 برای جلوگیری از برخورد با کار موازی ایندکس در بازهٔ جدا رزرو شده‌اند.
 
-Milestone UX-WP-AVATAR-R02: پنل WordPress برای هر scope با default خاموش opt-in است؛ در حالت پنهان taxonomy request اجرا نمی‌شود و فقط عملیات گفتگو دیده می‌شود. این عملیات فقط برای active group/channel با نقش server-derived owner/admin فعال است. گفت‌وگوی فعال از priority avatar بالاتر بهره می‌گیرد، آواتارهای فهرست delayed/background هستند و پیام فعال همچنان مقدم است؛ Provider session سریال باقی می‌ماند. cache خراب تصویر بازسازی می‌شود. full Backend=`664/664`، تمام UI runnerها، TypeScript/build، wheel/archive deterministic و fresh-install آفلاین سبزند؛ Live/Provider/WordPress انجام نشد.
+Milestone UX-COMMUNITY-ROLLBACK-R03: غیرفعال‌سازی سطح «عملیات گفتگو» بر پایهٔ نقش یا نوع گفت‌وگو به درخواست صریح کاربر بازگردانی شد. پنل و مسیر «ارسال و اقدام گروهی» دوباره همیشه قابل‌بازشدن‌اند؛ بدون گفت‌وگو یا در personal مسیر پیش‌فرض «شماره‌های جدید» و در group/channel مسیر «اعضای گفتگو» است. فقط دکمهٔ «مدیریت اعضا» بدون group/channel غیرفعال می‌ماند. metadata نقش همچنان جمع‌آوری می‌شود، اما به‌علت امکان ناقص/stale بودن signal، مجوز client-side یا شرط نمایش نیست؛ Provider و قرارداد تأیید عملیات همچنان مرز نهایی‌اند. WordPress opt-in و صف/اعتبارسنجی آواتار R02 تغییری نکرده‌اند. RED هدفمند=`2 failed`، GREEN هدفمند=`4/4`، full Backend=`664/664`، تمام ۹ runner UI، TypeScript و build 1016-module سبزند؛ wheel هم‌تراز، archive 283فایلی deterministic/privacy-safe و fresh-install آفلاین سبز است. هیچ عملیات Live/Send/Member/Provider انجام نشد.
+
+Milestone UX-WP-AVATAR-R02: پنل WordPress برای هر scope با default خاموش opt-in است؛ در حالت پنهان taxonomy request اجرا نمی‌شود و فقط عملیات گفتگو دیده می‌شود. شرط role-gated این milestone تاریخی است و بخش فعال‌سازی آن با R03/ADR-60 جایگزین شده است. گفت‌وگوی فعال از priority avatar بالاتر بهره می‌گیرد، آواتارهای فهرست delayed/background هستند و پیام فعال همچنان مقدم است؛ Provider session سریال باقی می‌ماند. cache خراب تصویر بازسازی می‌شود. full Backend=`664/664`، تمام UI runnerها، TypeScript/build، wheel/archive deterministic و fresh-install آفلاین سبزند؛ Live/Provider/WordPress انجام نشد.
 
 Milestone UX-MESSAGE-AVATAR-R01: پیام‌ها و آلبوم‌های مجاور یک فرستنده تا پنج دقیقه و در همان روز نمایشی یک Card محتوایی می‌شوند؛ متن، run عکس و فایل به ترتیب timeline حفظ می‌شوند و انتخاب/ایندکس/usage/unread/focus همهٔ member IDها را نگه می‌دارند. آواتار cache-first و account-scoped است؛ lane سریع cached-only از lane remote تک‌صف امن جداست و failure یک peer بقیه را reject یا متوقف نمی‌کند. full Backend=`659/659`، هر ۹ runner UI، TypeScript و build 1016-module سبز است. نبود photo reference بعضی Userهای گروهی محدودیت Core است و امن به initials برمی‌گردد؛ عملیات Live/Provider انجام نشد.
 

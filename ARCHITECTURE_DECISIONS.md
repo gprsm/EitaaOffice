@@ -385,3 +385,12 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - آواتار گفت‌وگوی فعال از آواتارهای پس‌زمینه جلو می‌افتد، اما پیام‌های گفت‌وگوی فعال اولویت بالاتری دارند. cache/HTTP می‌توانند مستقل و bounded باشند؛ تمام تماس‌های نشست مشترک Eitaa همچنان در scheduler Backend سریال می‌مانند.
 - cache فقط وقتی معتبر است که نوع تصویر پشتیبانی‌شده، اندازهٔ محدود و محتوای غیرتهی داشته باشد. cache خراب miss است و overwrite کنترل‌شده می‌شود؛ نبود reference یا failure به initials امن ختم می‌شود.
 - مرجع: F-061، V-181/V-182 و `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`.
+
+## ۶۰. سطح عملیات گفتگو به role hint وابسته نیست
+
+- این تصمیم فقط بند فعال‌سازی owner/admin در ADR-47 را جایگزین می‌کند. قرارداد WordPress opt-in، جلوگیری از taxonomy بدون نمایش/credential، صف اولویت‌دار آواتار، cache validation و سریال‌بودن نشست Provider بدون تغییر باقی می‌مانند.
+- پنل «عملیات گفتگو» و ورودی‌های Header/Navigation همیشه قابل‌بازشدن‌اند. در group/channel ابزار به حالت اعضای گفتگو و در personal یا نبود انتخاب به حالت شماره‌های جدید هدایت می‌شود. «مدیریت اعضا» همچنان فقط با group/channel انتخاب‌شده قابل‌دسترسی است.
+- `account_role` و `can_manage_community` metadata تشخیصی‌اند، نه authorization client-side. signal نقش می‌تواند برای catalog قدیمی، basic group یا پاسخ ناقص/stale نامعلوم باشد و نباید باعث false-negative در سطح رابط شود.
+- حذف UI gate افزایش اختیار قطعی اعلام نمی‌کند: preflight، تأیید صریح، محدودیت‌های Backend/Provider و پاسخ واقعی سرویس همچنان اجرا می‌شوند. هیچ عملیات زنده برای پذیرش این تصمیم انجام نشده است.
+- این تصمیم به درخواست صریح بازگردانی رفتار قبلی ثبت شد. شناسهٔ ۶۰ برای دوری از بازهٔ در حال استفادهٔ کار موازی ایندکس انتخاب شده است.
+- مرجع: F-070، V-200 و `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md`.

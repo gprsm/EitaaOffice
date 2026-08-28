@@ -4,6 +4,8 @@
 Run: `UX-WP-AVATAR-R02`
 وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / GITHUB_PRIMARY_PUBLISHED / DOCUMENTATION_CLOSURE_READY`
 
+> یادداشت جایگزینی 2026-08-28: بخش role-gated فعال‌سازی «عملیات گفتگو» در این گزارش تاریخی است و به درخواست صریح کاربر با ADR-60 و گزارش `CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md` جایگزین شد. قرارداد WordPress opt-in و تمام اصلاحات آواتار این گزارش همچنان معتبرند.
+
 ## نتیجه
 
 پنل WordPress اکنون یک قابلیت opt-in در تنظیمات است و برای هر کاربر/حساب به‌صورت محلی نگه‌داری می‌شود. مقدار پیش‌فرض `false` است. وقتی پنل پنهان است، UI فقط «عملیات گفتگو» را نشان می‌دهد و هیچ درخواست category/tag اجرا نمی‌کند. حتی با روشن‌بودن پنل، بارگیری taxonomy فقط برای سایت فعال دارای `credentials_configured=true` مجاز است.

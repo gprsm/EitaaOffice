@@ -1,9 +1,17 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
+## سناریوی UX-COMMUNITY-ROLLBACK-R03 — بازگردانی عملیات گفتگو
+
+- به درخواست صریح کاربر، غیرفعال‌سازی پنل «عملیات گفتگو» بر پایهٔ role hint بازگردانی شد. خود پنل، دکمهٔ Header/Navigation و «ارسال و اقدام گروهی» دوباره مانند نسخهٔ قبل همیشه قابل‌بازشدن‌اند.
+- در group/channel مسیر پیش‌فرض ابزار «اعضای گفتگو» است؛ در personal یا بدون انتخاب گفتگو مسیر «شماره‌های جدید» باز می‌شود. فقط «مدیریت اعضا» بدون group/channel غیرفعال می‌ماند.
+- `account_role` و `can_manage_community` حذف نشده‌اند و برای تشخیص/آینده باقی‌اند، اما به‌دلیل امکان ناقص یا stale بودن signal، شرط client-side نمایش یا فعال‌سازی نیستند. Provider و تأییدهای موجود مرز نهایی mutation هستند.
+- قرارداد WordPress opt-in، منع taxonomy بدون نمایش/credential و تمام اصلاحات صف/اعتبارسنجی آواتار R02 بدون تغییر باقی مانده‌اند.
+- RED هدفمند=`2 failed` و GREEN هدفمند=`4/4`؛ Backend کامل=`664/664`، تمام ۹ runner UI، TypeScript/build 1016-module، wheel parity، archive deterministic/privacy-safe و fresh-install آفلاین سبز است. هیچ حساب واقعی، پیام، مدیریت عضو، WordPress یا Provider operation اجرا نشد. مرجع=`F-070 / ADR-60 / V-200/V-201` و گزارش `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md` است.
+
 ## سناریوی UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و اولویت آواتار
 
 - تنظیم «نمایش پنل WordPress» افزوده و default آن خاموش است. در حالت خاموش فقط «عملیات گفتگو» نمایش داده می‌شود و category/tag request اجرا نمی‌شود؛ در حالت روشن نیز taxonomy به credential سایت فعال نیاز دارد.
-- عملیات گفتگو فقط برای گفت‌وگوی فعال group/channel با نقش catalog برابر owner/admin فعال است. نقش از parse معتبر Eitaa می‌آید و unknown/member/personal/inactive fail-closed هستند. Channel/Supergroup کامل پوشش دارد؛ basic-group admin غیرمالک در Core جاری قابل‌اثبات نیست و بسته می‌ماند. catalogهای قبلی با sync بعدی role می‌گیرند.
+- role hint از parse معتبر Eitaa می‌آید، ولی شرط فعال‌سازی UI این سناریو با R03/ADR-60 جایگزین شده است. metadata برای تشخیص و توسعهٔ آینده حفظ می‌شود و از آن مجوز client-side استنتاج نمی‌شود.
 - پیام‌های گفت‌وگوی فعال اولویت 10، آواتار فعال 40 و آواتار پس‌زمینه 80 دارد. browser cache/HTTP lane مستقل و promotion دارد، ولی scheduler Backend تمام Provider callها را برای نشست مشترک سریال می‌کند.
 - cache تصویر صفر/خراب/بزرگ یا با magic نامعتبر miss و overwrite می‌شود؛ نبود photo reference معتبر امن به initials برمی‌گردد.
 - GREEN: Backend=`664/664` در شش partition کامل، تمام runnerهای UI، TypeScript/build 1016-module، wheel/archive deterministic و fresh-install آفلاین. candidate نهایی archive SHA=`307d00b8...0cc00` و wheel SHA=`23cd95cf...34b51` است؛ wheelhouse runtime فقط در staging بسته و خارج از Git می‌ماند.

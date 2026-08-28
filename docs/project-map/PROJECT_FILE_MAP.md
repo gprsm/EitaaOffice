@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 264
-- اثرانگشت منبع: `f0f0ea1acea94807`
+- اثرانگشت منبع: `872d083733503797`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -233,7 +233,7 @@
 | `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 70 | — |
+| `ui/src/App.tsx` | React UI | 69 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 11 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |

@@ -54,7 +54,7 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - بارگیری آواتار cache-first و account-scoped با lane مستقل cache/remote، failure isolation و fallback امن initials؛ عملیات remote Provider باید با قرارداد session مشترک هم‌پوشانی نکند.
 - بارگیری محتوای گفت‌وگوی فعال بالاترین اولویت را دارد؛ آواتار همان گفتگو قابل promotion و آواتار فهرست delayed/background است. cache خراب باید پیش از نمایش/ثبت تشخیص و قابل‌بازیابی باشد.
 - integrationهای WordPress برای site/content/media، به‌صورت opt-in با پنل پیش‌فرض مخفی؛ taxonomy فقط پس از نمایش صریح پنل و وجود credential سایت فعال خوانده می‌شود.
-- عملیات گفتگو فقط برای group/channel فعال با نقش قابل‌اثبات owner/admin حساب انتخابی فعال است؛ unknown/member/personal/inactive به‌شکل fail-closed بسته‌اند.
+- سطح «عملیات گفتگو» مستقل از role hint و نوع گفت‌وگو قابل‌بازشدن است؛ بدون گفت‌وگو یا در personal، ارسال گروهی روی ورودی شماره‌ها باز می‌شود و group/channel روی اعضای گفتگو. «مدیریت اعضا» همچنان به انتخاب group/channel نیاز دارد. role hint صرفاً metadata تشخیصی است و مرز مجوز واقعی mutation در Provider/Backend و تأیید صریح عملیات باقی می‌ماند.
 - endpoint امن Capability برای هر MessengerAccount و guard عمومی Dialog/History/Send/Media/Contacts.
 - endpointهای v2 حساب‌محور برای Dialog/History/Text Send/Media read/Contact list/upsert با context سروری، correlation/deadline، payload allowlist، تأیید mutation و idempotency پایدار.
 

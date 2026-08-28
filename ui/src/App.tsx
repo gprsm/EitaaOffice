@@ -58,16 +58,6 @@ function initials(title: string) {
   return clean ? clean.slice(0, 2) : 'ا'
 }
 
-function canManageCommunity(dialog: DialogItem | null): boolean {
-  return Boolean(
-    dialog
-    && dialog.active !== false
-    && (dialog.display_kind === 'group' || dialog.display_kind === 'channel')
-    && dialog.can_manage_community
-    && (dialog.account_role === 'owner' || dialog.account_role === 'admin')
-  )
-}
-
 function DialogAvatar({ dialog, siteKey, small = false, priority = 'background' }: { dialog: DialogItem | null; siteKey: string; small?: boolean; priority?: 'active' | 'background' }) {
   const ref = useRef<HTMLDivElement>(null)
   const [src, setSrc] = useState<string | null | undefined>(() => dialog ? peekDialogAvatar(siteKey, dialog.peer_key) : null)
@@ -437,7 +427,6 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const wordpressAvailable = useMemo(() => sites.some(site => site.credentials_configured), [sites])
   const wordpressPanelReady = showWordPressPanel && Boolean(activeSite?.credentials_configured)
   const wordpressPanelAvailable = showWordPressPanel && wordpressAvailable
-  const communityEnabled = canManageCommunity(dialog)
   const viewportPageSize = useMemo(() => Math.max(20, Math.min(80, Math.ceil(window.innerHeight / 90) + 10)), [])
   const lastReadRef = useRef<Record<string, number>>({})
   const syncTimesRef = useRef<Record<string, number>>(readStored<Record<string, number>>(STORAGE.syncTimes, {}))
@@ -488,22 +477,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   useEffect(() => { if (dialog) writeStored(STORAGE.peerKey, dialog.peer_key) }, [dialog?.peer_key])
 
   const openBulk = useCallback((mode: BulkMode, memberIds: number[] = [], numbers: string[] = [], memberScope: MemberScope = memberIds.length ? 'selected' : 'all_snapshot') => {
-    if (!canManageCommunity(dialog)) {
-      toast.error('عملیات گفتگو فقط برای گروه یا کانال فعالی مجاز است که حساب انتخاب‌شده در آن مالک یا مدیر باشد.')
-      return
-    }
     setBulkMode(mode)
     setBulkMemberIds(memberIds)
     setBulkMemberScope(memberScope)
     setBulkInitialNumbers(numbers)
     setBulkOpen(true)
-  }, [dialog])
-
-  useEffect(() => {
-    if (communityEnabled) return
-    setBulkOpen(false)
-    setMembersOpen(false)
-  }, [communityEnabled])
+  }, [])
 
   const applyDialogs = useCallback((items: DialogItem[]) => {
     setDialogs(items)
@@ -1610,13 +1589,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         dialogsEnabled={dialogsSupported}
         wordpressVisible={showWordPressPanel}
         wordpressEnabled={wordpressPanelAvailable}
-        communityEnabled={communityEnabled}
         onSection={showDialogSection}
         onSettings={() => setSettingsOpen(true)}
         onAddDialog={() => setManualOpen(true)}
         onSync={() => void syncDialogs()}
         onContacts={() => setContactsOpen(true)}
-        onBulk={() => openBulk('members')}
+        onBulk={() => openBulk(dialog && dialog.display_kind !== 'personal' ? 'members' : 'numbers')}
         onCommunity={() => { setCommunityOpen(true); setComposerOpen(true) }}
         onWordpress={() => { setCommunityOpen(false); setComposerOpen(true) }}
         onMessengerLogout={() => void logout()}
@@ -1673,7 +1651,6 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           search={messageSearch}
           wordpressVisible={showWordPressPanel}
           wordpressEnabled={wordpressPanelAvailable}
-          communityEnabled={communityEnabled}
           composerVisible={composerDocked || composerOpen}
           onOpenChats={() => setChatsOpen(true)}
           onClearSelection={clearSelection}
@@ -1691,7 +1668,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       } : {
         position: 'fixed', zIndex: theme => theme.zIndex.drawer + 2, insetBlock: 0, insetInlineEnd: 0, width: 'min(520px, 94vw)', minWidth: 0, minHeight: 0, overflow: 'hidden', borderInlineStart: 1, borderColor: 'divider', transform: composerOpen ? 'translateX(0)' : 'translateX(105%)', transition: theme => theme.transitions.create('transform', { duration: theme.transitions.duration.shorter }),
       }}>
-        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressVisible={showWordPressPanel} wordpressReady={wordpressPanelReady} communityEnabled={communityEnabled} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
+        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressVisible={showWordPressPanel} wordpressReady={wordpressPanelReady} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
       </Paper>
     </Box>
     <UsageInfoDialog activeUsage={activeUsage} clearUsage={() => setActiveUsage(null)} loadHistory={item => { /* will do loadHistory later or let user implement if needed */ }} />
@@ -2125,7 +2102,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
     </Box>
   </Box>
 }
-function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressVisible: boolean; wordpressReady: boolean; communityEnabled: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
+function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressVisible: boolean; wordpressReady: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
   const [compositionKey, setCompositionKey] = useState(makeCompositionKey)
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
@@ -2278,16 +2255,15 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
       </Stack>
       {props.wordpressVisible && <ToggleButtonGroup exclusive fullWidth size="small" value={communityView ? 'community' : 'wordpress'} onChange={(_event, value) => { if (value) props.setCommunityOpen(value === 'community') }} sx={{ mt: 1 }}>
         <ToggleButton value="wordpress" disabled={!props.wordpressReady}>وردپرس</ToggleButton>
-        <ToggleButton value="community" disabled={!props.communityEnabled}>عملیات گفتگو</ToggleButton>
+        <ToggleButton value="community">عملیات گفتگو</ToggleButton>
       </ToggleButtonGroup>}
     </Paper>
     <Stack spacing={1.25} sx={{ p: { xs: 1, sm: 1.5 } }}>
       {communityView ? <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={1.25} alignItems="center"><Avatar>{initials(titleFor(props.dialog))}</Avatar><Box sx={{ minWidth: 0 }}><Typography fontWeight={850} noWrap>{titleFor(props.dialog)}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.dialog?.peer.username ? `@${props.dialog.peer.username}` : props.dialog ? `Peer ID: ${props.dialog.peer.id}` : 'گفتگویی انتخاب نشده'}</Typography></Box></Stack>
-          {!props.communityEnabled && <Alert severity="info">عملیات گفتگو فقط برای گروه یا کانال فعال است که حساب انتخاب‌شده در آن مالک یا مدیر باشد.</Alert>}
-          <Button variant="contained" disabled={!props.communityEnabled} onClick={() => props.openBulk('members')}>ارسال و دعوت گروهی</Button>
-          <Button variant="outlined" disabled={!props.communityEnabled} onClick={props.openMembers}>مدیریت اعضا</Button>
+          <Button variant="contained" onClick={() => props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')}>ارسال و دعوت گروهی</Button>
+          <Button variant="outlined" disabled={!props.dialog || props.dialog.display_kind === 'personal'} onClick={props.openMembers}>مدیریت اعضا</Button>
           <Typography variant="caption" color="text.secondary">{!props.dialog ? 'ارسال به شماره‌ها در دسترس است؛ برای عملیات اعضا ابتدا یک گروه یا کانال را انتخاب کنید.' : props.dialog.display_kind === 'personal' ? 'در گفتگوی شخصی، ابزار یکپارچه روی ارسال به شماره‌ها باز می‌شود.' : 'اعضا، شماره‌های جدید و دعوت شماره‌ها در تب‌های مستقل ابزار گروهی قرار دارند.'}</Typography>
         </Stack>
       </Paper> : !props.wordpressReady ? <Alert severity="info" aria-label="وردپرس آماده نیست" action={<Button color="inherit" onClick={props.openSettings}>تنظیمات</Button>}><Typography fontWeight={850}>وردپرس هنوز آماده نیست</Typography>ابتدا یک سایت و دسترسی معتبر وردپرس تعریف کنید.</Alert> : <>

@@ -1,7 +1,7 @@
 # فهرست گزارش‌ها و اسناد دسته‌بندی‌شده
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
-تعداد کل اسناد فهرست‌شده: 178
+تعداد کل اسناد فهرست‌شده: 179
 
 
 ## گزارش فازها
@@ -108,6 +108,7 @@
 - [`CONTACT_IMPORT_UPSERT_REPORT_2026-07-28.md`](reports/features/CONTACT_IMPORT_UPSERT_REPORT_2026-07-28.md)
 - [`CONTACT_SOURCES_CLARIFICATION.md`](reports/features/CONTACT_SOURCES_CLARIFICATION.md)
 - [`CONTACTS_SCROLL_CATEGORIES_REPORT_2026-07-26.md`](reports/features/CONTACTS_SCROLL_CATEGORIES_REPORT_2026-07-26.md)
+- [`CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md`](reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md)
 - [`DARK_THEME_REPORT_2026-07-26.md`](reports/features/DARK_THEME_REPORT_2026-07-26.md)
 - [`LIVE_STARTUP_IRANSANS_AUTH_ACCEPTANCE_REPORT_2026-08-20.md`](reports/features/LIVE_STARTUP_IRANSANS_AUTH_ACCEPTANCE_REPORT_2026-08-20.md)
 - [`LOGIN_RTL_MULTI_SESSION_REPORT_2026-07-26.md`](reports/features/LOGIN_RTL_MULTI_SESSION_REPORT_2026-07-26.md)

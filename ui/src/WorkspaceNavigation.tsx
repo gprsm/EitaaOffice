@@ -53,7 +53,6 @@ export function WorkspaceNavigation({
   dialogsEnabled,
   wordpressVisible,
   wordpressEnabled,
-  communityEnabled,
   onSection,
   onSettings,
   onAddDialog,
@@ -74,7 +73,6 @@ export function WorkspaceNavigation({
   dialogsEnabled: boolean
   wordpressVisible: boolean
   wordpressEnabled: boolean
-  communityEnabled: boolean
   onSection: (value: WorkspaceSectionValue) => void
   onSettings: () => void
   onAddDialog: () => void
@@ -158,7 +156,7 @@ export function WorkspaceNavigation({
         <Tooltip title="مخاطبان" placement="left"><Button color="inherit" onClick={onContacts} sx={{ minWidth: 0, minHeight: 54, flexDirection: 'column', fontSize: '0.68rem' }}><ContactsRounded />مخاطبان</Button></Tooltip>
         {wordpressVisible
           ? <Tooltip title={wordpressEnabled ? 'وردپرس' : 'ابتدا تنظیمات وردپرس را کامل کنید'} placement="left"><span><Button color="inherit" disabled={!wordpressEnabled} onClick={onWordpress} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><WordPressIcon />وردپرس</Button></span></Tooltip>
-          : <Tooltip title={communityEnabled ? 'عملیات گفتگو' : 'فقط برای گروه یا کانالی که در آن مالک یا مدیر هستید'} placement="left"><span><Button color="inherit" disabled={!communityEnabled} onClick={onCommunity} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><GroupsOutlined />عملیات گفتگو</Button></span></Tooltip>}
+          : <Tooltip title="عملیات گفتگو" placement="left"><Button color="inherit" onClick={onCommunity} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><GroupsOutlined />عملیات گفتگو</Button></Tooltip>}
       </Stack>
 
       <BottomNavigation
@@ -213,7 +211,7 @@ export function WorkspaceNavigation({
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<ContactsRounded />} onClick={() => invoke(onContacts)}>مدیریت مخاطبان</Button>
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<AddCommentRounded />} disabled={!dialogsEnabled} onClick={() => invoke(onAddDialog)}>افزودن دستی گفتگو</Button>
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SyncRounded />} disabled={syncing || !dialogsEnabled} onClick={() => invoke(onSync)}>{syncing ? 'در حال همگام‌سازی…' : 'همگام‌سازی گفتگوها'}</Button>
-        <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SendRounded />} disabled={!communityEnabled} onClick={() => invoke(onBulk)}>ارسال و اقدام گروهی</Button>
+        <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SendRounded />} onClick={() => invoke(onBulk)}>ارسال و اقدام گروهی</Button>
         {wordpressVisible && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<WordPressIcon />} disabled={!wordpressEnabled} onClick={() => invoke(onWordpress)}>ایجاد وردپرس</Button>}
       </Stack>
       <Divider sx={{ my: 1 }} />

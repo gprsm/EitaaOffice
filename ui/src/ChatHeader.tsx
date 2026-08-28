@@ -32,7 +32,6 @@ export function ChatHeader({
   search,
   wordpressVisible,
   wordpressEnabled,
-  communityEnabled,
   composerVisible,
   onOpenChats,
   onClearSelection,
@@ -57,7 +56,6 @@ export function ChatHeader({
   search: string
   wordpressVisible: boolean
   wordpressEnabled: boolean
-  communityEnabled: boolean
   composerVisible: boolean
   onOpenChats: () => void
   onClearSelection: () => void
@@ -120,7 +118,7 @@ export function ChatHeader({
         },
       }}>{wordpressVisible
         ? <Tooltip title={wordpressEnabled ? 'وردپرس' : 'ابتدا تنظیمات وردپرس را کامل کنید'}><span><IconButton sx={{ width: 48, height: 48 }} disabled={!wordpressEnabled} color="primary" onClick={onOpenComposer} aria-label="بازکردن صفحه وردپرس"><WordPressIcon /></IconButton></span></Tooltip>
-        : <Tooltip title={communityEnabled ? 'عملیات گفتگو' : 'فقط برای گروه یا کانالی که در آن مالک یا مدیر هستید'}><span><IconButton sx={{ width: 48, height: 48 }} disabled={!communityEnabled} color="secondary" onClick={onOpenComposer} aria-label="بازکردن عملیات گفتگو"><GroupsOutlined /></IconButton></span></Tooltip>}</Box>}
+        : <Tooltip title="عملیات گفتگو"><IconButton sx={{ width: 48, height: 48 }} color="secondary" onClick={onOpenComposer} aria-label="بازکردن عملیات گفتگو"><GroupsOutlined /></IconButton></Tooltip>}</Box>}
     </Stack>
   </Toolbar>
 }
