@@ -14,10 +14,12 @@ import {
   IconButton,
   Skeleton,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import EditRounded from '@mui/icons-material/EditRounded'
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded'
+import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import type { MessageGroup } from './lib/groupedMedia'
 import { stableMessageKey } from './lib/scrollMath'
 import type { DialogItem, IndexPrediction, MessageItem } from './lib/types'
@@ -135,6 +137,23 @@ function ImageWithSkeleton({ src, gallery, mediaDisplay, onClick, onDragStart }:
   </>
 }
 
+function galleryColumnSpan(itemCount: number, index: number, compact: boolean): number {
+  if (itemCount <= 1) return 6
+  if (compact) return itemCount % 2 === 1 && index === itemCount - 1 ? 6 : 3
+  if (itemCount === 2) return 3
+  if (itemCount === 3) return 2
+  if (itemCount === 4) return 3
+  if (itemCount === 5) return index < 3 ? 2 : 3
+  const remainder = itemCount % 3
+  if (remainder === 1 && index === itemCount - 1) return 6
+  if (remainder === 2 && index >= itemCount - 2) return 3
+  return 2
+}
+
+function galleryTileAspectRatio(columnSpan: number): string {
+  return columnSpan === 6 ? '16 / 9' : '4 / 3'
+}
+
 export function MessageContentCard({
   siteKey,
   dialog,
@@ -161,6 +180,15 @@ export function MessageContentCard({
   const anyStale = members.some(item => item.usage.usage_state === 'stale')
   const collapsible = contentBlocks.some(block => block.kind === 'text' && (block.text.length > 700 || block.text.split('\n').length > 8))
   const writer = authorLabel(dialog, message)
+  const senderIsSelf = message.outgoing || message.sender_resolution === 'self'
+  const senderIsContact = Boolean(
+    !senderIsSelf
+    && (
+      message.sender_is_eitaa_contact
+      || message.sender_resolution === 'eitaa_contact'
+      || message.sender_resolution === 'local_contact'
+    )
+  )
   const imageKeys = images.map(item => stableMessageKey(dialog.peer_key, item.id)).join('|')
   const indexPredictions = useMemo(() => {
     const indexedByLabel = new Map<number, IndexPrediction>()
@@ -223,25 +251,30 @@ export function MessageContentCard({
     }}
   >
     {dialog.display_kind !== 'channel' && <CardHeader
-      action={message.sender_is_eitaa_contact && <Chip size="small" color="primary" variant="outlined" label="مخاطب" />}
-      title={<Typography variant="subtitle2" component="h3" fontWeight={850}>{writer}</Typography>}
+      title={<Stack direction="row" spacing={0.5} alignItems="center">
+        <Typography variant="subtitle2" component="h3" color={senderIsContact ? 'primary.main' : 'text.primary'} fontWeight={senderIsContact ? 900 : senderIsSelf ? 850 : 500}>{writer}</Typography>
+        {!senderIsSelf && <Tooltip arrow title={senderIsContact ? 'مخاطب' : 'غیرمخاطب'}>
+          <Box component="span" role="img" tabIndex={0} aria-label={senderIsContact ? 'مخاطب' : 'غیرمخاطب'} sx={{ display: 'inline-flex', cursor: 'help' }}>
+            <InfoOutlined color={senderIsContact ? 'primary' : 'disabled'} fontSize="small" />
+          </Box>
+        </Tooltip>}
+      </Stack>}
       subheader={<Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
         {message.sender_username && writer !== `@${message.sender_username.replace(/^@/, '')}` && <Typography variant="caption" color="text.secondary" dir="ltr">@${message.sender_username.replace(/^@/, '')}</Typography>}
       </Stack>}
       sx={{ px: { xs: 1.25, sm: 1.75 }, py: 1.1 }}
     />}
 
-    {members.length > 1 && <Box sx={{ px: 1.25, pb: 0.75 }}><Chip size="small" color={group?.kind === 'inferred' ? 'warning' : 'info'} variant="outlined" label={group?.kind === 'inferred' ? `گالری پیشنهادی · ${members.length.toLocaleString('fa-IR')} تصویر` : `${members.length.toLocaleString('fa-IR')} پیام پیوسته`} /></Box>}
-
     {contentBlocks.map(block => {
       if (block.kind === 'images') {
         const gallery = block.items.length > 1
-        return <Box key={block.key} sx={{ width: '100%', overflow: 'hidden', bgcolor: 'action.hover', display: gallery ? 'grid' : 'flex', justifyContent: 'center', alignItems: 'flex-start', gridTemplateColumns: gallery ? (block.items.length > 4 ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))') : undefined, gridTemplateRows: gallery ? (block.items.length > 4 ? `repeat(${Math.ceil(block.items.length / 3)}, minmax(0, 1fr))` : 'repeat(2, minmax(0, 1fr))') : undefined, gap: gallery ? 0.25 : 0, aspectRatio: gallery || mediaDisplay === 'framed' ? '4 / 3' : 'auto' }}>
+        return <Box key={block.key} sx={{ width: '100%', overflow: 'hidden', bgcolor: 'action.hover', display: gallery ? 'grid' : 'flex', justifyContent: 'center', alignItems: 'stretch', gridTemplateColumns: gallery ? 'repeat(6, minmax(0, 1fr))' : undefined, gap: gallery ? 0.5 : 0, aspectRatio: !gallery && mediaDisplay === 'framed' ? '4 / 3' : 'auto' }}>
           {block.items.map((item, index) => {
             const key = stableMessageKey(dialog.peer_key, item.id)
             const selectedMediaUrl = media[key]
-            const spanFirstOfThree = gallery && block.items.length === 3 && index === 0
-            return <Box key={key} sx={{ position: 'relative', minWidth: 0, minHeight: gallery ? 0 : 120, overflow: 'hidden', bgcolor: 'action.hover', gridRow: spanFirstOfThree ? '1 / -1' : block.items.length === 2 ? '1 / -1' : undefined, display: 'grid', placeItems: 'center' }}>
+            const compactSpan = galleryColumnSpan(block.items.length, index, true)
+            const wideSpan = galleryColumnSpan(block.items.length, index, false)
+            return <Box key={key} sx={{ position: 'relative', width: '100%', height: !gallery && mediaDisplay === 'framed' ? '100%' : 'auto', minWidth: 0, minHeight: gallery ? 0 : 120, overflow: 'hidden', bgcolor: 'action.hover', gridColumn: gallery ? { xs: `span ${compactSpan}`, sm: `span ${wideSpan}` } : undefined, aspectRatio: gallery ? { xs: galleryTileAspectRatio(compactSpan), sm: galleryTileAspectRatio(wideSpan) } : undefined, display: 'grid', placeItems: 'center', '& img': { transition: theme => theme.transitions.create('transform', { duration: theme.transitions.duration.shorter }) }, '&:hover img': { transform: gallery ? 'scale(1.025)' : 'none' } }}>
               {selectedMediaUrl
                 ? <ImageWithSkeleton
                     src={selectedMediaUrl}

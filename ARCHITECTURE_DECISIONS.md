@@ -394,3 +394,12 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - حذف UI gate افزایش اختیار قطعی اعلام نمی‌کند: preflight، تأیید صریح، محدودیت‌های Backend/Provider و پاسخ واقعی سرویس همچنان اجرا می‌شوند. هیچ عملیات زنده برای پذیرش این تصمیم انجام نشده است.
 - این تصمیم به درخواست صریح بازگردانی رفتار قبلی ثبت شد. شناسهٔ ۶۰ برای دوری از بازهٔ در حال استفادهٔ کار موازی ایندکس انتخاب شده است.
 - مرجع: F-070، V-200 و `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md`.
+
+## ۶۱. شمارندهٔ گروه داخلی پنهان و gallery بر پایهٔ tile است
+
+- گروه محتوایی می‌تواند چند پیام منبع داشته باشد، اما تعداد memberها جزئیات فنی presentation است و در Header با عبارت‌هایی مانند «X پیام پیوسته» یا «گالری پیشنهادی» نمایش داده نمی‌شود. این پنهان‌سازی اجازهٔ ادغام persistence یا حذف شناسه‌های مستقل را نمی‌دهد.
+- هویت نمایشی مخاطب از شاهد موجود `sender_is_eitaa_contact` یا resolutionهای `eitaa_contact`/`local_contact` می‌آید. مخاطب آبی و ضخیم و غیرمخاطب خنثی و معمولی است؛ هر دو در پیام غیرخودی نشانگر اطلاعاتی با tooltip، accessible label و focus صفحه‌کلید دارند. self برچسب مخاطب نمی‌گیرد.
+- gallery چندعکسی نباید aspect-ratio یا row ثابت بیرونی داشته باشد. container یک grid شش‌ستونه است و هر tile بر پایهٔ تعداد تصویر و breakpoint span و aspect-ratio مستقل می‌گیرد؛ نسبت ثابت framed فقط برای تک‌تصویر باقی است.
+- برای پنج تصویر، قرارداد نمای عریض ۳+۲ و نمای فشرده ۲+۲+۱ است. برای تعدادهای دیگر tileهای جفت نیم‌عرض، سه‌تایی یک‌سوم و باقی‌ماندهٔ فرد تمام‌عرض می‌شود تا فضای مردهٔ مصنوعی ساخته نشود.
+- این تصمیم فقط رابط و هندسهٔ نمایش را تغییر می‌دهد؛ source grouping، selection/index/scroll، دانلود رسانه، صف آواتار، Provider و مجوزها بدون تغییرند.
+- مرجع: F-071، V-203 و `docs/reports/features/MESSAGE_HEADER_CONTACT_AND_DYNAMIC_MOSAIC_REPORT_2026-08-28.md`.

@@ -156,6 +156,33 @@ def test_message_content_is_a_modular_material_card_with_author_header() -> None
     assert "className=" not in card
 
 
+def test_message_header_hides_group_count_and_distinguishes_contact_status() -> None:
+    card = read("MessageContentCard.tsx")
+    assert "پیام پیوسته" not in card
+    assert "گالری پیشنهادی" not in card
+    assert "InfoOutlined" in card
+    assert "const senderIsContact = Boolean(" in card
+    assert "message.sender_resolution === 'local_contact'" in card
+    assert "title={senderIsContact ? 'مخاطب' : 'غیرمخاطب'}" in card
+    assert "aria-label={senderIsContact ? 'مخاطب' : 'غیرمخاطب'}" in card
+    assert 'role="img" tabIndex={0}' in card
+    assert "color={senderIsContact ? 'primary.main' : 'text.primary'}" in card
+    assert "fontWeight={senderIsContact ? 900 : senderIsSelf ? 850 : 500}" in card
+
+
+def test_message_gallery_uses_balanced_responsive_tiles_without_fixed_outer_ratio() -> None:
+    card = read("MessageContentCard.tsx")
+    assert "function galleryColumnSpan(" in card
+    assert "function galleryTileAspectRatio(" in card
+    assert "if (itemCount === 5) return index < 3 ? 2 : 3" in card
+    assert "itemCount % 2 === 1 && index === itemCount - 1 ? 6 : 3" in card
+    assert "gridTemplateColumns: gallery ? 'repeat(6, minmax(0, 1fr))'" in card
+    assert "gridColumn: gallery ? { xs: `span ${compactSpan}`, sm: `span ${wideSpan}` }" in card
+    assert "aspectRatio: gallery ? { xs: galleryTileAspectRatio(compactSpan), sm: galleryTileAspectRatio(wideSpan) }" in card
+    assert "gridTemplateRows" not in card
+    assert "aspectRatio: gallery || mediaDisplay === 'framed' ? '4 / 3' : 'auto'" not in card
+
+
 def test_legacy_operational_dialogs_are_contained_by_material_dialogs() -> None:
     app = read("App.tsx") + read("utils/helpers.tsx")
     assert app.count("<MaterialLegacyDialog") >= 4

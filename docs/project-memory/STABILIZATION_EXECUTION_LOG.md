@@ -3902,3 +3902,67 @@ excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operatio
 next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
 output_summary: commit اصلی بازگردانی بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
 ```
+
+## UX-MESSAGE-HEADER-MOSAIC-R04 — هدر مخاطب و موزاییک پویای تصاویر
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S01 — تحلیل شاهد، RED و پیاده‌سازی
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S01
+event: MESSAGE_HEADER_CONTACT_AND_DYNAMIC_MEDIA_MOSAIC
+started_at: 2026-08-28T06:49:15+03:30
+ended_at: 2026-08-28T07:12:00+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: USER_REQUESTED_SOURCE_TEST_DOCUMENT
+visual_evidence: {kind: user_screenshot, persisted_or_committed: false, observed_pattern: five_tiles_with_large_dead_interrow_space}
+root_cause: {fixed_gallery_container_ratio: true, explicit_grid_rows: true, tiles_not_filling_row_height: true, group_count_exposed_in_header: true}
+red: 3_failed
+implementation: {group_count_hidden: true, contact_blue_bold: true, noncontact_neutral_regular: true, accessible_info_indicator: true, self_indicator: false, outer_gallery_ratio_removed: true, tile_based_responsive_grid: true, five_item_wide_layout: 3_plus_2, five_item_compact_layout: 2_plus_2_plus_1}
+grouping_or_persistence_changed: false
+live_or_provider_effect: 0
+private_evidence_logged: false
+next_action: related_and_full_regression_build
+output_summary: شمارنده حذف، وضعیت مخاطب روشن و gallery از قاب ثابت به موزاییک پاسخ‌گو تبدیل شد.
+```
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S02 — پذیرش کامل کد و build
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S02
+event: MESSAGE_HEADER_MOSAIC_FULL_AUTOMATED_ACCEPTANCE
+started_at: 2026-08-28T07:12:00+03:30
+ended_at: 2026-08-28T07:27:00+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: FULL_TEST_AND_UI_BUILD
+related_python: 45/45
+ui: {canonical_runners: PASS, scroll: 10/10, grouped_media: 29/29, typescript: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+candidate_full_backend: 666/666
+environment_retry: {attempt: stale_test_node_name, tests_executed: 0, product_change: 0, retry_file_scope: 45/45}
+candidate_root_source_equivalence: normalized_diff_zero
+operational_or_live_effect: 0
+next_action: document_checks_offline_package_fresh_install
+output_summary: کد سناریو با full regression و build تولیدی پذیرفته شد.
+```
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S03 — package و نصب تازهٔ آفلاین
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S03
+event: MESSAGE_HEADER_MOSAIC_OFFLINE_PACKAGE_AND_FRESH_INSTALL
+started_at: 2026-08-28T07:27:00+03:30
+ended_at: 2026-08-28T07:39:00+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: DETERMINISTIC_PACKAGE_PRIVACY_VERIFY_OFFLINE_INSTALL
+wheel: {sha256: 22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40, source_parity: PASS}
+package: {files: 283, dry_run: PASS, archives_byte_identical: true, sha256: 5e3a54c7bd166b610370f4694cfcaad81d2849d5c5f282c2d8ba2996930642bd, content_set: a8bcc5385e80826858985c7c9afc8edc7e20af9cf2497c570082eb7f4fde0e90, privacy_path_hash_verifier: PASS}
+fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103, entrypoints: 4}
+environment_retries: [literal_wildcard_copy_nonterminating_error, byte_hash_line_endings_false_negative, verifier_inline_quoting_syntax_error]
+product_change_for_retries: 0
+artifacts_staged: 0
+operational_or_live_effect: 0
+next_action: final_document_checks_isolated_commit_push
+output_summary: snapshot با package deterministic و fresh-install کاملاً آفلاین پذیرفته شد.
+```

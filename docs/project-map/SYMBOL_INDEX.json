@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "872d083733503797",
+  "source_fingerprint": "d611590a16752057",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -12869,69 +12869,79 @@
           "line": 136
         },
         {
-          "name": "test_legacy_operational_dialogs_are_contained_by_material_dialogs",
+          "name": "test_message_header_hides_group_count_and_distinguishes_contact_status",
           "kind": "function",
           "line": 159
         },
         {
+          "name": "test_message_gallery_uses_balanced_responsive_tiles_without_fixed_outer_ratio",
+          "kind": "function",
+          "line": 173
+        },
+        {
+          "name": "test_legacy_operational_dialogs_are_contained_by_material_dialogs",
+          "kind": "function",
+          "line": 186
+        },
+        {
           "name": "test_contact_and_community_large_lists_use_incremental_virtual_rendering",
           "kind": "function",
-          "line": 167
+          "line": 194
         },
         {
           "name": "test_member_management_button_keeps_readable_contrast",
           "kind": "function",
-          "line": 182
+          "line": 209
         },
         {
           "name": "test_index_editor_uses_a_real_checkbox_control",
           "kind": "function",
-          "line": 190
+          "line": 217
         },
         {
           "name": "test_ui_build_scripts_do_not_contain_machine_specific_node_paths",
           "kind": "function",
-          "line": 197
+          "line": 224
         },
         {
           "name": "test_old_material_compile_stub_is_not_shipped",
           "kind": "function",
-          "line": 207
+          "line": 234
         },
         {
           "name": "test_dialog_rendering_is_bounded_and_search_remains_available",
           "kind": "function",
-          "line": 211
+          "line": 238
         },
         {
           "name": "test_material_index_dialog_is_not_closed_by_workspace_click_bubbling",
           "kind": "function",
-          "line": 220
+          "line": 247
         },
         {
           "name": "test_index_selection_effect_has_no_nested_state_update_side_effects",
           "kind": "function",
-          "line": 227
+          "line": 254
         },
         {
           "name": "test_contact_initial_load_does_not_duplicate_the_contact_query",
           "kind": "function",
-          "line": 233
+          "line": 260
         },
         {
           "name": "test_settings_exposes_one_material_network_port_control",
           "kind": "function",
-          "line": 239
+          "line": 266
         },
         {
           "name": "test_mobile_bottom_navigation_opens_filtered_conversation_list_and_header_goes_back",
           "kind": "function",
-          "line": 251
+          "line": 278
         },
         {
           "name": "test_mobile_header_hides_live_success_noise_and_aligns_wordpress_opposite_menu",
           "kind": "function",
-          "line": 267
+          "line": 294
         }
       ]
     },
@@ -15104,17 +15114,17 @@
         {
           "name": "test_message_refresh_merges_and_rejects_stale_dialog_commits",
           "kind": "function",
-          "line": 75
+          "line": 76
         },
         {
           "name": "test_dialog_switch_batches_peer_and_cached_messages_before_keyed_remount",
           "kind": "function",
-          "line": 86
+          "line": 87
         },
         {
           "name": "test_position_restore_survives_async_refresh_and_uses_measured_row_anchor",
           "kind": "function",
-          "line": 98
+          "line": 99
         }
       ]
     },
@@ -17020,42 +17030,52 @@
         {
           "name": "formatDate",
           "kind": "script symbol",
-          "line": 51
+          "line": 53
         },
         {
           "name": "authorLabel",
           "kind": "script symbol",
-          "line": 56
+          "line": 58
         },
         {
           "name": "authorInitials",
           "kind": "script symbol",
-          "line": 68
+          "line": 70
         },
         {
           "name": "MessageAuthorAvatar",
           "kind": "script symbol",
-          "line": 74
+          "line": 76
         },
         {
           "name": "buildContentBlocks",
           "kind": "script symbol",
-          "line": 92
+          "line": 94
         },
         {
           "name": "ImageWithSkeleton",
           "kind": "script symbol",
-          "line": 118
+          "line": 120
+        },
+        {
+          "name": "galleryColumnSpan",
+          "kind": "script symbol",
+          "line": 139
+        },
+        {
+          "name": "galleryTileAspectRatio",
+          "kind": "script symbol",
+          "line": 152
         },
         {
           "name": "MessageContentCard",
           "kind": "script symbol",
-          "line": 137
+          "line": 156
         },
         {
           "name": "handleCardClick",
           "kind": "script symbol",
-          "line": 181
+          "line": 209
         }
       ]
     },

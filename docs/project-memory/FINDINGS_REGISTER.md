@@ -656,3 +656,17 @@
 - شناسهٔ F-070 عمداً بیرون از بازهٔ نزدیک کار موازی ایندکس رزرو شد؛ فایل‌های آن کار در این snapshot نیستند.
 - مرجع: ADR-60، V-200 و `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md`.
 - Trigger بازبینی: تغییر مسیر Composer/Bulk، قرارداد authorization سمت Backend/Provider، یا تصمیم تازهٔ کاربر برای role gating قابل‌اعتماد.
+
+### F-071 — شمارندهٔ گروه و هندسهٔ ثابت gallery باعث شلوغی هدر و فضای مرده می‌شد
+
+- وضعیت: `CLOSED_CODE_AND_FULL_AUTOMATED_ACCEPTANCE / USER_VISUAL_RECHECK_OPTIONAL`
+- تاریخ: 2026-08-28
+- دامنه: هدر فرستنده در Card پیام و gallery چندعکسی ادغام‌شده.
+- رخداد: کاربر حذف عبارت «X پیام پیوسته»، تمایز روشن مخاطب/غیرمخاطب و اصلاح چیدمان خشک تصاویر را خواست. شاهد دیداری پنج تصویر، سه tile در بالا و دو tile در پایین با فاصلهٔ عمودی بسیار بزرگ نشان می‌داد.
+- علت ریشه‌ای: container gallery نسبت 4:3 ثابت و rowهای صریح داشت، در حالی که خود تصویرها ارتفاع row را پر نمی‌کردند. شمارندهٔ داخلی grouping نیز در Header ارائه می‌شد و وضعیت مخاطب فقط به‌صورت chip یک‌طرفه و بدون بیان غیرمخاطب بود.
+- اصلاح: شمارندهٔ گروه/گالری حذف شد؛ نام مخاطب آبی و ضخیم و غیرمخاطب معمولی شد و هر دو برای پیام غیرخودی نشانگر اطلاعاتی قابل‌تمرکز با label/tooltip صریح دارند. gallery به grid شش‌ستونه با span و نسبت مستقل tile بر پایهٔ تعداد و breakpoint تبدیل شد و قاب ثابت بیرونی/row صریح حذف شد.
+- حفظ معنا: grouping، member ID، persistence، selection، index، usage، unread، focus و scroll تغییر نکردند. طبقه‌بندی contact فقط presentation است و authorization نیست؛ self نشانگر ندارد.
+- RED/GREEN: contract هدفمند ابتدا=`3 failed`؛ related نهایی=`45/45`، تمام runnerهای UI، TypeScript/build و full Backend=`666/666` سبزند. package/fresh-install در V-204 ثبت می‌شود.
+- حریم خصوصی: screenshot فقط برای تحلیل layout دیده شد و هیچ تصویر، عنوان/شناسه/متن خصوصی یا مسیر شخصی در repository ثبت نشد؛ عملیات Live/Provider صفر.
+- مرجع: ADR-61، V-203 و `docs/reports/features/MESSAGE_HEADER_CONTACT_AND_DYNAMIC_MOSAIC_REPORT_2026-08-28.md`.
+- Trigger بازبینی: تغییر contact resolution، grouping presentation، breakpoint/span، object-fit یا گزارش تکرار فضای مرده/برش نامناسب روی دادهٔ واقعی.

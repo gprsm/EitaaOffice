@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 264
-- اثرانگشت منبع: `872d083733503797`
+- اثرانگشت منبع: `d611590a16752057`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -173,7 +173,7 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
-| `tests/test_material_ui_repair.py` | Python test | 27 | — |
+| `tests/test_material_ui_repair.py` | Python test | 29 | — |
 | `tests/test_multi_account_lab.py` | Python test | 3 | — |
 | `tests/test_mvp6_operations.py` | Python test | 23 | — |
 | `tests/test_observability_contract.py` | Python test | 7 | — |
@@ -255,7 +255,7 @@
 | `ui/src/LoginExperience.tsx` | React UI | 6 | — |
 | `ui/src/main.tsx` | React UI | 7 | — |
 | `ui/src/MaterialToast.tsx` | React UI | 3 | — |
-| `ui/src/MessageContentCard.tsx` | React UI | 8 | — |
+| `ui/src/MessageContentCard.tsx` | React UI | 10 | — |
 | `ui/src/MessageFilterDialog.tsx` | React UI | 1 | — |
 | `ui/src/MessageIndexEditor.tsx` | React UI | 1 | — |
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |

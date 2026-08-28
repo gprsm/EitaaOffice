@@ -1478,3 +1478,30 @@
 - push عادی fast-forward روی `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
 - root worktree و index کار موازی reset/checkout/stage نشدند؛ commit از clone ایزوله ساخته شد. force-push، main push/merge، ref deletion، Live/Provider/Login/OTP/Send/WordPress/Member mutation و operational write صفر.
 - commit closure فقط همین ثبت انتشار و generated docs آن را fast-forward می‌کند؛ hash نهایی در تحویل گفتگو و remote verify ثبت می‌شود.
+
+### V-203 — RED/GREEN، UI کامل و full regression هدر مخاطب و موزاییک
+
+- تاریخ: 2026-08-28
+- سطح: `USER VISUAL EVIDENCE / CONTRACT RED-GREEN / FULL REGRESSION / UI BUILD`
+- Run: `UX-MESSAGE-HEADER-MOSAIC-R04`
+- علت بررسی مجدد: درخواست صریح حذف شمارندهٔ گروه، نمایش جداگانهٔ مخاطب/غیرمخاطب و شاهد تازهٔ فضای مردهٔ بزرگ در gallery پنج‌عکسی؛ source مؤثر `MessageContentCard` از V-169 تغییر کرد.
+- تحلیل شاهد: نمونهٔ پنج‌تصویری یک ردیف سه‌تایی و یک ردیف دوتایی داشت، اما aspect-ratio 4:3 container و rowهای ثابت میان آن‌ها ارتفاع استفاده‌نشده ساخته بود. خود screenshot یا جزئیات خصوصی در اسناد ذخیره نشد.
+- RED هدفمند=`3 failed` برای نبود پنهان‌سازی count، نبود قرارداد دوحالتهٔ contact و باقی‌بودن قاب/row ثابت gallery. GREEN candidate مرتبط=`45/45` و retry محیطی لازم نبود.
+- UI canonical: scroll=`10/10`، grouped-media=`29/29`، Phase 9 workspace=`19/19`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Observability=`PASS`، Phase 11 onboarding=`7/7`، Phase 11-B2=`6/6` و mobile/auth/live=`PASS`. TypeScript=`PASS` و Vite build=`1016 modules / PASS`؛ warning تاریخی chunk بزرگ nonblocking است.
+- full Backend روی clone ایزوله با basetemp workspace=`666/666`، failure/skip صفر. انتخاب سه تابع در attempt نخست فقط به نام منقضی یک test node برخورد و test اجرا نکرد؛ retry سطح فایل=`45/45` شد و هیچ تغییر محصول برای retry انجام نشد.
+- دسترس‌پذیری: info wrapper دارای `role=img`، `tabIndex=0`، label و tooltip صریح است. self مستثنا و contact classification صرفاً presentation است.
+- اثر بیرونی/حریم خصوصی: Provider، حساب، Login/OTP، Send، WordPress، Member و دادهٔ عملیاتی صفر؛ screenshot در Git/لاگ وارد نشد.
+- نتیجه=`FULL_AUTOMATED_ACCEPTED / OFFLINE_PACKAGE_PENDING / USER_VISUAL_RECHECK_OPTIONAL`؛ package و انتشار در V-204/V-205 ثبت می‌شوند.
+
+### V-204 — بستهٔ deterministic و fresh-install آفلاین هدر/موزاییک
+
+- تاریخ: 2026-08-28
+- سطح: `WHEEL PARITY / DETERMINISTIC PACKAGE / PRIVACY VERIFY / OFFLINE FRESH INSTALL`
+- Run: `UX-MESSAGE-HEADER-MOSAIC-R04`
+- wheel Backend تغییر نکرد و SHA-256=`22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40` است؛ full regression شامل parity source/wheel سبز بود. `ui/dist` تازه از build 1016-module به candidate منتقل و با finalizer همان snapshot نرمال شد.
+- package dry-run=`283 files`؛ archiveهای A/B بایت‌یکسان با content-set=`a8bcc5385e80826858985c7c9afc8edc7e20af9cf2497c570082eb7f4fde0e90` و SHA-256=`5e3a54c7bd166b610370f4694cfcaad81d2849d5c5f282c2d8ba2996930642bd`. verifier داخلی و بازبینی مستقل manifest/path/hash/privacy=`PASS`.
+- fresh-install exact archive در venv تازه و فقط با `--no-index` و wheelhouseهای `dist/vendor/vendor/runtime` سبز: install=`PASS`، runtime checker=`ok=true/failures=0`، `pip check=PASS`، import زیر prefix venv، Event Catalog=103 و entrypoint=4.
+- رخدادهای محیطی: انتقال نخست dist با `-LiteralPath` و wildcard فقط خطای nonterminating داد و retry با target کنترل‌شده و `-Path` موفق شد؛ مقایسهٔ byte سه فایل به‌علت line ending false-negative بود و diff نرمال‌شده صفر شد. invocation نخست verifier fresh-install فقط SyntaxError quoting پیش از extract داشت؛ retry با env path صریح کاملاً سبز شد. هیچ تغییر محصول برای retryها انجام نشد.
+- artifactهای package/venv فقط زیر `.candidate-release-r04` هستند، Git-ignored و وارد stage نمی‌شوند. شبکه، نصب سیستم/کاربر، Live، Login/OTP، Send، WordPress، Member، Provider و operational file صفر.
+- کنترل اسناد پس از refresh: memory integrity، generated freshness، link check و `git diff --check` سبز؛ dry-run پس از closure باید content-set ثابت را دوباره تأیید کند.
+- نتیجه=`OFFLINE_RELEASE_CANDIDATE / GITHUB_PUBLICATION_PENDING / NOT_PRODUCTION_RELEASE_AUTHORIZED`.
