@@ -3864,7 +3864,7 @@ output_summary: سطح عملیات گفتگو دقیقاً به رفتار پی
 event_id: UX-COMMUNITY-ROLLBACK-R03-S02
 event: COMMUNITY_ROLLBACK_FULL_ACCEPTANCE_AND_OFFLINE_PACKAGE
 started_at: 2026-08-28T06:03:30+03:30
-ended_at: 2026-08-28T06:35:00+03:30
+ended_at: 2026-08-28T06:20:00+03:30
 run_id: UX-COMMUNITY-ROLLBACK-R03
 actor: codex
 action_kind: FULL_TEST_BUILD_PACKAGE_OFFLINE_INSTALL
@@ -3874,11 +3874,31 @@ backend_targeted_retry: 2/2
 backend_full_final: 664/664
 ui: {canonical_runners: PASS, typescript: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
 wheel: {sha256: 22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40, source_parity: PASS}
-package: {files: 283, dry_run: PASS, two_archives_byte_identical: true, privacy_path_hash_verifier: PASS}
+package: {files: 283, dry_run: PASS, two_archives_byte_identical: true, sha256: 588c9ee7e60004f6150e860d8ed01cb67c52795026f5101165a7195b3fc1f330, content_set: 30d671a536a8a7df3b29056bdb1bc7272edd5b35afea03bef659f8b17f7b2f53, privacy_path_hash_verifier: PASS}
 fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103, entrypoints: 4}
 environment_retries: [candidate_tsc_missing_node_modules, hash_table_parser_error, wildcard_literal_copy_error, copied_runtime_patch_line_endings]
 product_change_for_retries: 0
 operational_or_live_effect: 0
 next_action: final_document_checks_and_isolated_git_publication
 output_summary: بازگردانی UI با full regression، build و نصب تازهٔ آفلاین پذیرفته شد.
+```
+
+### UX-COMMUNITY-ROLLBACK-R03-S03 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-COMMUNITY-ROLLBACK-R03-S03
+event: ISOLATED_COMMUNITY_ROLLBACK_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-28T06:20:00+03:30
+ended_at: 2026-08-28T06:22:34+03:30
+run_id: UX-COMMUNITY-ROLLBACK-R03
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+candidate: {files: 19, high_confidence_secret_hits: 0, full_iran_phone_hits: 0, operational_or_index_paths: 0, artifacts_staged: 0}
+commit: {hash: 19751ae7188f4f67d41212ba8a521d1776b7547f, parent: 854f6cf769cfd7b27a98db9facb0f645eace1abd, subject: "fix(ui): restore conversation operations access"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: 19751ae7188f4f67d41212ba8a521d1776b7547f, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+isolation: {parallel_index_work_included: false, root_index_changed: false, reset_checkout_clean: 0}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی بازگردانی بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
 ```

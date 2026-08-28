@@ -6,7 +6,7 @@
 - در group/channel مسیر پیش‌فرض ابزار «اعضای گفتگو» است؛ در personal یا بدون انتخاب گفتگو مسیر «شماره‌های جدید» باز می‌شود. فقط «مدیریت اعضا» بدون group/channel غیرفعال می‌ماند.
 - `account_role` و `can_manage_community` حذف نشده‌اند و برای تشخیص/آینده باقی‌اند، اما به‌دلیل امکان ناقص یا stale بودن signal، شرط client-side نمایش یا فعال‌سازی نیستند. Provider و تأییدهای موجود مرز نهایی mutation هستند.
 - قرارداد WordPress opt-in، منع taxonomy بدون نمایش/credential و تمام اصلاحات صف/اعتبارسنجی آواتار R02 بدون تغییر باقی مانده‌اند.
-- RED هدفمند=`2 failed` و GREEN هدفمند=`4/4`؛ Backend کامل=`664/664`، تمام ۹ runner UI، TypeScript/build 1016-module، wheel parity، archive deterministic/privacy-safe و fresh-install آفلاین سبز است. هیچ حساب واقعی، پیام، مدیریت عضو، WordPress یا Provider operation اجرا نشد. مرجع=`F-070 / ADR-60 / V-200/V-201` و گزارش `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md` است.
+- RED هدفمند=`2 failed` و GREEN هدفمند=`4/4`؛ Backend کامل=`664/664`، تمام ۹ runner UI، TypeScript/build 1016-module، wheel parity، archive deterministic/privacy-safe و fresh-install آفلاین سبز است. هیچ حساب واقعی، پیام، مدیریت عضو، WordPress یا Provider operation اجرا نشد. commit اصلی=`19751ae...` روی شاخهٔ سناریو push و remote verify شد؛ `main` ثابت ماند. مرجع=`F-070 / ADR-60 / V-200..V-202` و گزارش `docs/reports/features/CONVERSATION_OPERATIONS_ROLE_GATE_ROLLBACK_REPORT_2026-08-28.md` است.
 
 ## سناریوی UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و اولویت آواتار
 

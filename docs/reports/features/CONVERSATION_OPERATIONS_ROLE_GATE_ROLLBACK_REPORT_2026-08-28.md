@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-28
 Run: `UX-COMMUNITY-ROLLBACK-R03`
-وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / OFFLINE_PACKAGE_GREEN / GIT_PUBLICATION_PENDING`
+وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / OFFLINE_PACKAGE_GREEN / GITHUB_PRIMARY_PUBLISHED / DOCUMENTATION_CLOSURE_READY`
 
 ## نتیجه
 
@@ -47,10 +47,14 @@ R02 نقش را از metadata معتبر Eitaa به catalog منتقل می‌ک
 
 پیاده‌سازی و اسناد انتشار روی clone ایزولهٔ شاخهٔ `codex/message-avatar-grouping` انجام می‌شوند. root dirty، index آن و فایل‌های ایندکس‌گذاری هم‌زمان reset، checkout، stage یا commit نمی‌شوند. شناسه‌های F-070، ADR-60 و V-200 به بعد عمداً بیرون از بازهٔ نزدیک writer موازی انتخاب شدند.
 
+## انتشار GitHub
+
+commit اصلی `19751ae7188f4f67d41212ba8a521d1776b7547f` با پیام `fix(ui): restore conversation operations access` روی شاخهٔ اختصاصی `codex/message-avatar-grouping` به‌صورت fast-forward push شد. remote hash دقیقاً برابر commit محلی بود و GitHub `main` پیش و پس از push روی `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` ثابت ماند. نامزد 19 فایل داشت و هیچ فایل عملیاتی، workbook، artifact آزمون یا کار ایندکس وارد stage نشد. commit بعدی فقط closure مستنداتی همین انتشار است.
+
 ## مراجع
 
 - Finding: F-070
 - Decision: ADR-60
-- Validation: V-200/V-201
+- Validation: V-200 تا V-202
 - فایل‌های رابط: `ui/src/App.tsx`، `ui/src/ChatHeader.tsx` و `ui/src/WorkspaceNavigation.tsx`
 - آزمون‌ها: `tests/test_ui_repair.py`، `tests/test_ui3_dialog_operations.py` و `tests/test_material_ui_repair.py`

@@ -1461,9 +1461,20 @@
 - Backend candidate نخست=`662 passed / 2 failed`: wheel قدیمی candidate یک mismatch داشت و `ui/dist` عمداً در clone نبود. wheel deterministic از همان snapshot بازسازی و build همسان root پس از اثبات برابری نرمال‌شدهٔ همهٔ 65 فایل UI به candidate منتقل و با finalizer همان candidate هم‌تراز شد؛ دو retry هدفمند=`2/2` و full نهایی=`664/664`، failure/skip صفر.
 - UI: هر ۹ runner canonical سبز؛ scroll=`10/10`، grouped-media=`29/29`، Phase 9 workspace=`19/19`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Observability=`PASS`، Phase 11 onboarding=`7/7`، Phase 11-B2=`6/6` و mobile/auth/live=`PASS`. TypeScript=`PASS` و Vite build=`1016 modules / PASS`؛ warning تاریخی chunk بزرگ nonblocking است.
 - برابری candidate/root: مقایسهٔ byte نخست به‌علت CRLF/LF شش فایل را متفاوت نشان داد؛ مقایسهٔ متن نرمال‌شده همان شش فایل و سپس تمام 65 فایل source/script/config UI را `missing=0 / different=0` تأیید کرد. invocation نخست جدول hash فقط ParserError داشت و هیچ فایل را تغییر نداد.
-- wheel تازه SHA-256=`22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40` و parity سبز است. package dry-run=`283 files`; دو archive pre-closure بایت‌یکسان، privacy/path/hash verifier=`PASS`. پس از ثبت اسناد نهایی، archive A/B یک بار دیگر بدون تغییر source بازتولید و verify شد.
+- wheel تازه SHA-256=`22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40` و parity سبز است. package dry-run=`283 files`; archiveهای نهایی A/B بایت‌یکسان با content-set=`30d671a536a8a7df3b29056bdb1bc7272edd5b35afea03bef659f8b17f7b2f53` و SHA-256=`588c9ee7e60004f6150e860d8ed01cb67c52795026f5101165a7195b3fc1f330`؛ privacy/path/hash verifier=`PASS`.
 - fresh-install exact archive pre-closure فقط با `--no-index` و wheelhouseهای `dist/vendor/vendor/runtime` سبز: install=`PASS`، runtime checker=`ok=true/failures=0`، `pip check=PASS`، import واقعاً زیر prefix venv تازه، Event Catalog=103 و entrypoint=4. اسناد closure wheel/dependency را تغییر نمی‌دهند.
 - رخدادهای محیطی ثبت‌شده: candidate مستقیم `tsc not recognized` چون node_modules ندارد؛ copy نخست build به‌علت استفاده از `-LiteralPath` با wildcard خطا داد و retry ایمن با `-Path` موفق شد؛ patch runtime کپی‌شده نخست CRLF/LF mismatch داشت و finalizer خود candidate آن را بدون تغییر source اصلاح کرد.
-- کنترل اسناد پس از refresh: memory integrity، generated freshness، link check و `git diff --check` باید همگی صفر باشند؛ نتیجهٔ نهایی همین Run فقط در صورت سبزشدن این چهار دروازه قابل انتشار است.
+- کنترل اسناد پس از refresh: memory integrity، generated freshness، link check و `git diff --check` همگی exit code صفر داشتند.
 - عملیات: network download، نصب سیستم/کاربر، Live، Login/OTP، Send، Member mutation، WordPress، Provider و operational file صفر. artifactها فقط زیر مسیر candidate آزمون ساخته شدند و stage نمی‌شوند.
 - Trigger تکرار: هر تغییر source/test/UI/package/installer یا wheel/dependency پس از این snapshot.
+
+### V-202 — انتشار ایزولهٔ بازگردانی عملیات گفتگو و حفاظت main
+
+- تاریخ: 2026-08-28
+- سطح: `GITHUB DEDICATED WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `UX-COMMUNITY-ROLLBACK-R03`
+- candidate اصلی=19 فایل؛ high-confidence secret hit=0، full Iran phone hit=0، operational/workbook/index-work path=0. پوشه‌های pytest/release artifact و `dist/` وارد stage نشدند.
+- commit اصلی=`19751ae7188f4f67d41212ba8a521d1776b7547f`، parent=`854f6cf769cfd7b27a98db9facb0f645eace1abd` و subject=`fix(ui): restore conversation operations access`.
+- push عادی fast-forward روی `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
+- root worktree و index کار موازی reset/checkout/stage نشدند؛ commit از clone ایزوله ساخته شد. force-push، main push/merge، ref deletion، Live/Provider/Login/OTP/Send/WordPress/Member mutation و operational write صفر.
+- commit closure فقط همین ثبت انتشار و generated docs آن را fast-forward می‌کند؛ hash نهایی در تحویل گفتگو و remote verify ثبت می‌شود.
