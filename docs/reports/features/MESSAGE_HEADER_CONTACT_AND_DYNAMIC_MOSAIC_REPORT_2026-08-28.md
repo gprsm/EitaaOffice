@@ -2,7 +2,7 @@
 
 تاریخ: 2026-08-28
 Run: `UX-MESSAGE-HEADER-MOSAIC-R04`
-وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / OFFLINE_PACKAGE_GREEN / GITHUB_PENDING`
+وضعیت: `IMPLEMENTED / FULL_AUTOMATED_ACCEPTANCE / OFFLINE_PACKAGE_GREEN / GITHUB_PUBLISHED / DOCUMENTATION_CLOSED`
 
 ## نتیجه
 
@@ -46,6 +46,10 @@ Run: `UX-MESSAGE-HEADER-MOSAIC-R04`
 ## تداخل‌نداشتن با کار موازی ایندکس
 
 کد، آزمون، اسناد و انتشار این سناریو در clone ایزولهٔ شاخهٔ `codex/message-avatar-grouping` نگه‌داری می‌شوند. root dirty و index و فایل‌های کار موازی ایندکس reset، checkout، stage یا commit نمی‌شوند. شناسه‌های F-071، ADR-61 و V-203 به بعد در بازهٔ جدا رزرو شده‌اند.
+
+## انتشار GitHub
+
+commit اصلی `eabaf8911b1b78088cbd4def04eb9ab211e751cd` با پیام `fix(ui): clarify senders and balance media mosaics` و parent دقیق `d19ca4a0b1ccc8421d5685563307640b436357d2` روی شاخهٔ `codex/message-avatar-grouping` به‌صورت fast-forward push شد. remote hash دقیقاً برابر commit محلی و GitHub `main` پیش و پس از push برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` بود. نامزد 15 فایل داشت؛ artifactهای آزمون/بسته، دادهٔ عملیاتی و فایل‌های کار موازی ایندکس وارد stage نشدند. attempt نخست commit پیش از ساخت commit به‌دلیل دو trailing-space در Markdown متوقف شد؛ پس از اصلاح و تکرار کنترل، انتشار موفق شد.
 
 ## مراجع
 

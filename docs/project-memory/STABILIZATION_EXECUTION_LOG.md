@@ -3966,3 +3966,24 @@ operational_or_live_effect: 0
 next_action: final_document_checks_isolated_commit_push
 output_summary: snapshot با package deterministic و fresh-install کاملاً آفلاین پذیرفته شد.
 ```
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S04 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S04
+event: ISOLATED_MESSAGE_HEADER_MOSAIC_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-28T07:34:00+03:30
+ended_at: 2026-08-28T07:37:42+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+candidate: {files: 15, high_confidence_secret_or_full_phone_hits: 0, personal_absolute_path_hits: 0, operational_or_index_paths: 0, artifacts_staged: 0}
+precommit_retry: {attempt_a: trailing_whitespace_in_report_header, commit_created: false, push: false, repair: remove_two_markdown_trailing_spaces, product_change: 0, retry_diff_check: PASS}
+commit: {hash: eabaf8911b1b78088cbd4def04eb9ab211e751cd, parent: d19ca4a0b1ccc8421d5685563307640b436357d2, subject: "fix(ui): clarify senders and balance media mosaics"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: eabaf8911b1b78088cbd4def04eb9ab211e751cd, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+isolation: {parallel_index_work_included: false, root_index_changed: false, reset_checkout_clean: 0}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی سناریو بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
+```

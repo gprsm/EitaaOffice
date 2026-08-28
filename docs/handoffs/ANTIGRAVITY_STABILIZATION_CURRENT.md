@@ -5,7 +5,7 @@
 - عبارت‌های شمارشی «X پیام پیوسته» و «گالری پیشنهادی» از هدر Card حذف شدند؛ grouping پنج‌دقیقه‌ای، member IDها و انتخاب/ایندکس/پیمایش بدون تغییر باقی‌اند.
 - مخاطب با نام آبی و ضخیم و آیکون اطلاعاتی دارای tooltip/label «مخاطب» نشان داده می‌شود. غیرمخاطب رنگ و وزن عادی و همان آیکون با عنوان «غیرمخاطب» دارد. wrapper آیکون با صفحه‌کلید قابل‌تمرکز است؛ پیام خودی نشانگر مخاطب نمی‌گیرد.
 - gallery از aspect-ratio و row ثابت بیرونی آزاد شد. شبکهٔ شش‌ستونه span و نسبت هر tile را با تعداد عکس و breakpoint تعیین می‌کند؛ پنج عکس در دسکتاپ ۳+۲ و در موبایل ۲+۲+۱ چیده می‌شوند و فاصلهٔ مردهٔ بزرگ نمونهٔ گزارش‌شده حذف می‌شود.
-- RED=`3 failed`، GREEN مرتبط=`45/45`، full Backend=`666/666`، تمام ۹ runner UI، TypeScript و build 1016-module سبزند. wheel parity، دو archive 283فایلی بایت‌یکسان و fresh-install آفلاین نیز PASS هستند. screenshot کاربر فقط شاهد دیداری بود و وارد repository یا لاگ نشد. هیچ Live/Login/OTP/Send/WordPress/Provider/data operation انجام نشد. مرجع=`F-071 / ADR-61 / V-203..V-204` و گزارش `docs/reports/features/MESSAGE_HEADER_CONTACT_AND_DYNAMIC_MOSAIC_REPORT_2026-08-28.md` است؛ انتشار Git در V-205 ثبت می‌شود.
+- RED=`3 failed`، GREEN مرتبط=`45/45`، full Backend=`666/666`، تمام ۹ runner UI، TypeScript و build 1016-module سبزند. wheel parity، دو archive 283فایلی بایت‌یکسان و fresh-install آفلاین نیز PASS هستند. screenshot کاربر فقط شاهد دیداری بود و وارد repository یا لاگ نشد. هیچ Live/Login/OTP/Send/WordPress/Provider/data operation انجام نشد. commit اصلی=`eabaf891...` روی `codex/message-avatar-grouping` push و remote verify شد؛ `main` ثابت ماند. مرجع=`F-071 / ADR-61 / V-203..V-205` و گزارش `docs/reports/features/MESSAGE_HEADER_CONTACT_AND_DYNAMIC_MOSAIC_REPORT_2026-08-28.md` است.
 
 ## سناریوی UX-COMMUNITY-ROLLBACK-R03 — بازگردانی عملیات گفتگو
 

@@ -1505,3 +1505,15 @@
 - artifactهای package/venv فقط زیر `.candidate-release-r04` هستند، Git-ignored و وارد stage نمی‌شوند. شبکه، نصب سیستم/کاربر، Live، Login/OTP، Send، WordPress، Member، Provider و operational file صفر.
 - کنترل اسناد پس از refresh: memory integrity، generated freshness، link check و `git diff --check` سبز؛ dry-run پس از closure باید content-set ثابت را دوباره تأیید کند.
 - نتیجه=`OFFLINE_RELEASE_CANDIDATE / GITHUB_PUBLICATION_PENDING / NOT_PRODUCTION_RELEASE_AUTHORIZED`.
+
+### V-205 — انتشار ایزولهٔ هدر/موزاییک و حفاظت main
+
+- تاریخ: 2026-08-28
+- سطح: `GITHUB DEDICATED WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `UX-MESSAGE-HEADER-MOSAIC-R04`
+- candidate اصلی=15 فایل؛ high-confidence secret/full-phone hit=0، personal absolute path=0، operational/workbook/index-work path=0 و artifact staged=0. سه فایل مشترک UI/test با root آزموده‌شده پس از نرمال‌سازی line ending برابر بودند؛ index root خالی ماند.
+- attempt نخست پیش از commit در `git diff --cached --check` به دو trailing-space سربرگ گزارش برخورد کرد؛ commit/push=0. فاصله‌ها حذف، memory checker و diff check سبز و همان allowlist دقیق 15فایلی دوباره stage شد.
+- commit اصلی=`eabaf8911b1b78088cbd4def04eb9ab211e751cd`، parent=`d19ca4a0b1ccc8421d5685563307640b436357d2` و subject=`fix(ui): clarify senders and balance media mosaics`.
+- push عادی fast-forward روی `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
+- root dirty و فایل‌های هم‌زمان ایندکس reset/checkout/stage/commit نشدند. force-push، main push/merge، ref deletion، Live/Provider/Login/OTP/Send/WordPress/Member mutation و operational write صفر.
+- commit closure فقط همین ثبت انتشار و generated docs آن را fast-forward می‌کند؛ hash نهایی در تحویل گفتگو و remote verify ثبت می‌شود.
