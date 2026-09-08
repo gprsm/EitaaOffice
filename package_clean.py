@@ -110,25 +110,35 @@ UI_ROOT_FILES = {
 }
 
 SCRIPT_FILES = {
+    "scripts/archive_previous_office_release.ps1",
     "scripts/backup_runtime.py",
+    "scripts/build_self_contained_setup.py",
+    "scripts/build_windows_icon.ps1",
     "scripts/build_wheel_stdlib.py",
     "scripts/check_runtime_environment.py",
     "scripts/create_diagnostics_bundle.py",
     "scripts/create_shortcuts.ps1",
     "scripts/doctor.py",
     "scripts/migrate_legacy_account.py",
+    "scripts/new_internal_code_signing_certificate.ps1",
     "scripts/office_runtime.py",
     "scripts/prepare_windows_release.py",
     "scripts/restore_runtime.py",
     "scripts/runtime_state.py",
     "scripts/scan_diagnostics_bundle.py",
+    "scripts/sign_windows_release.ps1",
     "scripts/sync_ui_fonts.py",
+    "scripts/verify_windows_release_signature.ps1",
     "scripts/write_iexpress_sed.py",
 }
 
 INSTALLER_FILES = {
     "installer/EitaaBridge.iss",
+    "installer/assets/EitaaBridge.ico",
+    "installer/assets/EitaaBridge-source.png",
+    "installer/check_windows_version.vbs",
     "installer/install_office_payload.cmd",
+    "installer/license-policy.json",
 }
 
 DOCUMENTATION_FILES = {
@@ -138,10 +148,12 @@ DOCUMENTATION_FILES = {
     "docs/BULK_OPERATIONS.md",
     "docs/DEVELOPMENT_GUIDE.md",
     "docs/INSTALLER.md",
+    "docs/INTERNAL_CODE_SIGNING.md",
     "docs/LOGGING_AND_OBSERVABILITY.md",
     "docs/MIGRATION_GUIDE.md",
     "docs/MULTI_SITE.md",
     "docs/OFFICE_DEPLOYMENT.md",
+    "docs/OFFLINE_ACTIVATION.md",
     "docs/PHASE10_CONTROLLED_ROLLOUT_RUNBOOK.md",
     "docs/PHASE10_WEB_REVERSE_PROXY_DEPLOYMENT.md",
     "docs/PROVIDER_ADAPTER_DEVELOPMENT_GUIDE.md",
@@ -162,9 +174,12 @@ OFFLINE_WHEEL_FILES = {
     "dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl",
     "vendor/eitaa_core-0.6.0.dev19-py3-none-any.whl",
     "vendor/runtime/certifi-2026.6.17-py3-none-any.whl",
+    "vendor/runtime/cffi-2.1.1-cp313-cp313-win_amd64.whl",
     "vendor/runtime/charset_normalizer-3.4.9-cp313-cp313-win_amd64.whl",
+    "vendor/runtime/cryptography-46.0.7-cp311-abi3-win_amd64.whl",
     "vendor/runtime/idna-3.18-py3-none-any.whl",
     "vendor/runtime/requests-2.34.2-py3-none-any.whl",
+    "vendor/runtime/pycparser-3.0-py3-none-any.whl",
     "vendor/runtime/tzdata-2026.3-py2.py3-none-any.whl",
     "vendor/runtime/urllib3-2.7.0-py3-none-any.whl",
 }

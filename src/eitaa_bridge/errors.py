@@ -39,6 +39,13 @@ class CredentialError(BridgeError):
     code = "credential_error"
 
 
+class LicenseValidationError(BridgeError):
+    """Fail-closed error for offline product activation."""
+
+    component = "licensing"
+    code = "license_validation_error"
+
+
 class CoreCompatibilityError(BridgeError):
     component = "core_binding"
     code = "core_compatibility_error"

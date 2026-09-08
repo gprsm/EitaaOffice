@@ -700,6 +700,65 @@ class RuntimeController:
         )
         append_launcher_log(self.root, f"backend spawn pid={self.backend_process.pid}")
 
+    def ensure_license_activation(self) -> None:
+        """Open the first-run activation dialog before any backend is started."""
+
+        if not (
+            (self.root / "license-policy.json").is_file()
+            or (
+                (self.root / "python" / "python.exe").is_file()
+                and (self.root / "python-packages").is_dir()
+            )
+        ):
+            return
+        python, environment = self.python_runtime()
+        base_command = [
+            str(python),
+            "-m",
+            "eitaa_bridge.interfaces.license_activation",
+            "--root",
+            str(self.root),
+        ]
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        checked = subprocess.run(
+            [*base_command, "--check"],
+            cwd=self.root,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=flags,
+            check=False,
+            timeout=20,
+        )
+        if checked.returncode == 0:
+            return
+        append_launcher_log(self.root, "license activation required")
+        activated = subprocess.run(
+            base_command,
+            cwd=self.root,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            creationflags=flags,
+            check=False,
+        )
+        if activated.returncode != 0:
+            raise RuntimeFailure("This Eitaa Bridge installation has not been activated for this device.")
+        verified = subprocess.run(
+            [*base_command, "--check"],
+            cwd=self.root,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=flags,
+            check=False,
+            timeout=20,
+        )
+        if verified.returncode != 0:
+            raise RuntimeFailure("Device activation could not be verified after saving.")
+        append_launcher_log(self.root, "license activation verified")
+
     def wait_for_backend(self, attempts: int = 80) -> dict[str, Any]:
         for _ in range(attempts):
             if self.backend_process is not None and self.backend_process.poll() is not None:
@@ -914,6 +973,7 @@ class RuntimeController:
                 self.focus_existing_ui()
                 return 0
             try:
+                self.ensure_license_activation()
                 identity = self.ensure_backend()
                 append_launcher_log(self.root, f"backend ready pid={identity.get('pid', 'unknown')}")
                 if not self.heartbeat():

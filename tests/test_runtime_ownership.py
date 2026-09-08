@@ -4,11 +4,14 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+import pytest
 
 from eitaa_bridge.application.api import BridgeApplicationApi
 from eitaa_bridge.interfaces.http_api import BridgeApiHttpServer, RuntimeOwnership
@@ -394,6 +397,356 @@ def test_office_installer_mirrors_managed_code_directories():
     assert "for %%d in (python python-packages dist vendor scripts docs ui)" in content
     assert 'robocopy "%tempstage%\\app\\%%d" "%target%\\%%d" /mir' in content
     assert "/xd python python-packages dist vendor scripts docs ui runtime backups data diagnostics" in content
+
+
+def test_office_setup_is_self_contained_and_excludes_private_runtime_state():
+    root = Path(__file__).resolve().parents[1]
+    builder = (root / "BUILD_OFFICE_SETUP_EXE.bat").read_text(encoding="utf-8").lower()
+    installer = (root / "installer" / "install_office_payload.cmd").read_text(
+        encoding="utf-8"
+    ).lower()
+
+    assert "sys.base_prefix" in builder
+    assert "build_wheel_stdlib.py" in builder
+    assert "build_self_contained_setup.py" in builder
+    assert "package_clean.py" in builder
+    assert "python-packages" in builder
+    assert "where node" not in builder
+    assert "npm.cmd" not in builder
+    assert "setup_ui.bat" not in builder
+    assert "backup_runtime.py --output" not in builder
+    assert "iexpress.exe" not in builder
+    assert "transfer-backup.zip" not in installer
+    assert 'if not exist "%target%\\data" mkdir "%target%\\data"' in installer
+    assert 'if not exist "%target%\\diagnostics\\bundles" mkdir "%target%\\diagnostics\\bundles"' in installer
+
+
+def test_office_setup_has_explicit_supported_windows_preflight():
+    root = Path(__file__).resolve().parents[1]
+    preflight = (root / "installer" / "check_windows_version.vbs").read_text(
+        encoding="utf-8"
+    ).lower()
+    installer = (root / "installer" / "install_office_payload.cmd").read_text(
+        encoding="utf-8"
+    ).lower()
+    sed_writer = (root / "scripts" / "write_iexpress_sed.py").read_text(
+        encoding="utf-8"
+    ).lower()
+
+    assert "win32_operatingsystem" in preflight
+    assert "windows 10 or newer" in preflight
+    assert "64-bit" in preflight
+    assert 'cscript.exe //nologo "%~dp0check_windows_version.vbs"' in installer
+    assert "file2=check_windows_version.vbs" in sed_writer
+
+
+def test_operator_batches_support_bundled_python_runtime():
+    root = Path(__file__).resolve().parents[1]
+    for name in ("backup_now.bat", "restore_backup.bat", "create_diagnostics.bat", "run_doctor.bat"):
+        content = (root / name).read_text(encoding="utf-8").lower()
+        assert 'if exist "python\\python.exe"' in content
+        assert "python-packages" in content
+
+
+def test_self_contained_setup_bootstrap_embeds_and_verifies_resources(tmp_path):
+    if os.name != "nt":
+        return
+    from scripts.build_self_contained_setup import build_setup
+
+    payload = tmp_path / "office_payload.zip"
+    installer = tmp_path / "install_office_payload.cmd"
+    preflight = tmp_path / "check_windows_version.vbs"
+    icon = tmp_path / "EitaaBridge.ico"
+    output = tmp_path / "EitaaBridge-Setup.exe"
+    payload.write_bytes(b"synthetic-safe-payload")
+    installer.write_text("@echo off\r\nexit /b 0\r\n", encoding="ascii")
+    preflight.write_text("WScript.Quit 0\r\n", encoding="ascii")
+    _write_test_icon(icon)
+
+    build_setup(
+        payload=payload,
+        installer=installer,
+        preflight=preflight,
+        icon=icon,
+        output=output,
+    )
+    completed = subprocess.run(
+        [str(output), "--verify-only"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0
+    assert "resources verified" in completed.stdout.lower()
+
+    source = (Path(__file__).resolve().parents[1] / "scripts" / "build_self_contained_setup.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"/target:winexe"' in source
+    assert "System.Windows.Forms" in source
+    assert "RightToLeftLayout = true" in source
+    assert "نسخه اختصاصی Eitaa Bridge" in source
+    assert '" /quiet\\\""' in source
+
+    installer_content = (
+        Path(__file__).resolve().parents[1] / "installer" / "install_office_payload.cmd"
+    ).read_text(encoding="utf-8")
+    assert 'if /I "%~1"=="/quiet"' in installer_content
+    assert 'if "%NO_LAUNCH%"=="0" start' in installer_content
+
+
+def _write_test_icon(path: Path) -> None:
+    import struct
+
+    width = 16
+    height = 16
+    xor_pixels = bytes((0x56, 0x34, 0x12, 0xFF)) * (width * height)
+    and_mask = bytes(((width + 31) // 32) * 4 * height)
+    bitmap = struct.pack(
+        "<IIIHHIIIIII",
+        40,
+        width,
+        height * 2,
+        1,
+        32,
+        0,
+        len(xor_pixels),
+        0,
+        0,
+        0,
+        0,
+    ) + xor_pixels + and_mask
+    header = struct.pack("<HHH", 0, 1, 1)
+    directory = struct.pack(
+        "<BBBBHHII",
+        width,
+        height,
+        0,
+        0,
+        1,
+        32,
+        len(bitmap),
+        len(header) + 16,
+    )
+    path.write_bytes(header + directory + bitmap)
+
+
+def test_branded_setup_rejects_missing_or_invalid_icon(tmp_path):
+    from scripts.build_self_contained_setup import build_setup
+
+    payload = tmp_path / "office_payload.zip"
+    installer = tmp_path / "install_office_payload.cmd"
+    preflight = tmp_path / "check_windows_version.vbs"
+    output = tmp_path / "EitaaBridge-Setup.exe"
+    payload.write_bytes(b"synthetic-safe-payload")
+    installer.write_text("@echo off\r\nexit /b 0\r\n", encoding="ascii")
+    preflight.write_text("WScript.Quit 0\r\n", encoding="ascii")
+
+    with pytest.raises(FileNotFoundError):
+        build_setup(
+            payload=payload,
+            installer=installer,
+            preflight=preflight,
+            icon=tmp_path / "missing.ico",
+            output=output,
+        )
+
+    invalid_icon = tmp_path / "invalid.ico"
+    invalid_icon.write_bytes(b"not-an-icon")
+    with pytest.raises(ValueError, match="Windows icon"):
+        build_setup(
+            payload=payload,
+            installer=installer,
+            preflight=preflight,
+            icon=invalid_icon,
+            output=output,
+        )
+
+
+def test_office_release_branding_and_signing_are_explicit_and_fail_closed():
+    root = Path(__file__).resolve().parents[1]
+    builder = (root / "BUILD_OFFICE_SETUP_EXE.bat").read_text(encoding="utf-8").lower()
+    installer = (root / "installer" / "install_office_payload.cmd").read_text(
+        encoding="utf-8"
+    ).lower()
+    shortcut_script = (root / "scripts" / "create_shortcuts.ps1").read_text(
+        encoding="utf-8"
+    ).lower()
+
+    assert 'installer\\assets\\eitaabridge.ico' in builder
+    assert '--icon "%setupicon%"' in builder
+    assert 'copy /y "%setupicon%" "%app%\\assets\\eitaabridge.ico"' in builder
+    assert 'sign_windows_release.ps1' in builder
+    assert 'verify_windows_release_signature.ps1' in builder
+    assert builder.index('sign_windows_release.ps1') < builder.index('verify_windows_release_signature.ps1')
+    assert "iconlocation='%target%\\assets\\eitaabridge.ico,0'" in installer
+    assert "assets\\eitaabridge.ico" in shortcut_script
+
+
+def test_new_office_build_archives_previous_release_without_deleting_unrelated_files(tmp_path):
+    if os.name != "nt":
+        return
+
+    root = Path(__file__).resolve().parents[1]
+    script = root / "scripts" / "archive_previous_office_release.ps1"
+    old_setup = tmp_path / "EitaaBridge-0.8.0-rc4-Activated-InternalSigned-GuiSetup-x64.exe"
+    old_portable = tmp_path / "EitaaBridge-0.8.0-rc3-Activated-SelfContained-Portable.zip"
+    old_hash = tmp_path / f"{old_setup.name}.sha256.txt"
+    unrelated = tmp_path / "operator-note.txt"
+    old_setup.write_bytes(b"previous-setup")
+    old_portable.write_bytes(b"previous-portable")
+    old_hash.write_text("hash", encoding="utf-8")
+    unrelated.write_text("keep", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-ReleaseDirectory",
+            str(tmp_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    archived_runs = [item for item in (tmp_path / "archive").iterdir() if item.is_dir()]
+    assert len(archived_runs) == 1
+    archived = archived_runs[0]
+    assert (archived / old_setup.name).read_bytes() == b"previous-setup"
+    assert (archived / old_portable.name).read_bytes() == b"previous-portable"
+    assert (archived / old_hash.name).is_file()
+    manifest = json.loads((archived / "ARCHIVE_MANIFEST.json").read_text(encoding="utf-8-sig"))
+    assert manifest["format"] == "eitaa-bridge-office-release-archive-v1"
+    assert len(manifest["artifacts"]) == 3
+    assert unrelated.read_text(encoding="utf-8") == "keep"
+
+    builder = (root / "BUILD_OFFICE_SETUP_EXE.bat").read_text(encoding="utf-8").lower()
+    assert "archive_previous_office_release.ps1" in builder
+    assert "0.8.0-rc5-multiaccount" in builder
+
+
+def test_checked_in_windows_icon_is_multiresolution_and_source_is_rgba_png():
+    import struct
+
+    root = Path(__file__).resolve().parents[1]
+    source = root / "installer" / "assets" / "EitaaBridge-source.png"
+    icon = root / "installer" / "assets" / "EitaaBridge.ico"
+
+    source_bytes = source.read_bytes()
+    assert source_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    width, height, bit_depth, color_type = struct.unpack(">IIBB", source_bytes[16:26])
+    assert width == height
+    assert width >= 512
+    assert bit_depth == 8
+    assert color_type == 6
+
+    icon_bytes = icon.read_bytes()
+    reserved, image_type, count = struct.unpack_from("<HHH", icon_bytes)
+    assert (reserved, image_type, count) == (0, 1, 9)
+    expected_sizes = {16, 20, 24, 32, 40, 48, 64, 128, 256}
+    actual_sizes: set[int] = set()
+    table_end = 6 + 16 * count
+    for index in range(count):
+        entry_offset = 6 + 16 * index
+        width_byte, height_byte = struct.unpack_from("<BB", icon_bytes, entry_offset)
+        frame_width = 256 if width_byte == 0 else width_byte
+        frame_height = 256 if height_byte == 0 else height_byte
+        planes, bits_per_pixel, frame_size, frame_offset = struct.unpack_from(
+            "<HHII", icon_bytes, entry_offset + 4
+        )
+        assert frame_width == frame_height
+        assert planes == 1
+        assert bits_per_pixel == 32
+        assert frame_offset >= table_end
+        assert frame_offset + frame_size <= len(icon_bytes)
+        assert icon_bytes[frame_offset : frame_offset + 8] == b"\x89PNG\r\n\x1a\n"
+        actual_sizes.add(frame_width)
+    assert actual_sizes == expected_sizes
+
+    converter = (root / "scripts" / "build_windows_icon.ps1").read_text(
+        encoding="utf-8"
+    ).lower()
+    assert "16, 20, 24, 32, 40, 48, 64, 128, 256" in converter
+    assert "highqualitybicubic" in converter
+    assert "sourcecopy" in converter
+
+
+def test_internal_code_signing_keeps_private_key_outside_project_and_pins_trust():
+    root = Path(__file__).resolve().parents[1]
+    certificate_path = root / "scripts" / "new_internal_code_signing_certificate.ps1"
+    certificate_bytes = certificate_path.read_bytes()
+    certificate_script = certificate_bytes.decode("utf-8-sig").lower()
+    signing_script = (root / "scripts" / "sign_windows_release.ps1").read_text(
+        encoding="utf-8"
+    ).lower()
+    verification_script = (
+        root / "scripts" / "verify_windows_release_signature.ps1"
+    ).read_text(encoding="utf-8").lower()
+
+    assert "cert:\\currentuser\\my" in certificate_script
+    assert "nonexportable" in certificate_script
+    assert "1.3.6.1.5.5.7.3.3" in certificate_script
+    assert "export-certificate" in certificate_script
+    assert "export-pfxcertificate" not in certificate_script
+    assert "trustedpublisher" in certificate_script
+    assert "expectedthumbprint" in certificate_script
+    assert "$pshome" in signing_script
+    assert "microsoft.powershell.security" in signing_script
+    assert "microsoft.powershell.utility" in signing_script
+    assert "$pshome" in verification_script
+    assert "microsoft.powershell.security" in verification_script
+    assert "microsoft.powershell.utility" in verification_script
+    assert certificate_bytes.startswith(b"\xef\xbb\xbf")
+    assert "__thumbprint__" in certificate_script
+    assert "__cer_sha256__" in certificate_script
+    assert "__not_after__" in certificate_script
+    assert "utf8encoding]::new($true)" in certificate_script
+    assert "`$thumbprint`" not in certificate_script
+    assert "`$certificatehash`" not in certificate_script
+    assert "set-authenticodesignature" in signing_script
+    assert "sha256" in signing_script
+    assert "thumbprint" in signing_script
+
+
+def test_office_payload_privacy_scanner_rejects_private_key_material(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    scanner = root / "scripts" / "check_office_payload_privacy.py"
+    payload = tmp_path / "payload"
+    payload.mkdir()
+    safe_file = payload / "application.txt"
+    safe_file.write_text("public application material", encoding="utf-8")
+
+    clean = subprocess.run(
+        [sys.executable, str(scanner), "--root", str(payload)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert clean.returncode == 0
+    assert json.loads(clean.stdout)["private_key_pem_findings"] == 0
+
+    safe_file.write_text(
+        "-----BEGIN " + "PRIVATE KEY-----\n"
+        + ("A" * 80)
+        + "\n-----END "
+        + "PRIVATE KEY-----\n",
+        encoding="utf-8",
+    )
+    rejected = subprocess.run(
+        [sys.executable, str(scanner), "--root", str(payload)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert rejected.returncode == 1
+    assert json.loads(rejected.stdout)["private_key_pem_findings"] == 1
 
 
 def test_python_install_batches_force_utf8_for_unicode_paths():

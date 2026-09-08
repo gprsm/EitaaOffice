@@ -2,6 +2,8 @@ param([string]$Root = (Split-Path -Parent $PSScriptRoot))
 $ErrorActionPreference = 'Stop'
 $launcher = Join-Path $Root 'EitaaBridge.bat'
 if (-not (Test-Path $launcher)) { throw "Launcher was not found: $launcher" }
+$icon = Join-Path $Root 'assets\EitaaBridge.ico'
+if (-not (Test-Path $icon)) { throw "Application icon was not found: $icon" }
 $shell = New-Object -ComObject WScript.Shell
 $targets = @(
   (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Eitaa Bridge.lnk'),
@@ -13,7 +15,7 @@ foreach ($target in $targets) {
   $shortcut = $shell.CreateShortcut($target)
   $shortcut.TargetPath = $launcher
   $shortcut.WorkingDirectory = $Root
-  $shortcut.IconLocation = "$env:SystemRoot\System32\shell32.dll,14"
+  $shortcut.IconLocation = "$icon,0"
   $shortcut.Description = 'Eitaa Bridge Desktop'
   $shortcut.Save()
 }

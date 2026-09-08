@@ -50,6 +50,7 @@ type NamedId = { id: number; name: string }
 type Props = {
   open: boolean
   close: () => void
+  wordpressEnabled: boolean
   showWordPressUsed: boolean
   setShowWordPressUsed: (value: boolean) => void
   selectedIndexLabel: number | null
@@ -99,10 +100,10 @@ export function MessageFilterDialog(props: Props) {
         </Alert>}
         <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Stack spacing={2}>
-            <FormControlLabel
+            {props.wordpressEnabled && <FormControlLabel
               control={<Switch checked={props.showWordPressUsed} onChange={event => props.setShowWordPressUsed(event.target.checked)} />}
               label="مطالب استفاده‌شده در وردپرس نمایش داده شوند"
-            />
+            />}
             <FormControl disabled={!props.indexFilterLabels.length} fullWidth>
               <InputLabel>ایندکس</InputLabel>
               <Select<string> label="ایندکس" value={props.selectedIndexLabel == null ? '' : String(props.selectedIndexLabel)} onChange={event => props.setSelectedIndexLabel(event.target.value ? Number(event.target.value) : null)}>
@@ -138,7 +139,7 @@ export function MessageFilterDialog(props: Props) {
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} gap={1.5}>
             <Typography fontWeight={800}>{props.filteredMessageCount.toLocaleString('fa-IR')} پیام در نمای فعلی</Typography>
             <Button variant="outlined" startIcon={<RestartAltRounded />} onClick={() => {
-              props.setShowWordPressUsed(true)
+              if (props.wordpressEnabled) props.setShowWordPressUsed(true)
               props.setSelectedIndexLabel(null)
               props.setSelectedSenderKey(null)
             }}>پاک‌کردن فیلترها</Button>

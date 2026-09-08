@@ -551,8 +551,15 @@ class EitaaProviderRuntimeOperations:
                         code="provider_media_not_found",
                     )
                 media = message.media
-                is_image = media.type.value in {"photo", "image_document", "sticker"}
-                if not is_image:
+                media_type = media.type.value
+                mime_hint = str(media.mime_type or "").strip().lower()
+                is_image = media_type in {"photo", "image_document", "sticker"}
+                is_playable = media_type in {"audio", "video"} or mime_hint.startswith(
+                    ("audio/", "video/")
+                )
+                if not is_image and (
+                    selected_variant != "full" or not is_playable
+                ):
                     raise CompositionValidationError(
                         "The selected provider media has no supported preview.",
                         code="provider_media_not_found",
@@ -604,10 +611,17 @@ class EitaaProviderRuntimeOperations:
                         safe_context={"bytes": size, "max_bytes": selected_max},
                         code="api_media_preview_too_large",
                     )
+                fallback_mime = (
+                    "image/jpeg"
+                    if is_image
+                    else "audio/mpeg"
+                    if media_type == "audio"
+                    else "video/mp4"
+                )
                 mime_type = (
                     mimetypes.guess_type(cache_path.name)[0]
                     or media.mime_type
-                    or "image/jpeg"
+                    or fallback_mime
                 )
                 cache_reference = self._register_media_file(cache_path, mime_type)
                 return {

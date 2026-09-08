@@ -3664,3 +3664,377 @@ excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operatio
 next_action: documentation_closure_commit_normal_push_and_final_remote_verify
 output_summary: commit اصلی G-11 روی شاخهٔ کاری منتشر و با ثابت‌ماندن main زنده تأیید شد.
 ```
+
+## UX-MESSAGE-AVATAR-R01 — ادغام پیام‌های متوالی و تاب‌آوری آواتار
+
+### UX-MESSAGE-AVATAR-R01-S01 — تحلیل pre-image و RED قرارداد
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S01
+event: CONSECUTIVE_CONTENT_GROUPING_AND_AVATAR_QUEUE_RED
+started_at: 2026-08-27T08:20:00+03:30
+ended_at: 2026-08-27T08:45:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: READ_ONLY_DIAGNOSIS_AND_CONTROLLED_TEST_WRITE
+preimage: {head: 95624acfdf50bdb7b34f683da3c33fb99981c1a7, app_sha: 2a606c86..., message_card_sha: af2fcbb4..., grouping_sha: 32ad994d..., avatar_loader_sha: c1386ae4...}
+root_causes:
+  - visual grouping did not apply its time gap and excluded albums from adjacent content
+  - one three-slot avatar queue mixed cached-only potential work with remote downloads
+  - avatar rejection/unmount/account-switch handling and site-prefix cache clear were incomplete
+  - some sender photos have no usable Core photo reference and require initials fallback
+red:
+  grouped_media: {result: FAIL_EXPECTED, reason: buildMessageGroupLookup_missing}
+  workspace_queue: {result: FAIL_EXPECTED, reason: avatarQueue_module_missing}
+  python_contract: {result: FAIL_EXPECTED, passed: 6, failed: 1, reason: cached_only_two_lane_missing}
+privacy: {real_dialog_or_message_content_read: false, raw_peer_or_account_logged: false}
+external_effect: 0
+output_summary: RED معتبر دو قرارداد محصول را پیش از implementation ثابت کرد.
+```
+
+### UX-MESSAGE-AVATAR-R01-S02 — پیاده‌سازی و پذیرش هدفمند
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S02
+event: FIVE_MINUTE_MIXED_MESSAGE_GROUP_AND_TWO_LANE_AVATAR_IMPLEMENTATION
+started_at: 2026-08-27T08:45:00+03:30
+ended_at: 2026-08-27T09:12:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: SOURCE_TEST_BUILD
+message_contract: {max_gap_seconds: 300, same_display_day: true, pre_filter_lookup: true, provider_albums_atomic: true, mixed_order_preserved: true, group_unknown_sender_merge: false}
+avatar_contract: {cache_lane_concurrency: 6, remote_lane_concurrency: 1, cache_first: true, failure_ttl_seconds: 15, negative_ttl_seconds: 120, account_scope_rechecked: true, promise_failure_isolated: true}
+targeted:
+  grouped_media: 29/29
+  phase9_workspace_and_queue: 18/18
+  ui_material_python: 42/42
+  typescript: PASS
+  build: {result: PASS, modules: 1016, historical_large_chunk_warning: true}
+ui_regression: {canonical_runners: 9/9, scroll: 10/10, phase9_acceptance: 13/13, phase10: 7/7, phase11_onboarding: 7/7, phase11b2: 6/6}
+backend_full: {passed: 659, failed: 0, errors: 0, skipped: 0}
+operational_effect: controlled_test_and_ui_dist_artifacts_only
+provider_or_message_send: 0
+output_summary: گروه محتوایی و صف مستقل آواتار پیاده شد و کل regression کد/UI سبز است.
+```
+
+### UX-MESSAGE-AVATAR-R01-S03 — بسته‌بندی reproducible، fresh install و اسناد
+
+```yaml
+event_id: UX-MESSAGE-AVATAR-R01-S03
+event: REPRODUCIBLE_OFFLINE_PACKAGE_FRESH_INSTALL_AND_DOCUMENTATION
+started_at: 2026-08-27T09:12:00+03:30
+ended_at: 2026-08-27T09:28:00+03:30
+run_id: UX-MESSAGE-AVATAR-R01
+actor: codex
+action_kind: PACKAGE_OFFLINE_INSTALL_DOCUMENT
+package_tests: 15/15
+dry_run: {files: 282, write: 0, content_set: 35f58c157d019424f2f8987e57b59897f79fb150bfd733158f9852ee4c6c34c2, isolated_from_parallel_index_work: true}
+archives: {count: 2, byte_identical: true, file_count: 282, entries_with_manifest: 283, sha256: 1c52502df5bf19e51bf57dc684b5193065ad65d7db04296101c72feedcfb6900, internal_privacy_verifier: PASS}
+fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103}
+isolated_snapshot_checks: {docs: PASS, phase9: 18/18, grouped_attempt_a: ENV_ENOENT_NPM_WITHOUT_NODE_MODULES, grouped_retry_read_only_typescript_node_path: 29/29, product_change_for_retry: 0}
+documentation_scope: [F-056, V-169, V-170, ADR-44, baseline, specification, structure, handoff, feature_report, execution_log]
+concurrent_work_isolation: {index_improvement_files_detected: true, overwritten: false, included_in_scenario_commit: false, workbook_in_candidate: false}
+operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
+next_action: final_document_checks_then_isolated_working_branch_commit_push_verify
+output_summary: snapshot تازه reproducible/privacy-safe و نصب آفلاین سبز؛ Git باید فقط hunks همین سناریو را منتشر کند.
+```
+
+## UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و صف اولویت‌دار آواتار
+
+### UX-WP-AVATAR-R02-S01 — RED، پیاده‌سازی و regression
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S01
+event: WORDPRESS_OPT_IN_ROLE_GATE_AND_AVATAR_PRIORITY_IMPLEMENTATION
+started_at: 2026-08-27T18:00:00+03:30
+ended_at: 2026-08-27T20:05:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: SOURCE_TEST_BUILD
+red:
+  dialog_role_module: FAIL_EXPECTED_MISSING
+  queue_promotion: FAIL_EXPECTED_MISSING
+  wordpress_setting_contract: FAIL_EXPECTED_MISSING
+contract:
+  wordpress: {default_visible: false, taxonomy_requires_visible_and_active_site_credentials: true}
+  community: {dialog_types: [group, channel], active_required: true, roles: [owner, admin], unknown_fail_closed: true}
+  eitaa_priority: {active_messages: 10, active_avatar: 40, avatar: 50, background: 70, avatar_background: 80, provider_session_serial: true}
+  avatar_cache: {max_bytes: 8388608, formats: [jpeg, png, gif, webp], corrupt_cache_repaired: true}
+targeted: {direct_role_catalog_api: 7/7, related_backend_ui: 56/56, phase9_workspace: 19/19, grouped: 29/29, scroll: 10/10, typescript: PASS}
+backend_full_partitions: [207, 97, 105, 61, 42, 152]
+backend_full: {passed: 664, failed: 0, errors: 0, skipped: 0}
+ui_full: {canonical_runners: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+privacy: {raw_tl_or_peer_logged: false, live_data_read: false}
+external_effect: controlled_test_and_ui_dist_artifacts_only
+output_summary: WordPress opt-in، دروازهٔ نقش fail-closed و صف آواتار اولویت‌دار با regression کامل سبز شدند.
+```
+
+### UX-WP-AVATAR-R02-S02 — wheel، بستهٔ deterministic و fresh install
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S02
+event: DETERMINISTIC_WHEEL_PACKAGE_FRESH_INSTALL_AND_DOCUMENTATION
+started_at: 2026-08-27T20:05:00+03:30
+ended_at: 2026-08-27T20:27:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: PACKAGE_OFFLINE_INSTALL_DOCUMENT
+wheel: {worktree_builds: 2, worktree_byte_identical: true, worktree_sha256: f2c3872d4985c26e77877262991739cd65a7ebcfd35c9b642612ee158cea5be9, git_candidate_lf_sha256: 23cd95cfbb9ac47e9ca057406e2008eba16854d03adfa159e9ce628fdf534b51, git_ignored_release_artifact: true}
+candidate_archive: {files: 283, content_set: 702bd412fca521092c5927e2cec4257ea5f23edf62525df4debd52a28a8c155d, count: 2, byte_identical: true, sha256: 307d00b82fb1ff0ec30d5c05b2c55a18b23726901b35e2301ce5c0cda520cc00, internal_privacy_verifier: PASS, parallel_index_files: 0}
+fresh_install_attempt_a: {result: TEST_COMMAND_ERROR, reason: vendor_runtime_find_links_omitted, product_change: 0}
+fresh_install_attempt_b: {result: CANDIDATE_ARCHIVE_DEPENDENCY_ERROR, files: 277, reason: git_ignored_runtime_wheelhouse_absent_from_clone_staging, product_change: 0}
+fresh_install_retry: {runtime_wheelhouse_staged_only: true, runtime_wheels_git_ignored: true, network: 0, pip_no_index: true, wheelhouses: [dist, vendor, vendor/runtime], install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS}
+isolated_candidate_checks: {pytest_attempt_a: ENV_HOST_TEMP_PERMISSION, pytest_retry_with_workspace_basetemp: 101/101, phase9: 19/19, grouped_attempt_a: ENV_WRONG_CWD_AND_NPM_ABSENT, grouped_retry_from_ui_with_read_only_typescript: 29/29, product_change_for_retries: 0}
+documentation_scope: [F-061, V-181, V-182, ADR-47, baseline, specification, structure, handoff, feature_report, execution_log]
+operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
+next_action: refresh_and_document_checks_then_isolated_git_publication
+output_summary: artifactها deterministic/privacy-safe و نصب آفلاین سبز؛ انتشار باید کار موازی ایندکس را خارج نگه دارد.
+```
+
+### UX-WP-AVATAR-R02-S03 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S03
+event: ISOLATED_SCENARIO_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-27T20:45:00+03:30
+ended_at: 2026-08-27T21:05:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+isolation: {temporary_clone: true, root_branch: codex/stabilization-g09, root_head: 95624acfdf50bdb7b34f683da3c33fb99981c1a7, root_index_changed: false, parallel_index_work_included: false}
+candidate: {files: 34, high_confidence_secret_hits: 0, full_iran_phone_hits: 0, operational_paths: 0, workbook_or_index_files: 0, ignored_artifacts_staged: 0}
+commit: {hash: c1f71ac94b1643495e022b121f99b15f69fe0dfa, parent: 50f4224664cf3f4b7871c129988f934828fe8bc2, subject: "feat(ui): gate WordPress and prioritize dialog avatars"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: c1f71ac94b1643495e022b121f99b15f69fe0dfa, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+approval_retry: {first_ls_remote_review_timeout: true, external_effect: 0, second_read_only_retry: PASS}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی سناریو بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
+```
+
+## INSTALLER-SELF-CONTAINED-R01 — Setup مستقل Windows
+
+### INSTALLER-SELF-CONTAINED-R01-S01 — ممیزی raw و RED قرارداد
+
+```yaml
+event_id: INSTALLER-SELF-CONTAINED-R01-S01
+event: RAW_TRANSFER_PACKAGE_AUDIT_AND_INSTALLER_CONTRACT_RED
+started_at: 2026-08-28T00:00:00+03:30
+ended_at: 2026-08-28T00:20:00+03:30
+run_id: INSTALLER-SELF-CONTAINED-R01
+actor: codex
+action_kind: READ_ONLY_AUDIT_AND_CONTRACT_TEST
+raw_root: nested_one_level
+raw_findings: {version_file_missing: true, wheel_source_missing: 0, wheel_source_mismatched: 2, wheel_source_extra: 0}
+private_state: {bridge_json_content_read: false, operational_mutation: 0}
+contract_red: {failed: 3, passed: 0}
+historical_first_run_root: {finding: F-041, empty_coordinator: fixed, legacy_challenge_id: fixed}
+output_summary: raw دستی برای تحویل مستقیم معتبر نبود و قرارداد self-contained/privacy ابتدا عمداً RED شد.
+```
+
+### INSTALLER-SELF-CONTAINED-R01-S02 — ساخت و پذیرش آفلاین Setup
+
+```yaml
+event_id: INSTALLER-SELF-CONTAINED-R01-S02
+event: SELF_CONTAINED_WINDOWS_SETUP_BUILD_AND_OFFLINE_ACCEPTANCE
+started_at: 2026-08-28T00:20:00+03:30
+ended_at: 2026-08-28T02:10:00+03:30
+run_id: INSTALLER-SELF-CONTAINED-R01
+actor: codex
+action_kind: SOURCE_TEST_BUILD_DOCUMENT
+target_contract: {os: windows_10_11_x64, system_python: false, node: false, network: false, admin: false, windows_7: rejected_before_mutation}
+targeted: {installer: 4/4, related: 88/88, backend_full: 674/674, typescript: PASS, ui_observability: PASS}
+offline_runtime: {wheel_rebuilt: true, no_index: true, payload_import: PASS, install_copy_simulation: PASS, runtime_checker: PASS}
+clean_package: {files: 286, write: 0, content_set: 6888b72a04a124aee773cb172c4ce3ccc4aa6415174ed7b962b9f061c7aa5640, wheel_source_drift: 0}
+raw_repair: {managed_files_synced: 30, wheel_sha256: 4b08cf9e11c51ad7a3e2f8b3ea545b37bab0c33455f6f75a855f847e4eded208, dry_run_files: 260, write: 0, content_set: 50d3bb8950c35bf5cfddf5ac4120c84c22eb17553150eff437d68a0095e3f9b8, operational_state_mutation: 0}
+artifacts:
+  setup: {bytes: 38436864, sha256: B609DD9AA689451A694C78FBB0DCAA71943D396F8F548B11E11ECEF500930121, verify_only: PASS, signature: NotSigned}
+  portable_zip: {bytes: 37793425, sha256: 855E734098E5C1AF4C3637C5782631FFB376A830518CF580367383D417F660DA}
+privacy: {nested_files: 4397, findings: 0, operational_state_embedded: false}
+external_effect: controlled_build_and_test_artifacts_only
+remaining_gates: [code_sign, smartscreen_reputation, clean_machine_install, windows_visual_acceptance]
+output_summary: Setup مستقل و privacy-safe در سطح پذیرش خودکار آفلاین ساخته شد؛ امضا و نصب واقعی مقصد باز است.
+```
+
+## LICENSE-ACTIVATION-R01 — فعال‌سازی آفلاین دستگاه‌محور
+
+### LICENSE-ACTIVATION-R01-S01 — RED و پیاده‌سازی قرارداد رمزنگاری/Startup
+
+```yaml
+event_id: LICENSE-ACTIVATION-R01-S01
+event: OFFLINE_DEVICE_ACTIVATION_CONTRACT_AND_IMPLEMENTATION
+started_at: 2026-08-28T10:20:00+03:30
+ended_at: 2026-08-28T11:10:00+03:30
+run_id: LICENSE-ACTIVATION-R01
+actor: codex
+action_kind: SOURCE_TEST_DEPENDENCY
+red: {product_failures: 5, preexisting_pass: 1, environment_temp_setup_errors: 2}
+contract:
+  request: {product_bound: true, fingerprint_version: 1, raw_hardware_exposed: false, typo_checksum: true}
+  license: {signature: Ed25519, private_key_in_customer_artifact: false, device_bound: true, optional_expiry: true}
+  store: {path: data/licensing/activation.dat, protection: windows_user_dpapi, atomic_write: true}
+  gate: {launcher_before_backend: true, api_before_config_database: true, facade_before_product_open: true}
+dependencies: {cryptography: 46.0.7, cffi: 2.1.1, pycparser: 3.0, windows_wheels_downloaded_from_pypi: true}
+targeted_green: 60/60
+external_effect: controlled_source_test_and_offline_wheel_artifacts_only
+output_summary: درخواست/امضا/store/gate دستگاه‌محور پیاده شد و private key از customer release خارج ماند.
+```
+
+### LICENSE-ACTIVATION-R01-S02 — regression کامل و RC2 بسته‌بندی‌شده
+
+```yaml
+event_id: LICENSE-ACTIVATION-R01-S02
+event: FULL_REGRESSION_PACKAGED_ACTIVATION_AND_PRIVACY_ACCEPTANCE
+started_at: 2026-08-28T11:10:00+03:30
+ended_at: 2026-08-28T11:30:00+03:30
+run_id: LICENSE-ACTIVATION-R01
+actor: codex
+action_kind: FULL_TEST_BUILD_OFFLINE_E2E_DOCUMENT
+backend_full: {passed: 684, failed: 0, errors: 0, skipped: 0, collection_files: 76}
+ui: {typescript: PASS, observability: PASS, source_changed: false}
+wheel: {sha256: 31fdfe2db2276f9682c797361a7d27800e6ce7d7ac1c269b9ac229b6e695bf0b, source_drift: 0}
+clean_package: {files: 293, write: 0, content_set: 296a29a77d84d52abddaa17e52a460835923b09361a01faebaa02a15da698367}
+packaged_rehearsal: {unlicensed_rejected: true, request_issue_activate_check: PASS, api_after_activation: PASS, protected_store_bytes: 890, plaintext_activation_found: false}
+artifacts:
+  setup: {bytes: 46415360, sha256: 84453D43A2E04F10FC2F453A81639AF6ED69C971FEE18AA8ED29EC1BC10EF02F, verify_only: PASS, signature: NotSigned}
+  portable: {bytes: 45723128, sha256: A78C5AAA5EF2D6BAC00BBA8F321FAF8B03419C89CFA8556C880E7A9BDE89D129}
+payload: {files: 4664, required_missing: 0, private_key_names: 0, private_key_pem: 0, operational_entries: 0}
+key_status: {current: branch_test_unencrypted, repository_or_delivery: false, production_rotation_required: true}
+live_effect: {install_localappdata: 0, provider: 0, login_otp: 0, send: 0, wordpress: 0, operational_data: 0}
+output_summary: RC2 شاخه fail-closed و end-to-end آفلاین پذیرفته شد؛ کلید Production/code-sign/clean-machine باز است.
+```
+
+### CLEANINSTALL-G09-R02-S03 — گزارش کاربر مقصد، ثبت یافته و توقف تا دستور کاربر
+
+```yaml
+event_id: CLEANINSTALL-G09-R02-S03
+event: USER_REPORTED_TARGET_MACHINE_REGRESSION_RECORDED_AND_PAUSE
+started_at: 2026-09-08T00:00:00+03:30
+ended_at: 2026-09-08T00:00:00+03:30
+run_id: CLEANINSTALL-G09-R02
+actor: codex
+action_kind: DOCS_ONLY_USER_REPORT_REGISTRATION
+user_report:
+  scenario: نصب تمیز RC5 روی ماشین مقصد؛ فعال‌سازی موفق؛ ثبت مدیر اولیه موفق؛ ناوبری به افزودن شمارهٔ جدید.
+  observed: UI در Gate «یک حساب فعال را انتخاب کنید» متوقف ماند؛ فهرست حساب +98911000000 با lifecycle_state=created، «وارد نشده»، «Worker متوقف».
+  start_worker_result: رد با پیام «The selected Eitaa account is not runnable.» (کد احتمالی: eitaa_runtime_account_not_runnable)
+  restart_result: خطای استارتاپی که پیش‌تر رفع ادعا شده بود، پس از restart دوباره ظاهر شد.
+  interpretation_guard: این گزارش روایت کاربر است؛ علت‌یابی/بازتولید روی source در این Run انجام نشد.
+actions:
+  docs_only: true
+  findings_registered: [F-068]
+  code_changed: false
+  tests_run:
+    - {target: tests/test_clean_install_http_boot.py, result: "2/2 passed", python: ".venv/Scripts/python.exe", purpose: بازتأیید محض وضعیت فعلی rگرسیون پیش از ثبت}
+  artifacts_touched: false
+git:
+  branch: codex/stabilization-g09
+  http_api_fix_committed: false
+  note: working tree شامل تغییرهای uncommitted قدیمی‌تر غیرمرتبط است؛ commit طبق قرارداد تا هماهنگی/دستور کاربر انجام نمی‌شود.
+live_effect: {install_localappdata: 0, provider: 0, login_otp: 0, send: 0, wordpress: 0, operational_data: 0}
+pause:
+  requested_by: user
+  next_action: هیچ اقدامی تا دستور صریح کاربر برای شروع کار؛ آیتم‌های ۱ تا ۳ (commit، به‌روزرسانی RELEASE_MANIFEST/گزارش‌ها rev1، تست نصب تازه) pending می‌مانند و باید پس از علت‌یابی F-068 دوباره اولویت‌بندی شوند.
+output_summary: گزارش کاربر مقصد به‌صورت F-068 ثبت شد؛ علت‌یابی و تحویل‌های بعدی متوقف تا دستور کاربر.
+```
+
+### CLEANINSTALL-G09-R03-S01 — علت‌یابی و اصلاح کامل F-068 با E2E واقعی payload
+
+```yaml
+event_id: CLEANINSTALL-G09-R03-S01
+event: F068_ROOT_CAUSED_FIXED_AND_E2E_VERIFIED
+started_at: 2026-09-08T13:45:00+03:30
+ended_at: 2026-09-08T15:10:00+03:30
+run_id: CLEANINSTALL-G09-R03
+actor: codex
+action_kind: SOURCE_TEST_E2E_REPRO_DOCUMENT
+root_causes:
+  lifecycle_egg_chicken: "onboarding ساخته=created/stopped؛ گذار active/running فقط در request_worker_start؛ اما مسیر start قبل از آن _assert_runnable می‌خواست → not_runnable دائمی"
+  restart_death: "bootstrap مجاز فقط با DB خالی؛ restart با مدیر+حساب created → multi_session_legacy_default_required"
+  post_start_boot_death: "بوت پس از Start موفق نیز به‌دلیل legacy_default=null می‌مرد (کشف E2E محلی)"
+fix_files:
+  - src/eitaa_bridge/infrastructure/coordinator/store.py   # runnable_messenger_account_id/has_runnable
+  - src/eitaa_bridge/application/account_runtime.py         # _assert_startable + resolve_v1 fallback + سازندهٔ registry
+  - src/eitaa_bridge/application/api.py                    # bootstrap onboarding وقتی حساب runnable نیست
+tests:
+  new_file: tests/test_first_account_start_regression.py
+  green: 6/6
+  red_proof: {method: git-stash موقت سه فایل, result: "5/5 fail روی کد قبل از اصلاح (تست ششم بعد از کشف ریشهٔ سوم)"}
+e2e:
+  base: extract ZIP تحویل D5B17F5... → office_payload → نصب emulate‌شده
+  activation: {key: branch-test, result: PASS}
+  flows:
+    - boot با DB خالی: PASS
+    - setup admin: PASS
+    - onboard +98911000000 → created/stopped: PASS (مطابق گزارش کاربر)
+    - worker/start روی build بدون اصلاح: 400 eitaa_runtime_account_not_runnable (بازتولید باگ)
+    - restart بدون اصلاح با حساب created: crash multi_session_legacy_default_required (بازتولید)
+    - پس از اعمال اصلاح: worker/start=200 worker ready+heartbeat؛ restart با created ✓؛ restart پس از start ✓؛ login+accounts ✓
+  cleanup: همهٔ فرآیندها kill شدند؛ پوشهٔ E2E_F068_Repro برای آزمودسنجی rebuild نگه داشته شد
+git: {branch: codex/stabilization-g09, commits: 0, working_tree: تغییرهای uncommitted قدیمی‌تر غیرمرتبط موجود است}
+live_effect: {install_localappdata: 0, provider: 0, login_otp: 0, send: 0, wordpress: 0, operational_data: 0}
+pause:
+  requested_by: user (توقف امن برای استراحت)
+  next_session: [full Backend regression, rebuild wheel/Setup/ZIP rev2, E2E مجدد با E2E_F068_Repro, commit گزینشی با هماهنگی, نصب مقصد + بستن F-068]
+output_summary: هر سه ریشهٔ F-068 اصلاح و با تست‌های RED→GREEN و E2E روی payload واقعی اثبات شد؛ تحویل جدید هنوز ساخته نشده.
+```
+
+### CLEANINSTALL-G09-R03-S02 — رگرسیون کامل پس از اصلاح F-068
+
+```yaml
+event_id: CLEANINSTALL-G09-R03-S02
+event: F068_FULL_REGRESSION_AFTER_FIX
+started_at: 2026-09-08T16:00:00+03:30
+ended_at: 2026-09-08T16:45:00+03:30
+run_id: CLEANINSTALL-G09-R03
+actor: codex
+action_kind: FULL_TEST_DOCUMENT
+backend_full: {passed: 697, failed: 2, failures: "دو تست parity wheel در test_g07_release_packaging"}
+failure_analysis:
+  reason: "dist/eitaa_bridge-0.7.0.dev31 wheel هنوز نسخهٔ قبل از اصلاح F-068 است؛ parity سورس→wheel برای سه فایل اصلاح‌شده mismatch=3 می‌دهد"
+  interpretation: "سورس کاملاً سبز؛ این failure انتظاری و خوداصلاح با rebuild wheel است، نه باگ جدید"
+  evidence: "missing=0, mismatched=3, extra=0 — دقیقاً سه فایل اصلاح‌شدهٔ امروز (api.py, account_runtime.py, store.py)"
+tests_new: {file: tests/test_first_account_start_regression.py, green: 6/6}
+notes:
+  - رگرسیون سه بار اجرا شد تا فراز نشست؛ مجموعهٔ سبز به‌جز دو parity؛ هیچ failure دیگری از اصلاح برنخاست.
+  - rebuild بسته در این بازهٔ زمانی شروع نشد (پایان بازهٔ تعیین‌شدهٔ کاربر 12:20؛ اجرای نهایی 12:33 تمام شد).
+  - توقف امن درخواستی کاربر رعایت شد؛ فرآیندی باز نماند.
+pause:
+  requested_by: user (توقف راس ساعت 12:20 محلی)
+  next_session: [rebuild wheel با build_wheel_stdlib.py, re-run دو تست parity سپید انتظار, BUILD_OFFICE_SETUP_EXE.bat /quiet برای Setup/Portable/ZIP rev2, E2E مجدد با E2E_F068_Repro, commit گزینشی, نصب مقصد, بستن F-068]
+live_effect: {install_localappdata: 0, provider: 0, login_otp: 0, send: 0, wordpress: 0, operational_data: 0}
+output_summary: رگرسیون کامل پس از اصلاح F-068 سبز است؛ دو failure باقی‌مانده فقط parity wheel قدیمی است و با rebuild بعدی حل می‌شود.
+```
+
+### CLEANINSTALL-G09-R03-S03 — rebuild rev2 و تحویل کامل F-068
+
+```yaml
+event_id: CLEANINSTALL-G09-R03-S03
+event: F068_REBUILD_REV2_AND_DELIVERY
+started_at: 2026-09-08T17:20:00+03:30
+ended_at: 2026-09-08T18:20:00+03:30
+run_id: CLEANINSTALL-G09-R03
+actor: codex
+action_kind: BUILD_SIGN_E2E_DELIVERY_DOCUMENT
+wheel: {sha256: 83ec1f1b2afb232f5986030861d468bb2592a77f17b525aeba704554bce5292d, parity_test_after: PASS}
+tests:
+  full_backend_pre_rebuild: {passed: 697, failed: 2, failed_names: [parity wheel (resolved by rebuild), deterministic tmp-path (pre-existing → F-069)]}
+  typescript_ui: PASS
+build:
+  command: BUILD_OFFICE_SETUP_EXE.bat /quiet با EITAA_CODE_SIGNING_THUMBPRINT
+  setup: {bytes: 31299904, sha256: 44A2EDAAD4A434666A6EE96E7E1C1759EE52E8C3144052B22A4ED91ECE6DFFD5, signer: 441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02, tamper: tested/OK}
+  portable: {bytes: 30497765, sha256: 4ed983cc3224970ced25288ccb2a413737bfa23f1c8c079e69a3b903657d3b19}
+e2e_rev2_emulated:
+  activation: branch-test key PASS
+  flows: [boot-clean PASS, admin-setup 201, account created, worker/start 200 active+running ready+heartbeat, restart-active boot+login+list ready, stop→paused, start-again 200]
+  fixes_verified_in_payload: [account_runtime._assert_startable, api.no_runnable_account, store.runnable_messenger_account_id]
+delivery:
+  folder: Eitaa_Bridge/delivery-activation-branch/rc5-multiaccount-internal-signed-rev2
+  zip: {name: EitaaBridge-0.8.0-rc5-MultiAccount-InternalSigned-GuiSetup-Delivery.zip, bytes: 61886807, sha256: 20f77a32d8751d350fe2cb1db1705754d7f593010d5084ff0f9639a0c4644769, entries: 15}
+  previous_rev1: moved to archive/20260908-151043
+  zip_audit: {setup_hash_identical: true, fixes_in_payload: 3/3, utf8_texts: 10/10, manifest: rev2 OK}
+findings: [F-069 registered (deterministic wheel test pre-existing tmp-path failure, unrelated to F-068)]
+git: {branch: codex/stabilization-g09, commits: 0, commit_selective_pending_user_decision}
+live_effect: {install_localappdata: 0, provider: 0, login_otp: 0, send: 0, wordpress: 0, operational_data: 0}
+output_summary: بستهٔ rev2 با هر سه اصلاح F-068 ساخته، امضا، ممیزی و در مسیر تحویل جایگزین شد؛ E2E کامل روی همان payload سبز؛ commit و نصب مقصد باقی است.
+```

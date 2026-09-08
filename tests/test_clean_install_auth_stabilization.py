@@ -3,12 +3,15 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
+import sqlite3
 
+import eitaa_bridge.application.api as api_module
 from eitaa_bridge.application.account_auth import LegacyAuthChallenge
-from eitaa_bridge.application.api import BridgeApplicationApi
+from eitaa_bridge.application.api import APP_USER_SESSION_COOKIE, BridgeApplicationApi
 from eitaa_bridge.infrastructure.coordinator import (
     CoordinatorAppAuth,
     PasswordHasher,
+    ProtectedPhone,
     StaticSubjectFingerprinter,
 )
 
@@ -77,6 +80,26 @@ class _AuthRuntime:
 
     def close(self) -> None:
         self.closed = True
+
+
+class _SyntheticPhoneProtector:
+    """Protect one synthetic onboarding identity without using host DPAPI."""
+
+    def protect(self, canonical_e164: str) -> ProtectedPhone:
+        assert canonical_e164.startswith("+")
+        return ProtectedPhone(
+            ciphertext=b"synthetic-protected-phone",
+            key_version=1,
+            fingerprint="a" * 64,
+            display_hint="+••••••••77",
+        )
+
+
+def _cookie_token(response) -> str:
+    cookie = response.headers["Set-Cookie"].split(";", 1)[0]
+    name, token = cookie.split("=", 1)
+    assert name == APP_USER_SESSION_COOKIE
+    return token
 
 
 def _enable_fresh_app_auth(config_file, *, multi_session: bool) -> None:
@@ -481,7 +504,7 @@ def test_g03e_empty_multisession_startup_is_repeatable(config_file, monkeypatch)
         second.close()
 
 
-def test_g03e_installer_config_copy_rehearsal_starts_offline_twice(
+def test_g03e_installer_config_bootstraps_admin_before_first_messenger_account(
     tmp_path,
     monkeypatch,
 ):
@@ -495,6 +518,10 @@ def test_g03e_installer_config_copy_rehearsal_starts_offline_twice(
     install_root.mkdir()
     config_file = install_root / "bridge.json"
     config_file.write_bytes(example.read_bytes())
+    packaged_features = json.loads(config_file.read_text(encoding="utf-8"))["features"]
+    assert packaged_features["app_user_auth"]["enabled"] is True
+    assert packaged_features["multi_session"]["enabled"] is True
+    assert packaged_features["worker_process"]["enabled"] is True
     monkeypatch.setenv("EITAA_BRIDGE_WP_MEDICAL_SITE_USERNAME", "editor")
     monkeypatch.setenv("EITAA_BRIDGE_WP_MEDICAL_SITE_APP_PASSWORD", "password")
     monkeypatch.setattr(
@@ -503,14 +530,73 @@ def test_g03e_installer_config_copy_rehearsal_starts_offline_twice(
             AssertionError("provider auth must not open during installer rehearsal")
         ),
     )
+    monkeypatch.setattr(
+        api_module,
+        "CoordinatorAppAuth",
+        lambda database_path, *, policy: CoordinatorAppAuth(
+            database_path,
+            policy=policy,
+            fingerprinter=StaticSubjectFingerprinter(b"installer-flow-subject-key"),
+            phone_protector=_SyntheticPhoneProtector(),
+            password_hasher=_FastPasswordHasher(),
+        ),
+    )
 
-    for _ in range(2):
-        api = BridgeApplicationApi(config_file)
-        try:
-            status = api.dispatch("GET", "/api/v1/auth/status")
-            assert status.status == 200
-            assert status.payload["authenticated"] is False
-        finally:
-            api.close()
+    api = BridgeApplicationApi(config_file)
+    try:
+        status = api.dispatch("GET", "/api/v2/app-auth/status")
+        assert status.status == 200
+        assert status.payload["setup_required"] is True
+        assert status.payload["authenticated"] is False
+
+        setup = api.dispatch(
+            "POST",
+            "/api/v2/app-auth/setup",
+            body={
+                "username": "installer.admin",
+                "password": "synthetic-password",
+                "display_name": "Installer administrator",
+            },
+            client_kind="test",
+        )
+        assert setup.status == 201
+        assert setup.payload["principal"]["global_role"] == "admin"
+        token = _cookie_token(setup)
+
+        before_account = api.dispatch(
+            "GET",
+            "/api/v2/messenger-accounts",
+            app_session_token=token,
+        )
+        assert before_account.status == 200
+        assert before_account.payload["accounts"] == []
+
+        created = api.dispatch(
+            "POST",
+            "/api/v2/messenger-accounts",
+            body={
+                "provider": "eitaa",
+                "phone": "+989120000077",
+                "label": "First Eitaa account",
+            },
+            app_session_token=token,
+            csrf_token=setup.payload["csrf_token"],
+            correlation_id="installer-first-account",
+        )
+        assert created.status == 201
+        assert created.payload["account"]["provider"] == "eitaa"
+
+        database_path = install_root / "data" / "coordinator" / "coordinator.sqlite3"
+        with sqlite3.connect(database_path) as connection:
+            ownership = connection.execute(
+                """
+                SELECT au.global_role, pam.role, pam.status
+                FROM app_users au
+                JOIN phone_account_memberships pam ON pam.app_user_id=au.id
+                """
+            ).fetchall()
+        assert ownership == [("admin", "owner", "active")]
+    finally:
+        api.close()
 
     assert not (install_root / ".eitaa_session.json").exists()

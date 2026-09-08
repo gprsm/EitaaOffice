@@ -36,7 +36,7 @@
   },
   "features": {
     "app_user_auth": {
-      "enabled": false,
+      "enabled": true,
       "self_registration_enabled": true,
       "idle_timeout_minutes": 525600,
       "absolute_timeout_hours": 8760,
@@ -44,12 +44,12 @@
       "lockout_minutes": 15
     },
     "multi_session": {
-      "enabled": false,
+      "enabled": true,
       "legacy_default_messenger_account_id": null
     },
     "worker_process": {
       "schema_version": 1,
-      "enabled": false,
+      "enabled": true,
       "startup_timeout_seconds": 15,
       "request_timeout_seconds": 60,
       "heartbeat_interval_seconds": 5,

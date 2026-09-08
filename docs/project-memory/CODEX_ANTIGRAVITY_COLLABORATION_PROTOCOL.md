@@ -26,6 +26,14 @@ Handoff جاری: [ANTIGRAVITY_STABILIZATION_CURRENT.md](../handoffs/ANTIGRAVITY
 - کاربر اعلام کرده Codex و AntiGravity هم‌زمان توسعه نمی‌دهند. Agent تازه باید Handoff را بخواند و Run باز را بررسی کند.
 - اگر Run باز یا تغییر ناشناخته دیده شد، هیچ reset/checkout/clean انجام نشود؛ وضعیت به‌عنوان Finding/Blocker ثبت شود.
 
+## قرارداد اختصاصی ایندکس و گزارش
+
+- تمام Taskهای چهار سطح ایندکس/WordPress/reporting/intelligence علاوه بر این سند، تابع `INDEX_INTELLIGENCE_FOUR_LEVEL_OPERATING_MODEL.md` و `MULTI_AGENT_DEVELOPMENT_GOVERNANCE.md` هستند.
+- کاربر مالک دامنه و پذیرش نهایی است. Codex مدیر معماری/یکپارچه‌سازی و writer/promoter پیش‌فرض اسناد canonical این workstream است.
+- AntiGravity، Claude، Gemini یا هر Agent دیگر فقط بر اساس Task Contract و کلاس ریسک نقش می‌گیرد؛ نام ابزار مجوز معماری، عملیات Live یا تغییر canonical ایجاد نمی‌کند.
+- Agent مجری به‌طور پیش‌فرض خروجی `AGENT_COMPLETED_UNREVIEWED` تحویل می‌دهد. پذیرش فقط پس از review، آزمون متناسب و promotion توسط writer canonical است.
+- شناسه‌های F/V/ADR/Source/Question در taskهای واگذارشده موقت‌اند؛ تخصیص canonical فقط در workstream مدیر انجام می‌شود.
+
 ## قالب اجباری هر اصلاح
 
 هر اصلاح باید این زنجیره را مستند کند:

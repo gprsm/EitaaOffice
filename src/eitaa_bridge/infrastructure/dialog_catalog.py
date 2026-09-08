@@ -11,6 +11,7 @@ from typing import Any, Iterable
 from eitaa_core import Peer
 
 from .data_scope import DataScopeError, ProviderAccountScope
+from .eitaa.dialog_permissions import is_manageable_account_role
 
 
 class JsonDialogCatalog:
@@ -25,6 +26,7 @@ class JsonDialogCatalog:
     SCHEMA = 3
     _DISPLAY_KINDS = {"channel", "group", "personal"}
     _TECHNICAL_KINDS = {"private", "basic_group", "supergroup", "channel", "unknown"}
+    _ACCOUNT_ROLES = {"owner", "admin", "member", "unknown"}
 
     def __init__(
         self,
@@ -99,6 +101,7 @@ class JsonDialogCatalog:
         photo_cached_path: str | None = None,
         active: bool = True,
         display_kind: str | None = None,
+        account_role: str | None = None,
     ) -> dict[str, Any]:
         if technical_kind is not None and technical_kind not in self._TECHNICAL_KINDS:
             technical_kind = "unknown"
@@ -115,6 +118,13 @@ class JsonDialogCatalog:
         with self._lock:
             data = self._read()
             previous = data["dialogs"].get(self._storage_key(peer_key), {})
+            selected_role = (
+                str(account_role)
+                if account_role in self._ACCOUNT_ROLES
+                else str(previous.get("account_role") or "unknown")
+            )
+            if selected_role not in self._ACCOUNT_ROLES:
+                selected_role = "unknown"
             previous_source = str(previous.get("source") or "")
             stored_source = previous_source if previous_source == "manual" and source == "remote" else source
             entry = {
@@ -135,6 +145,8 @@ class JsonDialogCatalog:
                 "favorite": bool(previous.get("favorite", False)),
                 "source": stored_source,
                 "active": bool(active),
+                "account_role": selected_role,
+                "can_manage_community": is_manageable_account_role(selected_role),
                 "top_message_id": int(top_message_id or 0),
                 "top_message_date": top_message_date,
                 "unread_count": int(unread_count or 0),
@@ -313,6 +325,11 @@ class JsonDialogCatalog:
                 except DataScopeError:
                     continue
             item["peer_key"] = peer_key
+            role = str(item.get("account_role") or "unknown")
+            if role not in self._ACCOUNT_ROLES:
+                role = "unknown"
+            item["account_role"] = role
+            item["can_manage_community"] = is_manageable_account_role(role)
             normalized[self._storage_key(peer_key)] = item
         return {
             "schema_version": self.SCHEMA,

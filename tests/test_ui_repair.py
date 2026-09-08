@@ -100,6 +100,25 @@ def test_wordpress_ui_keeps_category_tree_and_stays_quiet_without_credentials():
     assert 'aria-label="وردپرس آماده نیست"' in app
 
 
+def test_wordpress_panel_is_opt_in_and_community_operations_are_not_role_gated():
+    app = (ROOT / "ui" / "src" / "App.tsx").read_text(encoding="utf-8")
+    helpers = (ROOT / "ui" / "src" / "utils" / "helpers.tsx").read_text(encoding="utf-8")
+    settings = (ROOT / "ui" / "src" / "SettingsPage.tsx").read_text(encoding="utf-8")
+    types = (ROOT / "ui" / "src" / "lib" / "types.ts").read_text(encoding="utf-8")
+
+    assert "showWordPressPanel" in helpers
+    assert "readStored<boolean>(STORAGE.showWordPressPanel, false)" in app
+    assert "wordpressPanelReady" in app
+    assert "!showWordPressPanel || !activeSite?.credentials_configured" in app
+    assert "canUseCommunityOperations" not in app
+    assert "canManageCommunity" not in app
+    assert "communityEnabled" not in app
+    assert "props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')" in app
+    assert "نمایش پنل وردپرس" in settings
+    assert "account_role?: 'owner' | 'admin' | 'member' | 'unknown'" in types
+    assert "can_manage_community?: boolean" in types
+
+
 def test_dialog_sync_and_avatar_ui_do_not_report_benign_or_fetch_remote_work():
     app = ((ROOT / "ui" / "src" / "App.tsx").read_text(encoding="utf-8") + (ROOT / "ui" / "src" / "utils" / "helpers.tsx").read_text(encoding="utf-8"))
     loader = (ROOT / "ui" / "src" / "lib" / "avatarLoader.ts").read_text(encoding="utf-8")
@@ -109,5 +128,25 @@ def test_dialog_sync_and_avatar_ui_do_not_report_benign_or_fetch_remote_work():
     assert "IntersectionObserver" in app
     assert "loadDialogAvatar" in app
     assert "peekDialogAvatar" in app
+    assert "cached_only: true" in loader
     assert "cached_only: false" in loader
     assert "avatarRequests" in loader
+    assert "avatarCacheQueue" in loader
+    assert "avatarRemoteQueue" in loader
+    assert "requestStorageScope !== getClientStoragePrefix()" in loader
+    assert "FAILURE_TTL_MS" in loader
+
+
+def test_consecutive_sender_messages_render_as_one_mixed_content_group():
+    app = (ROOT / "ui" / "src" / "App.tsx").read_text(encoding="utf-8")
+    card = (ROOT / "ui" / "src" / "MessageContentCard.tsx").read_text(encoding="utf-8")
+    grouping = (ROOT / "ui" / "src" / "lib" / "groupedMedia.ts").read_text(encoding="utf-8")
+
+    assert "MESSAGE_GROUP_MAX_GAP_SECONDS = 5 * 60" in grouping
+    assert "buildMessageGroupLookup" in app
+    assert "fallbackIncomingSenderKey" in app
+    assert "groupLookup={messageGroupLookup}" in app
+    assert "timelineGroup" not in app
+    assert "buildContentBlocks" in card
+    assert "group?.messages || [message]" in card
+    assert "authorPeerKey" in card

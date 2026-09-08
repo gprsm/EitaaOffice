@@ -71,3 +71,13 @@ Thumbs.db
 
 # Local stabilization recovery artifacts (verified receipts are documented separately)
 artifacts/stabilization/
+
+# Transient agent workspaces and pytest scratch output (not part of the product)
+.tmp-agenthq-*
+artifacts/pytest-*
+artifacts/*.index
+
+# User's personal workbook kept at repo root (content domain, not code)
+/-_*1405.xlsx
+artifacts/ux01_commit_snapshot/
+artifacts/ux01_commit_snapshot.zip

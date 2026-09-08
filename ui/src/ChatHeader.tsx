@@ -12,6 +12,7 @@ import AspectRatioRounded from '@mui/icons-material/AspectRatioRounded'
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded'
 import FilterAltRounded from '@mui/icons-material/FilterAltRounded'
 import TuneRounded from '@mui/icons-material/TuneRounded'
+import GroupsOutlined from '@mui/icons-material/GroupsOutlined'
 import { WordPressIcon } from './WordPressIcon'
 import { HeaderMessageSearch } from './HeaderMessageSearch'
 
@@ -29,6 +30,7 @@ export function ChatHeader({
   indexEnabled,
   datePicker,
   search,
+  wordpressVisible,
   wordpressEnabled,
   composerVisible,
   onOpenChats,
@@ -52,6 +54,7 @@ export function ChatHeader({
   indexEnabled: boolean
   datePicker: ReactNode
   search: string
+  wordpressVisible: boolean
   wordpressEnabled: boolean
   composerVisible: boolean
   onOpenChats: () => void
@@ -113,7 +116,9 @@ export function ChatHeader({
           borderRadius: '50%',
           boxShadow: 2,
         },
-      }}><Tooltip title={wordpressEnabled ? 'وردپرس' : 'ابتدا سایت وردپرس را در تنظیمات تعریف کنید'}><span><IconButton sx={{ width: 48, height: 48 }} disabled={!wordpressEnabled} color="primary" onClick={onOpenComposer} aria-label="بازکردن صفحه وردپرس"><WordPressIcon /></IconButton></span></Tooltip></Box>}
+      }}>{wordpressVisible
+        ? <Tooltip title={wordpressEnabled ? 'وردپرس' : 'ابتدا تنظیمات وردپرس را کامل کنید'}><span><IconButton sx={{ width: 48, height: 48 }} disabled={!wordpressEnabled} color="primary" onClick={onOpenComposer} aria-label="بازکردن صفحه وردپرس"><WordPressIcon /></IconButton></span></Tooltip>
+        : <Tooltip title="عملیات گفتگو"><IconButton sx={{ width: 48, height: 48 }} color="secondary" onClick={onOpenComposer} aria-label="بازکردن عملیات گفتگو"><GroupsOutlined /></IconButton></Tooltip>}</Box>}
     </Stack>
   </Toolbar>
 }

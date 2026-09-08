@@ -4,6 +4,7 @@ import json
 import hashlib
 from importlib import util as importlib_util
 from pathlib import Path
+import shutil
 from types import ModuleType
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -317,28 +318,37 @@ def test_release_excludes_quarantined_bale_client_but_keeps_fail_closed_slot() -
     assert not any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
     assert b"Requires-Dist: httpx" not in metadata
     assert b"Requires-Dist: websockets" not in metadata
-    assert b"Requires-Dist: cryptography" not in metadata
+    assert b"Requires-Dist: cryptography==46.0.7" in metadata
 
 
 def test_stdlib_wheel_builder_is_deterministic_and_uses_canonical_contract(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).resolve().parents[1]
-    first = build_wheel(root, tmp_path / "first")
-    second = build_wheel(root, tmp_path / "second")
+    # The parity audit requires the wheel to stay inside the project root, so
+    # the scratch wheels are built under the repo's ignored dist/ tree
+    # instead of pytest's tmp_path on another drive.
+    scratch = root / "dist" / ".parity-scratch"
+    scratch.mkdir(parents=True, exist_ok=True)
+    try:
+        first = build_wheel(root, scratch / "first", force=True)
+        second = build_wheel(root, scratch / "second", force=True)
 
-    assert first.read_bytes() == second.read_bytes()
-    parity = package_clean.verify_bridge_wheel_source_parity(root, first)
-    assert parity["missing"] == parity["mismatched"] == parity["extra"] == 0
+        assert first.read_bytes() == second.read_bytes()
+        parity = package_clean.verify_bridge_wheel_source_parity(root, first)
+        assert parity["missing"] == parity["mismatched"] == parity["extra"] == 0
 
-    with ZipFile(first) as wheel:
-        names = wheel.namelist()
-        metadata = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/METADATA")
-        entry_points = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/entry_points.txt")
-    assert "eitaa_bridge/providers/bale/slot.py" in names
-    assert not any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
-    assert metadata.count(b"Requires-Dist:") == 3
-    assert b"Requires-Dist: eitaa-core==0.6.0.dev19" in metadata
-    assert b"Requires-Dist: requests>=2.31,<3" in metadata
-    assert b"Provides-Extra: dev" in metadata
-    assert entry_points.count(b" = eitaa_bridge.") == 4
+        with ZipFile(first) as wheel:
+            names = wheel.namelist()
+            metadata = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/METADATA")
+            entry_points = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/entry_points.txt")
+        assert "eitaa_bridge/providers/bale/slot.py" in names
+        assert not any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
+        assert metadata.count(b"Requires-Dist:") == 4
+        assert b"Requires-Dist: eitaa-core==0.6.0.dev19" in metadata
+        assert b"Requires-Dist: requests>=2.31,<3" in metadata
+        assert b"Requires-Dist: cryptography==46.0.7" in metadata
+        assert b"Provides-Extra: dev" in metadata
+        assert entry_points.count(b" = eitaa_bridge.") == 4
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)

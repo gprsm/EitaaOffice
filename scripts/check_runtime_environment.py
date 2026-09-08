@@ -11,6 +11,7 @@ EXPECTED_DISTRIBUTIONS = {
     "tzdata": "2026.3",
     "eitaa-core": "0.6.0.dev19",
     "eitaa-bridge": "0.7.0.dev31",
+    "cryptography": "46.0.7",
 }
 EXPECTED_BRIDGE_PRODUCT = "0.7.0-ui-mvp6.1.1-gmi4.2"
 
@@ -27,7 +28,7 @@ def main() -> int:
         if actual != expected:
             failures.append(f"{distribution}: expected {expected}, found {actual}")
 
-    for module_name in ("requests", "tzdata", "eitaa_core", "eitaa_bridge"):
+    for module_name in ("requests", "tzdata", "cryptography", "eitaa_core", "eitaa_bridge"):
         try:
             importlib.import_module(module_name)
         except Exception as exc:  # safe type-only diagnostic

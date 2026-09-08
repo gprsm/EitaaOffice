@@ -1,5 +1,133 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
+## وضعیت فوری (۲۰۲۶-۰۹-۰۸، پایان نشست سوم): تحویل rev2 ساخته و E2E کامل سبز — فقط commit و نصب مقصد باقی است
+
+- **بستهٔ تحویل rev2 آماده است** و جایگزین ZIP قبلی در مسیر تحویل شد: `Eitaa_Bridge/delivery-activation-branch/EitaaBridge-0.8.0-rc5-MultiAccount-InternalSigned-GuiSetup-Delivery.zip` = `61,886,807 bytes / SHA-256 20f77a32d8751d350fe2cb1db1705754d7f593010d5084ff0f9639a0c4644769 / 15 entries` (بستهٔ rev1 به `archive/20260908-151043` منتقل شد). پوشهٔ کامل rev2: `rc5-multiaccount-internal-signed-rev2/` با manifest، SHA256SUMS و trust bundle.
+- Setup rev2=`31,299,904 / SHA-256 44A2EDAAD4A434666A6EE96E7E1C1759EE52E8C3144052B22A4ED91ECE6DFFD5` (signer pin=441692B4...BD02 سبز، tamper tested سبز)؛ Portable=`30,497,765 / SHA-256 4ed983cc...d3b19`؛ wheel جدید=`83ec1f1b...5292d`.
+- **E2E روی همان payload تحویل rev2 (نصب emulate‌شدهٔ تازه):** فعال‌سازی (کلید branch-test) ✓ → بوت تمیز ✓ → setup مدیر ✓ → حساب اول created ✓ → **شروع ورکر=200 با worker ready+heartbeat** ✓ → **restart با حساب active: بوت/login/فهرست حساب سبز** ✓ → **stop→paused→start=200 مجدد** ✓. ممیزی ZIP: هر سه فایل fix داخل payload، Setup داخل ZIP hash-identical، ۱۰ متن UTF-8 سالم.
+- تست‌ها: full Backend=`697 passed / 2 failed` پیش از rebuild؛ پس از rebuild فقط تست deterministic قدیمی می‌ماند که با stash اثبات شد مستقل از F-068 است و به‌عنوان **F-069** (بدهی تست مسیر tmp) ثبت شد. TypeScript UI سبز.
+- **مانده (به ترتیب):** (۱) commit گزینشی — نیاز به تصمیم کاربر (working tree تغییرهای قدیمی‌تر غیرمرتبط: licensing/offline-activation/docs دارد؛ سه فایل fix + تست جدید + wheel جدید متعلق به F-068 است)؛ (۲) نصب rev2 روی ماشین مقصد طبق CLEAN_INSTALL_TEST_FA.md (rename پوشه قبلی، نه حذف) و آزمون UI واقعی؛ (۳) بستن F-068 و F-069.
+- پوشه‌های `E2E_F068_Repro` و `E2E_F068_Repro2` (نصب‌های emulate‌شدهٔ ساختگی) برای رفرنس نگه داشته شده‌اند؛ بعد از تأیید مقصد قابل حذف‌اند.
+
+## وضعیت کد و artifact (۲۰۲۶-۰۹-۰۸)
+
+- **F-068 کاملاً ریشه‌یابی شد** (جزئیات در F-068-C): (۱) تخم‌مرغ‌مرغ lifecycle — onboarding حساب را `created/stopped` می‌سازد و گذار `active/running` فقط در `request_worker_start` است، اما مسیر start قبل از آن `_assert_runnable` می‌خواست که خودش active بودن را پیش‌شرط می‌کرد → دکمهٔ شروع ورکر همیشه رد می‌شد؛ (۲) restart با DB غیرخالی (مدیر+حساب created) → `multi_session_legacy_default_required` استارتاپ را می‌کشت (همان خطای کاربر)؛ (۳) حالت سوم کشف‌شده در E2E: بوت پس از Start موفق نیز به همان دلیل می‌مرد.
+- **اصلاح در سه فایل (uncommitted):** `store.py` (متدهای runnable query)، `account_runtime.py` (`_assert_startable` برای start صریح؛ `resolve_v1` با fallback به حساب runnable؛ سازندهٔ registry با حساب runnable die نمی‌کند)، `api.py` (حالت بدون حساب runnable = bootstrap onboarding).
+- **شواهد:** `tests/test_first_account_start_regression.py` ۶/۶ سبز؛ RED روی کد قبل از اصلاح اثبات (۵/۵ fail با stash). E2E روی نصب emulate‌شدهٔ payload واقعی ZIP تحویل: فعال‌سازی→setup مدیر→onboard→worker/start=200 با worker ready→restart با created ✓→restart پس از start ✓→login/accounts ✓. فرآیندها پاک شدند.
+- پوشهٔ `D:\eitaa Project\E2E_F068_Repro` (نصب emulate‌شده + کدهای فعال‌سازی آزمونی) برای آزمودسنجی rebuild بعدی نگه داشته شده؛ دادهٔ کاملاً ساختگی است.
+- دستور کاربر: توقف امن در همین نقطه درخواست شد (۲۰۲۶-۰۹-۰۸)؛ ادامه فقط با دستور صریح.
+
+## وضعیت کد و artifact (۲۰۲۶-۰۹-۰۸)
+
+- شاخهٔ فعلی: `codex/stabilization-g09`. fix سه‌نقطه‌ای lazy `upload_root` در `src/eitaa_bridge/interfaces/http_api.py` اعمال و با diff بررسی شد، ولی **commit نشده**؛ working tree تغییرهای uncommitted قدیمی‌ترِ غیرمرتبط (licensing/offline activation و اسناد) نیز دارد. commit باید گزینشی و با هماهنگی کاربر باشد.
+- تست رگرسیون جدید `tests/test_clean_install_http_boot.py` (untracked) با venv پروژه: `2/2 passed`. گزارش قبلی full suite=`693 passed / 0 failed`.
+- artifact جاری: Setup SHA-256=`DF4A1FDCF15C4E0AC8FDBDF3C8E15C1ED4CE11936B8797EB090A73DEF828419A`، Portable=`74FAAD8A1F5B31227445ECBA7F8E695B285A307F44BD0BFCFAC1B4C71CF2CFF8`، Delivery ZIP=`D5B17F50AF00221F300023BB332D2B179AEB62A5F10B973B53D8B7BCF0A0D3F6` (بستهٔ قبلی به `archive/20260907-193739` منتقل شد). E2E آفلاین ساختگی (فعال‌سازی→بوت→health→onboarding→آپلود) در build host PASS بود، اما **گزارش کاربر روی ماشین مقصد نشان می‌دهد بازتولید واقعی هنوز ناقص است (F-068)**.
+- آیتم‌های pending قبلی (commit، به‌روزرسانی RELEASE_MANIFEST/گزارش‌ها rev1، تست نصب تازه طبق CLEAN_INSTALL_TEST_FA.md) تا علت‌یابی F-068 اولویت‌بندی مجدد می‌شوند.
+
+## سناریوی MULTI-ACCOUNT-CLEAN-INSTALL-RC5 — مدیر اولیه پیش از حساب Eitaa
+
+- علت حذف ظاهری چندحسابی در RC4، خاموش‌بودن `app_user_auth`، `multi_session` و `worker_process` در sample config بسته بود؛ خطای دوم نیز startup نصب خالی را به legacy runtime غایب وابسته می‌کرد.
+- هر سه feature اکنون در نصب تازه روشن‌اند و API بدون account runtime می‌تواند bootstrap امن AppUser را انجام دهد. مسیر قطعی UI: فعال‌سازی دستگاه ← ساخت مدیر اولیه ← فهرست حساب خالی ← افزودن نخستین Eitaa account با مالکیت همان مدیر ← Start/Auth صریح.
+- rehearsal کاملاً ساختگی membership=`admin/owner/active` را در DB تأیید کرد و هیچ Provider/network/OTP/Worker start نداشت. UI onboarding=`8/8`، Backend=`691/691`، TypeScript و Observability PASS هستند.
+- RC5 Setup=`31,295,296 bytes / SHA 2BC28046...20CC / --verify-only, signer pin, tamper PASS`؛ Portable=`30,492,682 / SHA 175D8011...E925` و Delivery ZIP=`61,883,250 / SHA 66AF0894...2D26 / 15 entries` است. payload/delivery privacy scanner صفر finding و featureهای بسته هر سه true هستند؛ همهٔ متن‌های تحویل UTF-8 BOM سالم‌اند.
+- ارتقای عادی `bridge.json` قبلی را حفظ می‌کند. برای دیدن onboarding تازه، برنامه بسته و کل `%LOCALAPPDATA%\Programs\EitaaBridge` به `EitaaBridge.pre-rc5-test` تغییر نام داده شود؛ حذف توصیه نمی‌شود.
+- مرجع: F-067، ADR-52، V-189 و `docs/reports/features/MULTI_ACCOUNT_CLEAN_INSTALL_RC5_REPORT_2026-08-29.md`. نصب/OTP واقعی و جابه‌جایی واقعی دو حساب هنوز نیازمند آزمون کاربر مقصد است.
+
+## سناریوی GRAPHICAL-SETUP-ACTIVATION-UX-R01 — RC4 گرافیکی و Clipboard مستقل از layout
+
+- پنجرهٔ فعال‌سازی اکنون دکمه/منوی Copy، Paste و Select All، `Shift+Insert` و تشخیص keycode فیزیکی `V/C/A` دارد؛ Paste با صفحه‌کلید فارسی یا انگلیسی کار می‌کند و whitespace/format-control ناخواسته حذف می‌شود. format مجوز، Ed25519، fingerprint و DPAPI تغییر نکرده‌اند.
+- Setup تک‌فایلی WinForms فارسی RTL مسیر `%LOCALAPPDATA%\Programs\EitaaBridge`، preservation داده، progress و اجرای اختیاری را نشان می‌دهد؛ عملیات داخلی `/quiet` است. Python همراه payload است و Node مقصد لازم نیست.
+- `archive_previous_office_release.ps1` جفت‌های قبلی Setup/Portable و sidecarها را با SHA-256 Manifest به آرشیو زمان‌دار منتقل می‌کند. 12 artifact محلی RC1..RC3 و 7 item delivery RC2/RC3 آرشیو شدند؛ trust bundle عمومی سر جای خود ماند.
+- RC4 Setup=`46,855,488 bytes / SHA E964C93B...BFA4 / --verify-only=0 / signer match / tamper=true`؛ Portable SHA=`8D9AE8AD...66FC`. Delivery ZIP=`92,782,790 / SHA 6DACA748...FD9E / 13 entries / private-key=0` و هشت متن آن UTF-8 BOM سالم است.
+- GREEN: activation/installer=`41/41`، Backend=`690/690` در 76 فایل، TypeScript و Observability PASS. clean-machine install/visual، shortcut visual و trust مقصد بازند؛ نصب واقعی در این Run انجام نشد.
+- مرجع: F-066، ADR-48..50، V-188 و `docs/reports/features/GRAPHICAL_SETUP_AND_ACTIVATION_UX_REPORT_2026-08-28.md`.
+
+## سناریوی INTERNAL-CODE-SIGNING-R01 — امضای داخلی و برندینگ Windows (مبنای RC3)
+
+- گواهی Self-signed Code Signing با RSA 3072/SHA-256 در `Cert:\CurrentUser\My` ساخته شد؛ private key export policy=`None` و هیچ PFX/key file در Repository/delivery نیست. Thumbprint عمومی=`441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02`.
+- trust bundle عمومی بیرون Repository شامل CER، metadata/hash، Thumbprint، راهنمای فارسی و installer pin‌شده است. Setup هیچ trust خودکاری انجام نمی‌دهد. Import واقعی CurrentUser در sandbox مجاز نبود و تغییر Root/TrustedPublisher حساب اصلی بدون اجازهٔ امنیتی مستقل انجام نشد.
+- generator پس از کشف mojibake تحویل نخست برای Windows PowerShell 5.1 با source BOM، placeholder صریح و UTF-8 BOM قطعی اصلاح شد. بازتولید/ممیزی تمام textهای bundle strict UTF-8، بدون replacement/mojibake/placeholder حل‌نشده است و guide اکنون Thumbprint/hash/expiry واقعی دارد.
+- `build_self_contained_setup.py` icon اجباری را با `/win32icon` embed می‌کند؛ builder همان ICO را در payload می‌گذارد و Desktop/Start Menu به `%LOCALAPPDATA%\Programs\EitaaBridge\assets\EitaaBridge.ico` اشاره می‌کنند. IExpress بدون icon دیگر Setup نهایی نیست.
+- sign/verify scriptها signer Thumbprint، SHA-256 پس از امضا و tamper invalidation را fail-closed کنترل می‌کنند. signer اکنون مستقیم از X509Store خوانده می‌شود و به drive اختیاری `Cert:` وابسته نیست؛ پیش از trust وضعیت Windows=`UnknownError` و timestamp=false انتظار می‌رود.
+- PNG کاربر=`520×520 RGBA / SHA 6ED4762B...FA1C` بدون edit مولد به ICO نه‌اندازه SHA=`8C35B98F...F5F7` تبدیل شد. frameهای 32/256 و آیکون استخراج‌شده از EXE visual PASS؛ payload icon parity و shortcut contract سبز است.
+- RC3 Setup=`46,842,176 bytes / SHA 9587728C...6463 / --verify-only, signer, tamper PASS`; Portable SHA=`07931D6E...3566`. payload=4665 و operational/private-key entry=0.
+- delivery folder/ZIP شامل Setup، Portable، branding، trust bundle، README و manifest است؛ ZIP=`92,766,896 bytes / SHA 81C45B14...F15E`. تمام هفت متن UTF-8 BOM سالم‌اند و Setup داخل ZIP hash-identical است.
+- GREEN: full Backend=`688/688`، collection=`688/76 files`، TypeScript و Observability PASS. clean-machine install، مشاهدهٔ واقعی میانبرها و trust مقصد باز است.
+- مرجع: F-064، ADR-50، V-186، `docs/INTERNAL_CODE_SIGNING.md` و گزارش feature. Git stage/commit/push به‌علت worktree هم‌زمان و overlap اسناد canonical انجام نشده است.
+
+## سناریوی LICENSE-ACTIVATION-R01 — فعال‌سازی آفلاین وابسته به دستگاه
+
+- نسخهٔ packaged پیش از Config/Coordinator/Provider fail-closed است. اولین اجرا request code هش‌شده می‌دهد، مالک activation code امضاشدهٔ Ed25519 می‌سازد و برنامه آن را با DPAPI در `data/licensing/activation.dat` نگه می‌دارد. Startupهای بعدی بی‌صدا هستند.
+- fingerprint از hash نسخه‌دار Machine GUID و system-volume serial ساخته می‌شود؛ raw component، request/activation code و private key وارد log/diagnostics/report نمی‌شوند. انتقال پوشه یا Backup به دستگاه/Windows user دیگر فعال‌سازی را منتقل نمی‌کند.
+- Launcher قبل از Backend gate دارد و API/Facade مستقیم نیز پیش از Config/DB همان enforce را انجام می‌دهند. توسعهٔ source بدون marker/bundled runtime قفل نمی‌شود؛ Setup policy marker و runtime محلی دارد.
+- GREEN: targeted=`60/60`، full Backend=`684/684`، TypeScript/Observability PASS و packaged RC2 unlicensed→issue→activate→API rehearsal سبز. payload=4664 و private/operational finding صفر.
+- RC2 EXE SHA=`84453D43...0EF02F` و ZIP SHA=`A78C5AAA...9D129`; هر دو در `D:\eitaa Project\Eitaa_Bridge\delivery-activation-branch` هستند. EXE unsigned است.
+- private key فعلی فقط branch-test، بدون رمز و خارج از Repository/delivery است. پیش از Production باید کاربر یک private key رمزدار بسازد، public key تعویض، build/test تکرار، Setup code-sign و clean-machine پذیرفته شود. مرجع=F-063/ADR-49/V-185/report feature.
+
+## سناریوی INSTALLER-SELF-CONTAINED-R01 — Setup مستقل برای انتقال به رایانهٔ دیگر
+
+- بستهٔ خام دستی در `Eitaa_Bridge/Eitaa_Bridge` یک nesting اضافی، `VERSION.txt` مفقود و wheel با دو mismatch نسبت به source داشت. repair فقط فایل‌های managed را همگام می‌کند و `bridge.json` و state عملیاتی موجود را نمی‌خواند، حذف یا بازنویسی نمی‌کند.
+- مسیر تحویل پیشنهادی اکنون EXE تک‌فایلی Windows 10/11 x64 است. Python 3.13، dependencyهای آفلاین و UI ساخته‌شده داخل payload هستند؛ مقصد به نصب Python، Node.js یا دسترسی شبکه نیاز ندارد و نصب در سطح کاربر انجام می‌شود.
+- preflight پیش از mutation، Windows قدیمی‌تر از 10 و سیستم غیر x64 را رد می‌کند. Windows 7 به‌دلیل نبود Python رسمی پشتیبانی‌شده برای قرارداد جاری و پایان پشتیبانی مرورگر، هدف امن این release نیست.
+- artifact نهایی: EXE SHA-256=`B609DD9AA689451A694C78FBB0DCAA71943D396F8F548B11E11ECEF500930121` و ZIP fallback SHA-256=`855E734098E5C1AF4C3637C5782631FFB376A830518CF580367383D417F660DA`. `--verify-only` و بررسی مستقل payload سبزند؛ signature=`NotSigned` و clean-machine visual/install هنوز دروازهٔ باز است.
+- regression خطای اولین اجرا شامل empty Coordinator و Legacy challenge دوباره سبز است؛ این دو خطای تاریخی در G-03 اصلاح شده‌اند. انتقال باید با Setup انجام شود، نه کپی کل پوشه و state خصوصی build host.
+- شاهد: F-062، ADR-48، V-184 و `docs/reports/features/SELF_CONTAINED_WINDOWS_INSTALLER_REPORT_2026-08-28.md`; Backend=`674/674`، related=`88/88`، TypeScript و Observability سبز.
+- Git publication این سناریو عمداً pending است، چون worktree شامل تغییرهای هم‌زمان بود و stage کردن آن‌ها mixed commit می‌ساخت. snapshot ایزوله باید base خود را مشخص و validation را تکرار کند؛ artifact محلی تحویل‌شده مستقل از این گیت است.
+
+## سناریوی UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و اولویت آواتار
+
+- تنظیم «نمایش پنل WordPress» افزوده و default آن خاموش است. در حالت خاموش فقط «عملیات گفتگو» نمایش داده می‌شود و category/tag request اجرا نمی‌شود؛ در حالت روشن نیز taxonomy به credential سایت فعال نیاز دارد.
+- عملیات گفتگو فقط برای گفت‌وگوی فعال group/channel با نقش catalog برابر owner/admin فعال است. نقش از parse معتبر Eitaa می‌آید و unknown/member/personal/inactive fail-closed هستند. Channel/Supergroup کامل پوشش دارد؛ basic-group admin غیرمالک در Core جاری قابل‌اثبات نیست و بسته می‌ماند. catalogهای قبلی با sync بعدی role می‌گیرند.
+- پیام‌های گفت‌وگوی فعال اولویت 10، آواتار فعال 40 و آواتار پس‌زمینه 80 دارد. browser cache/HTTP lane مستقل و promotion دارد، ولی scheduler Backend تمام Provider callها را برای نشست مشترک سریال می‌کند.
+- cache تصویر صفر/خراب/بزرگ یا با magic نامعتبر miss و overwrite می‌شود؛ نبود photo reference معتبر امن به initials برمی‌گردد.
+- GREEN: Backend=`664/664` در شش partition کامل، تمام runnerهای UI، TypeScript/build 1016-module، wheel/archive deterministic و fresh-install آفلاین. candidate نهایی archive SHA=`307d00b8...0cc00` و wheel SHA=`23cd95cf...34b51` است؛ wheelhouse runtime فقط در staging بسته و خارج از Git می‌ماند.
+- Live/Login/OTP/Send/Member mutation/WordPress/Provider و دادهٔ عملیاتی صفر. مرجع=`F-061 / ADR-47 / V-181..V-183` و گزارش `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`. commit اصلی=`c1f71ac...` روی شاخهٔ سناریو push و remote verify شد؛ main ثابت ماند و فقط closure مستنداتی fast-forward می‌شود.
+
+## سناریوی UX-MESSAGE-AVATAR-R01 — ادغام پیام و تاب‌آوری آواتار
+
+- پیام‌ها/پست‌ها و آلبوم‌های مجاور یک فرستنده تا پنج دقیقه، بدون عبور از روز نمایشی، در یک Card ادغام می‌شوند. text→image، image→text، چند run عکس، فایل و دو آلبوم پشت‌سرهم پوشش دارند؛ persistence هر پیام مستقل مانده است.
+- lookup از پیام‌های کامل پیش از filter ساخته می‌شود؛ در گروه sender ناشناس ادغام نمی‌شود. selection، index، usage، unread، focus و virtual scroll memberهای گروه را حفظ می‌کنند.
+- آواتار cache-first است: cached-only lane مستقل شش‌تایی دارد و remote lane برای حفاظت session مشترک Eitaa تک‌صف می‌ماند. failure TTL کوتاه، stale-account guard، cache-prefix صحیح، image error fallback و personal peer fallback افزوده شد.
+- بعضی Userهای گروهی photo reference قابل استفاده در Core ندارند؛ این مورد با initials مهار می‌شود و اصلاح codec/schema سناریوی جداست. گروه/کانال و personal dialog دارای reference از صف تازه بهره می‌برند.
+- REDهای برنامه‌ریزی‌شده نبود group API/queue را ثابت کردند. GREEN: grouped=`29/29`، workspace/queue=`18/18`، UI regression=`42/42`، تمام ۹ runner UI، TypeScript، build 1016-module و full Backend=`659/659`.
+- هیچ Live/Provider/Login/OTP/Send/WordPress یا فایل عملیاتی لمس نشد. مرجع=`F-056 / ADR-44 / V-169..V-170` و گزارش feature متناظر است؛ Git publication در ثبت نهایی همین Run می‌آید.
+
+## نقشه‌راه ایندکس و گزارش — فاز صفر
+
+- کاربر در 2026-08-27 ثبت نقشه‌راه و آغاز از فاز صفر را مجاز کرد. وضعیت canonical برابر `PHASE_0 AUTHORIZED / DOMAIN_DISCOVERY ACTIVE / PRODUCT IMPLEMENTATION NOT STARTED` است.
+- مرجع اجرا: `docs/project-memory/INDEX_INTELLIGENCE_REPORTING_ROADMAP_2026-08-27.md` و دفتر append-only متناظر `INDEX_INTELLIGENCE_EXECUTION_LOG.md`؛ Finding=`F-051`، Validation=`V-163` و ADR=`41`.
+- چهار Finding و چهار Validation ایندکس که Agent پیشین با شناسه‌های رسمی تکراری و ادعاهای قطعی ثبت کرده بود حذف نشدند؛ با پیشوند `LEGACY-INDEX-*` و وضعیت unvalidated حفظ و supersede شدند.
+- اقدام بعدی فقط `IR-0-A / SOURCE_INVENTORY_AND_PROVENANCE` است. تا پایان فاز صفر، schema/API/UI، الگوریتم، مدل/API خارجی و scheduler خودکار مجوز پیاده‌سازی ندارند.
+- workbook کاربر untracked و خارج از Git می‌ماند. این ثبت هیچ پیام، Provider، WordPress، Login/OTP، فایل عملیاتی یا runtime را نخواند/تغییر نداد.
+
+### وضعیت IR-0-A
+
+- کاربر workbook برنامه‌های ۱۴۰۵ را تنها سند موجود معرفی و اجازه داد به مرجع پروژه تبدیل شود. منبع با ID=`SRC-IR-001`، hash امن و وضعیت `PRIMARY_WORKING_REFERENCE` ثبت شد؛ فایل اصلی فقط‌خواندنی و untracked ماند.
+- استخراج مستقیم هفت sheet/برنامه، metricها، اقدامات پشتیبان، قواعد مستندسازی و استثناها در `INDEX_1405_WORKBOOK_REFERENCE.md` ثبت شده است. هیچ sheet مستقیماً activity category یا schema فرض نشده است.
+- ابهام‌های باقی‌ماندهٔ `Q-IR-001..003` و `Q-IR-006..012` در `INDEX_DOMAIN_QUESTION_REGISTER.md` بازند. پاسخ بعدی کاربر باید شماره‌دار ثبت و به Source ID شفاهی مستقل متصل شود.
+- اقدام بعدی: پاسخ‌های Q-IR-006 تا Q-IR-012 و بستن تدریجی Source/Conflict Register. کد محصول یا عملیات Live در IR-0-A انجام نمی‌شود.
+
+### مدل چهارسطحی و IR-GOV-01
+
+- کاربر در 2026-08-28 مدل چهارسطحی را پذیرفت: L1 ایندکس معنایی، L2 projection اختیاری WordPress، L3 هستهٔ محلی گزارش و L4 اتصال/یادگیری کنترل‌شده. مرجع=`INDEX_INTELLIGENCE_FOUR_LEVEL_OPERATING_MODEL.md`.
+- کاربر مالک دامنه و پذیرش نهایی است. Codex مدیر معماری/یکپارچه‌سازی و writer/promoter canonical پیش‌فرض workstream است؛ این نقش اختیار گزارش رسمی را از انسان نمی‌گیرد.
+- واگذاری کار به Agent دیگر فقط با Task Contract، کلاس ریسک، allowed/forbidden files، خروجی noncanonical، تست و review/promotion انجام می‌شود. مرجع=`MULTI_AGENT_DEVELOPMENT_GOVERNANCE.md`.
+- parallel read-only یا worktree ایزولهٔ بدون file overlap مجاز است؛ دو writer در worktree/رجیستر canonical مشترک ممنوع‌اند. شناسهٔ canonical فقط توسط allocator workstream ثبت می‌شود.
+- F-065/ADR-51/V-187؛ allocator/lock/merge queue ماشینی و قابلیت محصول هنوز پیاده نشده‌اند. در همان Run، task امضای داخلی F-064/V-186/ADR-50 را هم‌زمان مصرف کرد؛ رکورد آن حفظ و reallocation در F-059 ثبت شد.
+
+### مهار حافظهٔ بیرونی Agentها
+
+- نقشه‌راه Sonnet و مجموعهٔ قدیمی‌تر Antigravity شامل plan/map/task/walkthrough بررسی شدند. پنج Markdown و پنج metadata مرتبط با هشدار superseded اصلاح شدند؛ حذف=0 و دو implementation plan غیرمرتبط Bale/Phase 11-C دست‌نخورده ماندند.
+- هیچ artifact بیرونی مجوز اجرا یا acceptance نیست. registry=`EXTERNAL_AGENT_ARTIFACT_REGISTER.md` و Finding=`F-053`؛ چارچوب نقش‌دهی چندعاملی با شناسهٔ آینده `IR-GOV-01` به task جداگانه موکول است.
+- پاسخ‌های کاربر: مراسم احتمالاً کد `80403` دارد ولی قطعی نیست؛ قالب احتمالاً تا پایان ۱۴۰۵ معتبر و تغییرپذیر است؛ معنای ستاره از واحد ستادی پرسیده می‌شود؛ سامانه دستیار تکمیل Excel است.
+- امکان مقدار تخمینی/ساختگی به F-054/Q-IR-013 تبدیل شد: سیستم نباید آن را بی‌نشان verified یا training truth کند و سیاست export بعداً با کاربر تعیین می‌شود.
+- Q-IR-013 اکنون با پذیرش کاربر بسته است: value kindهای مشاهده‌شده، اعلامی واحد، تخمینی، placeholder ساختگی و تأییدشده جدا می‌مانند؛ ارتقای تخمینی/ساختگی به verified/training truth تأیید صریح می‌خواهد. ADR-42/V-167؛ پیاده‌سازی هنوز صفر است.
+- Q-IR-004 بسته شد: ردیف اصلی workbook جمع کل استان شامل ستاد استانی و شهرستان‌هاست؛ event/evidence برای aggregation و breakdown نگه داشته می‌شود و هر رویداد ردیف مستقل Excel نیست. ADR-43/F-055/V-168؛ clarification رسمی آینده می‌تواند supersede کند.
+- Q-IR-005 بسته شد: زیارت عاشورا metric تجمیعی استانی و ضمیمهٔ مستقل دارد و main ceremony count را زیاد نمی‌کند. ADR-45/F-057/V-171.
+- proposal کاربر برای پرسشنامهٔ نسخه‌دار هر برنامه در `INDEX_PROGRAM_QUESTIONNAIRE_MODEL.md` و F-058 ثبت شد: هستهٔ مشترک + module اختصاصی، اتصال evidence/fact/financial/master data/assumption/derived value و formula قابل‌ردیابی. این proposal هنوز فرم/schema نیست.
+- Q-IR-014 بسته شد: شهرستان‌ها account/role سامانه ندارند و فقط از Eitaa داده می‌فرستند؛ کاربر اصلی و همکاران ستادی مجاز در شبکهٔ خصوصی محلی تکمیل/review را انجام می‌دهند. WordPress مخزن/projection است؛ Agent فقط پیشنهادگر و انسان مرکزی تنها مرجع تأیید، محاسبهٔ استانی و export است. ADR-46/F-060/V-173؛ پیاده‌سازی نقش/LAN/workflow هنوز صفر است.
+- رخداد concurrency واقعی: task موازی feature، F-056/V-169/V-170/ADR-44 را هم‌زمان با ثبت اولیهٔ ایندکس مصرف کرد. checker شکست را گرفت؛ رکوردهای ایندکس به F-057/F-058/V-171/ADR-45 منتقل و هر دو تاریخچه حفظ شدند. F-059/V-172؛ این رخداد ورودی الزامی IR-GOV-01 است.
+
 ## closure فنی G-11 — تحویل cache-busted پیام‌های تازه
 
 - گزارش پس از G-10 ثابت کرد گروه نمونه در UI هنوز ۶ مرداد را نشان می‌دهد، در حالی که storage جاری همان peer 674 پیام تا ۴ شهریور و 254 پیام پس از checkpoint قدیمی دارد. storage تاریخی دقیقاً روی ۶ مرداد متوقف بود؛ عنوان، شناسه و متن پیام در لاگ مهندسی ثبت نشد.
@@ -105,14 +233,14 @@
 - Support Bundle JSONL ناقص/نام خصمانه را بدون نشت عادی/opaque می‌کند؛ G08=`13/13` و related=`78/78`.
 - هیچ runtime واقعی prune یا scan نشد. G-08-E full regression/closure را خودکار ادامه می‌دهد.
 
-وضعیت: `G-09 COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE`  
+وضعیت: `INDEX_INTELLIGENCE_PHASE_0_AUTHORIZED / G-09 COMPLETE / OFFLINE_RELEASE_CANDIDATE`
 آخرین ازسرگیری: 2026-08-26T18:03:00+03:30  
-آخرین checkpoint: 2026-08-27T01:20:00+03:30  
+آخرین checkpoint: 2026-08-28T17:06:50+03:30 / IDX-R03-S02
 Agent نویسنده: `Codex`  
-آخرین Run بسته: `STAB-G11-R01`  
-Run جاری: `NONE`  
-آخرین زیرمرحلهٔ بسته: `G-11 / PUBLISHED / USER_VISUAL_RECHECK_PENDING`  
-Goal فعال: `NONE / WAITING_FOR_USER_VISUAL_RECHECK`
+آخرین Run بسته: `IDX-R03`
+Run جاری: `IDX-R02 / Q-IR-006..012_PENDING`
+آخرین زیرمرحلهٔ بسته: `IR-GOV-01 / POLICY_V1 REGISTERED`
+Goal فعال: `IR-0-A / RESOLVE Q-IR-006..012 / PREPARE IR-0-B INPUT`
 
 ## دستور کاربر
 

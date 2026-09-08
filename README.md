@@ -150,31 +150,37 @@ Migration، Session، دیتابیس، رسانه، Compositionها، تنظیم
 
 ## نصب تازه
 
+برای تحویل به یک رایانهٔ Windows 10/11 x64، فایل self-contained زیر را بسازید و فقط همان EXE را تحویل دهید:
+
 ```bat
-install_app.bat
-run_doctor.bat
-EitaaBridge.bat
+BUILD_OFFICE_SETUP_EXE.bat
 ```
 
-این بسته Source کامل رابط Material UI را دارد، اما `ui\dist` موجود فقط برای آزمون‌های رگرسیون تاریخی نگه‌داری شده و Installer آن را به‌عنوان Build جدید نمی‌پذیرد. در نخستین نصب، Node.js 24 LTS و دسترسی به Registry عمومی npm لازم است تا `setup_ui.bat` وابستگی‌های قفل‌شده پروژه را داخل پوشه `ui` نصب و Build واقعی RTL/Material UI را ایجاد کند. پس از Build موفق، اجرای روزمره برنامه به اینترنت npm نیاز ندارد.
+خروجی `release\office\EitaaBridge-0.8.0-rc2-Activated-SelfContained-Setup-x64.exe` شامل Python 3.13، wheelهای آفلاین و Build معتبر `ui\dist` است. روی مقصد نصب Python، Node.js، npm یا Electron لازم نیست. فایل shareable هیچ Session، Config واقعی، دیتابیس، رسانه یا log رایانهٔ سازنده را همراه نمی‌برد.
+
+اولین اجرای نسخهٔ بسته‌بندی‌شده یک کد درخواست هش‌شدهٔ وابسته به دستگاه نشان می‌دهد. کد فعال‌سازی با کلید خصوصی مالک و Ed25519 امضا، پس از تأیید با DPAPI ذخیره و در اجراهای بعدی بی‌صدا کنترل می‌شود. کپی پوشه یا Backup روی رایانهٔ دیگر فعال‌سازی را منتقل نمی‌کند. کلید خصوصی و ابزار صدور مجوز داخل Setup نیستند؛ جزئیات در `docs/OFFLINE_ACTIVATION.md` است.
+
+برای اجرای مستقیم source روی رایانهٔ توسعه، `install_app.bat` همچنان قابل استفاده است. Node.js 24 LTS فقط برای بازسازی UI/Electron روی ایستگاه توسعه لازم است، نه برای نصب self-contained یا اجرای روزمره.
+
+Windows 7 برای این snapshot پشتیبانی نمی‌شود؛ Setup پیش از تغییر سیستم متوقف می‌شود. جزئیات و گزینه‌های امن در `docs\INSTALLER.md` آمده است.
 
 فونت تجاری IRANSans عمداً داخل بسته توزیع نشده است. اگر فایل‌های مجاز `IRANSansWeb-Regular.woff2` و `IRANSansWeb-Bold.woff2` در `ui\fonts` قرار داده شوند، اجرای `setup_ui.bat` آن‌ها را داخل Build قرار می‌دهد؛ در غیر این صورت رابط از Tahoma و Segoe UI ویندوز استفاده می‌کند.
 
 ## ساخت RC و Installer
 
-روی Windows Build Workstation اجرا کنید:
+برای Setup سبک و self-contained اجرا کنید:
 
 ```bat
-build_windows_installer.bat
+BUILD_OFFICE_SETUP_EXE.bat
 ```
 
 خروجی هدف:
 
 ```text
-release\installer\EitaaBridge-0.8.0-rc1-Setup-x64.exe
+release\office\EitaaBridge-0.8.0-rc2-Activated-SelfContained-Setup-x64.exe
 ```
 
-فایل Installer نهایی باید پس از ساخت روی Windows، Code-sign و روی Windows 10/11 پاک آزمایش شود. محیط ممیزی فعلی Source، Wheel، آزمون‌های Backend و مدل‌های UI را اعتبارسنجی کرد؛ Build کامل MUI و Electron/Installer باید در محیط Windows دارای وابستگی‌های npm اجرا شود.
+مسیر جداگانهٔ Electron/Inno از `build_windows_installer.bat` فقط برای build توسعه‌ای کامل باقی است و به Node.js/Inno Setup در ایستگاه ساخت نیاز دارد. فایل Installer نهایی باید پس از ساخت Code-sign و روی Windows 10/11 پاک آزمایش شود.
 
 ## Acceptance اجباری روی حساب واقعی
 

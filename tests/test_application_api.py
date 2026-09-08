@@ -6,10 +6,19 @@ import threading
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from eitaa_core import DialogEntry, Message, Peer, PeerType, save_peer_file
+from eitaa_core import (
+    DialogEntry,
+    MediaReference,
+    MediaType,
+    Message,
+    Peer,
+    PeerType,
+    save_peer_file,
+)
 from eitaa_core.errors import NetworkError, RpcError
 
 from eitaa_bridge.application.api import BridgeApplicationApi
+from eitaa_bridge.application.scheduler import EitaaPriority
 from eitaa_bridge.facade import EitaaBridge
 
 
@@ -441,6 +450,126 @@ def test_api_media_preview_handles_text_only_message(config_file, tmp_path, monk
     assert response.payload["media_present"] is False
 
 
+def test_api_media_preview_downloads_full_audio_and_video_on_demand(
+    config_file, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "selected_media_channel.json"
+    save_peer_file(peer_file, PEER)
+
+    for media_type, mime_type, suffix in (
+        (MediaType.AUDIO, "audio/ogg", ".ogg"),
+        (MediaType.VIDEO, "video/mp4", ".mp4"),
+    ):
+        media = MediaReference(
+            media_type,
+            remote_id=11802,
+            mime_type=mime_type,
+            file_name=f"sample{suffix}",
+            size=64 * 1024,
+        )
+        message = Message(
+            id=11802,
+            peer=PEER,
+            date=datetime.now(timezone.utc),
+            media=media,
+        )
+        downloaded = tmp_path / f"downloaded-{media_type.value}{suffix}"
+
+        class Media:
+            def download(self, selected, options):
+                assert selected is media
+                assert options.photo_thumb_type is None
+                assert options.max_bytes == 512 * 1024 * 1024
+                downloaded.write_bytes(b"synthetic-playable-media")
+                return SimpleNamespace(path=downloaded)
+
+        class FakeBridge:
+            core = SimpleNamespace(
+                messages=SimpleNamespace(get=lambda peer, message_id: message),
+                media=Media(),
+            )
+            config = SimpleNamespace(
+                core=SimpleNamespace(media_directory=tmp_path / "media")
+            )
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr(
+            EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge())
+        )
+        api = BridgeApplicationApi(config_file)
+        monkeypatch.setattr(
+            api, "_run_eitaa", lambda **kwargs: kwargs["callback"]()
+        )
+        response = api.dispatch(
+            "POST",
+            "/api/v1/messages/media-preview",
+            body={
+                "site_key": "medical-site",
+                "peer_file": str(peer_file),
+                "message_id": 11802,
+                "quality": "full",
+                "max_bytes": 512 * 1024 * 1024,
+            },
+        )
+        assert response.status == 200
+        assert response.payload["preview_available"] is True
+        assert response.payload["quality"] == "full"
+        assert response.payload["mime_type"] == mime_type
+        assert response.payload["media_url"].startswith("/api/v1/media-cache/")
+        api.close()
+
+
+def test_api_media_preview_does_not_download_audio_for_thumbnail_request(
+    config_file, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "selected_audio_channel.json"
+    save_peer_file(peer_file, PEER)
+    message = Message(
+        id=11803,
+        peer=PEER,
+        date=datetime.now(timezone.utc),
+        media=MediaReference(MediaType.AUDIO, remote_id=11803, mime_type="audio/ogg"),
+    )
+
+    class Media:
+        def download(self, selected, options):
+            raise AssertionError("thumbnail request must not download playable media")
+
+    class FakeBridge:
+        core = SimpleNamespace(
+            messages=SimpleNamespace(get=lambda peer, message_id: message),
+            media=Media(),
+        )
+        config = SimpleNamespace(core=SimpleNamespace(media_directory=tmp_path / "media"))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api = BridgeApplicationApi(config_file)
+    monkeypatch.setattr(api, "_run_eitaa", lambda **kwargs: kwargs["callback"]())
+    response = api.dispatch(
+        "POST",
+        "/api/v1/messages/media-preview",
+        body={
+            "site_key": "medical-site",
+            "peer_file": str(peer_file),
+            "message_id": 11803,
+            "quality": "thumbnail",
+        },
+    )
+    assert response.status == 200
+    assert response.payload["media_present"] is True
+    assert response.payload["preview_available"] is False
+    api.close()
+
+
 def test_api_compositions_include_local_edit_fields(config_file, monkeypatch):
     monkeypatch.setenv("TEST_WP_USERNAME", "editor")
     monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
@@ -710,6 +839,10 @@ def test_api_dialog_live_sync_merges_first_page_without_hiding_older_dialogs(con
             pass
 
     monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    monkeypatch.setattr(
+        "eitaa_bridge.application.api.consume_dialog_account_roles",
+        lambda: {"channel:555": "admin"},
+    )
     api = BridgeApplicationApi(config_file)
     api.dialog_catalog.upsert(
         peer=older_peer,
@@ -730,6 +863,8 @@ def test_api_dialog_live_sync_merges_first_page_without_hiding_older_dialogs(con
     by_key = {item["peer_key"]: item for item in response.payload["dialogs"]}
     assert by_key["chat:554"]["active"] is True
     assert by_key["channel:555"]["unread_count"] == 3
+    assert by_key["channel:555"]["account_role"] == "admin"
+    assert by_key["channel:555"]["can_manage_community"] is True
 
 
 def test_api_dialog_sync_skips_unusable_remote_peer_without_losing_valid_dialogs(config_file, monkeypatch):
@@ -1016,6 +1151,71 @@ def test_api_cached_only_avatar_never_opens_remote_core(config_file, tmp_path, m
     assert response.status == 200
     assert response.payload["avatar_present"] is False
     assert response.payload["cached_only"] is True
+
+
+def test_api_active_avatar_repairs_corrupt_cache_at_active_avatar_priority(
+    config_file, tmp_path, monkeypatch
+):
+    peer_file = tmp_path / "peer-avatar-repair.json"
+    corrupt = tmp_path / "corrupt-avatar.jpg"
+    recovered = tmp_path / "recovered-avatar.jpg"
+    save_peer_file(peer_file, PEER)
+    corrupt.write_bytes(b"")
+    captured = {}
+    photo = SimpleNamespace(photo_id=88)
+
+    class Discovery:
+        def cached_dialogs(self, **kwargs):
+            return (DialogEntry(peer=PEER, top_message_id=1, photo=photo),)
+
+        def set_cached_photo_path(self, peer, photo_id, path):
+            assert peer == PEER
+            assert photo_id == 88
+            assert path == recovered
+
+    class Media:
+        def download(self, selected_photo, options):
+            assert selected_photo is photo
+            assert options.overwrite is True
+            recovered.write_bytes(b"\xff\xd8\xffrecovered")
+            return SimpleNamespace(path=recovered)
+
+    class FakeBridge:
+        core = SimpleNamespace(discovery=Discovery(), media=Media())
+        config = SimpleNamespace(core=SimpleNamespace(media_directory=tmp_path / "media"))
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api = BridgeApplicationApi(config_file)
+    api.dialog_catalog.upsert(
+        peer=PEER,
+        peer_file=peer_file,
+        source="remote",
+        photo_cached_path=str(corrupt),
+    )
+
+    def run_immediately(**kwargs):
+        captured.update(kwargs)
+        return kwargs["callback"]()
+
+    monkeypatch.setattr(api, "_run_eitaa", run_immediately)
+    response = api.dispatch(
+        "POST",
+        "/api/v1/dialogs/avatar",
+        body={
+            "site_key": "medical-site",
+            "peer_key": f"channel:{PEER.id}",
+            "request_priority": "active",
+        },
+    )
+
+    assert response.status == 200
+    assert response.payload["avatar_present"] is True
+    assert response.payload["mime_type"] == "image/jpeg"
+    assert captured["priority"] is EitaaPriority.ACTIVE_AVATAR
+    assert api.dialog_catalog.get(f"channel:{PEER.id}")["photo_cached_path"] == "recovered-avatar.jpg"
 
 def test_api_date_range_sync_uses_active_message_priority(config_file, tmp_path, monkeypatch):
     monkeypatch.setenv("TEST_WP_USERNAME", "editor")

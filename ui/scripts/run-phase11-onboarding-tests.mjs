@@ -13,10 +13,19 @@ const check = (name, callback) => {
 }
 
 const gate = source('src/MessengerAccountGate.tsx')
+const app = source('src/App.tsx')
+const appUserGate = source('src/AppUserGate.tsx')
 const api = source('../src/eitaa_bridge/application/api.py')
 const providers = source('../src/eitaa_bridge/providers/registry.py')
 const baleSlot = source('../src/eitaa_bridge/providers/bale/slot.py')
 const store = source('../src/eitaa_bridge/infrastructure/coordinator/store.py')
+
+check('fresh install creates the initial administrator before messenger onboarding', () => {
+  assert.match(app, /<AppUserGate>[\s\S]*<MessengerAccountGate>[\s\S]*<EitaaApp \/>/)
+  assert.match(appUserGate, /if \(status\.setup_required\) \{[\s\S]*<AppUserSetup/)
+  assert.match(appUserGate, /ساخت مدیر اولیه نرم‌افزار/)
+  assert.match(appUserGate, /api\('POST', '\/api\/v2\/app-auth\/setup'/)
+})
 
 check('UI provider contract is descriptor-driven rather than a fixed union', () => {
   assert.match(gate, /provider: string/)

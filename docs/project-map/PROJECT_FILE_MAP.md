@@ -2,17 +2,22 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 316
-- اثرانگشت منبع: `930b9912607f599c`
+- تعداد فایل‌های نقشه: 333
+- اثرانگشت منبع: `445b0efce7fb6ebe`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
 |---|---:|---:|---|
 | `installer/EitaaBridge.iss` | Installer | 0 | — |
+| `installer/license-policy.json` | Installer | 0 | — |
+| `scripts/archive_previous_office_release.ps1` | Operations/tooling | 0 | — |
 | `scripts/backup_runtime.py` | Operations/tooling | 3 | — |
 | `scripts/build_gmi4_release.py` | Operations/tooling | 3 | Generate review artifacts and privacy-clean GMI4 ZIPs from the signed GMI3 base. |
+| `scripts/build_self_contained_setup.py` | Operations/tooling | 4 | Build a one-file Windows setup bootstrap with embedded release resources. |
 | `scripts/build_wheel_stdlib.py` | Operations/tooling | 9 | Build the pure-Python bridge wheel without network or build backends. |
+| `scripts/build_windows_icon.ps1` | Operations/tooling | 0 | — |
 | `scripts/check_gmi4_invariants.py` | Operations/tooling | 1 | Compare frozen assets directly against the signed clean GMI3 base ZIP. |
+| `scripts/check_office_payload_privacy.py` | Operations/tooling | 2 | — |
 | `scripts/check_project_memory_integrity.py` | Operations/tooling | 8 | — |
 | `scripts/check_runtime_environment.py` | Operations/tooling | 1 | — |
 | `scripts/clean_app.py` | Operations/tooling | 0 | — |
@@ -65,7 +70,8 @@
 | `scripts/get_prompt.js` | Operations/tooling | 0 | — |
 | `scripts/gmi4_smoke.py` | Operations/tooling | 2 | Deterministic no-network smoke suite for source and installed-wheel validation. |
 | `scripts/migrate_legacy_account.py` | Operations/tooling | 6 | Interactive, no-network migration utility for the initial legacy Eitaa account. |
-| `scripts/office_runtime.py` | Operations/tooling | 54 | — |
+| `scripts/new_internal_code_signing_certificate.ps1` | Operations/tooling | 0 | — |
+| `scripts/office_runtime.py` | Operations/tooling | 55 | — |
 | `scripts/phase10_auth_failure_verify.py` | Operations/tooling | 1 | Print only safe recent authentication failure metadata from the live coordinator. |
 | `scripts/phase10_contacts_migrate.py` | Operations/tooling | 5 | Controlled live Contacts schema 1-to-2 migration for Phase 10. |
 | `scripts/phase10_copy_rehearsal.py` | Operations/tooling | 7 | Read-only Phase 10 rehearsal using disposable copies of runtime state. |
@@ -83,6 +89,7 @@
 | `scripts/runtime_state.py` | Operations/tooling | 9 | — |
 | `scripts/scan_diagnostics_bundle.py` | Operations/tooling | 5 | Verify a diagnostics ZIP without echoing any bundled value. |
 | `scripts/screenshot.ps1` | Operations/tooling | 0 | — |
+| `scripts/sign_windows_release.ps1` | Operations/tooling | 0 | — |
 | `scripts/stabilization_baseline.py` | Operations/tooling | 14 | — |
 | `scripts/sync_ui_fonts.py` | Operations/tooling | 2 | — |
 | `scripts/test_api.py` | Operations/tooling | 0 | — |
@@ -92,12 +99,13 @@
 | `scripts/update_findings.py` | Operations/tooling | 0 | — |
 | `scripts/update_ledger.py` | Operations/tooling | 0 | — |
 | `scripts/update_tests.js` | Operations/tooling | 0 | — |
+| `scripts/verify_windows_release_signature.ps1` | Operations/tooling | 0 | — |
 | `scripts/write_iexpress_sed.py` | Operations/tooling | 1 | — |
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
-| `src/eitaa_bridge/application/account_runtime.py` | Application | 47 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/api.py` | Application | 266 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
+| `src/eitaa_bridge/application/api.py` | Application | 268 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 0 | Bale Personal Client research framework. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
@@ -138,7 +146,7 @@
 | `src/eitaa_bridge/domain/health.py` | Domain | 6 | — |
 | `src/eitaa_bridge/domain/publication.py` | Domain | 4 | — |
 | `src/eitaa_bridge/domain/wordpress.py` | Domain | 13 | — |
-| `src/eitaa_bridge/errors.py` | Project | 40 | Typed, safe exception hierarchy for Eitaa Bridge. |
+| `src/eitaa_bridge/errors.py` | Project | 41 | Typed, safe exception hierarchy for Eitaa Bridge. |
 | `src/eitaa_bridge/facade.py` | Project | 40 | — |
 | `src/eitaa_bridge/infrastructure/__init__.py` | Infrastructure | 0 | — |
 | `src/eitaa_bridge/infrastructure/composition_manifest.py` | Infrastructure | 4 | — |
@@ -159,7 +167,7 @@
 | `src/eitaa_bridge/infrastructure/coordinator/rate_policy.py` | Infrastructure | 25 | Persisted per-account execution limits, backoff, and circuit breaking. |
 | `src/eitaa_bridge/infrastructure/coordinator/receipts.py` | Infrastructure | 13 | Persistent, privacy-safe idempotency claims for provider mutations. |
 | `src/eitaa_bridge/infrastructure/coordinator/schema.py` | Infrastructure | 2 | Versioned SQLite schema for the multi-provider coordinator. |
-| `src/eitaa_bridge/infrastructure/coordinator/store.py` | Infrastructure | 74 | Transactional coordinator database with safe bootstrap and append-only audit. |
+| `src/eitaa_bridge/infrastructure/coordinator/store.py` | Infrastructure | 76 | Transactional coordinator database with safe bootstrap and append-only audit. |
 | `src/eitaa_bridge/infrastructure/data_scope.py` | Infrastructure | 12 | Canonical provider/account scope for Bridge-owned data repositories. |
 | `src/eitaa_bridge/infrastructure/diagnostics/__init__.py` | Infrastructure | 0 | — |
 | `src/eitaa_bridge/infrastructure/diagnostics/event_catalog.py` | Infrastructure | 9 | Versioned, privacy-safe observability event contract. |
@@ -169,6 +177,7 @@
 | `src/eitaa_bridge/infrastructure/dialog_catalog.py` | Infrastructure | 19 | — |
 | `src/eitaa_bridge/infrastructure/eitaa/__init__.py` | Infrastructure | 0 | — |
 | `src/eitaa_bridge/infrastructure/eitaa/core_binding.py` | Infrastructure | 8 | Composition through the public eitaa_core package only. |
+| `src/eitaa_bridge/infrastructure/eitaa/dialog_permissions.py` | Infrastructure | 4 | Capture safe current-account management hints from pinned Core dialog data. |
 | `src/eitaa_bridge/infrastructure/eitaa/sender_directory.py` | Infrastructure | 14 | Persist human-readable message authors exposed by Eitaa history responses. |
 | `src/eitaa_bridge/infrastructure/eitaa/session_ownership.py` | Infrastructure | 9 | Explicit, side-effect-free ownership contract for Eitaa session storage. |
 | `src/eitaa_bridge/infrastructure/windows_lan.py` | Infrastructure | 15 | — |
@@ -182,8 +191,10 @@
 | `src/eitaa_bridge/interfaces/__init__.py` | Interface | 0 | — |
 | `src/eitaa_bridge/interfaces/cli.py` | Interface | 5 | — |
 | `src/eitaa_bridge/interfaces/http_api.py` | Interface | 64 | Config-bound loopback/trusted-LAN HTTP adapter for the application API. |
+| `src/eitaa_bridge/interfaces/license_activation.py` | Interface | 5 | First-run Windows activation dialog and safe command-line checks. |
 | `src/eitaa_bridge/interfaces/provider_worker.py` | Interface | 6 | Independent provider-worker process entrypoint for the Phase 7 IPC contract. |
 | `src/eitaa_bridge/interfaces/windows_lan.py` | Interface | 3 | — |
+| `src/eitaa_bridge/licensing.py` | Project | 40 | Offline, device-bound activation for packaged Eitaa Bridge installations. |
 | `src/eitaa_bridge/providers/__init__.py` | Project | 0 | Public, provider-neutral extension contracts and the built-in registry. |
 | `src/eitaa_bridge/providers/bale/__init__.py` | Project | 0 | Disabled Bale extension slot; contains no endpoint or protocol implementation. |
 | `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Fail-closed Bale registration for the stabilization baseline. |
@@ -201,9 +212,10 @@
 | `tests/test_account_runtime.py` | Python test | 12 | — |
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
-| `tests/test_application_api.py` | Python test | 39 | — |
+| `tests/test_application_api.py` | Python test | 42 | — |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
-| `tests/test_clean_install_auth_stabilization.py` | Python test | 27 | — |
+| `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
+| `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |
 | `tests/test_composer_workflow.py` | Python test | 48 | — |
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
@@ -214,9 +226,11 @@
 | `tests/test_core_binding.py` | Python test | 4 | — |
 | `tests/test_deployment_port_settings.py` | Python test | 4 | — |
 | `tests/test_diagnostics.py` | Python test | 4 | — |
-| `tests/test_dialog_catalog.py` | Python test | 6 | — |
+| `tests/test_dialog_catalog.py` | Python test | 7 | — |
+| `tests/test_dialog_permissions.py` | Python test | 3 | — |
 | `tests/test_env_and_credentials.py` | Python test | 6 | — |
 | `tests/test_facade_and_cli.py` | Python test | 11 | — |
+| `tests/test_first_account_start_regression.py` | Python test | 9 | Regression F-068: first onboarding must survive restart and allow Start. |
 | `tests/test_g04_identity_privacy_stabilization.py` | Python test | 4 | — |
 | `tests/test_g04d_privacy_channels.py` | Python test | 9 | — |
 | `tests/test_g05_auto_index_lifecycle_stabilization.py` | Python test | 6 | — |
@@ -226,10 +240,11 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
-| `tests/test_material_ui_repair.py` | Python test | 27 | — |
+| `tests/test_material_ui_repair.py` | Python test | 30 | — |
 | `tests/test_multi_account_lab.py` | Python test | 3 | — |
 | `tests/test_mvp6_operations.py` | Python test | 23 | — |
 | `tests/test_observability_contract.py` | Python test | 7 | — |
+| `tests/test_offline_license.py` | Python test | 15 | — |
 | `tests/test_phase10b_local_activation.py` | Python test | 3 | — |
 | `tests/test_phase10c_web_reverse_proxy_contract.py` | Python test | 20 | — |
 | `tests/test_phase10d_operational_acceptance.py` | Python test | 10 | — |
@@ -259,7 +274,7 @@
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
-| `tests/test_runtime_ownership.py` | Python test | 23 | — |
+| `tests/test_runtime_ownership.py` | Python test | 34 | — |
 | `tests/test_sender_directory.py` | Python test | 1 | — |
 | `tests/test_session_ownership.py` | Python test | 8 | — |
 | `tests/test_stabilization_baseline.py` | Python test | 3 | — |
@@ -268,7 +283,7 @@
 | `tests/test_ui32_composer_usage_layout.py` | Python test | 5 | — |
 | `tests/test_ui33_usage_reading_position.py` | Python test | 7 | — |
 | `tests/test_ui3_dialog_operations.py` | Python test | 6 | — |
-| `tests/test_ui_repair.py` | Python test | 8 | — |
+| `tests/test_ui_repair.py` | Python test | 10 | — |
 | `tests/test_wordpress_client.py` | Python test | 33 | — |
 | `tests/test_wordpress_taxonomies.py` | Python test | 5 | — |
 | `ui/electron/main.cjs` | Electron shell | 24 | — |
@@ -283,10 +298,10 @@
 | `ui/scripts/run-phase11-onboarding-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase11b2-orchestration-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase9-acceptance-tests.mjs` | UI validation | 2 | — |
-| `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 2 | — |
+| `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 68 | — |
+| `ui/src/App.tsx` | React UI | 69 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 11 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |
@@ -299,15 +314,17 @@
 | `ui/src/HeaderMessageSearch.tsx` | React UI | 3 | — |
 | `ui/src/lib/accountScope.mjs` | React UI | 3 | — |
 | `ui/src/lib/api.ts` | React UI | 17 | — |
-| `ui/src/lib/avatarLoader.ts` | React UI | 5 | — |
-| `ui/src/lib/groupedMedia.ts` | React UI | 6 | — |
+| `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
+| `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
+| `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |
+| `ui/src/lib/messageMedia.ts` | React UI | 2 | — |
 | `ui/src/lib/polling.mjs` | React UI | 3 | — |
 | `ui/src/lib/scrollMath.ts` | React UI | 8 | — |
 | `ui/src/lib/types.ts` | React UI | 0 | — |
 | `ui/src/LoginExperience.tsx` | React UI | 6 | — |
 | `ui/src/main.tsx` | React UI | 7 | — |
 | `ui/src/MaterialToast.tsx` | React UI | 3 | — |
-| `ui/src/MessageContentCard.tsx` | React UI | 7 | — |
+| `ui/src/MessageContentCard.tsx` | React UI | 11 | — |
 | `ui/src/MessageFilterDialog.tsx` | React UI | 1 | — |
 | `ui/src/MessageIndexEditor.tsx` | React UI | 1 | — |
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |

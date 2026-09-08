@@ -1,6 +1,6 @@
 # ساختار و مالکیت پروژه
 
-آخرین بازبینی: 2026-08-26
+آخرین بازبینی: 2026-08-29
 
 ## ۱. نمای ریشه
 
@@ -15,6 +15,16 @@
 | `vendor/` | وابستگی‌های vendored | فقط با منشأ و نسخهٔ روشن |
 | `package_clean.py` | allowlist، manifest/receipt، privacy scan و verifier archive | هر تغییر نیازمند G-07 contract و fresh rehearsal |
 | `scripts/build_wheel_stdlib.py` | wheel آفلاین deterministic از source/pyproject | خروجی باید با source parity و build دوگانه سنجیده شود |
+| `scripts/build_self_contained_setup.py` | bootstrap تک‌فایلی Windows با Setup گرافیکی فارسی، resourceهای embedded، آیکون اجباری و `--verify-only` | فقط payload privacy-safe و Runtime محلی؛ آیکون خراب fail-closed |
+| `scripts/archive_previous_office_release.ps1` | انتقال خروجی Setup/Portable قبلی به آرشیو زمان‌دار همراه Manifest و SHA-256 | فقط فایل‌های مستقیم و نام‌دار `release/office`؛ دادهٔ عملیاتی خارج از دامنه |
+| `scripts/check_office_payload_privacy.py` | اسکن محتوایی staging نصب‌کننده برای state عملیاتی، نام کلید خصوصی و PEM کامل | پیش از ZIP/Setup باید fail-closed اجرا شود؛ ثابت‌های parser به‌تنهایی PEM واقعی محسوب نمی‌شوند |
+| `scripts/new_internal_code_signing_certificate.ps1` | ساخت گواهی Authenticode داخلی و trust bundle عمومی | کلید فقط `CurrentUser\My` و غیرقابل‌خروج؛ PFX ممنوع |
+| `scripts/sign_windows_release.ps1` و `scripts/verify_windows_release_signature.ps1` | امضای SHA-256، pin کردن Thumbprint، hash پس از امضا و آزمون tamper | فقط EXE نهایی؛ گواهی فعال‌سازی مستقل است |
+| `installer/assets/EitaaBridge.ico` | آیکون چنداندازهٔ Setup و میانبرها | asset عمومی؛ از PNG/SVG تأییدشده تولید شود |
+| `src/eitaa_bridge/licensing.py` | request/fingerprint، Ed25519 verify/issue contract، DPAPI store و fail-closed installed gate | private key ممنوع؛ raw hardware/log ممنوع؛ rotation نسخه‌دار |
+| `src/eitaa_bridge/interfaces/license_activation.py` | پنجره و CLI امن فعال‌سازی اولین اجرا با Copy/Paste مستقل از چیدمان کیبورد | پیش از Backend؛ activation code فقط در store محافظت‌شده |
+| `tools/license_admin.py` | ابزار خصوصی keygen/issue مالک | خارج از customer release؛ private key فقط خارج Repository |
+| `installer/license-policy.json` | marker صریح الزام فعال‌سازی در payload | حذف آن gate را دور نمی‌زند؛ bundled-runtime detection دفاع دوم است |
 | `dist/*.whl` | wheel نصب‌شوندهٔ کنترل‌شده | build artifact؛ pre-image و SHA ثبت و با source تطبیق شود |
 | `data/` | دادهٔ عملیاتی محلی | محرمانه؛ جابه‌جا/پاک نشود |
 | `runtime/` | state و log اجرای واقعی | محرمانه و غیرمنبع |
@@ -52,6 +62,9 @@ src/eitaa_bridge/
 | `src/eitaa_bridge/application/eitaa_provider_worker.py` | allowlist و fence درخواست‌های Provider RPC در Process Worker |
 | `src/eitaa_bridge/application/process_runtime.py` | Parent-side allowlist برای درخواست‌های عمومی Process Runtime |
 | `src/eitaa_bridge/application/api.py` | مرز HTTP، از جمله onboarding حساب پیام‌رسان با AppUser session و CSRF |
+| `src/eitaa_bridge/infrastructure/dialog_catalog.py` | کاتالوگ account-scoped گفتگو، role معتبر حساب و capability محاسبه‌شدهٔ مدیریت گروه/کانال |
+| `src/eitaa_bridge/infrastructure/eitaa/dialog_permissions.py` | استخراج fail-closed نقش owner/admin از metadata معتبر Eitaa بدون نگه‌داری raw payload |
+| `src/eitaa_bridge/application/scheduler.py` | سریال‌سازی نشست مشترک Eitaa با اولویت پیام فعال، آواتار فعال و کار پس‌زمینه |
 | `src/eitaa_bridge/providers/eitaa/application_adapter.py` | ترجمهٔ سازگاری Eitaa پشت قرارداد عمومی؛ runtime lifetime همچنان مال EitaaRuntimeRegistry است |
 | `src/eitaa_bridge/infrastructure/coordinator/store.py` | تراکنش، مالکیت، idempotency، سقف حساب و audit چندحسابی |
 | `src/eitaa_bridge/infrastructure/coordinator/receipts.py` | claim/complete پایدار، account-scoped و privacy-safe برای mutationهای Provider |
@@ -84,9 +97,11 @@ Design System فعال فقط Material UI است. componentهای بصری از 
 - `ui/src/WorkspaceNavigation.tsx`: rail دسکتاپ، bottom navigation موبایل و منوی Material؛
 - `ui/src/ConversationListPage.tsx`: فهرست، جست‌وجو، unread و عملیات گفتگو؛
 - `ui/src/ChatHeader.tsx`: عنوان، وضعیت دریافت خودکار، فیلتر و جست‌وجوی پیام؛
-- `ui/src/MessageContentCard.tsx`: Card Material هر پیام، Header نویسنده، رسانه/گالری، Collapse متن و Actionهای انتخاب/ایندکس/استفاده؛
+- `ui/src/MessageContentCard.tsx`: Card Material هر پیام یا گروه متوالی، Header نویسنده، بلوک‌های مرتب متن/رسانه/فایل، Collapse و Actionهای انتخاب/ایندکس/استفاده؛
+- `ui/src/lib/groupedMedia.ts`: مدل آلبوم رسمی/استنباطی و گروه محتوایی پنج‌دقیقه‌ای پیش از filter؛
+- `ui/src/lib/avatarLoader.ts` و `avatarQueue.mjs`: cache حساب‌محور، lane مستقل cached-only/remote، promotion گفت‌وگوی فعال و صف task delayed/background با failure isolation؛
 - `ui/src/LoginExperience.tsx`: Surface مرکزی و mobile-first ورود بدون panel معماری؛ lifecycle و بازیابی نشست در controller احراز هویت `App.tsx` می‌ماند؛
-- `ui/src/SettingsPage.tsx`: تنظیمات جدا از workspace، شامل تنها کنترل Material پورت داخلی شبکه/وب؛
+- `ui/src/SettingsPage.tsx`: تنظیمات جدا از workspace، شامل کنترل پورت داخلی شبکه/وب و opt-in پیش‌فرض‌خاموش نمایش پنل WordPress؛
 - `ui/src/ContactDirectoryModal.tsx`: دفترچهٔ Material و virtualized؛
 - `ui/src/MaterialToast.tsx`: صف Snackbar/Alert با buffer رخدادهای پیش از mount.
 
@@ -116,6 +131,7 @@ Design System فعال فقط Material UI است. componentهای بصری از 
 ## ۵. فایل‌های تولیدشونده و عملیاتی
 
 - قابل بازتولید: `ui/dist/`، cacheهای تست، project map و reports index.
+- قابل تحویل: `release/office/*SelfContained-Setup-x64.exe` و ZIP fallback؛ build artifactهای unsigned و خارج از Git.
 - تاریخچه/شاهد: گزارش‌های `docs/reports/` و artifactهای GMI.
 - عملیاتی و غیرقابل‌جایگزینی: config واقعی، session، data، catalog، runtime و backup.
 - cacheهای قدیمی `.pytest-*` متعلق به اجراهای پیشین دست‌نخورده می‌مانند. پوشه‌های موقت با پیشوند دقیق `.pytest-phase11-0-*` که فقط در همین مرحله ساخته شده‌اند، پس از ثبت نتیجه با حذف صریح همان مسیرها پاک می‌شوند؛ هیچ `git clean` یا الگوی عمومی استفاده نمی‌شود.

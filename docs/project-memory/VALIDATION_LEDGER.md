@@ -1359,3 +1359,308 @@
 - commit اصلی=`8fe8d90d507fccb9bec586feb81c1f28d71d64fc` با پیام `fix(ui): invalidate cached runtime patches` و 16 فایل ساخته شد.
 - push عادی فقط به `codex/stabilization-g09` موفق بود؛ post-push remote branch دقیقاً برابر commit محلی و main بدون تغییر ماند.
 - force/merge/main push/ref deletion=0؛ Provider/message/data action=0. commit مستندی closure با push عادی دوم منتشر و hash نهایی در تحویل گفتگو verify می‌شود.
+
+## 2026-08-27 — ثبت‌های میراثی و تأییدنشدهٔ معماری ایندکس
+
+این جدول از ثبت ناقص Agent پیشین حفظ شده است. شناسه‌های `V-103` تا `V-106` تکراری بودند و ردیف‌ها شاهد آزمون یا تصمیم canonical نیستند؛ به شناسه‌های `LEGACY-INDEX-*` منتقل و با `V-163` جایگزین شدند.
+
+| شناسه | موضوع | نوع | نتیجه | مرجع |
+|---|---|---|---|---|
+| LEGACY-INDEX-V103 | هدف نهایی: گزارش (اکسل)، نه وردپرس | Historical/Unvalidated | جهت کلی برای تحلیل حفظ شد، اما فیلدها و معماری قطعی نیستند | LEGACY-INDEX-F039 / F-051 |
+| LEGACY-INDEX-V104 | معماری TF-IDF + Cache + LLM API | Historical/Unvalidated | تصویب نشده؛ انتخاب الگوریتم و API به ارزیابی‌های بعدی موکول است | LEGACY-INDEX-F040 / F-051 |
+| LEGACY-INDEX-V105 | دسته‌های فعالیت ۷+۱ گانه | Historical/Unvalidated | فهرست و کدها تا بررسی مستندات ابلاغی قطعی نیستند | LEGACY-INDEX-F041 / F-051 |
+| LEGACY-INDEX-V106 | فیلدهای ساختاریافتهٔ ایندکس | Historical/Unvalidated | صرفاً ورودی تحلیل؛ schema v4 یا ستون‌های نهایی تصویب نشده‌اند | LEGACY-INDEX-F042 / F-051 |
+
+### V-163 — ثبت نقشه‌راه و مجوز آغاز فاز صفر هوشمندسازی ایندکس
+
+- تاریخ: 2026-08-27
+- سطح: `DECISION / STATIC_DOCUMENTATION / PHASE_0_AUTHORIZATION`
+- Run: `IDX-R01`
+- دامنه: اسناد حافظه، تصمیم معماری، handoff و discoverability؛ کد محصول، schema، migration، runtime و دادهٔ عملیاتی خارج از دامنه بودند.
+- نتیجه: نقشه‌راه canonical با وضعیت `PHASE_0 AUTHORIZED / PRODUCT IMPLEMENTATION NOT STARTED` ثبت شد و `IR-0-A` به‌عنوان اقدام بعدی تعیین گردید.
+- اصلاح provenance: چهار Finding و چهار Validation تکراری/پیش‌رسِ Agent پیشین حذف نشدند؛ با شناسهٔ `LEGACY-INDEX-*` و وضعیت unvalidated حفظ و توسط F-051/V-163 supersede شدند.
+- تصمیم‌های کنترل‌شده: report-centric، تفکیک مفاهیم دامنه، نسخه‌گذاری چارچوب گزارش، local-first، تعویق API مدل زبانی و حفظ safe-default خاموش برای scheduler خودکار.
+- موارد قطعی‌نشده: یکتایی/معنای کدهای ابلاغی، taxonomy نهایی، schema، الگوریتم، مدل/Provider/prompt و نسبت مصرف API.
+- آزمون محصول: اجرا نشد؛ علت، docs-only بودن تغییر و نبود trigger کد/قرارداد اجرایی است. کنترل‌های memory integrity، generated-doc freshness، Markdown link و `git diff --check` همگی exit code صفر داشتند؛ duplicate رسمی Finding/Validation نیز صفر است.
+- حریم خصوصی و عملیات: workbook کاربر فقط منبع بالقوهٔ فاز صفر است، untracked می‌ماند و وارد Git نمی‌شود؛ هیچ پیام، Provider، WordPress، Login/OTP یا دادهٔ عملیاتی خوانده/نوشته نشد.
+- artifact: `INDEX_INTELLIGENCE_REPORTING_ROADMAP_2026-08-27.md` و `INDEX_INTELLIGENCE_EXECUTION_LOG.md`.
+- Trigger ابطال: تغییر متن نقشه‌راه/پروتکل، آغاز زیرمرحلهٔ فاز صفر، تصمیم تازهٔ کاربر یا ورود مستند رسمی جدید.
+
+### V-164 — استخراج فقط‌خواندنی و ثبت مرجع workbook ۱۴۰۵
+
+- تاریخ: 2026-08-27
+- سطح: `READ_ONLY SOURCE INSPECTION / IR-0-A`
+- Run: `IDX-R02`
+- منبع: `SRC-IR-001`؛ اندازه=`28,887 bytes`؛ SHA-256=`B7A8A79F9C4D093AD001294097FAC8930E0BCEE80191D06AD17E5C8825FB9296`.
+- روش: import فقط‌خواندنی workbook با runtime صفحه‌گستردهٔ bundled، inspect ساختار/مقادیر/formula و render بصری تمام هفت sheet. فایل اصلی edit/export/overwrite نشد.
+- نتیجهٔ ساختاری: workbook=`7 sheets / 7 table regions`؛ formula scan=`0 records`. محدوده‌ها: اردو `A1:R12`، مسابقات `A1:W17`، مراسم مذهبی `A1:O17`، نماز `A1:O13`، تکریم `A1:N16`، تشویق `A1:O12` و منشور `A1:J12`.
+- spot-check معنایی: عنوان/کد هر هفت برنامه، ردیف‌های معیار، یادداشت‌های شمارش و استثناهای `مراسم  مذهبی!C11:C17` با extract و render تطبیق داده شدند.
+- تعارض قطعیِ transcription: `مسابقات!C1` و `مراسم  مذهبی!C2` هر دو `80402` دارند؛ علت یا کد صحیح از خود workbook قابل تعیین نیست.
+- خروجی canonical: Source/Conflict Register، مرجع نرمال‌شده و Question Register با ۱۲ پرسش. ادعای اصالت مستقل، completeness یا correctness کدها ساخته نشد.
+- حریم خصوصی/عملیات: متن پیام، حساب، شماره، credential، Provider و WordPress خوانده نشد؛ workbook untracked و خارج از Git باقی ماند؛ artifactهای render فقط محلی/غیرcanonical هستند.
+- آزمون محصول: اجرا نشد؛ تغییر source/schema/runtime وجود ندارد. refresh، memory integrity، generated-doc freshness و Markdown link check همگی exit code صفر داشتند؛ `git diff --check` پس از حذف یک hard-break تازه نیز سبز شد.
+- Trigger ابطال: تغییر hash workbook، تصحیح کاربر، نسخهٔ تازهٔ منبع یا تغییر اسناد مرجع استخراج.
+
+### V-165 — ممیزی و مهار artifactهای منقضی Antigravity/Sonnet
+
+- تاریخ: 2026-08-27
+- سطح: `EXTERNAL ARTIFACT INVENTORY / NON-DESTRUCTIVE CORRECTION`
+- Run: `IDX-R02`
+- جست‌وجو: نام‌های plan/roadmap/index و محتوای TF-IDF/LLM/80402 در ریشهٔ brain فقط‌خواندنی بررسی شد. چهار `implementation_plan.md` یافت شد؛ دو مورد غیرایندکس خارج از دامنه و دست‌نخورده ماندند.
+- مجموعهٔ مرتبط: پنج Markdown شامل plan جدید، plan قدیمی، development map، task و walkthrough به‌علاوه پنج metadata JSON.
+- شاهد تعارض: forced category، schema v4 و daemon ساعتی به‌عنوان قطعی/تکمیل‌شده آمده بود؛ G-05 در baseline رسمی daemon ساعتی را حذف و scheduler را safe-default خاموش کرده است.
+- اقدام: حذف=0؛ پنج header هشدار و پنج summary metadata اصلاح شد. JSON parse هر پنج metadata PASS و header پس از اصلاح برای هر پنج فایل verify شد.
+- کنترل نهایی: UTF-8/control/header/metadata خارجی PASS؛ refresh، memory integrity، generated-doc freshness، Markdown link و `git diff --check` پروژه همگی exit code صفر داشتند.
+- hashهای پس از اصلاح: EA-ART-001=`FF7878B4...186EB182`، 002=`4058AD7D...1838AFD4`، 003=`E0532B57...AECFEB1`، 004=`AAE07167...BC4C9B5`، 005=`8B916EAF...BE3D8C8`.
+- حریم خصوصی: شناسهٔ کامل نشست‌های brain در اسناد پروژه ثبت نشد؛ فقط Artifact ID/hash نگه داشته شد. محتوای خصوصی conversation یا credential خوانده/ثبت نشد.
+- محصول/Git: source/runtime/schema پروژه تغییر نکرد؛ فایل‌های brain خارج از Git پروژه‌اند. مرجع `EXTERNAL_AGENT_ARTIFACT_REGISTER.md` است.
+- Trigger ابطال: تغییر فایل‌های بیرونی، تولید artifact تازه یا حذف هشدار supersession.
+
+### V-166 — ثبت پاسخ‌های جزئی کاربر و بازکردن سیاست کیفیت آمار
+
+- تاریخ: 2026-08-27
+- سطح: `USER DOMAIN CLARIFICATION / NO PRODUCT CHANGE`
+- Run: `IDX-R02`
+- Source=`SRC-USER-IR-001`: احتمال کد `80403` برای مراسم با عدم اطمینان؛ اعتبار مورد انتظار قالب تا پایان ۱۴۰۵ با امکان تغییر؛ معنای ستاره نیازمند پاسخ واحد ستادی؛ تکمیل نهایی Excel با دخالت کاربر.
+- نکتهٔ کیفیت: امکان ورود دستی آمار تخمینی/ساختگی مطرح شد. Q-IR-009 جزئی و Q-IR-013 تازه باز شد؛ هیچ مقدار ساختگی به‌عنوان verified یا training truth پذیرفته نشد.
+- نتیجه: C-IR-001 تا 003 و C-IR-009 به وضعیت‌های partial/open دقیق تغییر کردند؛ F-054 سیاست provenance/export را پیش از طراحی schema الزامی می‌کند.
+- عملیات: هیچ عدد گزارش، Excel، پیام، WordPress یا دادهٔ عملیاتی تغییر نکرد.
+- کنترل اسناد: تغییرات پاسخ‌ها و registry در همان کنترل سبز V-165 پوشش داده شدند.
+- Trigger ابطال: پاسخ تازهٔ کاربر/واحد ستادی یا تصمیم workflow export.
+
+### V-167 — پذیرش سیاست value kind و منع ارتقای خاموش آمار ساختگی
+
+- تاریخ: 2026-08-27
+- سطح: `USER DOMAIN DECISION / NO PRODUCT CHANGE`
+- Run: `IDX-R02`
+- Source=`SRC-USER-IR-002`؛ پرسش=`Q-IR-013`؛ تصمیم کاربر=`ACCEPTED`.
+- قرارداد دامنه: `observed`، `reported_by_unit`، `estimated`، `synthetic_placeholder` و `verified` مفاهیم جدا هستند. مقدار تخمینی/ساختگی بدون تأیید صریح کاربر به verified یا training truth ارتقا نمی‌یابد.
+- ثبت canonical: F-054 به `DECIDED` رسید، Q-IR-013 بسته و ADR-42 افزوده شد؛ C-IR-009 فقط از نظر value-kind بستهٔ جزئی است و کفایت/منبع عدد در Q-IR-009 باز می‌ماند.
+- عدم‌پیاده‌سازی: نام enum/ستون، schema، migration، UI، audit event و export gate هنوز ساخته نشده‌اند و به فاز معماری پس از Phase 0 تعلق دارند.
+- عملیات: Excel، عدد گزارش، پیام، WordPress، Provider و دادهٔ آموزشی تغییر نکرد.
+- کنترل اسناد: refresh نمادها/نقشهٔ فایل، memory integrity، generated-doc freshness، Markdown link و `git diff --check` همگی exit code صفر داشتند.
+- Trigger ابطال: تغییر تصمیم کاربر یا قرارداد آیندهٔ report verification/export.
+
+### V-168 — پذیرش grain تجمیعی استان و تفکیک آن از رویداد
+
+- تاریخ: 2026-08-27
+- سطح: `USER DOMAIN DECISION / CONCEPTUAL MODEL`
+- Run: `IDX-R02`
+- Source=`SRC-USER-IR-003`؛ پرسش=`Q-IR-004`؛ نتیجه=`RESOLVED_WITH_SUPERSESSION_CAVEAT`.
+- قرارداد: ردیف اصلی workbook جمع کل استان برای برنامه/دوره است؛ رویدادها و واحدهای شهرستانی ورودی aggregation و breakdown قابل‌ردیابی‌اند، نه ردیف اصلی خروجی.
+- شاهد سازگاری: ستون‌های تعداد اردو/مراسم/شرکت‌کننده ماهیت aggregation دارند؛ `مراسم  مذهبی!C11` نگه‌داری جزئیات حوزه و هر مراسم را لازم می‌داند.
+- ثبت canonical: C-IR-004 resolved، F-055/ADR-43 افزوده و workbook reference/roadmap/handoff همسو شدند.
+- عدم‌پیاده‌سازی: هیچ جدول، query، migration، metric calculation یا export تغییر نکرد.
+- کنترل اسناد: refresh نقشهٔ فایل/نماد، memory integrity، freshness، link check و `git diff --check` همگی exit code صفر داشتند.
+- Trigger ابطال: پاسخ رسمی مخالف، نسخهٔ تازهٔ منبع یا تغییر grain گزارش.
+
+### V-171 — پذیرش ضمیمهٔ زیارت عاشورا و ثبت پیشنهاد پرسشنامهٔ برنامه
+
+- تاریخ: 2026-08-27
+- سطح: `USER DOMAIN DECISION + CONCEPTUAL PROPOSAL / NO PRODUCT CHANGE`
+- Run: `IDX-R02`
+- Source=`SRC-USER-IR-004`.
+- Q-IR-005=`RESOLVED`: زیارت عاشورا metric تجمیعی استانی و ضمیمهٔ مستقل دارد و main ceremony count را افزایش نمی‌دهد؛ F-057/ADR-45 ثبت شد.
+- پیشنهاد ثبت‌شده: هر برنامهٔ workbook به تعریف نسخه‌دار پرسش‌ها با هستهٔ مشترک و module اختصاصی تبدیل شود تا خبر، تعداد، مالی، دادهٔ پایه، assumption و derived value به event/metric درست متصل شوند.
+- guard تحلیل: formula/assumption/input/provenance باید traceable باشد؛ estimate با exact متناظر double count نمی‌شود و همچنان `estimated` باقی می‌ماند.
+- artifact مفهومی: `INDEX_PROGRAM_QUESTIONNAIRE_MODEL.md`؛ وضعیت=`PROPOSAL / NOT_IMPLEMENTED`. Q-IR-014 دربارهٔ workflow تکمیل/تأیید باز شد.
+- عملیات: هیچ فرم، schema، formula engine، Excel، پیام، دادهٔ مالی یا مقدار گزارش ایجاد/تغییر نکرد.
+- Trigger ابطال: تغییر نظر کاربر، پاسخ رسمی ستاد، پاسخ Q-IR-014 یا تغییر report map.
+
+### V-169 — RED ادغام محتوایی و صف مستقل آواتار
+
+- تاریخ: 2026-08-27
+- سطح: `STATIC / CONTRACT RED / EXPECTED FAILURE`
+- Run: `UX-MESSAGE-AVATAR-R01`
+- علت بررسی مجدد: درخواست صریح کاربر برای ادغام همهٔ نوع‌های محتوای متوالی و گزارش بارگیری‌نشدن آواتار، همراه با تغییر برنامه‌ریزی‌شدهٔ قرارداد مرکزی UI.
+- pre-image: HEAD=`95624acf...`؛ `App.tsx=2a606c86...`، `MessageContentCard.tsx=af2fcbb4...`، `groupedMedia.ts=32ad994d...` و `avatarLoader.ts=c1386ae4...`.
+- grouped-media RED: runner پس از افزودن scenarioهای text→image، image→text، دو آلبوم، sender/gap/day boundary با `TypeError: buildMessageGroupLookup is not a function` شکست خورد.
+- avatar RED: Phase 9 workspace با `ERR_MODULE_NOT_FOUND` برای `avatarQueue.mjs` شکست خورد؛ contract Python نیز `6 passed / 1 failed` و نبود `cached_only: true`/دو lane را نشان داد.
+- تشخیص: timeline قبلی time diff را اعمال نمی‌کرد و آلبوم را کنار می‌گذاشت. صف واحد سه‌تایی cache/remote، failure propagation، stale account و prefix پاک‌سازی ناقص داشت. محدودیت مستقل Core برای User photo reference نیز با initials قابل مهار است، نه با parallel Provider call.
+- اثر عملیاتی: صفر؛ داده/نشست/Provider/پیام واقعی خوانده یا تغییر داده نشد.
+- نتیجه: RED معتبر و implementation مجاز در F-056/ADR-44 تعریف شد.
+
+### V-170 — پذیرش کامل ادغام پیام، آواتار و بستهٔ آفلاین
+
+- تاریخ: 2026-08-27
+- سطح: `UNIT / UI CONTRACT / FULL REGRESSION / BUILD / OFFLINE PACKAGE / FRESH INSTALL`
+- Run: `UX-MESSAGE-AVATAR-R01`
+- هدفمند: grouped-media=`29/29`، Phase 9 workspace/queue=`18/18`، Python UI/Material/scroll=`42/42` و TypeScript=`PASS`.
+- UI کامل: هر ۹ runner canonical سبز؛ scroll=`10/10`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Phase 11 onboarding=`7/7` و Phase 11-B2=`6/6`. build Vite با 1016 module PASS و warning تاریخی chunk بزرگ غیرمسدودکننده بود.
+- Backend کامل: `659/659 passed`، failure/error/skip=0؛ افزایش یک تست نسبت به G-11 به guard تازهٔ گروه/صف UI مربوط است.
+- package tests=`15/15`. dry-run نامزد Git ایزوله=282 فایل، write=0 و content-set=`35f58c157d019424f2f8987e57b59897f79fb150bfd733158f9852ee4c6c34c2`.
+- archiveهای نهایی ایزوله A/B: هر دو 282 فایل مجاز، 283 entry با manifest، SHA-256 بایت‌یکسان=`1c52502df5bf19e51bf57dc684b5193065ad65d7db04296101c72feedcfb6900`؛ reopen/path/hash/manifest/privacy verification داخلی PASS. archiveهای پیش از جداسازی work ایندکس checkpoint تاریخی‌اند.
+- fresh install: archive A در مسیر artifact ایزوله extract شد؛ نصب wheel و همهٔ dependencyها فقط با `--no-index` و wheelهای محلی PASS، runtime checker=`ok=true/failures=0`، `pip check`، isolated import و Event Catalog=103 سبز است.
+- کنترل snapshot ایزوله: integrity/freshness/link و Phase 9=`18/18` سبز بود. اجرای نخست grouped-media در snapshot فاقد `node_modules` فقط هنگام fallback به executable ناموجود `npm` با `ENOENT` متوقف شد؛ retry بدون تغییر فایل و با TypeScript read-only workspace از `NODE_PATH` برابر `29/29` PASS بود. اجرای canonical ریشه پیش‌تر مستقل `29/29` بود.
+- اسناد canonical: F-056، ADR-44، baseline/spec/structure/handoff، گزارش feature و Execution Log همسو شدند. refresh، memory integrity، generated freshness، link check و `git diff --check` همگی exit code صفر داشتند؛ هشدارهای line-ending فقط اطلاع‌رسان و بدون finding بودند.
+- حریم خصوصی/عملیات: message send/login/OTP/Provider/WordPress/Bale/data write=0؛ فقط dist/test/package/fresh-venv artifact کنترل‌شده ایجاد شد و هیچ operational root وارد archive یا candidate Git نمی‌شود.
+- نتیجه: `OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED / GIT_PUBLICATION_PENDING`.
+
+### V-172 — کشف و مهار collision مستندات میان دو writer
+
+- تاریخ: 2026-08-27
+- سطح: `DOCUMENTATION CONCURRENCY INCIDENT / RECOVERY VALIDATION`
+- Run: `IDX-R02`
+- RED: memory integrity پس از ثبت اولیهٔ Q-IR-005 با دو خطا شکست خورد: duplicate `F-056` و duplicate `V-169`. ممیزی heading نیز دو ADR-44 را نشان داد.
+- علت: task موازی ویژگی UI در فاصلهٔ بررسی شناسه تا validation، رکوردهای canonical تازه‌ای با همان شناسه‌ها ثبت کرده بود؛ دامنهٔ کد آن task در این Run ممیزی نشد.
+- بازیابی: رکوردهای ایندکس به F-057/F-058، V-171 و ADR-45 منتقل شدند؛ رکوردهای feature موازی F-056/V-169/V-170/ADR-44 دست‌نخورده ماندند.
+- GREEN: memory integrity، refresh/freshness، link check و `git diff --check` همگی exit code صفر؛ duplicate رسمی صفر.
+- داده/محصول: migration، Provider، پیام، Excel یا عملیات Live صفر. این validation پذیرش کد task موازی نیست.
+- نتیجهٔ governance: F-059/IR-GOV-01؛ یک writer canonical یا allocator/merge queue الزامی است.
+- Trigger ابطال: collision تازه یا تغییر سیاست چندعاملی.
+
+### V-173 — پذیرش workflow ستادمحور و مرز اختیار Agent
+
+- تاریخ: 2026-08-27
+- سطح: `USER DOMAIN DECISION / ACCESS_AND_APPROVAL_BOUNDARY / NO PRODUCT CHANGE`
+- Run: `IDX-R02`
+- Source=`SRC-USER-IR-005`؛ پرسش=`Q-IR-014`؛ تصمیم کاربر=`ACCEPTED`.
+- قرارداد دسترسی: فقط کاربر اصلی و همکاران ستادی مجاز در شبکهٔ خصوصی محلی کاربر سامانه‌اند. واحدهای شهرستانی account/role ندارند و اطلاعات آن‌ها فقط از مسیر Eitaa به‌صورت evidence/claim وارد می‌شود.
+- قرارداد پردازش: WordPress مخزن/نمای فعالیت و یک source/projection است. اتوماسیون یادگیرندهٔ محلی مسیر ترجیحی کمک و API Agent fallback اختیاری است؛ هیچ پیشنهاد خودکاری بدون review انسانی verified یا approved نیست.
+- قرارداد اختیار: تأیید نهایی، استنتاج نهایی، محاسبات استانی و export فقط به نقش انسانی مرکزی مجاز منتسب می‌شود. Codex، LLM و Agent اختیار تصویب گزارش ندارند.
+- کنترل امنیتی آینده: LAN جای authentication، server-side authorization، audit و تفکیک سطح دسترسی اسناد را نمی‌گیرد.
+- ثبت canonical: Q-IR-014 بسته و F-060/ADR-46 افزوده شد؛ مدل پرسشنامه، roadmap، baseline و handoff همسو شدند. role schema، UI، LAN deployment و workflow engine هنوز ساخته نشده‌اند.
+- عملیات: Excel، پیام، Provider، WordPress، دادهٔ عملیاتی، schema و کد محصول تغییر نکرد.
+- کنترل اسناد: ترتیب ADR-44..46 اصلاح شد؛ refresh نقشهٔ فایل/نماد، memory integrity، generated-doc freshness، Markdown link و `git diff --check` همگی exit code صفر داشتند. هشدار line-ending فقط اطلاع‌رسان بود.
+- Trigger ابطال: تغییر تصمیم کاربر دربارهٔ کاربران، کانال دریافت شهرستان، محل استقرار، مرجع تأیید یا مجوز Agent/API.
+
+### V-181 — RED و پذیرش هدفمند WordPress/role/avatar priority
+
+- تاریخ: 2026-08-27
+- سطح: `CONTRACT RED / UNIT / UI STATIC / TARGETED INTEGRATION`
+- Run: `UX-WP-AVATAR-R02`
+- علت بررسی مجدد: درخواست صریح کاربر برای default مخفی WordPress، منع taxonomy check پیش از config، محدودکردن عملیات به owner/admin و اولویت idle آواتار.
+- REDهای معتبر: test نقش با نبود `dialog_permissions`، Phase 9 با نبود `queue.promote` و UI contract با نبود `showWordPressPanel` شکست خوردند.
+- GREEN: نقش/parser/catalog/API مستقیم=`7 passed`؛ مجموعهٔ هدفمند Backend/UI=`56 passed`؛ Phase 9 workspace=`19/19`، grouped-media=`29/29`، scroll=`10/10` و TypeScript=`PASS`.
+- قرارداد: WordPress default=false و credential-gated؛ community eligibility فقط active group/channel + server-derived owner/admin؛ active avatar قابل promotion و background delayed؛ Provider session serial.
+- cache repair: فایل صفر/خراب/بزرگ یا magic نامعتبر miss، overwrite و validation پس از download؛ MIME از magic استخراج می‌شود.
+- حریم خصوصی/اثر بیرونی: فقط دادهٔ مصنوعی؛ raw TL/peer/account/message/credential log نشد و هیچ Live/Provider/WordPress mutation انجام نشد.
+
+### V-182 — regression کامل، wheel، بسته و نصب تازهٔ سناریوی WordPress/Avatar
+
+- تاریخ: 2026-08-27
+- سطح: `FULL REGRESSION / BUILD / DETERMINISTIC WHEEL / OFFLINE PACKAGE / FRESH INSTALL`
+- Run: `UX-WP-AVATAR-R02`
+- Backend کامل به‌علت سقف زمان ابزار در شش partition بدون overlap/gap اجرا شد: `207 + 97 + 105 + 61 + 42 + 152 = 664 passed`؛ failure/error/skip صفر.
+- UI کامل: همهٔ runnerهای canonical سبز؛ Phase 9 workspace=`19/19`، grouped=`29/29`، scroll=`10/10`، Phase 9 acceptance=`13/13`، Phase 10=`7/7`، Observability=`PASS`، Phase 11 onboarding=`7/7`، Phase 11-B2=`6/6` و mobile/auth/live contract=`PASS`. TypeScript و build 1016-module نیز PASS.
+- wheel worktree A/B بایت‌یکسان=`f2c3872d...5be9` بود؛ candidate پس از LF normalization دوباره ساخته و release dist آن SHA-256=`23cd95cfbb9ac47e9ca057406e2008eba16854d03adfa159e9ce628fdf534b51` شد. parity مربوط سبز است؛ `dist/` طبق policy Git ignore و خارج از commit است.
+- archive نهایی candidate=`283 files / content-set 702bd412fca521092c5927e2cec4257ea5f23edf62525df4debd52a28a8c155d`. دو archive بایت‌یکسان SHA-256=`307d00b82fb1ff0ec30d5c05b2c55a18b23726901b35e2301ce5c0cda520cc00` و verifier داخلی privacy/path/hash/manifest PASS؛ فایل‌های work ایندکس صفر.
+- fresh-install attempt نخست worktree به‌علت omission `vendor/runtime` از `find-links` شکست خورد. attempt نخست clone نیز چون wheelهای runtime به‌درستی Git-ignored و در staging حاضر نبودند، archive 277فایلی غیرقابل‌نصب ساخت. پس از افزودن mechanical wheelhouse فقط به staging، archive نهایی 283فایلی با `dist + vendor + vendor/runtime` و `--no-index` نصب شد؛ runtime checker=`ok=true/failures=0`، `pip check` و import ایزولهٔ `dialog_permissions` PASS. wheelهای ignored در candidate Git stage نمی‌شوند.
+- کنترل خود candidate: اجرای نخست pytest فقط به Temp غیرقابل‌دسترسی حساب میزبان خورد؛ retry با basetemp صریح workspace=`101/101`. Phase 9=`19/19`. grouped-media نخست از cwd نادرست clone و نبود npm متوقف شد؛ retry از `ui/` با TypeScript read-only پروژهٔ اصلی=`29/29`. هیچ فایل محصول برای retry تغییر نکرد.
+- اسناد: F-061، ADR-47، baseline/spec/structure/handoff، گزارش feature و Execution Log ثبت شدند؛ کنترل freshness/integrity/link پس از refresh جداگانه اجرا می‌شود.
+- عملیات: شبکه، Login/OTP، Send، WordPress، Member mutation، Provider Live و فایل عملیاتی صفر. نتیجه=`OFFLINE_AUTOMATED_ACCEPTED / PRIMARY_GIT_PUBLISHED / DOCUMENTATION_CLOSURE_READY / NOT_PRODUCTION_RELEASE_AUTHORIZED`.
+
+### V-183 — انتشار ایزولهٔ WordPress/role/avatar و حفاظت main
+
+- تاریخ: 2026-08-27
+- سطح: `GITHUB DEDICATED WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `UX-WP-AVATAR-R02`
+- candidate اصلی=34 فایل؛ high-confidence secret hit=0، full Iran phone hit=0، operational/workbook/index-work path=0. artifactهای موقت، archive، basetemp، `dist/` و `vendor/runtime` ignored در stage نبودند.
+- commit اصلی=`c1f71ac94b1643495e022b121f99b15f69fe0dfa`، parent=`50f4224664cf3f4b7871c129988f934828fe8bc2` و subject=`feat(ui): gate WordPress and prioritize dialog avatars`.
+- push عادی fast-forward روی `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
+- root worktree branch=`codex/stabilization-g09` و HEAD=`95624acf...` باقی ماند و index آن خالی بود؛ فایل‌های dirty و کار هم‌زمان ایندکس reset/checkout/stage نشدند.
+- force-push، main push/merge، ref deletion، Provider/Login/OTP/Send/WordPress/Member mutation و operational write صفر. commit closure فقط همین ثبت و generated docs آن را fast-forward می‌کند؛ hash نهایی در تحویل گفتگو و remote verify ثبت می‌شود.
+
+### V-184 — پذیرش Setup مستقل Windows و repair بستهٔ خام
+
+- تاریخ: 2026-08-28
+- سطح: `CONTRACT RED / BUILD / OFFLINE INSTALL SIMULATION / FULL REGRESSION / ARTIFACT PRIVACY`
+- Run: `INSTALLER-SELF-CONTAINED-R01`
+- Trigger بررسی: درخواست صریح کاربر برای ممیزی پوشهٔ خام، نصب خودکار نیازمندی‌ها، EXE قابل‌تحویل، بررسی Windows 7 و ریشهٔ خطای اولین اجرا.
+- ممیزی اولیهٔ raw: مسیر واقعی یک سطح nested بود؛ `VERSION.txt` وجود نداشت و dry-run با wheel/source parity برابر `missing=0 / mismatched=2 / extra=0` شکست خورد. دو mismatch مربوط به `api.py` و `eitaa_provider_runtime_operations.py` بودند. `bridge.json` عملیاتی مشاهدهٔ محتوایی یا mutation نشد.
+- RED قرارداد Setup=`3/3 failed`. پس از پیاده‌سازی targeted installer=`4/4 passed` و مجموعهٔ مرتبط runtime/auth/package/UI=`88/88 passed` شد.
+- full Backend=`674/674 passed` با failure/error/skip صفر و collect مستقل 674. `npm --prefix ui run check` و `test:observability` هر دو exit code صفر بودند.
+- builder wheel جاری را بازساخت و parity/allowlist را پذیرفت؛ runtime فقط از wheelهای محلی با `--no-index` در payload و شبیه‌سازی install-copy نصب شد. runtime checker و importهای Bridge/Core/diagnostics سبز بودند.
+- dry-run نهایی بستهٔ canonical پس از refresh اسناد=`286 files / write=0 / content-set 6888b72a04a124aee773cb172c4ce3ccc4aa6415174ed7b962b9f061c7aa5640` و wheel/source drift صفر بود.
+- repair کنترل‌شدهٔ raw فقط 30 فایل managed را همگام کرد و wheel را با SHA-256=`4b08cf9e11c51ad7a3e2f8b3ea545b37bab0c33455f6f75a855f847e4eded208` بازساخت. dry-run همان raw سپس=`260 files / write=0 / content-set 50d3bb8950c35bf5cfddf5ac4120c84c22eb17553150eff437d68a0095e3f9b8` و PASS شد؛ operational state آن دست‌نخورده ماند.
+- EXE تک‌فایلی=`38,436,864 bytes / SHA-256 B609DD9AA689451A694C78FBB0DCAA71943D396F8F548B11E11ECEF500930121`; `--verify-only=PASS`. ZIP fallback=`37,793,425 bytes / SHA-256 855E734098E5C1AF4C3637C5782631FFB376A830518CF580367383D417F660DA`.
+- nested payload مستقل 4397 فایل داشت؛ required outer entries کامل، extra صفر و finding حریم خصوصی صفر بود. `bridge.json`، `.env`، Session، composition، transfer backup و پیشوندهای data/runtime/diagnostics/backups/catalog در artifact نبودند.
+- preflight با نسخهٔ native Windows و معماری x64 سنجیده شد؛ آزمون synthetic rejection برای Windows 7 سبز است. Setup مقصد به Python/Node system-wide یا شبکه نیاز ندارد.
+- امضا=`NotSigned`. نصب واقعی روی ماشین تمیز، Windows visual، SmartScreen reputation و code-sign اجرا/پذیرفته نشده‌اند؛ نتیجه=`OFFLINE_AUTOMATED_ACCEPTED / SHAREABLE_UNSIGNED_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`.
+- عملیات بیرونی: نصب واقعی، registry/Firewall/proxy، Provider، Login/OTP، Send، WordPress و دادهٔ عملیاتی صفر.
+- Git: worktree جاری تغییرهای هم‌زمان و مرتبط با سناریوهای دیگر داشت؛ برای جلوگیری از mixed commit هیچ stage/commit/push انجام نشد. انتشار source این سناریو پس از تعیین base ایزوله و تکرار validation همان snapshot باقی است.
+- Trigger ابطال: تغییر source/wheel/runtime wheels، installer bootstrap/copy policy، UI dist، OS support، privacy exclusions یا اجرای clean-machine تازه.
+
+### V-185 — پذیرش فعال‌سازی آفلاین دستگاه‌محور و RC2 بسته‌بندی‌شده
+
+- تاریخ: 2026-08-28
+- سطح: `CONTRACT RED / CRYPTOGRAPHIC UNIT / STARTUP GATE / FULL REGRESSION / PACKAGED OFFLINE E2E / ARTIFACT PRIVACY`
+- Run: `LICENSE-ACTIVATION-R01`
+- Trigger: درخواست صریح کاربر برای کد سخت‌افزاری، صدور دستی سریال، فایل محافظت‌شده، درخواست مجدد پس از انتقال و اجرای نامحسوس پس از فعال‌سازی.
+- RED نخست=`5 failed / 1 passed / 2 setup errors`. پنج failure نبود module و Startup contract را ثابت کردند؛ دو setup error فقط Temp پیش‌فرض غیرقابل‌دسترسی بودند و retry با basetemp صریح انجام شد.
+- GREEN واحد/مرتبط=`60/60`: request checksum، عدم افشای component خام، Ed25519 sign/verify، tamper/device/expiry rejection، atomic protected store، installed detection، pre-Config API gate، Office-before-backend، package/private-key exclusion، G-07 و G-03 regression.
+- full Backend=`684/684 passed`، failure/error/skip صفر؛ collection مستقل=`684 tests / 76 files`. TypeScript و UI/Electron Observability هر دو PASS.
+- wheel نهایی source-parity-safe SHA-256=`31fdfe2db2276f9682c797361a7d27800e6ce7d7ac1c269b9ac229b6e695bf0b`. Runtime checker بسته cryptography=`46.0.7` را همراه Bridge/Core/requests/tzdata تأیید کرد.
+- dry-run نهایی canonical پس از همسان‌سازی Release Manifest/اسناد=`293 files / write=0 / content-set 296a29a77d84d52abddaa17e52a460835923b09361a01faebaa02a15da698367` و wheel/source drift صفر بود.
+- packaged RC2 rehearsal: cryptography/Tk/licensing import PASS؛ check پیش از activation با exit موردانتظار fail-closed؛ request file→owner issue→activation import→silent check→`BridgeApplicationApi` PASS. activation store=890 bytes و plaintext prefix finding=false.
+- EXE=`46,415,360 bytes / SHA-256 84453D43A2E04F10FC2F453A81639AF6ED69C971FEE18AA8ED29EC1BC10EF02F / --verify-only PASS / NotSigned`. Portable=`45,723,128 bytes / SHA-256 A78C5AAA5EF2D6BAC00BBA8F321FAF8B03419C89CFA8556C880E7A9BDE89D129`.
+- nested payload=4664؛ required license policy/docs/cryptography/verifier/UI حاضر؛ private-key filename=0، private-key PEM=0 و operational entry=0.
+- branch-test private key خارج از Repository و delivery است و در اسناد/لاگ محتوا نشد. این کلید unencrypted و Production نیست؛ rotation به کلید رمزدار مالک گیت الزامی انتشار است.
+- Git stage/commit/push=0؛ کاربر صریحاً بررسی در همین شاخه را پیش از کپی به پروژهٔ اصلی خواست و worktree نیز تغییرهای هم‌زمان داشت، بنابراین انتشار/کپی source تا پذیرش کاربر انجام نشد.
+- عملیات واقعی: نصب `%LOCALAPPDATA%`، Login/OTP، Provider، Send، WordPress، Firewall/Proxy و دادهٔ عملیاتی صفر؛ فقط test roots و artifactهای کنترل‌شده.
+- نتیجه=`BRANCH_FEATURE_ACCEPTED / UNSIGNED_RC2_AVAILABLE / PRODUCTION_RELEASE_NOT_AUTHORIZED`.
+- Trigger ابطال: تغییر crypto dependency/key/payload/fingerprint/store/gates/builder یا اجرای target تازه.
+
+### V-186 — پذیرش RC3 برندشده، امضای داخلی و بستهٔ تحویل
+
+- تاریخ: 2026-08-28
+- سطح: `CONTRACT RED / CERTIFICATE KEY-BOUNDARY / ICON BUILD / AUTHENTICODE / FULL REGRESSION / DELIVERY`
+- Run: `INTERNAL-CODE-SIGNING-R01`
+- Trigger: درخواست صریح کاربر برای امضای رایگان داخلی، آیکون Setup/Desktop/Start Menu، کلید خصوصی خارج پروژه، CER/راهنمای اعتماد و Setup امضاشده.
+- RED: قراردادهای تازهٔ آیکون اجباری، میانبر، scriptهای certificate/sign/verify و ترتیب امضا پیش از hash در نبود پیاده‌سازی شکست خوردند؛ دو tmp fixture نخست فقط به Temp پیش‌فرض غیرقابل‌دسترسی خوردند و با basetemp workspace تکرار شدند.
+- GREEN کد=`6/6`: ICO validation/build، رد icon مفقود/خراب، wiring آیکون و sign/trust policy. parser سه PowerShell script نیز PASS بود.
+- گواهی واقعی: Subject=`CN=Eitaa Bridge Internal Publisher`، Thumbprint=`441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02`، RSA 3072، EKU=`1.3.6.1.5.5.7.3.3`، HasPrivateKey=true و CNG export policy=`None`. CER public HasPrivateKey=false و پایان اعتبار 2031-08-28 است.
+- trust bundle: metadata Thumbprint/SHA-256 با CER تطبیق داشت؛ guide و installer همان Thumbprint را pin کردند. اجرای import در sandbox با `E_ACCESSDENIED` متوقف شد و تغییر پایدار Root/TrustedPublisher حساب اصلی بدون اجازهٔ مستقل انجام نشد.
+- encoding repair: تحویل نخست guide با وجود UTF-8 BOM، متن mojibake و placeholderهای گواهی حل‌نشده داشت؛ علت parse فایل UTF-8 بدون BOM توسط Windows PowerShell 5.1 و escape شدن `$` با backtick Markdown بود. source generator به UTF-8 BOM و template placeholder تبدیل و bundle با همان cert بازتولید شد. کنترل دوم پنج فایل: strict UTF-8 همهٔ textها=true، U+FFFD=0، mojibake marker=0، unresolved placeholder=0، Persian range=true، JSON parse=true، trust-script parser error=0، CER public-only/hash/thumbprint match=true.
+- signing probe: کپی RC2 با SHA-256 پس از امضا=`A1C2BAC4BB15062C4351AD4F303DF8464A0FDAE5C94D0950CB0508F454264E32` و signer صحیح ثبت شد. وضعیت پیش از trust=`UnknownError` و timestamp=false بود؛ دستکاری کپی موقت signature را invalid کرد و tamper detection=true شد.
+- icon: PNG=`520×520 RGBA / SHA 6ED4762B...FA1C`; converter deterministic نه frame استاندارد ساخت، ICO SHA=`8C35B98F...F5F7`. frameهای 32/256 و associated icon استخراج‌شده از EXE visual PASS؛ payload icon hash parity=true و shortcut icon contract=true.
+- build: Runtime checker و install-copy simulation PASS؛ payload=4665، operational entry=0 و private-key-named entry=0. تلاش امضای داخل Batch به نبود `Cert:` drive خورد؛ signer با X509Store مستقیم repair و EXE موجود امضا شد.
+- final Setup=`46,842,176 bytes / SHA 9587728C...6463 / --verify-only PASS / signer thumbprint match / tamper=true / timestamp=false / status-before-trust=UnknownError`. Portable=`45,936,308 bytes / SHA 07931D6E...3566`.
+- delivery ZIP=`92,766,896 bytes / SHA 81C45B14...F15E / 12 entries`; Setup داخل ZIP hash-identical، manifest JSON PASS، private key file=0 و تمام ۷ متن strict UTF-8 BOM بدون mojibake/replacement/placeholder هستند.
+- regression نهایی: full Backend=`688/688`، collection=`688 tests / 76 files`، TypeScript=`PASS` و UI/Electron Observability=`PASS`.
+- گیت: clean-machine real-user install، مشاهدهٔ واقعی Desktop/Start Menu و trust مقصد به تأیید همان لحظه نیاز دارند. Self-signed public reputation ایجاد نمی‌کند.
+- عملیات: نصب برنامه، Provider/Login/OTP/Send/WordPress/Firewall/Proxy و دادهٔ عملیاتی صفر. cert store فقط گواهی درخواست‌شده را دارد؛ PFX/private key file صفر. Git mutation صفر.
+
+### V-187 — بازیابی collision و پذیرش مدل چهارسطحی/IR-GOV-01
+
+- تاریخ: 2026-08-28
+- سطح: `USER DECISION / DOCUMENTATION CONCURRENCY RECOVERY / CANONICAL MODEL VALIDATED`
+- Run: `IDX-R03`
+- Source=`SRC-USER-IR-006`؛ تصمیم کاربر=`FOUR_LEVEL_MODEL_AND_CODEX_ARCHITECTURE_LEAD_ACCEPTED`.
+- RED مستندات: اجرای نخست memory integrity یک duplicate `F-064` نشان داد؛ ممیزی heading نیز دو ADR-50 و Ledger موجود V-186 را آشکار کرد. writer سناریوی امضای داخلی در فاصلهٔ رزرو و validation همان شناسه‌ها را مصرف کرده بود.
+- مهار: رکورد امضای داخلی F-064/V-186/ADR-50 حذف یا بازنویسی نشد. مدل چهارسطحی به F-065/V-187/ADR-51 منتقل و backlinkهای مربوط اصلاح شدند.
+- قرارداد ثبت‌شده: چهار سطح L1 semantic index، L2 WordPress projection، L3 local reporting core و L4 controlled intelligence؛ کاربر مالک دامنه/پذیرش و Codex مدیر معماری/promoter canonical پیش‌فرض است.
+- governance: Task Contract، کلاس ریسک، file ownership، خروجی noncanonical، review/promotion و sole-writer تعریف شدند. allocator/lock/merge queue ماشینی هنوز پیاده نشده است.
+- عملیات و محصول: schema، کد، UI، Provider، WordPress، دادهٔ عملیاتی و عملیات Live تغییر نکرد.
+- GREEN نهایی: memory integrity، generated-doc freshness، Markdown link check و `git diff --check` همگی exit code صفر؛ ADR-50 متعلق به امضای داخلی و ADR-51 متعلق به مدل چهارسطحی است، duplicate رسمی صفر است. هشدارهای line-ending فقط اطلاع‌رسان بودند.
+- Trigger ابطال: تغییر مدل سطح‌ها/نقش‌ها، collision تازه، یا پیاده‌سازی enforcement ماشینی.
+
+### V-188 — پذیرش RC4 با Setup گرافیکی، Clipboard مستقل از layout و آرشیو Release
+
+- تاریخ: 2026-08-28
+- سطح: `CODE / BUILD / SIGNATURE / DELIVERY / FULL AUTOMATED ACCEPTANCE`
+- RED/علت: contract جاری request box را disabled و Paste را بدون keycode مستقل از layout نشان داد. اجرای نخست full با `--cache-clear` پیش از collection به ACL ارث‌رسیدهٔ `.pytest_cache` خورد؛ اجرای نهایی با basetemp workspace و cache provider غیرفعال شد. Build کامل تا runtime/install-copy/archive سبز رفت، ولی sandbox certificate store را صفر دید؛ امضای مجاز بیرون sandbox با همان Thumbprint انجام و جدا verify شد.
+- GREEN هدفمند: `tests/test_offline_license.py + tests/test_runtime_ownership.py = 41/41`. synthetic WinForms setup compile و `--verify-only`، archive با سه artifact/فایل نامرتبط محفوظ، keycode/normalization و quiet installer contract سبز است.
+- GREEN کامل: Backend سریالی=`690/690` و collection=`690 tests / 76 files`; TypeScript=`PASS` و UI/Electron Observability=`PASS`. یک full موازی با checkerهای مستقل در تست scanner پشتیبانی G-04-D یک failure بدون جزئیات یافت؛ همان تست بلافاصله `1/1` و سپس `10/10` ایزوله و full سریالی `690/690` سبز شد. علت قطعی استنتاج نشد و رخداد برای recheck آینده ثبت ماند.
+- Build: wheel rebuild، package allowlist dry-run=`301 files / PASS`، runtime checker و install-copy simulation PASS. Local archive=`12 artifacts` با Manifest؛ RC4 Setup=`46,855,488 / SHA E964C93B...BFA4 / verify-only=0 / signer match / tamper=true / timestamp=false` و Portable=`45,941,170 / SHA 8D9AE8AD...66FC`.
+- Delivery: ZIP=`92,782,790 / SHA 6DACA748...FD9E / 13 entries / private-key-named=0`. هشت فایل text strict UTF-8 BOM، بدون replacement/mojibake؛ RC2/RC3 delivery به archive زمان‌دار منتقل و trust bundle عمومی حفظ شد.
+- طول نمونه: request=`258` و activation=`563` نویسه؛ format برای backward compatibility ثابت ماند. کوتاه‌سازی شدید بدون online lookup یا tradeoff امنیت/metadata تأیید نشد.
+- عملیات: نصب واقعی، اجرای Provider/Login/OTP/Send، تغییر trust مقصد و دادهٔ عملیاتی صفر. clean-machine UI/shortcut acceptance همچنان نیازمند تأیید همان لحظه است. worktree از سناریوهای قبلی dirty و در فایل‌های canonical/test دارای overlap بود؛ برای جلوگیری از mixed commit، Git stage/commit/push انجام نشد.
+- Trigger ابطال: تغییر activation format/UI، installer shell/path/preservation، archive scope، certificate/signer یا هر failure مقصد.
+
+### V-189 — پذیرش نصب تازهٔ چندحسابی و RC5 امضاشده
+
+- تاریخ: 2026-08-29
+- سطح: `CONFIG RED / INSTALLED-FLOW REHEARSAL / FULL REGRESSION / PAYLOAD PRIVACY / SIGNED BUILD`
+- Run: `MULTI-ACCOUNT-CLEAN-INSTALL-RC5`
+- Trigger: گزارش کاربر که نصب موفق روی Windows مجازی فقط مسیر ورود شمارهٔ تک‌حسابی را نشان می‌داد و درخواست صریح برای آزمون ترتیب مدیر اولیه سپس حساب ایتا.
+- RED نخست: آزمون config بسته روی `app_user_auth.enabled=false` شکست خورد. پس از روشن‌کردن سه feature، startup بدون حساب به `legacy_runtime` غایب در worker-process registry خورد و defect دوم را آشکار کرد.
+- GREEN جریان نصب: API با copy واقعی `bridge.example.json` و root ساختگی ابتدا `setup_required=true` داد؛ admin ساخته شد، فهرست حساب‌ها خالی ماند و POST نخستین Eitaa account عضویت پایگاه دادهٔ `admin/owner/active` ساخت. Provider Auth، شبکه، OTP و Worker start صفر بود.
+- GREEN UI: ترتیب `AppUserGate → MessengerAccountGate → EitaaApp` و فرم ساخت مدیر در runner ثبت شد؛ onboarding UI=`8/8`، TypeScript=`PASS` و UI/Electron Observability=`PASS`.
+- GREEN Backend: full suite با basetemp workspace و cache provider غیرفعال exit=0 داشت؛ collection مستقل=`691 tests`. آزمون‌های مرتبط installer پیش از build=`72/72` و مسیر مالکیت تازه نیز PASS بود.
+- Build: wheel current-source با SHA-256=`F0C9BFD235108A6C6CB3891BDF163DDA163FEF3862F38587CD7CD49C8932924C` بازسازی شد؛ allowlist dry-run=`301 files / PASS`. runtime checker، install-copy simulation و scanner محتوایی payload همگی PASS؛ operational finding=0، private-key filename=0 و private-key PEM=0.
+- Artifact: Setup RC5=`31,295,296 bytes / SHA-256 2BC280463AF1B0975EA904DB8CF761BC57F0A1CC69C53DB8C8FC104E249F20CC`; Portable=`30,492,682 bytes / SHA-256 175D80117706C0C49B391ABEE04F174E5F7952AAD327078998857CB96093E925`؛ nested payload=3555 entry و featureهای سه‌گانه=true.
+- امضا: `--verify-only=PASS`؛ signer Thumbprint=`441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02`، tamper=true، timestamp=false و status پیش از trust=`UnknownError`. نسخهٔ RC5 قبلی به `release/office/archive/20260829-060000` منتقل شد و Manifest دارد.
+- Delivery: folder و ZIP بیرونی شامل Setup، Portable، branding و trust bundle عمومی است؛ ZIP=`61,883,250 bytes / SHA-256 66AF08945065BF17E503A257DFC36F8415F251E78583A8602B9A2BBA2E2C2D26 / 15 entries`. همهٔ 10 متن strict UTF-8 BOM، بدون replacement/mojibake هستند؛ Setup داخل ZIP hash-identical و private-key filename/PEM finding صفر است. RC4 به archive زمان‌دار `20260829-195620` منتقل شد.
+- عملیات: نصب واقعی، تغییر trust مقصد، Provider/Login/OTP/Send/WordPress و دادهٔ عملیاتی صفر. clean-machine visual و جابه‌جایی واقعی میان دو حساب همچنان آزمون کاربر مقصد است.
+- Trigger ابطال: تغییر config featureها، API bootstrap، Gateها، account ownership، builder/privacy scanner، signer یا نتیجهٔ مقصد.

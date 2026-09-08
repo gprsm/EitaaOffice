@@ -798,11 +798,16 @@ class _ApiHandler(BaseHTTPRequestHandler):
         original = Path(unquote(encoded_name)).name.strip() or "upload.bin"
         safe_name = _SAFE_UPLOAD_NAME.sub("_", original)[:180] or "upload.bin"
         selected_account_id = authorization.payload.get("messenger_account_id")
-        upload_root = (
-            self.api.upload_root_for_account(selected_account_id)
-            if selected_account_id
-            else self.server.upload_root  # type: ignore[attr-defined]
-        )
+        try:
+            upload_root = (
+                self.api.upload_root_for_account(selected_account_id)
+                if selected_account_id
+                else self.server.upload_root  # type: ignore[attr-defined]
+                or self.api.upload_root
+            ).resolve()
+        except BridgeError as exc:
+            self._write_json(self.api._error_response(exc))
+            return
         upload_root.mkdir(parents=True, exist_ok=True)
         target = upload_root / f"{uuid.uuid4().hex}_{safe_name}"
         remaining = length
@@ -1116,7 +1121,9 @@ class BridgeApiHttpServer(ThreadingHTTPServer):
         super().__init__(address, _ApiHandler)
         self.api = api
         self.ui_root = ui_root.resolve() if ui_root is not None else None
-        self.upload_root = (upload_root or api.upload_root).resolve()
+        # A clean process-isolated installation has no bound runtime yet;
+        # api.upload_root must stay lazy so the server can serve onboarding.
+        self.upload_root = upload_root.resolve() if upload_root is not None else None
         self.runtime_ownership = runtime_ownership
         self.lan_abuse_limiter = TrustedLanAbuseLimiter()
         self.request_timeout_seconds = api.config.deployment.limits.request_timeout_seconds
@@ -1305,7 +1312,6 @@ def main(argv: list[str] | None = None) -> int:
             (bind_host, bind_port),
             api,
             ui_root=ui_root,
-            upload_root=api.upload_root,
             runtime_ownership=runtime_ownership,
         )
     except BridgeError as exc:

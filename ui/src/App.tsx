@@ -8,13 +8,14 @@ import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import { api, ApiError, AUTH_SESSION_INVALID_EVENT, query, scopedStorageKey } from './lib/api'
-import { albumCaption, buildAlbumLookup } from './lib/groupedMedia'
-import type { MediaAlbum } from './lib/groupedMedia'
+import { buildMessageGroupLookup, messageGroupText } from './lib/groupedMedia'
+import type { MessageGroup } from './lib/groupedMedia'
+import { mediaPreviewRequest } from './lib/messageMedia'
 import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isNearBottom, mergeMessagesById, shouldAutoFollow, stableMessageKey, updateTopPaginationGate } from './lib/scrollMath'
 import type { MessageScrollMemory, ScrollAnchor, TopPaginationGate } from './lib/scrollMath'
 import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, SenderFilterOption, Site, Term } from './lib/types'
 import { QuickSendBar } from './QuickSendBar'
-import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
+import { clearDialogAvatarCache, loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
 import { waitForAdaptivePoll } from './lib/polling.mjs'
 import { LoginAppearanceProvider, LoginSurface } from './LoginExperience'
 import { AppUserGate, AppUserLogoutButton, useAppUser } from './AppUserGate'
@@ -58,7 +59,7 @@ function initials(title: string) {
   return clean ? clean.slice(0, 2) : 'ا'
 }
 
-function DialogAvatar({ dialog, siteKey, small = false }: { dialog: DialogItem | null; siteKey: string; small?: boolean }) {
+function DialogAvatar({ dialog, siteKey, small = false, priority = 'background' }: { dialog: DialogItem | null; siteKey: string; small?: boolean; priority?: 'active' | 'background' }) {
   const ref = useRef<HTMLDivElement>(null)
   const [src, setSrc] = useState<string | null | undefined>(() => dialog ? peekDialogAvatar(siteKey, dialog.peer_key) : null)
   useEffect(() => { setSrc(dialog ? peekDialogAvatar(siteKey, dialog.peer_key) : null) }, [dialog?.peer_key, siteKey])
@@ -66,21 +67,28 @@ function DialogAvatar({ dialog, siteKey, small = false }: { dialog: DialogItem |
     const element = ref.current
     if (!element || !dialog || !siteKey || src !== undefined) return
     let active = true
+    const load = () => {
+      void loadDialogAvatar(siteKey, dialog.peer_key, priority)
+        .then(value => { if (active) setSrc(value) })
+        .catch(() => { if (active) setSrc(null) })
+    }
+    if (priority === 'active') {
+      load()
+      return () => { active = false }
+    }
     const observer = new IntersectionObserver(entries => {
       if (!entries.some(entry => entry.isIntersecting)) return
       observer.disconnect()
-      void loadDialogAvatar(siteKey, dialog.peer_key)
-        .then(value => { if (active) setSrc(value) })
-        .catch(() => { if (active) setSrc(null) })
+      load()
     }, { rootMargin: '220px' })
     observer.observe(element)
     return () => { active = false; observer.disconnect() }
-  }, [dialog, siteKey, src])
+  }, [dialog, priority, siteKey, src])
   return <Avatar ref={ref} sx={{ width: small ? 34 : 46, height: small ? 34 : 46, flex: '0 0 auto', bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 800 }}>
     {src === undefined
       ? <Skeleton variant="circular" animation="wave" width="100%" height="100%" />
       : src
-        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ? <Box component="img" src={src} alt={titleFor(dialog)} loading="lazy" decoding="async" onError={() => { if (dialog) clearDialogAvatarCache(siteKey, dialog.peer_key); setSrc(null) }} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : initials(titleFor(dialog))}
   </Avatar>
 }
@@ -384,6 +392,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [composerOpen, setComposerOpen] = useState(false)
   const [chatsOpen, setChatsOpen] = useState(() => window.matchMedia('(max-width: 899px)').matches)
   const [communityOpen, setCommunityOpen] = useState(false)
+  const [showWordPressPanel, setShowWordPressPanel] = useState(() => readStored<boolean>(STORAGE.showWordPressPanel, false))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkMode, setBulkMode] = useState<BulkMode>('members')
@@ -417,6 +426,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [dateJump, setDateJump] = useState<{ messageId: number; epoch: number } | null>(null)
   const activeSite = useMemo(() => sites.find(site => site.site_key === siteKey), [sites, siteKey])
   const wordpressAvailable = useMemo(() => sites.some(site => site.credentials_configured), [sites])
+  const wordpressPanelReady = showWordPressPanel && Boolean(activeSite?.credentials_configured)
+  const wordpressPanelAvailable = showWordPressPanel && wordpressAvailable
   const viewportPageSize = useMemo(() => Math.max(20, Math.min(80, Math.ceil(window.innerHeight / 90) + 10)), [])
   const lastReadRef = useRef<Record<string, number>>({})
   const syncTimesRef = useRef<Record<string, number>>(readStored<Record<string, number>>(STORAGE.syncTimes, {}))
@@ -456,6 +467,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [sessionWarning])
   useEffect(() => { writeStored(STORAGE.tab, tab) }, [tab])
   useEffect(() => { writeStored(STORAGE.mediaDisplay, mediaDisplay) }, [mediaDisplay])
+  useEffect(() => { writeStored(STORAGE.showWordPressPanel, showWordPressPanel) }, [showWordPressPanel])
+  useEffect(() => {
+    if (!showWordPressPanel) {
+      setCommunityOpen(true)
+      setShowWordPressUsed(true)
+    }
+  }, [showWordPressPanel])
   useEffect(() => { if (siteKey) writeStored(STORAGE.siteKey, siteKey) }, [siteKey])
   useEffect(() => { if (dialog) writeStored(STORAGE.peerKey, dialog.peer_key) }, [dialog?.peer_key])
 
@@ -578,7 +596,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [applyDialogs, dialogsSupported, siteKey, syncingDialogs])
 
   const loadTerms = useCallback(async (force = false) => {
-    if (!siteKey || !activeSite?.credentials_configured) {
+    if (!siteKey || !showWordPressPanel || !activeSite?.credentials_configured) {
       setCategories([]); setTags([])
       return
     }
@@ -597,7 +615,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       if (!cached) toast.error(e instanceof Error ? e.message : 'دریافت دسته‌ها و کلمات کلیدی ناموفق بود.')
       else toast.warning('دسته‌ها و کلمات کلیدی از حافظه محلی نمایش داده شدند؛ تازه‌سازی وردپرس فعلاً ناموفق بود.')
     }
-  }, [siteKey, activeSite?.credentials_configured])
+  }, [siteKey, activeSite?.credentials_configured, showWordPressPanel])
 
   const listMessages = useCallback(async (selected: DialogItem, beforeId?: number, limit = viewportPageSize) => {
     if (!historySupported) return []
@@ -1061,16 +1079,17 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const loadMedia = useCallback(async (message: MessageItem) => {
     if (!dialog || !mediaReadSupported) return
     const key = messageKey(dialog, message)
-    if (key in mediaCacheRef.current || mediaRequestsRef.current.has(key)) return
+    if ((key in mediaCacheRef.current && mediaCacheRef.current[key] !== '') || mediaRequestsRef.current.has(key)) return
     mediaRequestsRef.current.add(key)
     mediaCacheRef.current[key] = null
-    setMedia(current => key in current ? current : ({ ...current, [key]: null }))
+    setMedia(current => ({ ...current, [key]: null }))
     try {
+      const previewRequest = mediaPreviewRequest(message.media)
       const response = await api<{ media_url?: string; data_url?: string }>('POST', '/api/v1/messages/media-preview', {
         site_key: siteKey,
         peer_file: dialog.peer_file,
         message_id: message.id,
-        quality: 'thumbnail',
+        ...previewRequest,
       })
       const resolved = response.media_url ? mediaUrl(response.media_url) : response.data_url || ''
       mediaCacheRef.current[key] = resolved
@@ -1310,12 +1329,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     ],
   })), [contentIndexResults, hasContentIndex, messages])
 
-  const messageAlbumLookup = useMemo(() => buildAlbumLookup(indexedMessages), [indexedMessages])
+  const messageGroupLookup = useMemo(() => buildMessageGroupLookup(indexedMessages, {
+    fallbackIncomingSenderKey: dialog && dialog.display_kind !== 'group' ? dialog.peer_key : null,
+  }), [dialog, indexedMessages])
 
   const filteredMessages = useMemo(() => {
     const q = messageSearch.trim().toLowerCase()
     return indexedMessages.filter(item => {
-      const members = messageAlbumLookup.get(item.id)?.messages || [item]
+      const members = messageGroupLookup.get(item.id)?.messages || [item]
       if (!showWordPressUsed && members.some(member => member.usage.used)) return false
       if (
         selectedIndexLabel !== null
@@ -1330,7 +1351,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       ) return false
       return true
     })
-  }, [indexedMessages, messageAlbumLookup, messageSearch, selectedIndexLabel, selectedSenderKey, showWordPressUsed])
+  }, [indexedMessages, messageGroupLookup, messageSearch, selectedIndexLabel, selectedSenderKey, showWordPressUsed])
 
   const indexFilterLabels = useMemo(() => {
     const labels = new Map<number, string>()
@@ -1525,13 +1546,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
 
   const toggleMessage = (message: MessageItem) => {
     if (!dialog) return
-    const albumMessages = messageAlbumLookup.get(message.id)?.messages || [message]
-    const usedMessage = albumMessages.find(item => item.usage.used)
+    const groupMessages = messageGroupLookup.get(message.id)?.messages || [message]
+    const usedMessage = groupMessages.find(item => item.usage.used)
     if (usedMessage && !selectionMode && selectedKeys.length === 0) {
       setActiveUsage({ message: usedMessage, usage: usedMessage.usage })
       return
     }
-    const keys = albumMessages.map(item => messageKey(dialog, item))
+    const keys = groupMessages.map(item => messageKey(dialog, item))
     setSelectedKeys(current => {
       const remove = keys.every(key => current.includes(key))
       return remove ? current.filter(item => !keys.includes(item)) : [...new Set([...current, ...keys])]
@@ -1568,13 +1589,15 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         accountControl={<MessengerAccountMenuControl />}
         syncing={syncingDialogs}
         dialogsEnabled={dialogsSupported}
-        wordpressEnabled={wordpressAvailable}
+        wordpressVisible={showWordPressPanel}
+        wordpressEnabled={wordpressPanelAvailable}
         onSection={showDialogSection}
         onSettings={() => setSettingsOpen(true)}
         onAddDialog={() => setManualOpen(true)}
         onSync={() => void syncDialogs()}
         onContacts={() => setContactsOpen(true)}
         onBulk={() => openBulk(dialog && dialog.display_kind !== 'personal' ? 'members' : 'numbers')}
+        onCommunity={() => { setCommunityOpen(true); setComposerOpen(true) }}
         onWordpress={() => { setCommunityOpen(false); setComposerOpen(true) }}
         onMessengerLogout={() => void logout()}
         onSoftwareLogout={appUser.enabled ? () => void logoutSoftware() : undefined}
@@ -1591,7 +1614,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         items={visibleDialogs}
         totalFiltered={filteredDialogs.length}
         activePeerKey={dialog?.peer_key}
-        renderAvatar={item => <DialogAvatar dialog={item} siteKey={siteKey} />}
+        renderAvatar={item => <DialogAvatar dialog={item} siteKey={siteKey} priority={item.peer_key === dialog?.peer_key ? 'active' : 'background'} />}
         titleFor={item => titleFor(item)}
         onSearch={setDialogSearch}
         onClose={() => setChatsOpen(false)}
@@ -1608,7 +1631,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         <ChatHeader
           title={titleFor(dialog)}
           subtitle={dialog ? `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده` : 'گفتگویی انتخاب نشده'}
-          avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small />}
+          avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small priority="active" />}
           selectionCount={selectionMode ? selectedKeys.length : 0}
           liveState={dialog && historySupported ? liveMessageState : 'idle'}
           mediaDynamic={mediaDisplay === 'dynamic'}
@@ -1628,16 +1651,17 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
             onClear={() => void clearDateRange()}
           />}
           search={messageSearch}
-          wordpressEnabled={wordpressAvailable}
+          wordpressVisible={showWordPressPanel}
+          wordpressEnabled={wordpressPanelAvailable}
           composerVisible={composerDocked || composerOpen}
           onOpenChats={() => setChatsOpen(true)}
           onClearSelection={clearSelection}
           onToggleMedia={() => setMediaDisplay(value => value === 'dynamic' ? 'framed' : 'dynamic')}
           onToggleFilters={() => setContentFiltersOpen(value => !value)}
           onSearch={setMessageSearch}
-          onOpenComposer={() => setComposerOpen(true)}
+          onOpenComposer={() => { setCommunityOpen(!wordpressPanelAvailable); setComposerOpen(true) }}
         />
-        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
@@ -1646,14 +1670,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       } : {
         position: 'fixed', zIndex: theme => theme.zIndex.drawer + 2, insetBlock: 0, insetInlineEnd: 0, width: 'min(520px, 94vw)', minWidth: 0, minHeight: 0, overflow: 'hidden', borderInlineStart: 1, borderColor: 'divider', transform: composerOpen ? 'translateX(0)' : 'translateX(105%)', transition: theme => theme.transitions.create('transform', { duration: theme.transitions.duration.shorter }),
       }}>
-        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressReady={Boolean(activeSite?.credentials_configured)} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
+        <Composer dialog={dialog} dialogs={dialogs} siteKey={siteKey} sites={sites} setSiteKey={setSiteKey} wordpressVisible={showWordPressPanel} wordpressReady={wordpressPanelReady} openSettings={() => setSettingsOpen(true)} openBulk={openBulk} openMembers={() => setMembersOpen(true)} selectedMessages={selectedMessages} selectedKeys={selectedKeys} setSelectedKeys={setSelectedKeys} suggestedCategoryIds={suggestedCategoryIds} categories={categories} tags={tags} setTags={setTags} media={media} close={() => setComposerOpen(false)} communityOpen={communityOpen} setCommunityOpen={setCommunityOpen} onSuccess={refreshCurrentLocalView} markSourcesUsed={markWordPressSourcesUsed} />
       </Paper>
     </Box>
     <UsageInfoDialog activeUsage={activeUsage} clearUsage={() => setActiveUsage(null)} loadHistory={item => { /* will do loadHistory later or let user implement if needed */ }} />
     <Dialog open={settingsOpen} fullScreen onClose={() => setSettingsOpen(false)}>
       <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
         <Suspense fallback={<Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: '100dvh' }}><CircularProgress /><Typography>در حال آماده‌سازی تنظیمات…</Typography></Stack>}>
-          <SettingsPage sites={sites} onClose={() => setSettingsOpen(false)} onChanged={loadSites} />
+          <SettingsPage sites={sites} onClose={() => setSettingsOpen(false)} onChanged={loadSites} showWordPressPanel={showWordPressPanel} onShowWordPressPanelChange={setShowWordPressPanel} />
         </Suspense>
       </DialogContent>
     </Dialog>
@@ -1712,6 +1736,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     {contentFiltersOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><MessageFilterDialog
       open={contentFiltersOpen}
       close={() => setContentFiltersOpen(false)}
+      wordpressEnabled={wordpressPanelReady}
       showWordPressUsed={showWordPressUsed}
       setShowWordPressUsed={setShowWordPressUsed}
       selectedIndexLabel={selectedIndexLabel}
@@ -1769,7 +1794,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   </Box>
 }
 
-function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
+function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastScroll = useRef(0)
   const nearBottomRef = useRef(true)
@@ -1784,7 +1809,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   const [floatingDate, setFloatingDate] = useState('')
   const memoryKey = props.readReceiptsEnabled ? props.dialog.peer_key : `${props.dialog.peer_key}:filtered`
   const dayKeys = useMemo(() => props.messages.map(message => jalaliDayKey(message.date)), [props.messages])
-  const albumLookup = useMemo(() => buildAlbumLookup(props.messages), [props.messages])
+  const groupLookup = props.groupLookup
 
   const firstUnreadCandidateIndex = useMemo(() => {
     if (!props.messages.length || props.dialog.unread_count <= 0) return -1
@@ -1798,9 +1823,9 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   const firstUnreadIndex = useMemo(() => {
     if (firstUnreadCandidateIndex < 0) return -1
     const candidate = props.messages[firstUnreadCandidateIndex]
-    const album = candidate ? albumLookup.get(candidate.id) : undefined
-    return album ? props.messages.findIndex(message => message.id === album.leader.id) : firstUnreadCandidateIndex
-  }, [albumLookup, firstUnreadCandidateIndex, props.messages])
+    const group = candidate ? groupLookup.get(candidate.id) : undefined
+    return group ? props.messages.findIndex(message => message.id === group.leader.id) : firstUnreadCandidateIndex
+  }, [firstUnreadCandidateIndex, groupLookup, props.messages])
 
   const virtualizer = useVirtualizer({
     count: props.messages.length,
@@ -1809,10 +1834,10 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
     estimateSize: index => {
       let message = props.messages[index]
       if (!message) return 120
-      const album = albumLookup.get(message.id)
-      if (album && album.leader.id !== message.id) return 0
-      const caption = album ? albumCaption(album.messages) : message.text
-      if (album) message = { ...message, text: caption, text_length: caption.length }
+      const group = groupLookup.get(message.id)
+      if (group && group.leader.id !== message.id) return 0
+      const caption = group ? messageGroupText(group.messages) : message.text
+      if (group) message = { ...message, text: caption, text_length: caption.length }
       const hasDaySeparator = index === 0 || dayKeys[index - 1] !== dayKeys[index]
       return estimateMessageRowSize(message, hasDaySeparator, index === firstUnreadIndex)
     },
@@ -1861,7 +1886,8 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       .filter(row => row.index >= firstUnreadIndex && row.start >= scrollTop - 1 && row.end <= viewportBottom)
       .map(row => props.messages[row.index])
       .filter((message): message is MessageItem => Boolean(message) && !message.outgoing)
-      .flatMap(message => albumLookup.get(message.id)?.messages || [message])
+      .filter(message => !groupLookup.has(message.id) || groupLookup.get(message.id)?.leader.id === message.id)
+      .flatMap(message => groupLookup.get(message.id)?.messages || [message])
       .filter(message => !message.outgoing)
     if (!visible.length) return
     const maxId = Math.max(...visible.map(message => message.id))
@@ -1873,7 +1899,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       void props.markRead(props.dialog, maxId, remaining)
       readTimer.current = null
     }, 2200)
-  }, [albumLookup, firstUnreadIndex, props.dialog, props.markRead, props.messages, props.readReceiptsEnabled, virtualizer])
+  }, [firstUnreadIndex, groupLookup, props.dialog, props.markRead, props.messages, props.readReceiptsEnabled, virtualizer])
 
   useEffect(() => {
     const element = parentRef.current
@@ -2004,7 +2030,9 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   useLayoutEffect(() => {
     if (!props.focusMessageId || !props.focusEpoch) return
     const element = parentRef.current
-    const targetIndex = props.messages.findIndex(message => message.id === props.focusMessageId)
+    const focusedGroup = groupLookup.get(props.focusMessageId)
+    const targetMessageId = focusedGroup?.leader.id || props.focusMessageId
+    const targetIndex = props.messages.findIndex(message => message.id === targetMessageId)
     if (!element || targetIndex < 0) return
     positioned.current = true
     programmaticScroll.current = true
@@ -2018,7 +2046,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       })
     })
     return () => window.cancelAnimationFrame(firstFrame)
-  }, [persistScrollMemory, props.focusEpoch, props.focusMessageId, props.messages, virtualizer])
+  }, [groupLookup, persistScrollMemory, props.focusEpoch, props.focusMessageId, props.messages, virtualizer])
 
   useLayoutEffect(() => {
     const currentTailId = props.messages[props.messages.length - 1]?.id ?? null
@@ -2059,42 +2087,24 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       {virtualizer.getVirtualItems().map(row => {
         const message = props.messages[row.index]
         const key = messageKey(props.dialog, message)
-        const album = albumLookup.get(message.id)
-        const isAlbumFollower = Boolean(album && album.leader.id !== message.id)
+        const group = groupLookup.get(message.id)
+        const isGroupFollower = Boolean(group && group.leader.id !== message.id)
+        const focused = group
+          ? group.messages.some(member => member.id === props.focusMessageId)
+          : message.id === props.focusMessageId
 
-        // Calculate timelineGroup
-        const prevMessage = row.index > 0 ? props.messages[row.index - 1] : null
-        const nextMessage = row.index < props.messages.length - 1 ? props.messages[row.index + 1] : null
-
-        const isSameSenderAsPrev = prevMessage && prevMessage.sender_key === message.sender_key && prevMessage.outgoing === message.outgoing
-        const isSameSenderAsNext = nextMessage && nextMessage.sender_key === message.sender_key && nextMessage.outgoing === message.outgoing
-
-        const timeDiffPrev = prevMessage ? new Date(message.date).getTime() - new Date(prevMessage.date).getTime() : Infinity
-        const timeDiffNext = nextMessage ? new Date(nextMessage.date).getTime() - new Date(message.date).getTime() : Infinity
-
-        const groupWithPrev = isSameSenderAsPrev && !albumLookup.has(prevMessage.id)
-        const groupWithNext = isSameSenderAsNext && !albumLookup.has(message.id)
-
-        let timelineGroup: 'none' | 'start' | 'middle' | 'end' = 'none'
-        if (groupWithPrev && groupWithNext) timelineGroup = 'middle'
-        else if (groupWithPrev) timelineGroup = 'end'
-        else if (groupWithNext) timelineGroup = 'start'
-
-        // Wait, for albums, the whole album is one card, so we should consider album's leader.
-        // To be safe, just don't group albums for now, or just let it be.
-
-        return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isAlbumFollower ? 0 : (timelineGroup === 'middle' || timelineGroup === 'end' ? 0.2 : 0.75), height: isAlbumFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isAlbumFollower ? 'strict' : 'layout style', pointerEvents: isAlbumFollower ? 'none' : undefined, transform: `translateY(${row.start}px)`, '& > article': message.id === props.focusMessageId ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => `0 0 0 7px ${theme.palette.action.selected}` } : undefined }}>
-          {!isAlbumFollower && <>
+        return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isGroupFollower ? 0 : 0.75, height: isGroupFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isGroupFollower ? 'strict' : 'layout style', pointerEvents: isGroupFollower ? 'none' : undefined, transform: `translateY(${row.start}px)`, '& > article': focused ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => `0 0 0 7px ${theme.palette.action.selected}` } : undefined }}>
+          {!isGroupFollower && <>
           {(row.index === 0 || dayKeys[row.index - 1] !== dayKeys[row.index]) && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'text.secondary' }}><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /><Chip label={jalaliDayLabel(message.date)} size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /></Stack>}
           {row.index === firstUnreadIndex && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'error.main' }}><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /><Chip label={`${props.dialog.unread_count.toLocaleString('fa-IR')} پیام خوانده‌نشده`} size="small" color="error" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /></Stack>}
-          <MessageContentCard siteKey={props.siteKey} timelineGroup={timelineGroup} dialog={props.dialog} message={message} album={album} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, album?.messages || [message])} openUsage={() => props.openUsage(message)} />
+          <MessageContentCard siteKey={props.siteKey} dialog={props.dialog} message={message} group={group} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, group?.messages || [message])} openUsage={() => props.openUsage(group?.messages.find(item => item.usage.used) || message)} />
           </>}
         </Box>
       })}
     </Box>
   </Box>
 }
-function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressReady: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
+function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; siteKey: string; sites: Site[]; setSiteKey: (v: string) => void; wordpressVisible: boolean; wordpressReady: boolean; openSettings: () => void; openBulk: (mode: BulkMode) => void; openMembers: () => void; selectedMessages: MessageItem[]; selectedKeys: string[]; setSelectedKeys: (v: string[]) => void; suggestedCategoryIds: number[]; categories: Term[]; tags: Term[]; setTags: (v: Term[]) => void; media: Record<string, string | null>; close: () => void; communityOpen: boolean; setCommunityOpen: (v: boolean) => void; onSuccess: () => Promise<void>; markSourcesUsed: (sourceKeys: string[], publication: { composition_key: string; post_id: number; post_url?: string | null; status: string; title: string }) => void }) {
   const [compositionKey, setCompositionKey] = useState(makeCompositionKey)
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
@@ -2111,6 +2121,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
   const [editRecord, setEditRecord] = useState<CompositionRecord | null>(null)
   const [editSourceKeys, setEditSourceKeys] = useState<string[]>([])
   const categoryRows = useMemo(() => categoryTree(props.categories), [props.categories])
+  const communityView = !props.wordpressVisible || props.communityOpen
 
   const sourceKeys = editRecord ? editSourceKeys : props.selectedKeys
   useEffect(() => {
@@ -2240,17 +2251,17 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
     
     <Paper square elevation={0} sx={{ position: 'sticky', top: 0, zIndex: 4, p: 1.25, borderBottom: 1, borderColor: 'divider' }}>
       <Stack direction="row" alignItems="center" spacing={1}>
-        <Avatar sx={{ bgcolor: props.communityOpen ? 'secondary.main' : 'primary.main' }}>{props.communityOpen ? 'گ' : 'W'}</Avatar>
-        <Box sx={{ flex: 1, minWidth: 0 }}><Typography fontWeight={900} noWrap>{props.communityOpen ? 'عملیات گفتگو' : editRecord ? `ویرایش نوشته #${editRecord.post_id}` : 'نوشته جدید وردپرس'}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.communityOpen ? titleFor(props.dialog) : `${sourceKeys.length.toLocaleString('fa-IR')} پیام در بدنه`}</Typography></Box>
+        <Avatar sx={{ bgcolor: communityView ? 'secondary.main' : 'primary.main' }}>{communityView ? 'گ' : 'W'}</Avatar>
+        <Box sx={{ flex: 1, minWidth: 0 }}><Typography fontWeight={900} noWrap>{communityView ? 'عملیات گفتگو' : editRecord ? `ویرایش نوشته #${editRecord.post_id}` : 'نوشته جدید وردپرس'}</Typography><Typography variant="caption" color="text.secondary" noWrap>{communityView ? titleFor(props.dialog) : `${sourceKeys.length.toLocaleString('fa-IR')} پیام در بدنه`}</Typography></Box>
         <IconButton aria-label="بستن ستون" onClick={props.close}><CloseRounded /></IconButton>
       </Stack>
-      <ToggleButtonGroup exclusive fullWidth size="small" value={props.communityOpen ? 'community' : 'wordpress'} onChange={(_event, value) => { if (value) props.setCommunityOpen(value === 'community') }} sx={{ mt: 1 }}>
+      {props.wordpressVisible && <ToggleButtonGroup exclusive fullWidth size="small" value={communityView ? 'community' : 'wordpress'} onChange={(_event, value) => { if (value) props.setCommunityOpen(value === 'community') }} sx={{ mt: 1 }}>
         <ToggleButton value="wordpress" disabled={!props.wordpressReady}>وردپرس</ToggleButton>
         <ToggleButton value="community">عملیات گفتگو</ToggleButton>
-      </ToggleButtonGroup>
+      </ToggleButtonGroup>}
     </Paper>
     <Stack spacing={1.25} sx={{ p: { xs: 1, sm: 1.5 } }}>
-      {props.communityOpen ? <Paper variant="outlined" sx={{ p: 2 }}>
+      {communityView ? <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={1.25} alignItems="center"><Avatar>{initials(titleFor(props.dialog))}</Avatar><Box sx={{ minWidth: 0 }}><Typography fontWeight={850} noWrap>{titleFor(props.dialog)}</Typography><Typography variant="caption" color="text.secondary" noWrap>{props.dialog?.peer.username ? `@${props.dialog.peer.username}` : props.dialog ? `Peer ID: ${props.dialog.peer.id}` : 'گفتگویی انتخاب نشده'}</Typography></Box></Stack>
           <Button variant="contained" onClick={() => props.openBulk(props.dialog && props.dialog.display_kind !== 'personal' ? 'members' : 'numbers')}>ارسال و دعوت گروهی</Button>

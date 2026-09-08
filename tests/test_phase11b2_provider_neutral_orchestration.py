@@ -3,7 +3,8 @@
 import ast
 import asyncio
 import base64
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
+from datetime import datetime, timezone
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -14,6 +15,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+
+from eitaa_core import MediaReference, MediaType, Message, Peer, PeerType, save_peer_file
 
 from eitaa_bridge.application.api import ApiResponse, BridgeApplicationApi
 from eitaa_bridge.application.eitaa_provider_runtime_operations import (
@@ -1936,3 +1939,97 @@ def test_child_owned_media_broker_never_returns_a_path(config_file, tmp_path):
     with pytest.raises(CompositionValidationError) as escaped:
         operations._register_media_file(outside, "application/octet-stream")
     assert escaped.value.code == "api_media_cache_account_boundary"
+
+
+def test_child_owned_media_broker_downloads_playable_media_only_as_full_variant(
+    config_file, tmp_path
+):
+    account_root = tmp_path / "account"
+    media_root = account_root / "provider" / "media"
+    peer_file = account_root / "peers" / "channel.json"
+    media_root.mkdir(parents=True)
+    peer_file.parent.mkdir(parents=True)
+    peer = Peer(id=77, type=PeerType.CHANNEL, access_hash=123)
+    save_peer_file(peer_file, peer)
+    media = MediaReference(
+        MediaType.AUDIO,
+        remote_id=77,
+        mime_type="audio/ogg",
+        file_name="voice.ogg",
+    )
+    message = Message(
+        id=77,
+        peer=peer,
+        date=datetime.now(timezone.utc),
+        media=media,
+    )
+    download_count = 0
+
+    class Media:
+        def download(self, selected, options):
+            nonlocal download_count
+            download_count += 1
+            assert selected is media
+            assert options.photo_thumb_type is None
+            output = options.output_directory / f"{options.file_name}.ogg"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"synthetic-audio")
+            return SimpleNamespace(path=output)
+
+    bridge = SimpleNamespace(
+        core=SimpleNamespace(
+            messages=SimpleNamespace(get=lambda selected_peer, message_id: message),
+            media=Media(),
+        ),
+        config=SimpleNamespace(core=SimpleNamespace(media_directory=media_root)),
+    )
+    runtime = SimpleNamespace(
+        is_account_scoped=True,
+        ownership=SimpleNamespace(
+            installation_root=tmp_path,
+            account_data_directory=account_root,
+            core=SimpleNamespace(media_directory=media_root),
+        ),
+        data_scope=SimpleNamespace(scope_key="account:synthetic"),
+        dialog_catalog=SimpleNamespace(
+            get=lambda reference: {"peer_file": str(peer_file)}
+        ),
+        media_cache_lock=threading.RLock(),
+        media_cache_files={},
+        run_sync=lambda **kwargs: kwargs["callback"](),
+    )
+    operations = EitaaProviderRuntimeOperations(
+        runtime,
+        BridgeConfigLoader.load(config_file),
+    )
+
+    @contextmanager
+    def open_bridge(site_key):
+        assert site_key == "medical-site"
+        yield bridge
+
+    operations._open_bridge = open_bridge
+    receipt = operations.read_media(
+        site_key="medical-site",
+        peer_reference="channel:77",
+        message_reference="message:77",
+        media_reference="media:77",
+        variant="full",
+        max_bytes=512 * 1024 * 1024,
+    )
+    assert receipt["mime_type"] == "audio/ogg"
+    assert receipt["byte_count"] == len(b"synthetic-audio")
+    assert str(receipt["content_reference"]).startswith("cache:")
+    assert download_count == 1
+
+    with pytest.raises(CompositionValidationError) as rejected:
+        operations.read_media(
+            site_key="medical-site",
+            peer_reference="channel:77",
+            message_reference="message:77",
+            media_reference="media:77",
+            variant="thumbnail",
+            max_bytes=16 * 1024 * 1024,
+        )
+    assert rejected.value.code == "provider_media_not_found"
+    assert download_count == 1

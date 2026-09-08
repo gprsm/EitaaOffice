@@ -1,6 +1,6 @@
 # مشخصات پروژه Eitaa Bridge
 
-آخرین بازبینی: 2026-08-26 (ثبت پذیرش کاربر و closure G-09 در V-148)
+آخرین بازبینی: 2026-08-29 (نصب تازهٔ چندحسابی و RC5 در V-189)
 
 ## ۱. هدف محصول
 
@@ -19,7 +19,7 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - Phase 11-B1 Registry پایدار، Coordinator schema v6، Contact schema v3، Audit عمومی، Fake Provider سوم و Capability service حساب‌محور را تکمیل کرده است؛ product catalog همچنان فقط Eitaa/Bale را نمایش می‌دهد و Fake test-only است.
 - Phase 11-B2 هر شش عملیات Dialog/History/Text Send/Media/Contacts را در orchestrator عمومی، Eitaa compatibility و Process Child RPC محدود تکمیل کرده است. receiptهای mutation در Coordinator schema v7 پایدار و privacy-safe هستند؛ نتیجه Contract/Fake/Adversarial است و Live ادعا نمی‌شود.
 - Phase 11-C از نظر قرارداد متأخر تصمیم‌گیری شده، ولی runtime Bale خاموش و نه contract-verified و نه Live-verified است. بخش محلی 11-D و read/live-sync حساب موجود ایتا پذیرفته شده‌اند؛ Pilot واقعی حساب دوم یا Bale اجرا نشده و عملیات Live به تأیید همان لحظه نیاز دارد.
-- دامنهٔ تثبیت G-00 تا G-09 کامل و توسط کاربر پذیرفته شده است؛ snapshot جاری `USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE` است: Backend=`656/656` با skip صفر، تمام ۹ runner UI، TypeScript، build، archive deterministic/privacy-safe، wheel parity 90/0 drift و fresh-install آفلاین سبزند. این طبقه‌بندی مجوز Production release نیست؛ code-sign، پذیرش دیداری Windows 10/11 و real-user installer بازند و شمارش‌های `590/590` تا `643/643` تاریخی‌اند.
+- دامنهٔ تثبیت G-00 تا G-09 کامل و توسط کاربر پذیرفته شده است. checkpoint فعال‌سازی/نصب‌کننده اکنون Backend=`691/691`، TypeScript، UI/Electron observability و onboarding UI=`8/8` سبز، wheel/source parity، install-copy simulation، EXE `--verify-only` و privacy inspection بدون finding دارد. Setup RC5 برای Windows 10/11 x64 با UI گرافیکی فارسی، آیکون چنداندازه و امضای داخلی pinned ساخته شده، Python/Node مقصد نمی‌خواهد و پیش از Config/DB به مجوز Ed25519 وابسته به دستگاه gate می‌شود. نصب تازه بعد از فعال‌سازی ابتدا مدیر محلی و سپس حساب Eitaa متعلق به همان مدیر را می‌سازد؛ multi-account/worker فعال‌اند و Start/Auth هر حساب صریح است. Copy/Paste فعال‌سازی مستقل از layout است و build خروجی قبلی را آرشیو می‌کند. کلید Authenticode non-exportable و trust bundle عمومی آماده است؛ Production key فعال‌سازی، public reputation، اعتماد مقصد، پذیرش دیداری و نصب واقعی Windows تمیز همچنان بازند.
 - AppUser می‌تواند از صفحهٔ ورود و دکمهٔ «کاربر جدید هستم» در deployment خصوصی ثبت‌نام کند. حساب تازه همیشه role=`user` دارد؛ حداقل رمز چهار نویسه و policy نشست جاری یک سال است.
 - UI فعال Material-only و mobile-first است و page/barهای اصلی module جدا دارند. پیام‌های گفتگوی باز و top/unread فهرست گفتگوها بدون reload دستی و با polling تطبیقی account-scoped تازه می‌شوند.
 - ناوبری موبایل فهرست‌محور است: انتخاب دسته در Bottom Navigation باید فهرست فیلترشده را آشکار کند و Header گفتگو مسیر بازگشت RTL به فهرست داشته باشد.
@@ -50,7 +50,11 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - رابط React RTL در Electron یا Web/LAN کنترل‌شده.
 - Design System الزامی Material UI، shell موبایل/دسکتاپ مشترک‌منطق، safe-area و touch target حداقل 44px.
 - دریافت خودکار near-real-time پیام گفتگوی باز و فهرست گفتگوها؛ merge محدود بدون reload و بدون retry mutation.
-- integrationهای WordPress برای site/content/media، به‌صورت اختیاری.
+- ادغام دیداری پیام/آلبوم‌های مجاور یک فرستنده در همان روز و با فاصلهٔ حداکثر پنج دقیقه، با حفظ ترتیب متن/عکس/فایل و شناسهٔ مستقل هر پیام منبع.
+- بارگیری آواتار cache-first و account-scoped با lane مستقل cache/remote، failure isolation و fallback امن initials؛ عملیات remote Provider باید با قرارداد session مشترک هم‌پوشانی نکند.
+- بارگیری محتوای گفت‌وگوی فعال بالاترین اولویت را دارد؛ آواتار همان گفتگو قابل promotion و آواتار فهرست delayed/background است. cache خراب باید پیش از نمایش/ثبت تشخیص و قابل‌بازیابی باشد.
+- integrationهای WordPress برای site/content/media، به‌صورت opt-in با پنل پیش‌فرض مخفی؛ taxonomy فقط پس از نمایش صریح پنل و وجود credential سایت فعال خوانده می‌شود.
+- عملیات گفتگو فقط برای group/channel فعال با نقش قابل‌اثبات owner/admin حساب انتخابی فعال است؛ unknown/member/personal/inactive به‌شکل fail-closed بسته‌اند.
 - endpoint امن Capability برای هر MessengerAccount و guard عمومی Dialog/History/Send/Media/Contacts.
 - endpointهای v2 حساب‌محور برای Dialog/History/Text Send/Media read/Contact list/upsert با context سروری، correlation/deadline، payload allowlist، تأیید mutation و idempotency پایدار.
 

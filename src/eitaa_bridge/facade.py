@@ -34,6 +34,7 @@ from .infrastructure.data_scope import ProviderAccountScope
 from .infrastructure.diagnostics import BridgeDiagnosticManager
 from .infrastructure.eitaa import CoreBinding, CoreCompatibility
 from .infrastructure.wordpress import WordPressClient, load_wordpress_credentials
+from .licensing import enforce_installed_license
 from .version import __version__
 
 
@@ -72,6 +73,8 @@ class EitaaBridge:
         data_scope: ProviderAccountScope | None = None,
         actor_app_user_id: str | None = None,
     ) -> "EitaaBridge":
+        selected_config_path = Path(config_path).expanduser().resolve()
+        enforce_installed_license(selected_config_path.parent)
         config = BridgeConfigLoader.load(config_path, env_file=env_file)
         if core_config_override is not None:
             core_config_override.validate()

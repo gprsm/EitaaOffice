@@ -42,6 +42,29 @@ def test_remote_refresh_does_not_overwrite_locked_group_override(tmp_path):
     assert refreshed["top_message_id"] == 100
 
 
+def test_remote_refresh_persists_and_preserves_account_management_role(tmp_path):
+    peer = Peer(id=51, type=PeerType.CHANNEL, access_hash=2, title="کانال مدیریت‌شده")
+    peer_file = tmp_path / "channel-51.json"
+    save_peer_file(peer_file, peer)
+    catalog = JsonDialogCatalog(tmp_path / "catalog.json", base_directory=tmp_path)
+
+    owner = catalog.upsert(
+        peer=peer, peer_file=peer_file, source="remote", account_role="owner"
+    )
+    assert owner["account_role"] == "owner"
+    assert owner["can_manage_community"] is True
+
+    preserved = catalog.upsert(peer=peer, peer_file=peer_file, source="remote")
+    assert preserved["account_role"] == "owner"
+    assert preserved["can_manage_community"] is True
+
+    revoked = catalog.upsert(
+        peer=peer, peer_file=peer_file, source="remote", account_role="member"
+    )
+    assert revoked["account_role"] == "member"
+    assert revoked["can_manage_community"] is False
+
+
 def test_dialog_catalog_deduplicates_same_peer_key(tmp_path):
     peer = Peer(id=77, type=PeerType.CHANNEL, access_hash=5, title="نمونه")
     peer_file = tmp_path / "channel-77.json"

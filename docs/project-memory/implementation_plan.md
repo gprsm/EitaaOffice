@@ -1,6 +1,6 @@
 # UI Optimization and Refactoring Plan
 
-> وضعیت در 2026-08-25: این برنامهٔ توسعه‌ای تا پایان تثبیت `F-039` تا `F-044` در حالت `DEFERRED` است. مرجع اجرایی جاری [برنامهٔ جامع تثبیت و رفع اشکال](STABILIZATION_REMEDIATION_PLAN_2026-08-25.md) و [دفتر اجرای آن](STABILIZATION_EXECUTION_LOG.md) است. هیچ Phase توسعه‌ای این سند نباید پیش از دستور صریح کاربر و بسته‌شدن اهداف تثبیت آغاز شود.
+> وضعیت در 2026-08-27: این برنامهٔ عمومی UI همچنان `DEFERRED` است. بخش Phase 3 این سند یک طرح تاریخی و سطح‌بالاست و برای ایندکس دیگر مرجع اجرایی محسوب نمی‌شود؛ مرجع canonical، [نقشه‌راه هوشمندسازی ایندکس و گزارش‌سازی](INDEX_INTELLIGENCE_REPORTING_ROADMAP_2026-08-27.md) است که فعلاً فقط فاز صفر تحلیل دامنه را مجاز می‌داند. سایر بخش‌ها نیز بدون دستور صریح کاربر آغاز نمی‌شوند.
 
 This document outlines the multi-phase execution strategy to systematically optimize, modularize, and enhance the Eitaa Bridge UI, adhering strictly to a mobile-first philosophy and Material UI standards.
 

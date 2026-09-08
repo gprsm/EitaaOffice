@@ -364,3 +364,120 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - runtime patch سازگاری بخشی از رفتار اجرایی محصول است، نه فایل تزئینی. build نام آن را از ۱۶ نویسهٔ نخست SHA-256 محتوای source می‌سازد، نسخه‌های ثابت/قدیمی همان patch را از `dist/assets` حذف و دقیقاً همان نام را پیش از bundle اصلی در index تزریق می‌کند.
 - برابری source/dist، انطباق hash نام فایل با محتوا، نبود URL ثابت و cache header هر دو نوع asset قرارداد آزموده‌شده‌اند. تغییر finalizer، static server یا نام‌گذاری asset این شواهد را منقضی می‌کند.
 - restart یا refresh نباید سازوکار اصلی invalidation باشد؛ هر تغییر محتوای runtime patch باید URL تازه بسازد. راه‌اندازی برنامه و تأیید بصری کاربر همچنان برای پذیرش Live مستقل است.
+
+## ۴۱. دروازهٔ تحلیل دامنه پیش از معماری هوشمندسازی ایندکس و گزارش
+
+- معماری هدف report-centric است: شواهد ورودی به رویدادها و واقعیت‌های گزارش‌پذیر متصل می‌شوند، قواعد versioned آن‌ها را به خروجی‌های گزارش نگاشت می‌کنند و WordPress/Excel فقط projection هستند. WordPress منبع حقیقت انحصاری نیست.
+- schema، API، UI و الگوریتم نهایی پیش از فاز صفر تثبیت نمی‌شوند. فاز صفر باید inventory منابع و provenance، واژگان و مرز مفاهیم، نسخه‌های گزارش، corpus مجاز/بی‌نام، baseline جاری و معیار ارزیابی را ثبت کند.
+- برنامه، شاخص، رویداد، مدرک، کنش، مناسبت، مکان، واحد گزارش‌دهنده، وابستگی فرستنده و disposition سند موجودیت‌های قابل‌تفکیک‌اند. «نامربوط» دستهٔ فعالیت و location جانشین reporting unit نیست.
+- کد ابلاغی metadata نسخه‌دار است، نه شناسهٔ یکتای داخلی. تکرار یا معنای کد فقط با سند رسمی و provenance قطعی می‌شود؛ UI باید تاریخچهٔ تغییر چارچوب گزارش را نگه دارد.
+- مسیر پایه local-first و deterministic است. مدل زبانی فقط در فاز مستقل آینده با opt-in، budget/quota، redaction، خروجی schema-bound، provenance و تأیید انسانی ارزیابی می‌شود؛ پاسخ مدل به‌تنهایی قاعدهٔ دائمی یا دادهٔ آموزشی معتبر نمی‌سازد.
+- exact cache، retrieval نمونه‌های تأییدشده و rule memory مفاهیم جدا هستند و نباید با وعدهٔ «یک فراخوانی برای هر الگو» ادغام شوند. هدف درصدی مصرف API بدون corpus و ارزیابی رسمی معتبر نیست.
+- scheduler خودکار تا قرارداد lifecycle، cancellation/join، account isolation، backoff، observability و safe-default مستقل خاموش می‌ماند. چندحسابی/چندکاربری، Provider abstraction و مرزهای authorization در همهٔ فازها حفظ می‌شوند.
+- مرجع اجرایی: `docs/project-memory/INDEX_INTELLIGENCE_REPORTING_ROADMAP_2026-08-27.md`، Finding=`F-051` و Validation=`V-163`.
+
+## ۴۲. منشأ و کیفیت مقدار گزارش بخشی از خود داده است
+
+- مقدار عددی یا متنی گزارش بدون `value_kind` و provenance حقیقت تأییدشده محسوب نمی‌شود. مفاهیم حداقلی پذیرفته‌شده عبارت‌اند از `observed`، `reported_by_unit`، `estimated`، `synthetic_placeholder` و `verified`.
+- `estimated` و `synthetic_placeholder` بدون اقدام صریح و auditشدهٔ کاربر به `verified` ارتقا نمی‌یابند و وارد training truth نمی‌شوند. صرف ورود دستی، ذخیره، نمایش یا export draft تأیید نیست.
+- سامانه حق ساخت عدد و نمایش آن به‌عنوان آمار واقعی را ندارد. اگر کاربر مقدار موقت/ساختگی وارد کند، برچسب کیفیت، منشأ، actor/time و تاریخچهٔ اصلاح باید حفظ شود.
+- نام فنی enum/ستون، transitionها، مجوز نقش‌ها و export gate پس از مدل‌سازی Phase 0 تعریف می‌شوند؛ این ADR به‌تنهایی schema یا قابلیت محصول ایجاد نمی‌کند.
+- منبع تصمیم: `SRC-USER-IR-002`، Q-IR-013، F-054 و V-167.
+
+## ۴۳. grain ثبت شواهد از grain خروجی گزارش جدا است
+
+- پیام، رسانه و سند در grain evidence ثبت می‌شوند و می‌توانند به یک یا چند event/fact متصل شوند. این grain مستقیماً ردیف Excel نیست.
+- ردیف اصلی workbook برای هر برنامه/زیرجدول، جمع استان در دوره و نسخهٔ چارچوب است؛ دامنهٔ استان شامل ستاد استانی و واحدهای شهرستانی است. metricها از event/factهای واجد قاعده تجمیع می‌شوند.
+- breakdown شهرستان/حوزه، رویداد، تاریخ و مدارک باید قابل بازسازی بماند. aggregation نباید provenance یا قابلیت audit را از بین ببرد.
+- الزام تفکیک هر حوزه/مراسم می‌تواند در ضمیمه یا نمای drill-down تحقق یابد، بدون آنکه هر رویداد ردیف اصلی workbook شود.
+- schema و کلید فنی projection پس از Phase 0 تعیین می‌شود؛ ترکیب مفهومی فعلی `framework version + reporting period + province + program/subtable` است.
+- منبع تصمیم: `SRC-USER-IR-003`، Q-IR-004، F-055 و V-168.
+
+## ۴۴. گروه محتوایی پنج‌دقیقه‌ای و صف دولایهٔ آواتار
+
+- واحد دیداری timeline می‌تواند چند پیام منبع داشته باشد. پیام‌ها/آلبوم‌های مجاور فقط وقتی ادغام می‌شوند که identity فرستنده یکسان، ترتیب زمانی معتبر، فاصلهٔ هر واحد حداکثر 300 ثانیه و روز نمایشی یکسان باشد. آلبوم Provider واحد اتمیک است، ولی می‌تواند با پیام یا آلبوم بعدی همان فرستنده ادغام شود.
+- lookup گروه باید از پنجرهٔ کامل پیش از filter ساخته شود. fallback فرستندهٔ ورودی فقط برای personal/channel مجاز است؛ group بدون sender identity ادغام نمی‌شود تا پیام افراد ناشناس یکی نشود.
+- یک Card گروهی ترتیب text/image/file را حفظ می‌کند، اما selection، index feedback، usage، unread، focus و scroll semantics تمام member IDها را نگه می‌دارند. ادغام presentation مجوز ادغام یا حذف رکوردهای persistence نیست.
+- بارگیری آواتار cache-first است: probeهای cached-only در lane مستقل و پرتعداد اجرا می‌شوند و فقط miss وارد lane remote می‌شود. failure هر task باید resolve امن/TTL کوتاه داشته و lane را متوقف نکند؛ key و اجرای هر مرحله account-scoped است.
+- remote avatar concurrency عمداً یک است، چون Eitaa Core از session مشترک استفاده می‌کند و عملیات Provider نباید overlap شوند. استقلال UI/HTTP/cache/failure به معنی parallel کردن ناامن Provider نیست.
+- نبود photo reference قابل استفاده، privacy Provider یا دادهٔ stale با initials مهار می‌شود. تغییر contact codec/Core برای نگه‌داری عکس User یک سناریوی مستقل است و از این تصمیم استنتاج نمی‌شود.
+- مرجع: F-056، V-169/V-170 و `docs/reports/features/CONSECUTIVE_MESSAGE_GROUPING_AND_AVATAR_RESILIENCE_REPORT_2026-08-27.md`.
+
+## ۴۵. استثنای گزارش می‌تواند metric و ضمیمهٔ مستقل از ستون template باشد
+
+- نبود ستون مستقیم در workbook به معنای حذف یک الزام صریح گزارش نیست. rule versioned می‌تواند metric و annex جدا تولید کند و آن را به منبع/قاعدهٔ workbook متصل نگه دارد.
+- زیارت عاشورا metric تجمیعی مستقل در سطح استان دارد و breakdown واحد/رویداد/مدرک آن در ضمیمه حفظ می‌شود؛ این metric main ceremony count را افزایش نمی‌دهد.
+- projection باید نشان دهد مقدار از ستون اصلی، ضمیمه یا گزارش تفصیلی آمده است تا تغییر template source fact را از بین نبرد.
+- نام فنی metric و فرمت ضمیمه پس از report map تعیین می‌شود؛ این ADR قابلیت اجرایی ایجاد نمی‌کند.
+- منبع تصمیم: `SRC-USER-IR-004`، Q-IR-005، F-057 و V-171.
+
+## ۴۶. تکمیل و تأیید گزارش ستادمحور، محلی و human-in-the-loop است
+
+- واحدهای شهرستانی کاربر سامانه نیستند و account/role مستقیم ندارند؛ اطلاعات آن‌ها از Eitaa به‌عنوان evidence/claim وارد می‌شود. خبر ستاد نیز می‌تواند از همین مسیر وارد review و projection WordPress شود.
+- فقط کاربر اصلی و همکاران ستادی مجاز در یک مکان فیزیکی و شبکهٔ خصوصی، پرسشنامه‌ها و factهای گزارش را تکمیل/اصلاح می‌کنند. LAN اعتماد ضمنی ایجاد نمی‌کند؛ authentication، authorization server-side و audit همچنان لازم‌اند.
+- WordPress مخزن/نمای فعالیت‌ها و یک source/projection قابل تطبیق است، نه مرجع حقیقت انحصاری. تغییر یا انتشار در آن تابع review مجزاست.
+- اتوماسیون یادگیرندهٔ محلی ابزار کمک ترجیحی است. API عامل هوشمند فقط fallback opt-in با redaction، budget/quota، structured output و review انسانی است.
+- تأیید نهایی، محاسبهٔ استانی و export فقط به نقش انسانی مرکزی مجاز منتسب می‌شود. Codex، LLM یا هر Agent دیگری approver و صاحب اختیار گزارش نیست.
+- این ADR مرز دامنه و دسترسی است؛ role schema، LAN deployment و UI هنوز پیاده نشده‌اند.
+- منبع تصمیم: `SRC-USER-IR-005`، Q-IR-014، F-060 و V-173.
+
+## ۴۷. پنل WordPress opt-in و عملیات گفتگو مبتنی بر نقش قابل‌اثبات است
+
+- WordPress یک integration اختیاری است؛ surface آن با setting حساب/کاربر و default خاموش نمایش داده می‌شود. خاموش‌بودن باید پیش از هر taxonomy HTTP اثر کند و روشن‌بودن بدون credential سایت فعال نیز category/tag fetch را مجاز نمی‌کند.
+- در حالت پنهان، surface اصلی فقط «عملیات گفتگو» است. این عملیات فقط برای dialog فعال از نوع group/channel و نقش حساب `owner` یا `admin` فعال می‌شود؛ personal، inactive، member و unknown همگی fail-closed هستند.
+- نقش client-authoritative نیست. فقط metadataای که parser معتبر Provider پذیرفته است به catalog حساب‌محور منتقل می‌شود و capability در read دوباره از role محاسبه می‌گردد. raw TL payload، peer/account id و متن خصوصی وارد observability نمی‌شوند.
+- نبود signal معتبر نباید با حدس جبران شود. در Core جاری، Channel/Supergroup owner/admin و creator گروه پایه قابل اثبات‌اند؛ basic-group admin غیرمالک unknown می‌ماند تا قرارداد self-role معتبر افزوده شود.
+- آواتار گفت‌وگوی فعال از آواتارهای پس‌زمینه جلو می‌افتد، اما پیام‌های گفت‌وگوی فعال اولویت بالاتری دارند. cache/HTTP می‌توانند مستقل و bounded باشند؛ تمام تماس‌های نشست مشترک Eitaa همچنان در scheduler Backend سریال می‌مانند.
+- cache فقط وقتی معتبر است که نوع تصویر پشتیبانی‌شده، اندازهٔ محدود و محتوای غیرتهی داشته باشد. cache خراب miss است و overwrite کنترل‌شده می‌شود؛ نبود reference یا failure به initials امن ختم می‌شود.
+- مرجع: F-061، V-181/V-182 و `docs/reports/features/WORDPRESS_PANEL_ROLE_GATING_AND_PRIORITY_AVATAR_REPORT_2026-08-27.md`.
+
+## ۴۸. Setup قابل‌تحویل Runtime محلی همراه دارد و دادهٔ عملیاتی را حمل نمی‌کند
+
+- نصب‌کنندهٔ پیشنهادی Windows یک EXE تک‌فایلی است که Python 3.13 x64، dependencyهای نصب‌شده فقط از wheelهای آفلاین و Build اعتبارسنجی‌شدهٔ UI را به‌صورت application-local حمل می‌کند. نصب سراسری یا دانلود Python/Node روی مقصد لازم و مجاز نیست؛ Node.js فقط ابزار build توسعه‌ای UI/Electron است.
+- Setup در سطح کاربر زیر `%LOCALAPPDATA%\Programs\EitaaBridge` نصب می‌شود. managed code/runtime در ارتقا mirror می‌شوند، ولی config، `.env`، Session، database، media، runtime logs، diagnostics و backups مقصد حفظ می‌شوند.
+- artifact قابل‌اشتراک از build host هیچ `bridge.json`/`.env` واقعی، Session، داده، رسانه، log، diagnostics یا backup نمی‌گیرد. انتقال operational state فقط از مسیر Backup/Restore مستقل، با رفتار و تأیید جداگانه انجام می‌شود.
+- سیستم پشتیبانی‌شده برای این snapshot Windows 10/11 x64 با Microsoft Edge است. Windows 7 پیش از هر mutation رد می‌شود: Runtime جاری قرارداد Python >=3.11 دارد، Python رسمی 3.13 Windows 7 را پشتیبانی نمی‌کند و Edge پشتیبانی‌شده نیز برای آن باقی نمانده است. fork مبتنی بر Python 3.8/dependency منقضی یا Runtime غیررسمی release امن محسوب نمی‌شود.
+- bootstrap resourceهای داخلی را می‌تواند با `--verify-only` بدون نصب کنترل کند. این شاهد و شبیه‌سازی install-copy جای code-sign، SmartScreen reputation، Windows visual یا clean-machine real-user acceptance را نمی‌گیرد.
+- سطح بیرونی Setup گرافیکی فارسی و RTL است و مسیر ثابت نصب، preservation داده، progress و اجرای اختیاری را نشان می‌دهد؛ Batch داخلی فقط با `/quiet` فراخوانی می‌شود. پیش از انتشار جفت Setup/Portable جدید، artifactهای نام‌دار قبلی به آرشیو زمان‌دار دارای SHA-256 Manifest منتقل می‌شوند و حذف خام مجاز نیست.
+- مرجع: F-062/F-066، V-184/V-188 و `docs/reports/features/SELF_CONTAINED_WINDOWS_INSTALLER_REPORT_2026-08-28.md`.
+
+## ۴۹. فعال‌سازی آفلاین با امضای نامتقارن و fingerprint حداقلی دستگاه انجام می‌شود
+
+- برنامه نباید secret متقارن یا «فرمول تولید سریال» قابل استخراج را همراه customer artifact حمل کند. مالک یک private key Ed25519 خارج از Repository/Release نگه می‌دارد و برنامه فقط public keyهای allowlisted را برای verify دارد.
+- request code فقط Product، fingerprint version و digest canonical دو component پایدار Windows را حمل می‌کند: Machine GUID و serial دیسک سیستم. هر component پیش از ترکیب hash می‌شود؛ مقدار خام در UI transfer payload، log، diagnostics یا گزارش ذخیره نمی‌شود.
+- activation payload امضاشده شامل device digest، key/license ID، زمان صدور، expiry اختیاری، edition و featureهاست. typo request با checksum و جعل/tamper/license دستگاه دیگر با signature و constant-time digest comparison رد می‌شود.
+- activation code معتبر با DPAPI user-scoped و write اتمیک در `data/licensing/activation.dat` ذخیره می‌شود. DPAPI محرمانگی at-rest و مقاومت در برابر کپی ساده را می‌دهد؛ امضای Ed25519 و device match مرجع authenticity هستند.
+- نصب self-contained fail-closed است: Launcher پیش از Backend فعال‌سازی را می‌سنجد و API/Facade نیز قبل از Config/Coordinator/Provider gate دارند. در source development بدون marker/bundled runtime این gate اعمال نمی‌شود؛ customer Setup marker صریح و bundled-runtime detection هر دو را دارد.
+- انتقال folder/Backup به دستگاه یا Windows user دیگر مجوز را منتقل نمی‌کند. نصب مجدد Windows، فرمت یا تعویض system drive می‌تواند reactivation بخواهد؛ این tradeoff مالکیت دستگاه است.
+- هیچ DRM محلی روی Python تضمین مطلق در برابر مدیر متخصص یا patch binary/source نمی‌دهد. Production نیازمند private key رمزدار مالک، offline backup، rotation/revocation policy، code-sign، integrity hardening و clean-machine acceptance است. کلید فعلی فقط branch-test است.
+- Clipboard UI بخشی از مرز usability/security است: Copy/Paste/Select All باید دکمه و منوی صریح داشته و shortcutها با keycode فیزیکی مستقل از layout فارسی/انگلیسی کار کنند. Paste فقط whitespace و format-control را حذف می‌کند و قالب امضاشده را بازنویسی یا حدس نمی‌زند. کوتاه‌کردن کد نیازمند format version تازه است و نباید با truncation امضا یا fingerprint انجام شود.
+- مرجع: F-063/F-066، V-185/V-188 و `docs/reports/features/OFFLINE_DEVICE_ACTIVATION_REPORT_2026-08-28.md`.
+
+## ۵۰. امضای داخلی Authenticode با اعتماد صریح و کلید غیرقابل‌خروج انجام می‌شود
+
+- گواهی Authenticode از کلید Ed25519 صدور مجوز مستقل است. گواهی داخلی Code Signing با RSA 3072/SHA-256 در `Cert:\CurrentUser\My` سازنده و `KeyExportPolicy=NonExportable` ایجاد می‌شود؛ PFX/private key وارد Repository، source archive، Setup، Portable یا delivery نمی‌شود.
+- trust bundle فقط CER عمومی، metadata/hash/Thumbprint، راهنمای فارسی و trust installer pin‌شده دارد. Setup حق import پنهان گواهی به Root یا TrustedPublisher را ندارد؛ کاربر مقصد پس از تطبیق مستقل Thumbprint، اعتماد CurrentUser یا LocalMachine را صریحاً نصب می‌کند.
+- Self-signed یک مسیر رایگان داخلی برای integrity و publisher continuity است و public CA/SmartScreen reputation ایجاد نمی‌کند. تا پیش از نصب CER، `UnknownError`/untrusted بودن chain انتظار می‌رود و به معنی نبودن signature نیست؛ signer Thumbprint و invalidation پس از tamper جدا سنجیده می‌شوند.
+- Setup برندشده فقط با ICO معتبر ساخته می‌شود. همان ICO در resource EXE و payload نصب است و Desktop/Start Menu به آن اشاره می‌کنند؛ fallback بدون آیکون نباید نام Setup نهایی بگیرد.
+- hash sidecar بعد از امضا تولید می‌شود. نبود آیکون، Thumbprint، private key، signer match یا invalidation دستکاری Release را fail-closed متوقف می‌کند.
+- مرجع: F-064، V-186، `docs/INTERNAL_CODE_SIGNING.md` و `docs/reports/features/INTERNAL_CODE_SIGNING_AND_WINDOWS_BRANDING_REPORT_2026-08-28.md`.
+
+## ۵۱. ایندکس و گزارش چهار سطح دارد و promotion چندعاملی متمرکز است
+
+- معماری محصول چهار سطح پایدار دارد: `L1` ایندکس معنایی و candidateهای قابل‌بازبینی، `L2` projection اختیاری WordPress، `L3` هستهٔ محلی fact/rule/metric/report و `L4` اتصال، یادگیری و اتوماسیون کنترل‌شده. فازهای IR ترتیب ساخت این سطح‌ها هستند، نه جایگزین آن‌ها.
+- همهٔ سطح‌ها از evidence/fact/provenance/review مشترک استفاده می‌کنند. WordPress و Excel projection هستند؛ taxonomy/post/worksheet مرجع حقیقت انحصاری یا شناسهٔ داخلی دامنه نیست.
+- ترتیب وابستگی حفظ می‌شود: L1 مرجع فهم محتوا را می‌سازد؛ L2 فقط دادهٔ reviewشده را نمایش/منتشر می‌کند؛ L3 قواعد و تجمیع گزارش را مالک است؛ L4 فقط پس از baseline و review معتبر سه سطح قبلی وارد می‌شود.
+- کاربر مالک محصول/دامنه و approver گزارش است. Codex مدیر معماری و یکپارچه‌سازی و writer/promoter canonical پیش‌فرض workstream است. این نقش اختیار صریح کاربر را جایگزین نمی‌کند.
+- کار قابل واگذاری با کلاس ریسک و Task Contract تعریف می‌شود. Agent مجری حق گسترش scope، تخصیص شناسهٔ canonical، تغییر ADR یا معرفی خروجی خود به‌عنوان acceptance را ندارد؛ خروجی تا review/validation/promotion noncanonical است.
+- فقط یک writer برای فایل/رجیستر canonical مجاز است. parallel read-only یا write در worktree ایزوله و فایل‌های غیرهم‌پوشان مجاز است؛ هم‌زمان‌نویسی در worktree/رجیستر مشترک ممنوع است.
+- enforcement ماشینی allocator/lock/merge queue هنوز پیاده نشده است؛ نسخهٔ فعلی قرارداد فرایندی و لازم‌الاجراست.
+- منبع تصمیم: `SRC-USER-IR-006`، F-065، V-187، `INDEX_INTELLIGENCE_FOUR_LEVEL_OPERATING_MODEL.md` و `MULTI_AGENT_DEVELOPMENT_GOVERNANCE.md`.
+
+## ۵۲. نصب تازه ابتدا مدیر محلی و سپس حساب پیام‌رسانِ متعلق به او را می‌سازد
+
+- پروفایل customer installer باید `app_user_auth`، `multi_session` و `worker_process` را با هم روشن کند؛ خاموش‌کردن هرکدام برای ساختن یک مسیر ظاهراً تک‌حسابی، قرارداد چندکاربری/چندحسابی محصول را دور می‌زند.
+- در نصب کاملاً تازه و بدون `MessengerAccount`، API مجاز است بدون legacy runtime بالا بیاید تا فقط bootstrap کاربر نرم‌افزار انجام شود. نبود runtime در این مرحله یک وضعیت معتبر onboarding است، نه مجوز ساخت runtime یا حساب پیش‌فرض پنهان.
+- ترتیب رابط قطعی است: فعال‌سازی دستگاه، ساخت نخستین `AppUser` با نقش `admin`، نمایش فهرست خالی حساب‌ها، افزودن نخستین حساب Eitaa با membership برابر `owner` و سپس Start و Auth حساب به درخواست صریح کاربر.
+- افزودن حساب، Worker، اتصال Provider، دریافت کد و OTP را خودکار آغاز نمی‌کند. هر حساب بعدی نیز از همان مسیر عمومی، حساب‌محور و مبتنی بر membership افزوده و در انتخاب‌گر جابه‌جا می‌شود.
+- ارتقای عادی `bridge.json` و state مقصد را حفظ می‌کند. بنابراین مشاهدهٔ این مسیر فقط روی نصب تمیز یا پس از تغییر نام ایمن پوشهٔ نصب ممکن است؛ حذف state یا بازنویسی config در upgrade مجاز نیست.
+- مرجع: F-067، V-189 و `docs/reports/features/MULTI_ACCOUNT_CLEAN_INSTALL_RC5_REPORT_2026-08-29.md`.

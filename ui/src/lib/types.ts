@@ -33,6 +33,9 @@ export interface DialogItem {
   display_kind_locked: boolean
   favorite: boolean
   source: 'remote' | 'manual' | string
+  active?: boolean
+  account_role?: 'owner' | 'admin' | 'member' | 'unknown'
+  can_manage_community?: boolean
   top_message_id: number
   top_message_date?: number | null
   unread_count: number
