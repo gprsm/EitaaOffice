@@ -69,6 +69,7 @@ from ..errors import (
     WordPressConnectionError,
     WordPressError,
 )
+from ..licensing import enforce_installed_license
 from ..facade import EitaaBridge
 from ..infrastructure.composition_manifest import CompositionManifestLoader
 from ..infrastructure.contact_store import (
@@ -106,6 +107,7 @@ from ..infrastructure.diagnostics import (
     observability_disk_health,
     prune_old_diagnostic_runs,
 )
+from ..infrastructure.eitaa.dialog_permissions import consume_dialog_account_roles
 from ..providers.registry import default_provider_registry
 from ..providers.contracts import (
     ProviderAccountContext,
@@ -291,6 +293,10 @@ class BridgeApplicationApi:
     ) -> None:
         self.config_path = Path(config_path).expanduser().resolve()
         self.env_file = Path(env_file).expanduser().resolve() if env_file else None
+        # Packaged installations fail closed before Config, Coordinator DB,
+        # Provider runtime, or diagnostics state is opened. Development trees
+        # are not gated unless they carry the explicit release policy marker.
+        enforce_installed_license(self.config_path.parent)
         config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
         self.config = config
         EnvLoader.load(config.env_file)
@@ -342,15 +348,33 @@ class BridgeApplicationApi:
         )
         runtime_registry: EitaaRuntimeRegistry | None = None
         try:
+            # A restart with only created or paused accounts is the same
+            # onboarding state as an empty install: no worker can run yet,
+            # and the explicit UI Start is what promotes the account.
+            coordinator_store = CoordinatorDatabase(coordinator_database)
+            no_runnable_account = (
+                config.features.multi_session.enabled
+                and config.features.worker_process.enabled
+                and not coordinator_store.has_runnable_messenger_account()
+            )
+            allow_onboarding_bootstrap = clean_install_bootstrap or no_runnable_account
             runtime_registry = EitaaRuntimeRegistry(
                 config,
                 application_diagnostics=self._application_diagnostics,
                 application_logger=self._application_logger,
                 coordinator_database=coordinator_database,
-                allow_empty_bootstrap=clean_install_bootstrap,
+                allow_empty_bootstrap=allow_onboarding_bootstrap,
             )
+            selected_runtime: EitaaAccountRuntime | EitaaProcessRuntime | None
             if config.features.multi_session.enabled:
-                if clean_install_bootstrap:
+                if allow_onboarding_bootstrap and config.features.worker_process.enabled:
+                    # A fresh process-isolated installation has no account and
+                    # therefore no valid v1 runtime yet.  AppUser bootstrap and
+                    # MessengerAccount onboarding are runtime-independent; the
+                    # first account runtime is created only after an explicit
+                    # account Start request.
+                    selected_runtime = None
+                elif clean_install_bootstrap:
                     selected_runtime = runtime_registry.legacy_runtime
                 else:
                     try:
@@ -499,7 +523,7 @@ class BridgeApplicationApi:
 
     def _bind_runtime(
         self,
-        runtime: EitaaAccountRuntime | EitaaProcessRuntime,
+        runtime: EitaaAccountRuntime | EitaaProcessRuntime | None,
     ) -> None:
         """Bind API v1 compatibility fields to one explicit runtime owner."""
 
@@ -508,7 +532,14 @@ class BridgeApplicationApi:
     @property
     def _runtime(self) -> EitaaAccountRuntime | EitaaProcessRuntime:
         selected = self._request_runtime.get()
-        return selected if selected is not None else self._v1_runtime
+        if selected is not None:
+            return selected
+        if self._v1_runtime is None:
+            raise EitaaRuntimeError(
+                "Select and start a messaging account before using the workspace.",
+                code="messenger_account_selection_required",
+            )
+        return self._v1_runtime
 
     def _scoped_cache_key(self, namespace: str, *parts: object) -> str:
         return self._runtime.data_scope.key(namespace, *parts)
@@ -1137,7 +1168,7 @@ class BridgeApplicationApi:
             response = self._error_response(exc)
         try:
             error = response.payload.get("error") if isinstance(response.payload, dict) else None
-            selected_runtime = self._runtime
+            selected_runtime = self._request_runtime.get() or self._v1_runtime
             request_fields = {
                 "request_id": request_id,
                 "method": selected_method,
@@ -1145,7 +1176,11 @@ class BridgeApplicationApi:
                 "status": response.status,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
                 "error_code": error.get("error_code") if isinstance(error, dict) else None,
-                "messenger_account_id": selected_runtime.ownership.messenger_account_id,
+                "messenger_account_id": (
+                    selected_runtime.ownership.messenger_account_id
+                    if selected_runtime is not None
+                    else None
+                ),
                 "app_user_id": self._request_actor_app_user_id.get(),
             }
             level = "error" if response.status >= 500 else ("warning" if response.status >= 400 else "info")
@@ -1161,7 +1196,10 @@ class BridgeApplicationApi:
                 ),
                 fields=request_fields,
             )
-            if selected_runtime.logger is not self._application_logger:
+            if (
+                selected_runtime is not None
+                and selected_runtime.logger is not self._application_logger
+            ):
                 selected_runtime.logger.emit(
                     "account_api_request",
                     level=level,
@@ -6107,9 +6145,11 @@ class BridgeApplicationApi:
         cached_path = Path(str(cached)).expanduser() if cached else None
         if cached_path and not cached_path.is_absolute():
             cached_path = (self.base_directory / cached_path).resolve()
-        if bool(payload.get("cached_only")) and (not cached_path or not cached_path.exists()):
+        if cached_path is not None and not self._valid_avatar_file(cached_path):
+            cached_path = None
+        if bool(payload.get("cached_only")) and cached_path is None:
             return {"ok": True, "peer_key": peer_key, "avatar_present": False, "cached_only": True}
-        if not cached_path or not cached_path.exists():
+        if cached_path is None:
             def operation() -> Path | None:
                 with self._open_bridge(
                     self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
@@ -6123,15 +6163,22 @@ class BridgeApplicationApi:
                     file_name = f"{source_peer.type.value}_{source_peer.id}_{source_photo.photo_id}.jpg"
                     result = bridge.core.media.download(
                         source_photo,
-                        MediaDownloadOptions(output_directory=output, file_name=file_name, overwrite=False, max_bytes=8 * 1024 * 1024),
+                        MediaDownloadOptions(output_directory=output, file_name=file_name, overwrite=True, max_bytes=8 * 1024 * 1024),
                     )
                     path = result.path
+                    if not self._valid_avatar_file(path):
+                        return None
                     bridge.core.discovery.set_cached_photo_path(source_peer, source_photo.photo_id, path)
                     return path
 
+            request_priority = str(payload.get("request_priority") or "background").strip().lower()
             cached_path = self._run_eitaa(
-                priority=EitaaPriority.AVATAR,
-                kind="dialogs.avatar",
+                priority=(
+                    EitaaPriority.ACTIVE_AVATAR
+                    if request_priority == "active"
+                    else EitaaPriority.AVATAR_BACKGROUND
+                ),
+                kind=("dialogs.avatar.active" if request_priority == "active" else "dialogs.avatar.background"),
                 callback=operation,
             )
             if cached_path is None:
@@ -6141,13 +6188,41 @@ class BridgeApplicationApi:
             except ValueError:
                 stored = str(cached_path.resolve())
             entry = self.dialog_catalog.set_photo_cached_path(peer_key, stored)
+        if not self._valid_avatar_file(cached_path):
+            return {"ok": True, "peer_key": peer_key, "avatar_present": False}
         data = cached_path.read_bytes()
-        mime_type = mimetypes.guess_type(cached_path.name)[0] or "image/jpeg"
+        mime_type = self._avatar_mime_type(data)
         return {
             "ok": True, "peer_key": peer_key, "avatar_present": True,
             "mime_type": mime_type, "bytes": len(data),
             "data_url": f"data:{mime_type};base64,{base64.b64encode(data).decode('ascii')}",
         }
+
+    @staticmethod
+    def _avatar_mime_type(data: bytes) -> str:
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png"
+        if data.startswith((b"GIF87a", b"GIF89a")):
+            return "image/gif"
+        if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+            return "image/webp"
+        return "image/jpeg"
+
+    @classmethod
+    def _valid_avatar_file(cls, path: Path) -> bool:
+        try:
+            if not path.is_file() or not 3 <= path.stat().st_size <= 8 * 1024 * 1024:
+                return False
+            with path.open("rb") as stream:
+                header = stream.read(16)
+        except OSError:
+            return False
+        return (
+            header.startswith(b"\xff\xd8\xff")
+            or header.startswith(b"\x89PNG\r\n\x1a\n")
+            or header.startswith((b"GIF87a", b"GIF89a"))
+            or (header.startswith(b"RIFF") and header[8:12] == b"WEBP")
+        )
 
     def _merge_core_dialogs(
         self, bridge: EitaaBridge, entries: Any, *, source: str, complete: bool,
@@ -6158,6 +6233,7 @@ class BridgeApplicationApi:
         selected_keys: set[str] = set()
         counts: dict[str, int] = {}
         skipped_unusable = 0
+        account_roles = consume_dialog_account_roles()
         for entry in entries:
             peer = entry.peer
             if peer.type in {PeerType.USER, PeerType.CHANNEL} and peer.access_hash is None:
@@ -6190,6 +6266,7 @@ class BridgeApplicationApi:
                 participants_count=entry.participants_count,
                 photo_cached_path=entry.photo_cached_path,
                 active=True,
+                account_role=account_roles.get(peer_key),
             )
         combined_keys = active_keys if active_keys is not None else selected_keys
         combined_keys.update(selected_keys)
@@ -6746,8 +6823,13 @@ class BridgeApplicationApi:
                 if message.media is None:
                     return {"ok": True, "message_id": message_id, "media_present": False}
                 media = message.media
-                is_image = media.type.value in {"photo", "image_document", "sticker"}
-                if not is_image:
+                media_type = media.type.value
+                mime_hint = str(media.mime_type or "").strip().lower()
+                is_image = media_type in {"photo", "image_document", "sticker"}
+                is_playable = media_type in {"audio", "video"} or mime_hint.startswith(
+                    ("audio/", "video/")
+                )
+                if not is_image and (quality != "full" or not is_playable):
                     return {
                         "ok": True,
                         "message_id": message_id,
@@ -6756,7 +6838,11 @@ class BridgeApplicationApi:
                         "media": media.safe_summary(),
                     }
 
-                thumb_type = self._thumbnail_type(media) if quality == "thumbnail" else None
+                thumb_type = (
+                    self._thumbnail_type(media)
+                    if is_image and quality == "thumbnail"
+                    else None
+                )
                 cache_directory = bridge.config.core.media_directory / "ui-cache" / quality
                 cache_directory.mkdir(parents=True, exist_ok=True)
                 remote_id = int(getattr(media, "remote_id", 0) or 0)
@@ -6786,7 +6872,18 @@ class BridgeApplicationApi:
                         safe_context={"bytes": file_size, "max_bytes": max_bytes, "quality": quality},
                         code="api_media_preview_too_large",
                     )
-                mime_type = mimetypes.guess_type(cache_path.name)[0] or media.mime_type or "image/jpeg"
+                fallback_mime = (
+                    "image/jpeg"
+                    if is_image
+                    else "audio/mpeg"
+                    if media_type == "audio"
+                    else "video/mp4"
+                )
+                mime_type = (
+                    mimetypes.guess_type(cache_path.name)[0]
+                    or media.mime_type
+                    or fallback_mime
+                )
                 token = self.register_media_cache_file(cache_path, mime_type)
                 self._runtime_logger.emit(
                     "media_cache",

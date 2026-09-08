@@ -36,6 +36,7 @@ from ..infrastructure.eitaa.sender_directory import (
     configure_sender_directory,
     sender_directory_scope,
 )
+from ..infrastructure.eitaa.dialog_permissions import install_dialog_permission_capture
 from ..infrastructure.eitaa.session_ownership import (
     EitaaSessionOwnership,
     SessionOwnershipMode,
@@ -50,6 +51,9 @@ from ..infrastructure.coordinator import (
 )
 from .scheduler import EitaaOperationScheduler, EitaaPriority
 from .process_runtime import EitaaProcessRuntime, EitaaProcessWorkerClient
+
+
+install_dialog_permission_capture()
 
 
 def _utc_now() -> str:
@@ -1019,7 +1023,10 @@ class EitaaRuntimeRegistry:
             feature.enabled
             and feature.legacy_default_messenger_account_id is None
             and not allow_empty_bootstrap
+            and self._coordinator.runnable_messenger_account_id() is None
         ):
+            # No account is runnable and none can be resolved as the v1
+            # default; the caller must treat this as an onboarding bootstrap.
             if self._legacy_runtime is not None:
                 self._legacy_runtime.close()
             raise EitaaRuntimeError(
@@ -1045,6 +1052,11 @@ class EitaaRuntimeRegistry:
         if not feature.enabled:
             return self.legacy_runtime
         selected_id = feature.legacy_default_messenger_account_id
+        if selected_id is None:
+            # A worker-process installation that started an account has no
+            # configured legacy default by design; the running account is the
+            # v1 runtime.  Booting after that explicit Start must not die.
+            selected_id = self._coordinator.runnable_messenger_account_id()
         if selected_id is None:
             raise EitaaRuntimeError(
                 "Multi-session v1 compatibility has no default account.",
@@ -1121,7 +1133,7 @@ class EitaaRuntimeRegistry:
                 return existing, worker
             if self.config.features.worker_process.enabled:
                 record = self._coordinator.messenger_account_runtime(selected_id)
-                self._assert_runnable(record)
+                self._assert_startable(record)
                 return self._start_process_runtime(
                     record,
                     actor_app_user_id=actor_app_user_id,
@@ -1434,6 +1446,42 @@ class EitaaRuntimeRegistry:
                 code="eitaa_runtime_storage_revision_unsupported",
             )
         if record.lifecycle_state != "active" or record.desired_worker_state != "running":
+            raise EitaaRuntimeError(
+                "The selected Eitaa account is not runnable.",
+                safe_context={
+                    "messenger_account_id": record.messenger_account_id,
+                    "lifecycle_state": record.lifecycle_state,
+                    "desired_worker_state": record.desired_worker_state,
+                },
+                code="eitaa_runtime_account_not_runnable",
+            )
+
+    @staticmethod
+    def _assert_startable(record: MessengerAccountRuntimeRecord) -> None:
+        """Validate an explicit Start request before the lifecycle transition.
+
+        The coordinator's own start contract only blocks disabled,
+        quarantined, or archived accounts; ``created`` and ``paused``
+        accounts are exactly the ones an explicit Start is meant to
+        promote to active/running.
+        """
+
+        if record.provider != "eitaa":
+            raise EitaaRuntimeError(
+                "The selected MessengerAccount is not an Eitaa account.",
+                safe_context={"messenger_account_id": record.messenger_account_id},
+                code="eitaa_runtime_provider_mismatch",
+            )
+        if record.storage_revision != 1:
+            raise EitaaRuntimeError(
+                "The account storage revision is unsupported.",
+                safe_context={
+                    "messenger_account_id": record.messenger_account_id,
+                    "storage_revision": record.storage_revision,
+                },
+                code="eitaa_runtime_storage_revision_unsupported",
+            )
+        if record.lifecycle_state in {"disabled", "quarantined", "archived"}:
             raise EitaaRuntimeError(
                 "The selected Eitaa account is not runnable.",
                 safe_context={

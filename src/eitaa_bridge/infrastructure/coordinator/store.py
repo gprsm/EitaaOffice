@@ -2210,6 +2210,26 @@ class CoordinatorDatabase:
             ).fetchall()
         return tuple(self._worker_record(row) for row in rows)
 
+    def runnable_messenger_account_id(self) -> str | None:
+        """Return one account already in the worker-runnable state, if any."""
+
+        self.initialize()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT id FROM messenger_accounts
+                WHERE lifecycle_state='active' AND desired_worker_state='running'
+                ORDER BY created_at ASC, id ASC
+                LIMIT 1
+                """,
+            ).fetchone()
+        return str(row["id"]) if row is not None else None
+
+    def has_runnable_messenger_account(self) -> bool:
+        """Report whether any account is already in the worker-runnable state."""
+
+        return self.runnable_messenger_account_id() is not None
+
     def recover_dead_worker_instance(
         self,
         worker_instance_id: str,
