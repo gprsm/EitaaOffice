@@ -83,3 +83,5 @@
 ## ۶. مرز امنیتی
 
 این حافظه نباید Credential، Cookie، Token، OTP، رمز، شمارهٔ کامل، متن خصوصی پیام، Access Hash، Session، IP عمومی، مسیر شخصی غیرضروری یا محتوای خام Support Bundle را ثبت کند. فقط Metadata امن، شناسهٔ opaque و مسیر نسبی پروژه مجاز است.
+
+- [REPORTING_CORE_IMPLEMENTATION_2026-09-08.md](REPORTING_CORE_IMPLEMENTATION_2026-09-08.md) — هستهٔ گزارش ۱۴۰۵ پیاده‌سازی شد؛ رصد ایتا + ایندکس‌گذار intent + بله اضافه شد (ADR-53/54، F-070/071، V-190/191)

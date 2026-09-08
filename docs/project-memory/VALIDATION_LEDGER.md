@@ -1664,3 +1664,20 @@
 - Delivery: folder و ZIP بیرونی شامل Setup، Portable، branding و trust bundle عمومی است؛ ZIP=`61,883,250 bytes / SHA-256 66AF08945065BF17E503A257DFC36F8415F251E78583A8602B9A2BBA2E2C2D26 / 15 entries`. همهٔ 10 متن strict UTF-8 BOM، بدون replacement/mojibake هستند؛ Setup داخل ZIP hash-identical و private-key filename/PEM finding صفر است. RC4 به archive زمان‌دار `20260829-195620` منتقل شد.
 - عملیات: نصب واقعی، تغییر trust مقصد، Provider/Login/OTP/Send/WordPress و دادهٔ عملیاتی صفر. clean-machine visual و جابه‌جایی واقعی میان دو حساب همچنان آزمون کاربر مقصد است.
 - Trigger ابطال: تغییر config featureها، API bootstrap، Gateها، account ownership، builder/privacy scanner، signer یا نتیجهٔ مقصد.
+
+### V-190 — پذیرش هستهٔ گزارش ۱۴۰۵: قواعد شمارش، فرم‌ها، export روی کپی
+
+- تاریخ: 2026-09-08
+- دامنه: `src/eitaa_bridge/reporting/` (model، rules، aggregate، forms، eitaa_extraction، excel_export، service) و `tests/test_reporting_core.py`
+- RED→GREEN: مجموعهٔ ۳۶ تست نوشته و سبز شد؛ قبل از پیاده‌سازی هیچ‌کدام از این ماژول‌ها وجود نداشت.
+- شاهد: `.venv/Scripts/python.exe -m pytest tests/test_reporting_core.py -q` → 36 passed؛ regression کل بسته به‌جز تست پریتی wheel از قبل قرمزِ مستقل (missing=8 ناشی از نبود rebuild wheel در این سشن؛ بدون تغییرات من هم قرمز بود).
+- پوشش تأییدشده: کد 80403 مراسم؛ قاعدهٔ C12 زیارت عاشورا (خروج از شمارش اصلی + ضمیمهٔ مستقل)؛ قاعدهٔ C15 مسابقهٔ داخل مراسم؛ قاعدهٔ C16 نشست (>۳۰ دقیقه + اطلاع‌رسانی + پذیرایی)؛ شرط B9/B10 تکریم و C8 تشویق؛ دروازهٔ ADR-42 روی `estimated`/`synthetic_placeholder`؛ ردیف = جمع استان با تفکیک واحد در breakdown؛ export روی کپی با hash فایل اصلی ثابت؛ بلاک شدن export با ستارهٔ پرنشده.
+- محدودیت: UI/فرم گرافیکی، اتصال زندهٔ Provider به ایتا و پریتی wheel در این تسک نبود؛ این‌ها باقی‌ماندهٔ فاز بعدی‌اند.
+
+### V-191 — پذیرش ایندکس‌گذار intent ایتا و پیام‌رسانی بله
+
+- تاریخ: 2026-09-08
+- دامنه: `reporting/indexer.py`، `reporting/monitor.py`، `reporting/bale_messaging.py`، `tests/test_reporting_indexer.py`
+- شاهد: `pytest tests/test_reporting_indexer.py` → 26 passed؛ مجموع reporting → 62 passed؛ regression کامل بسته به‌جز تست پریتی wheel (مستقل از این تغییر) سبز.
+- پوشش تأییدشده: تفکیک سه‌کلاسهٔ event_report/informational/promotional روی نمونه‌های واقعی فارسی؛ استخراج عدد فارسی؛ نگاشت هفت برنامه؛ کاندید با provenance؛ پرهیز مانیتور بدون runtime؛ dedup رفرنس پیام بین دو watch config؛ ارسال/دریافت بله با خطای امن‌شده و پیپ‌لاین مشترک intent.
+- محدودیت: اتصال live به حساب واقعی ایتا/بله در این تسک تست نشد (نیازمند نشست واقعی طبق قرارداد پروژه)؛ UI مانیتور باقی‌ماندهٔ فاز بعد است.
