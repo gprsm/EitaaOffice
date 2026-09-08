@@ -956,6 +956,14 @@
 - تحویل: پوشهٔ `Eitaa_Bridge/delivery-activation-branch/rc5-multiaccount-internal-signed-rev2/` (Setup+Portable+sidecars+manifest rev2+SHA256SUMS ۱۴ entrada+trust+branding+متن‌های فارسی) و ZIP تحویل با همان نام سابق جایگزین شد: `EitaaBridge-0.8.0-rc5-MultiAccount-InternalSigned-GuiSetup-Delivery.zip` = `61,886,807 bytes / SHA-256 20f77a32d8751d350fe2cb1db1705754d7f593010d5084ff0f9639a0c4644769 / 15 entries`؛ بستهٔ rev1 به `archive/20260908-151043` منتقل شد. ممیزی ZIP: Setup داخل ZIP hash-identical، هر سه فایل fix داخل payload، ۱۰ متن UTF-8 سالم، manifest rev2 سالم.
 - باقی‌مانده: commit گزینشی با هماهنگی کاربر؛ نصب rev2 روی ماشین مقصد طبق CLEAN_INSTALL_TEST_FA.md و آزمون UI واقعی (گیت حساب باید با «شروع ورکر» عبور کند)؛ سپس بستن F-068.
 
+**بستن ۲۰۲۶-۰۹-۰۸ (نشست چهارم):**
+
+- وضعیت: `CLOSED_CODE_AND_REAL_INSTALL_VERIFIED / CUSTOMER_TARGET_MACHINE_CONFIRMATION_OPTIONAL`
+- commit: دو commit گزینشی ساخته شد — `6248aafe` (baseline کارهای قبلی: licensing/امضا/installer/UI/اسناد + fix قبلی http_api و تست بوت) و `2f561e77` (اصلاح F-068 سه‌فایلی + تست‌های ۶گانه + رفع F-069 در تست deterministic + ignores). working tree پس از آن کاملاً تمیز است.
+- suite کامل پس از commit: `699 passed / 0 failed` (برای اولین بار شامل تست deterministic هم که با انتقال scratch wheels داخل project root سبز شد — F-069 بسته شد).
+- نصب تمیز واقعی روی همین ماشین (مسیر مشتری `%LOCALAPPDATA%\Programs\EitaaBridge`، بدون نصب قبلی): اجرای همان زنجیرهٔ رسمی `install_office_payload.cmd /quiet` (که Setup GUI با تأیید کاربر اجرا می‌کند؛ Setup EXE خودش آرگومان نمی‌پذیرد و GUI است) → نصب کامل با میانبرهای Desktop/Start Menu → فعال‌سازی با کلید branch-test → launch با کنترلر رسمی `office_runtime.py` → setup مدیر (201) → حساب اول `created` → **«شروع ورکر»=200 با active/running و worker ready (pid واقعی)** → **stop رسمی → relaunch رسمی → بوت سبز، login 200، حساب active/running با worker ready**. سپس برنامه stop و کل نصب آزمایشی و میانبرها حذف شدند؛ هیچ اثری باقی نماند.
+- نتیجه: هر سه ریشهٔ F-068 روی نصب واقعیِ مسیر مشتری حل‌شده و اثبات‌شده‌اند. تأیید روی ماشین خود مشتری اختیاری است (بستهٔ rev2 = همان کد همین آزمون).
+
 ### F-069 — تست deterministic wheel-builder پیش از F-068 خراب است (مسیر tmp خارج از project root)
 
 - وضعیت: `OPEN / PREEXISTING / UNRELATED_TO_F068 / LOW`

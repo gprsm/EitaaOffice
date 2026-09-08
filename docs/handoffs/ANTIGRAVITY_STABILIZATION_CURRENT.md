@@ -1,6 +1,6 @@
 # Handoff جاری تثبیت برای AntiGravity و Codex
 
-## وضعیت فوری (۲۰۲۶-۰۹-۰۸، پایان نشست سوم): تحویل rev2 ساخته و E2E کامل سبز — فقط commit و نصب مقصد باقی است
+## وضعیت فوری (۲۰۲۶-۰۹-۰۸، پایان نشست چهارم): F-068 بسته شد — commit×2 + suite 699/699 + نصب تمیز واقعی مسیر مشتری سبز
 
 - **بستهٔ تحویل rev2 آماده است** و جایگزین ZIP قبلی در مسیر تحویل شد: `Eitaa_Bridge/delivery-activation-branch/EitaaBridge-0.8.0-rc5-MultiAccount-InternalSigned-GuiSetup-Delivery.zip` = `61,886,807 bytes / SHA-256 20f77a32d8751d350fe2cb1db1705754d7f593010d5084ff0f9639a0c4644769 / 15 entries` (بستهٔ rev1 به `archive/20260908-151043` منتقل شد). پوشهٔ کامل rev2: `rc5-multiaccount-internal-signed-rev2/` با manifest، SHA256SUMS و trust bundle.
 - Setup rev2=`31,299,904 / SHA-256 44A2EDAAD4A434666A6EE96E7E1C1759EE52E8C3144052B22A4ED91ECE6DFFD5` (signer pin=441692B4...BD02 سبز، tamper tested سبز)؛ Portable=`30,497,765 / SHA-256 4ed983cc...d3b19`؛ wheel جدید=`83ec1f1b...5292d`.

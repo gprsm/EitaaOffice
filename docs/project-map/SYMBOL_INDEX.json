@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "445b0efce7fb6ebe",
+  "source_fingerprint": "768b9735de2363ba",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -13462,82 +13462,82 @@
         {
           "name": "_load_package_module_for_audit",
           "kind": "function",
-          "line": 17
+          "line": 18
         },
         {
           "name": "_write",
           "kind": "function",
-          "line": 35
+          "line": 36
         },
         {
           "name": "_minimal_release_tree",
           "kind": "function",
-          "line": 42
+          "line": 43
         },
         {
           "name": "test_package_module_is_utf8_importable_without_null_bytes",
           "kind": "function",
-          "line": 74
+          "line": 75
         },
         {
           "name": "test_legacy_packager_demonstrates_blacklist_leak_on_synthetic_tree",
           "kind": "function",
-          "line": 82
+          "line": 83
         },
         {
           "name": "test_release_collection_is_allowlisted_and_excludes_private_or_scratch_state",
           "kind": "function",
-          "line": 102
+          "line": 103
         },
         {
           "name": "test_release_dry_run_is_write_free_and_archive_is_deterministic",
           "kind": "function",
-          "line": 135
+          "line": 136
         },
         {
           "name": "test_release_privacy_scan_rejects_secret_content_without_echoing_it",
           "kind": "function",
-          "line": 178
+          "line": 179
         },
         {
           "name": "test_archive_verifier_rejects_traversal_and_noncanonical_names",
           "kind": "function",
-          "line": 202
+          "line": 203
         },
         {
           "name": "test_archive_verifier_rejects_case_insensitive_name_collision",
           "kind": "function",
-          "line": 223
+          "line": 224
         },
         {
           "name": "test_archive_verifier_rejects_entry_hash_tamper",
           "kind": "function",
-          "line": 242
+          "line": 243
         },
         {
           "name": "test_existing_output_is_not_overwritten_without_force",
           "kind": "function",
-          "line": 260
+          "line": 261
         },
         {
           "name": "test_bridge_wheel_parity_rejects_stale_or_missing_source",
           "kind": "function",
-          "line": 277
+          "line": 278
         },
         {
           "name": "test_bundled_bridge_wheel_matches_current_source_tree",
           "kind": "function",
-          "line": 287
+          "line": 288
         },
         {
           "name": "test_release_excludes_quarantined_bale_client_but_keeps_fail_closed_slot",
           "kind": "function",
-          "line": 299
+          "line": 300
         },
         {
           "name": "test_stdlib_wheel_builder_is_deterministic_and_uses_canonical_contract",
           "kind": "function",
-          "line": 323
+          "line": 324
         }
       ]
     },

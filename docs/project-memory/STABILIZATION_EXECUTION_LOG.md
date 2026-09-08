@@ -4038,3 +4038,38 @@ git: {branch: codex/stabilization-g09, commits: 0, commit_selective_pending_user
 live_effect: {install_localappdata: 0, provider: 0, login_otp: 0, send: 0, wordpress: 0, operational_data: 0}
 output_summary: بستهٔ rev2 با هر سه اصلاح F-068 ساخته، امضا، ممیزی و در مسیر تحویل جایگزین شد؛ E2E کامل روی همان payload سبز؛ commit و نصب مقصد باقی است.
 ```
+
+### CLEANINSTALL-G09-R04-S01 — commit گزینشی و پذیرش نصب واقعی F-068
+
+```yaml
+event_id: CLEANINSTALL-G09-R04-S01
+event: F068_SELECTIVE_COMMITS_AND_REAL_INSTALL_ACCEPTANCE
+started_at: 2026-09-08T19:30:00+03:30
+ended_at: 2026-09-08T21:00:00+03:30
+run_id: CLEANINSTALL-G09-R04
+actor: codex
+action_kind: GIT_COMMIT_REAL_INSTALL_E2E_DOCUMENT
+f069_fix: {test: deterministic wheel builder, change: "scratch wheels به dist/.parity-scratch داخل project root + force + cleanup", result: "g07 15/15 سبز"}
+commits:
+  - {id: 6248aafe, kind: baseline, scope: "licensing/signing/installer/UI/docs قبلی + fix قبلی http_api + تست بوت تمیز", files: 104}
+  - {id: 2f561e77, kind: fix, scope: "F-068 سه‌فایلی + ۶ تست جدید + رفع F-069 + .gitignore", files: 5}
+  working_tree_after: clean
+full_suite_after_commits: {passed: 699, failed: 0}
+real_clean_install:
+  machine: build host به‌عنوان نزدیک‌ترین معادل مقصد (نصب قبلی وجود نداشت)
+  path: "%LOCALAPPDATA%\Programs\EitaaBridge"
+  chain: "install_office_payload.cmd /quiet (همان زنجیرهٔ رسمی Setup GUI؛ Setup EXE آرگومان نمی‌پذیرد)"
+  result: نصب کامل + میانبرهای Desktop/Start Menu ساخته شد
+  activation: branch-test key PASS
+  e2e:
+    - launch با office_runtime.py رسمی: بوت سبز
+    - setup admin: 201
+    - onboard: created/stopped
+    - worker/start: 200 active/running worker ready (pid real)
+    - stop رسمی + relaunch رسمی: بوت سبز، login 200، حساب active/running worker ready
+  cleanup: برنامه stop شد؛ نصب آزمایشی/میانبرها کامل حذف؛ LOCALAPPDATA پاک
+artifacts: {delivery_rev2: unchanged (SHA 20f77a32...4769), setup_staging_real_install: "به‌عنوان دلیلی بر زنجیرهٔ نصب نگه داشته شد؛ قابل حذف"}
+docs: {F-068: CLOSED_CODE_AND_REAL_INSTALL_VERIFIED, F-069: CLOSED, docs_checks: all PASS}
+live_effect: {install_localappdata: "1 نصب آزمایشی کامل حین E2E؛ پس از آن کامل حذف شد", provider: 0, login_otp: 0, send: 0, wordpress: 0}
+output_summary: F-068 با commit گزینشی دو مرحله‌ای، suite کامل 699/699 و نصب تمیز واقعی مسیر مشتری بسته شد؛ بستهٔ rev2 آمادهٔ تحویل نهایی است.
+```
