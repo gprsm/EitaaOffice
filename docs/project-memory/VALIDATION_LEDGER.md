@@ -1681,3 +1681,12 @@
 - شاهد: `pytest tests/test_reporting_indexer.py` → 26 passed؛ مجموع reporting → 62 passed؛ regression کامل بسته به‌جز تست پریتی wheel (مستقل از این تغییر) سبز.
 - پوشش تأییدشده: تفکیک سه‌کلاسهٔ event_report/informational/promotional روی نمونه‌های واقعی فارسی؛ استخراج عدد فارسی؛ نگاشت هفت برنامه؛ کاندید با provenance؛ پرهیز مانیتور بدون runtime؛ dedup رفرنس پیام بین دو watch config؛ ارسال/دریافت بله با خطای امن‌شده و پیپ‌لاین مشترک intent.
 - محدودیت: اتصال live به حساب واقعی ایتا/بله در این تسک تست نشد (نیازمند نشست واقعی طبق قرارداد پروژه)؛ UI مانیتور باقی‌ماندهٔ فاز بعد است.
+
+### V-192 — انتشار GitHub و ساخت بستهٔ نصبی RC5 با هستهٔ گزارش
+
+- تاریخ: 2026-09-08
+- انتشار: سه کامیت روی `codex/stabilization-g09` و merge به `main`؛ push به origin (gprsm/EitaaDesktop) هر دو موفق. فایل workbook اصلی ignored و خارج از Git ماند.
+- شاهد بسته: wheel بازساخت (`88c12565…`) و تست پریتی wheel/source که قرمز بود سبز شد؛ UI production build و Electron pack موفق؛ `BUILD_OFFICE_SETUP_EXE` کامل تا امضا.
+- خروجی‌ها در `release/office/`: Setup گرافیکی امضاشدهٔ یک‌فایلی (SHA-256 `A696A222…`، امضا با thumbprint داخلی، tamper-test موفق) و Portable خودکفا (SHA-256 `ce3e8649…`)؛ آرشیو نسخه‌های قبلی طبق قرارداد انجام شد.
+- تأیید محتوا: payload داخل Setup شامل هر ۱۱ ماژول `eitaa_bridge/reporting` (نصب‌شده و داخل wheel) است؛ privacy-check پاس؛ هیچ session/config/دادهٔ خصوصی در بسته نیست.
+- محدودیت محلی: رجیستر CRLF روی فایل ui33 فقط اثر working-copy ماشین build دارد؛ محتوای Git و بسته سالم‌اند (با بازنویسی bytes از blob تأیید شد). امضای self-signed روی ماشین بدون نصب trust، `UnknownError` طبیعی است (F-064).
