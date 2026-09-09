@@ -13,6 +13,7 @@ from ..infrastructure.config import BridgeConfigLoader
 from ..infrastructure.coordinator import MessengerAccountRuntimeRecord
 from ..infrastructure.worker_ipc import IPC_PROTOCOL_VERSION, IpcEnvelope
 from .account_runtime import EitaaAccountRuntime
+from .eitaa_auth_child_operations import EitaaAuthChildOperations
 from .eitaa_provider_runtime_operations import EitaaProviderRuntimeOperations
 from .provider_adapter import ProviderWorkerDispatchResult
 
@@ -66,6 +67,7 @@ class EitaaProviderProcessWorker:
             )
         self.runtime: EitaaAccountRuntime | None = None
         self._provider_operations: EitaaProviderRuntimeOperations | None = None
+        self._auth_operations: EitaaAuthChildOperations | None = None
         self.worker_instance_id: str | None = None
         self.worker_generation: int | None = None
         self._core_opened = False
@@ -148,6 +150,10 @@ class EitaaProviderProcessWorker:
                 runtime,
                 self.config,
             )
+            self._auth_operations = EitaaAuthChildOperations(
+                runtime,
+                self.config,
+            )
             self.worker_instance_id = worker_instance_id
             self.worker_generation = worker_generation
             return ProviderWorkerDispatchResult(
@@ -218,6 +224,8 @@ class EitaaProviderProcessWorker:
             )
         if request.method.startswith("eitaa.provider."):
             return self._dispatch_provider_operation(request)
+        if request.method.startswith("eitaa.auth."):
+            return self._dispatch_auth_operation(request)
         if request.method == "worker.stop":
             if self.runtime is None:
                 self._require_fields(request.payload, frozenset())
@@ -236,6 +244,7 @@ class EitaaProviderProcessWorker:
         runtime = self.runtime
         self.runtime = None
         self._provider_operations = None
+        self._auth_operations = None
         self.worker_instance_id = None
         self.worker_generation = None
         self._core_opened = False
@@ -258,6 +267,92 @@ class EitaaProviderProcessWorker:
                 code="eitaa_process_runtime_not_started",
             )
         return operations
+
+    def _require_auth_operations(self) -> EitaaAuthChildOperations:
+        operations = self._auth_operations
+        if operations is None:
+            raise EitaaRuntimeError(
+                "The Eitaa authentication runtime has not started.",
+                code="eitaa_process_runtime_not_started",
+            )
+        return operations
+
+    def _dispatch_auth_operation(
+        self,
+        request: IpcEnvelope,
+    ) -> ProviderWorkerDispatchResult:
+        operations = self._require_auth_operations()
+        if request.method == "eitaa.auth.status":
+            self._require_runtime_fields(request.payload, frozenset())
+            return ProviderWorkerDispatchResult(operations.status())
+        if request.method == "eitaa.auth.request_code":
+            self._require_runtime_fields(
+                request.payload,
+                frozenset({"phone"}),
+            )
+            supplied = request.payload.get("phone")
+            if supplied is not None and not isinstance(supplied, str):
+                raise WorkerIpcError(
+                    "The Eitaa login phone payload is invalid.",
+                    code="ipc_payload_invalid",
+                )
+            return ProviderWorkerDispatchResult(
+                operations.request_code(supplied_phone=supplied)
+            )
+        if request.method == "eitaa.auth.submit_code":
+            self._require_runtime_fields(
+                request.payload,
+                frozenset({"challenge_id", "code"}),
+            )
+            challenge_id = request.payload.get("challenge_id")
+            code = request.payload.get("code")
+            if not isinstance(challenge_id, str) or not isinstance(code, str):
+                raise WorkerIpcError(
+                    "The Eitaa login code payload is invalid.",
+                    code="ipc_payload_invalid",
+                )
+            return ProviderWorkerDispatchResult(
+                operations.submit_code(challenge_id=challenge_id, code=code)
+            )
+        if request.method == "eitaa.auth.submit_password":
+            self._require_runtime_fields(
+                request.payload,
+                frozenset({"challenge_id", "credential"}),
+            )
+            challenge_id = request.payload.get("challenge_id")
+            credential = request.payload.get("credential")
+            if not isinstance(challenge_id, str) or not isinstance(credential, str):
+                raise WorkerIpcError(
+                    "The Eitaa login password payload is invalid.",
+                    code="ipc_payload_invalid",
+                )
+            return ProviderWorkerDispatchResult(
+                operations.submit_password(
+                    challenge_id=challenge_id,
+                    credential=credential,
+                )
+            )
+        if request.method == "eitaa.auth.reset_local_session":
+            self._require_runtime_fields(
+                request.payload,
+                frozenset({"automatic_recovery"}),
+            )
+            automatic = request.payload.get("automatic_recovery")
+            if not isinstance(automatic, bool):
+                raise WorkerIpcError(
+                    "The Eitaa session reset payload is invalid.",
+                    code="ipc_payload_invalid",
+                )
+            return ProviderWorkerDispatchResult(
+                operations.reset_local_session(automatic_recovery=automatic)
+            )
+        if request.method == "eitaa.auth.logout":
+            self._require_runtime_fields(request.payload, frozenset())
+            return ProviderWorkerDispatchResult(operations.logout())
+        raise WorkerIpcError(
+            "The Eitaa auth IPC method is not supported.",
+            code="ipc_method_not_supported",
+        )
 
     def _dispatch_provider_operation(
         self,

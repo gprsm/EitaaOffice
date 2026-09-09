@@ -169,6 +169,25 @@ def _normalize_login_code(value: Any) -> str:
     )
 
 
+_MIGRATED_PROCESS_AUTH_ROUTES = frozenset(
+    {
+        ("GET", "/api/v1/auth/status"),
+        ("POST", "/api/v1/auth/request-code"),
+        ("POST", "/api/v1/auth/submit-code"),
+        ("POST", "/api/v1/auth/submit-password"),
+        ("POST", "/api/v1/auth/logout"),
+        ("POST", "/api/v1/auth/reset-local-session"),
+        ("POST", "/api/v1/auth/recover-phone-identity"),
+    }
+)
+
+
+def _is_migrated_process_auth_route(method: str, path: str) -> bool:
+    """Whether this v1 route already executes through the auth Child RPC."""
+
+    return (method, path) in _MIGRATED_PROCESS_AUTH_ROUTES
+
+
 def _provider_login_code_failure(error: RpcError) -> tuple[str, str, str, str]:
     provider_text = str(getattr(error, "text", "") or "").upper()
     if "PHONE_CODE_EXPIRED" in provider_text or "PHONE_CODE_HASH" in provider_text:
@@ -1515,6 +1534,7 @@ class BridgeApplicationApi:
                             selected_method == "GET"
                             and path == "/api/v1/scheduler/status"
                         )
+                        and not _is_migrated_process_auth_route(selected_method, path)
                     ):
                         raise EitaaRuntimeError(
                             "This API route has not been migrated to a DTO-based Child RPC.",
@@ -4131,6 +4151,30 @@ class BridgeApplicationApi:
             "session_generation": record.session_generation,
         }
 
+    def _process_auth_request(
+        self,
+        runtime: EitaaProcessRuntime,
+        method: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Forward one v1 auth route to the account Child RPC boundary."""
+
+        response = runtime.auth_operation_request(
+            method,
+            payload,
+            timeout_seconds=self.config.features.worker_process.request_timeout_seconds,
+        )
+        result = dict(response)
+        result.pop("ok", None)
+        if "session_snapshot" in result:
+            result["session"] = result.pop("session_snapshot")
+        return {"ok": True, **result}
+
+    def _account_session_file(self) -> Path:
+        """Account session path readable from the parent without opening Core."""
+
+        return self._runtime.ownership.core.session_file
+
     def _close_auth_attempt(self) -> None:
         if self._auth_runtime is not None:
             try:
@@ -4266,7 +4310,14 @@ class BridgeApplicationApi:
         app_session: AuthorizedAppSession | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        if self._runtime.is_account_scoped:
+        runtime = self._runtime
+        if isinstance(runtime, EitaaProcessRuntime):
+            return self._process_auth_request(
+                runtime,
+                "eitaa.auth.status",
+                {},
+            )
+        if runtime.is_account_scoped:
             return self._auth_status_account(
                 app_session=app_session,
                 request_id=request_id,
@@ -4532,7 +4583,20 @@ class BridgeApplicationApi:
         app_session: AuthorizedAppSession | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        if self._runtime.is_account_scoped:
+        runtime = self._runtime
+        if isinstance(runtime, EitaaProcessRuntime):
+            automatic_recovery = payload.get("automatic_recovery") is True
+            if payload.get("confirm") is not True and not automatic_recovery:
+                raise CompositionValidationError(
+                    "Explicit confirmation is required to archive the local session.",
+                    code="api_session_reset_confirmation_required",
+                )
+            return self._process_auth_request(
+                runtime,
+                "eitaa.auth.reset_local_session",
+                {"automatic_recovery": automatic_recovery},
+            )
+        if runtime.is_account_scoped:
             return self._auth_reset_local_session_account(
                 payload,
                 app_session=app_session,
@@ -4763,7 +4827,7 @@ class BridgeApplicationApi:
         account_id = str(self._runtime.ownership.messenger_account_id or "")
         coordinator = self._require_coordinator()
         record = self._runtime.refresh_auth_record()
-        session_file = self._core_config().session_file
+        session_file = self._account_session_file()
         if session_file.exists() or record.auth_state != "absent":
             raise CompositionValidationError(
                 "Archive the active provider session before recovering the phone identity.",
@@ -4791,7 +4855,10 @@ class BridgeApplicationApi:
         try:
             resolved = self._runtime.resolve_login_phone(phone)
         except BridgeError as exc:
-            if exc.code != "phone_unprotection_failed":
+            if exc.code not in {
+                "phone_unprotection_failed",
+                "eitaa_process_auth_ipc_required",
+            }:
                 raise
         else:
             if not hmac.compare_digest(resolved, phone):
@@ -4920,7 +4987,21 @@ class BridgeApplicationApi:
         app_session: AuthorizedAppSession | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        if self._runtime.is_account_scoped:
+        runtime = self._runtime
+        if isinstance(runtime, EitaaProcessRuntime):
+            supplied = payload.get("phone")
+            return self._process_auth_request(
+                runtime,
+                "eitaa.auth.request_code",
+                {
+                    "phone": (
+                        supplied
+                        if isinstance(supplied, str)
+                        else None
+                    )
+                },
+            )
+        if runtime.is_account_scoped:
             return self._auth_request_code_account(
                 payload,
                 app_session=app_session,
@@ -5263,7 +5344,17 @@ class BridgeApplicationApi:
         app_session: AuthorizedAppSession | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        if self._runtime.is_account_scoped:
+        runtime = self._runtime
+        if isinstance(runtime, EitaaProcessRuntime):
+            return self._process_auth_request(
+                runtime,
+                "eitaa.auth.submit_code",
+                {
+                    "challenge_id": str(payload.get("challenge_id") or ""),
+                    "code": str(payload.get("code") or ""),
+                },
+            )
+        if runtime.is_account_scoped:
             return self._auth_submit_code_account(
                 payload,
                 app_session=app_session,
@@ -5483,7 +5574,23 @@ class BridgeApplicationApi:
         app_session: AuthorizedAppSession | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        if self._runtime.is_account_scoped:
+        runtime = self._runtime
+        if isinstance(runtime, EitaaProcessRuntime):
+            password = payload.get("password")
+            if not isinstance(password, str) or not password:
+                raise CompositionValidationError(
+                    "password is required.",
+                    code="api_password_required",
+                )
+            return self._process_auth_request(
+                runtime,
+                "eitaa.auth.submit_password",
+                {
+                    "challenge_id": str(payload.get("challenge_id") or ""),
+                    "credential": password,
+                },
+            )
+        if runtime.is_account_scoped:
             return self._auth_submit_password_account(
                 payload,
                 app_session=app_session,
@@ -5608,7 +5715,14 @@ class BridgeApplicationApi:
         app_session: AuthorizedAppSession | None = None,
         request_id: str | None = None,
     ) -> dict[str, Any]:
-        if self._runtime.is_account_scoped:
+        runtime = self._runtime
+        if isinstance(runtime, EitaaProcessRuntime):
+            return self._process_auth_request(
+                runtime,
+                "eitaa.auth.logout",
+                {},
+            )
+        if runtime.is_account_scoped:
             return self._auth_logout_account(
                 app_session=app_session,
                 request_id=request_id,

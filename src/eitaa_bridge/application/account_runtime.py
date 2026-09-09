@@ -659,6 +659,15 @@ class EitaaAccountRuntime:
                 ownership.worker_diagnostics_root,
                 enabled=config.diagnostics.enabled,
             )
+            coordinator_root = (
+                config.source_file.parent / "data" / "coordinator"
+            )
+            coordinator = CoordinatorDatabase(
+                coordinator_root / "coordinator.sqlite3"
+            )
+            phone_protector = WindowsDpapiPhoneProtector(
+                coordinator_root / "identity.key.dpapi"
+            )
             return cls(
                 ownership,
                 diagnostics=diagnostics,
@@ -666,6 +675,8 @@ class EitaaAccountRuntime:
                 owns_logger=True,
                 runtime_record=runtime_record,
                 worker_lease=lease,
+                coordinator=coordinator,
+                phone_protector=phone_protector,
             )
         except Exception:
             if logger is not None:

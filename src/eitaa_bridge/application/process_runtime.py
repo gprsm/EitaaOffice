@@ -81,6 +81,16 @@ _PROVIDER_OPERATION_METHODS = frozenset(
         "eitaa.provider.contacts.upsert",
     }
 )
+_AUTH_OPERATION_METHODS = frozenset(
+    {
+        "eitaa.auth.status",
+        "eitaa.auth.request_code",
+        "eitaa.auth.submit_code",
+        "eitaa.auth.submit_password",
+        "eitaa.auth.reset_local_session",
+        "eitaa.auth.logout",
+    }
+)
 
 
 class EitaaProcessWorkerClient:
@@ -593,6 +603,32 @@ class EitaaProcessRuntime:
                 "The Eitaa provider RPC method is not allowlisted.",
                 safe_context={"method": str(method)[:64]},
                 code="eitaa_process_operation_ipc_forbidden",
+            )
+        if self._closed:
+            raise EitaaRuntimeError(
+                "The Eitaa process runtime is closed.",
+                code="eitaa_process_unavailable",
+            )
+        return self.client.request(
+            method,
+            payload,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def auth_operation_request(
+        self,
+        method: str,
+        payload: Mapping[str, object],
+        *,
+        timeout_seconds: float,
+    ) -> dict[str, object]:
+        """Call only the audited, high-level auth lifecycle RPC allowlist."""
+
+        if method not in _AUTH_OPERATION_METHODS:
+            raise EitaaRuntimeError(
+                "The Eitaa auth RPC method is not allowlisted.",
+                safe_context={"method": str(method)[:64]},
+                code="eitaa_process_auth_ipc_forbidden",
             )
         if self._closed:
             raise EitaaRuntimeError(

@@ -325,10 +325,8 @@ def test_application_uses_remote_scheduler_and_blocks_unmigrated_parent_core(tmp
         )
 
         auth = api.dispatch("GET", "/api/v1/auth/status")
-        assert auth.status == 400
-        assert auth.payload["error"]["error_code"] == (
-            "eitaa_process_operation_ipc_required"
-        )
+        assert auth.status == 200
+        assert auth.payload["authenticated"] is False
 
         capabilities = api.dispatch("GET", "/api/v1/capabilities")
         assert capabilities.status == 400
