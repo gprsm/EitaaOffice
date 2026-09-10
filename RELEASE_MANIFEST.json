@@ -82,7 +82,7 @@
     "offline_activation_required": true,
     "activation_algorithm": "Ed25519",
     "activation_store": "Windows user-scoped DPAPI plus signed device fingerprint",
-    "branch_candidate": "0.8.0-rc6",
+    "branch_candidate": "0.8.0-rc6a",
     "setup_ui": "Persian WinForms graphical installer",
     "setup_sha256": "217A128C59C91B0AEB847ADDA07131D6BF343FC6F27914048D50DC3DCF296459",
     "portable_sha256": "145BD6A3399406E5376DBE1EF04A53E6B23A33E19C74F58489A2BD37C08857B5",
