@@ -152,6 +152,14 @@ def test_submit_code_routes_to_child_challenge_flow(process_api):
     assert response.payload.get("error", {}).get("error_code") != (
         "eitaa_process_operation_ipc_required"
     )
+    # The Child must run its own submit-code state machine: an unknown
+    # challenge_id yields a typed missing-challenge rejection, never the
+    # generic ipc_worker_internal_error crash path (rc6 delivery regression).
+    error_code = response.payload.get("error", {}).get("error_code")
+    assert error_code not in {
+        "ipc_worker_internal_error",
+        "eitaa_process_request_failed",
+    }
 
 
 def test_submit_password_routes_to_child_challenge_flow(process_api):

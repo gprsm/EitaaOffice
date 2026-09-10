@@ -81,3 +81,46 @@ This API route has not been migrated to a DTO-based Child RPC.
 - venv ساخت: `D:\eitaa Project\AntiGravity2\.venv\Scripts\python.exe` (Python 3.13.14) — برای تست/بیلد AG2 حتماً همین استفاده شود.
 - درخت توسعه: پایتون سراسری 3.14 + `eitaa_core` wheel نصب‌شده در user site (از `vendor/`).
 - گواهی امضا در `Cert:\CurrentUser\My` موجود است؛ env var لازم برای بیلد: `EITAA_CODE_SIGNING_THUMBPRINT=441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02`.
+
+---
+
+# پیوست — اصلاح rc6a: خطای «The Eitaa Child rejected the request» در مرحلهٔ تأیید کد
+**تاریخ:** 2026-09-09 (پس از تست واقعی RC6 روی ماشین مجازی) · **وضعیت:** اصلاح‌شده و تست‌شده در هر دو درخت — **منتظر rebuild بستهٔ تحویل و تست مجدد روی ماشین هدف**
+
+## ۱. علامت در تست واقعی
+نصب ✅ → فعال‌سازی ✅ → مدیر اول ✅ → Start Worker ✅ → request-code (یک خطای گذرا، سپس موفق و ارسال OTP) → **submit-code همیشه با 400 و `ipc_worker_internal_error` رد شد** (۱۱ بار، هر بار ~30ms — بدون تماس شبکه). در UI به‌صورت «The Eitaa Child rejected the request.» دیده شد.
+
+## ۲. ریشهٔ مشکل
+در `application/eitaa_auth_child_operations.py` (کد Child):
+- خط ۴۹۶: `BridgeApplicationApi._normalize_login_code(code)`
+- خط ۵۱۶: `BridgeApplicationApi._provider_login_code_failure(exc)`
+
+اما این دو تابع در `api.py` **در سطح ماژول** تعریف شده‌اند (خط ۱۶۲ و ۱۹۱)، نه staticmethod روی کلاس `BridgeApplicationApi` (فقط `_is_invalid_session_error` staticmethod است). نتیجه: `AttributeError` که BridgeError نیست → در حلقهٔ `provider_worker.py` به `except Exception` خام می‌افتد → `ipc_worker_internal_error`. چون این خطا در **خط اولِ** submit_code رخ می‌دهد، هرگز به سرور ایتا نمی‌رسد (توضیح‌دهندهٔ 30ms).
+
+تست رگرسیون قبلی فقط «خطای gate قدیمی نباشد و status در {200,400} باشد» را چک می‌کرد، پس 400 بودنِ همین کرش از زیر آن رد شد.
+
+## ۳. اصلاح (هر دو درخت)
+- `src/eitaa_bridge/application/eitaa_auth_child_operations.py`: دو ارجاع به توابع ماژول-سطح تبدیل شد (`_normalize_login_code` / `_provider_login_code_failure`) و import به‌روز شد.
+- `tests/test_auth_child_rpc_regression.py::test_submit_code_routes_to_child_challenge_flow`: حالا صریحاً `error_code not in {ipc_worker_internal_error, eitaa_process_request_failed}` را assert می‌کند.
+- wheel هر دو درخت rebuild شد (parity test پاس).
+
+## ۴. اعتبارسنجی
+- بازتولید مستقیم روی **بستهٔ پورتابل rc6 واقعیِ تحویل‌شده** (پایتون 3.13 خود بسته): AttributeError تأیید شد؛ پس از کپی فایل اصلاح‌شده، ماژول سالم import و نرمال‌سازی ارقام فارسی (`۱۲۳۴۵` → `12345`) کار کرد.
+- شبیه‌سازی کامل سناریوی VM با Child واقعی: submit-code بدون challenge فعال → `400 api_auth_challenge_missing` (خطای تایپ‌شدهٔ صحیح، نه کرش IPC).
+- مجموعهٔ تست AG2: همهٔ تست‌های مربوطه پاس (auth child RPC، phase7b، lifecycle، clean-install، packaging parity). دو تست ناموفوق در `test_runtime_ownership.py` و `test_ui33_usage_reading_position.py` **از قبل** روی کامیت be822771 بدون این تغییرات هم fail بودند (با git stash بررسی شد) — نامرتبط با این اصلاح.
+
+## ۵. قدم‌های بعدی (به ترتیب)
+1. rebuild بستهٔ تحویل با `BUILD_OFFICE_SETUP_EXE.bat` در AG2 (env var امضا لازم است) — خروجی به‌عنوان **rc6a** یا rev2 برچسب بخورد.
+2. نصب تمیز rc6a روی ماشین هدف و تکرار همان سناریو: فعال‌سازی → مدیر → حساب → Start Worker → ورود شماره → **تأیید کد OTP**.
+3. اگر تأیید شد: آرشیو رسمی در delivery-activation-branch، به‌روزرسانی manifest/checksum، ثبت `user_acceptance_recorded_at`.
+
+## پیوست rc6a — بیلد ۲ (۲۰۲۶-۰۹-۱۰)
+- تست کامل درخت ساخت قبل از بیلد: ۷۶۶ passed / 0 failed (۲ تست pre-existing نامرتبط — `test_runtime_ownership` و `test_ui33_usage_reading_position` — که روی کد be822771 بدون این اصلاح هم fail بودند).
+- بیلد با `BUILD_OFFICE_SETUP_EXE.bat /quiet` + `EITAA_CODE_SIGNING_THUMBPRINT=441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02` انجام شد؛ نام خروجی‌ها در اسکریپت به **rc6a** تغییر کرد.
+- خروجی‌ها در `D:\eitaa Project\AntiGravity2\release\office\`:
+  - `EitaaBridge-0.8.0-rc6a-AuthChildRpc-InternalSigned-GuiSetup-x64.exe` — SHA-256 `05145214E31E285AE059D8BE13DAD6C52C78747DFEC92DA3BAEB52ED30E89F56`
+  - `EitaaBridge-0.8.0-rc6a-AuthChildRpc-SelfContained-Portable.zip` — SHA-256 `a41d23fd1d504afcfd0d7197d7a181e896d5b7c595fd3c31ee38044e1ffee7e7`
+- امضا: گواهی `CN=Eitaa Bridge Internal Publisher`، thumbprint `441692B49B8EF9C6FAC070CC18FB8B5A6C13BD02`، tamper-detection پاس. SignatureStatus `UnknownError` همان وضعیت عادی rc6 قبلی است (گواهی internal self-signed، غیر member-store).
+- صحت‌سنجی محتوای بسته: پورتابل استخراج شد؛ ماژول `eitaa_auth_child_operations.py` نسخهٔ اصلاح‌شده را دارد (ارجاع‌های خراب حذف‌شده، نرمال‌سازی ارقام فارسی با پایتون 3.13 خود بنده سالم: `۱۲۳۴۵` → `12345`).
+- release قبلی rc6 به `release\office\archive\20260910-062707` آرشیو شد.
+- باگِ rc6 داخل این بسته دیگر وجود ندارد — آمادهٔ نصب تمیز روی ماشین مجازی و تکرار سناریو تا مرحلهٔ تأیید کد OTP.

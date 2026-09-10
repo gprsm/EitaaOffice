@@ -25,7 +25,11 @@ from ..errors import (
 from ..infrastructure.coordinator import MessengerAccountRuntimeRecord
 from .account_auth import AccountAuthChallenge
 from .account_runtime import EitaaAccountRuntime
-from .api import BridgeApplicationApi
+from .api import (
+    BridgeApplicationApi,
+    _normalize_login_code,
+    _provider_login_code_failure,
+)
 
 _CODE_FORMAT = re.compile(r"[0-9A-Za-z-]{2,32}")
 
@@ -493,7 +497,7 @@ class EitaaAuthChildOperations:
         challenge_id: str,
         code: str,
     ) -> dict[str, object]:
-        code = BridgeApplicationApi._normalize_login_code(code)
+        code = _normalize_login_code(code)
         with self.runtime.eitaa_lock, self.runtime.auth_lock:
             challenge, record = self._require_challenge(
                 challenge_id=challenge_id,
@@ -513,7 +517,7 @@ class EitaaAuthChildOperations:
                 raise
             except RpcError as exc:
                 error_kind, reason_code, error_code, message = (
-                    BridgeApplicationApi._provider_login_code_failure(exc)
+                    _provider_login_code_failure(exc)
                 )
                 self.runtime.audit_auth_event(
                     action="eitaa.auth.submit_code.failed",

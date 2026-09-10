@@ -145,7 +145,7 @@ rem Preserve all previous release artifacts and checksums before publishing the 
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\archive_previous_office_release.ps1" -ReleaseDirectory "%OUT%"
 if errorlevel 1 goto :failed
 
-set "PORTABLEZIP=%OUT%\EitaaBridge-0.8.0-rc6-AuthChildRpc-SelfContained-Portable.zip"
+set "PORTABLEZIP=%OUT%\EitaaBridge-0.8.0-rc6a-AuthChildRpc-SelfContained-Portable.zip"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path '%PORTABLE%\*' -DestinationPath '%PORTABLEZIP%' -CompressionLevel Optimal -Force"
 if errorlevel 1 goto :failed
 certutil -hashfile "%PORTABLEZIP%" SHA256 > "%PORTABLEZIP%.sha256.txt"
@@ -155,7 +155,7 @@ echo %PORTABLEZIP%
 
 rem A branded Setup requires the .NET Framework compiler so the supplied ICO
 rem is embedded in the executable. An unbranded IExpress fallback is not published.
-set "SETUPEXE=%OUT%\EitaaBridge-0.8.0-rc6-AuthChildRpc-InternalSigned-GuiSetup-x64.exe"
+set "SETUPEXE=%OUT%\EitaaBridge-0.8.0-rc6a-AuthChildRpc-InternalSigned-GuiSetup-x64.exe"
 "%BUILDPY%" scripts\build_self_contained_setup.py --payload "%BUILD%\office_payload.zip" --installer "%BUILD%\install_office_payload.cmd" --preflight "%BUILD%\check_windows_version.vbs" --icon "%SETUPICON%" --output "%SETUPEXE%"
 if errorlevel 1 goto :failed
 
