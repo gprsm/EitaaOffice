@@ -1690,3 +1690,12 @@
 - خروجی‌ها در `release/office/`: Setup گرافیکی امضاشدهٔ یک‌فایلی (SHA-256 `A696A222…`، امضا با thumbprint داخلی، tamper-test موفق) و Portable خودکفا (SHA-256 `ce3e8649…`)؛ آرشیو نسخه‌های قبلی طبق قرارداد انجام شد.
 - تأیید محتوا: payload داخل Setup شامل هر ۱۱ ماژول `eitaa_bridge/reporting` (نصب‌شده و داخل wheel) است؛ privacy-check پاس؛ هیچ session/config/دادهٔ خصوصی در بسته نیست.
 - محدودیت محلی: رجیستر CRLF روی فایل ui33 فقط اثر working-copy ماشین build دارد؛ محتوای Git و بسته سالم‌اند (با بازنویسی bytes از blob تأیید شد). امضای self-signed روی ماشین بدون نصب trust، `UnknownError` طبیعی است (F-064).
+
+### V-193 — فاز ۱ شاخهٔ Bale: API ماژولار مخاطبین و پیام‌رسانی بله
+
+- تاریخ: 2026-09-14
+- دامنه: شاخهٔ استثنایی `Bale` (برگرفته از `main`)؛ فقط پوشهٔ قرنطینه‌شدهٔ `src/eitaa_bridge/application/bale_client/` + `tests/test_bale_branch_api.py` + `run_bale_api.bat` + `docs/reports/BALE_BRANCH_PHASE1_REPORT.md`. هیچ فایل دیگری از برنامهٔ اصلی تغییر نکرد؛ رجیستری Provider و slot بله fail-closed ماند.
+- شاهد: `pytest tests/test_bale_branch_api.py` → 27 passed (codecهای تایپ‌شده، facade با fake در مرز WS، سرور HTTP loopback با socket واقعی). کل مجموعه backend → 793 passed، 2 failed که هر دو با `git stash` روی main بدون این تغییر بازتولید شد (CRLF asset ui33 و آرشیو office؛ از پیش موجود، مستقل از شاخه).
+- پوشش تأییدشده: build/decode ImportContacts با شمارهٔ تلفن؛ AddContact/RemoveContact؛ decode کاربر و دیالوگ با guard تحمل‌پذیر؛ ارسال متن/عکس با payload صحیح protobuf؛ خواندن تاریخچه و دانلود رسانه؛ کارت امن نشست بدون token؛ خطاهای code-دار؛ قرنطینهٔ release (G07) و fail-closed (G-02) هر دو پاس.
+- رویداد Live ثبت‌شده: در smoke-test سرور، یک فراخوانی StartPhoneAuth با شمارهٔ ساختگی به next-ws.bale.ai انجام و 200/transaction_hash واقعی دریافت شد (فراخوانی الگوی صحیح را تأیید کرد)؛ سرور بلافاصله متوقف شد. این رویداد مجوز عملیات Live نیست و OTP/ValidateCode هرگز اجرا نشد.
+- Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام این شاخه در `main`.

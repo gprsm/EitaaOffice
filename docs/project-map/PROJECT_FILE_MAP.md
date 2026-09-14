@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 333
-- اثرانگشت منبع: `768b9735de2363ba`
+- تعداد فایل‌های نقشه: 352
+- اثرانگشت منبع: `4789773ffd78d020`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -105,13 +105,16 @@
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/api.py` | Application | 268 | UI-facing local application API independent of any web framework. |
-| `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 0 | Bale Personal Client research framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 271 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 43 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 35 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/bale_client/cli.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/client.py` | Application | 44 | — |
 | `src/eitaa_bridge/application/bale_client/codecs.py` | Application | 31 | — |
+| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 21 | Typed codec extensions for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/config.py` | Application | 1 | — |
 | `src/eitaa_bridge/application/bale_client/errors.py` | Application | 12 | — |
 | `src/eitaa_bridge/application/bale_client/grpc_web.py` | Application | 9 | — |
@@ -125,10 +128,11 @@
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
 | `src/eitaa_bridge/application/doctor.py` | Application | 5 | — |
+| `src/eitaa_bridge/application/eitaa_auth_child_operations.py` | Application | 14 | Eitaa account authentication lifecycle executed inside one Child process. |
 | `src/eitaa_bridge/application/eitaa_provider_runtime_operations.py` | Application | 24 | Bounded Eitaa application operations owned by one account runtime. |
-| `src/eitaa_bridge/application/eitaa_provider_worker.py` | Application | 11 | Dedicated Child-process host for one Eitaa MessengerAccount runtime. |
+| `src/eitaa_bridge/application/eitaa_provider_worker.py` | Application | 13 | Dedicated Child-process host for one Eitaa MessengerAccount runtime. |
 | `src/eitaa_bridge/application/fake_provider_worker.py` | Application | 5 | Provider-neutral fake worker used to prove the Phase 7 IPC boundary. |
-| `src/eitaa_bridge/application/process_runtime.py` | Application | 39 | Parent-side control proxy for one account-owned Eitaa Child process. |
+| `src/eitaa_bridge/application/process_runtime.py` | Application | 40 | Parent-side control proxy for one account-owned Eitaa Child process. |
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 31 | Provider-neutral application orchestration for bounded messaging operations. |
@@ -206,6 +210,17 @@
 | `src/eitaa_bridge/providers/fake/slot.py` | Project | 4 | Allowlisted Fake provider composition; never enabled in product catalogs. |
 | `src/eitaa_bridge/providers/registry.py` | Project | 2 | Built-in allowlisted provider composition root. |
 | `src/eitaa_bridge/providers/testing.py` | Project | 9 | Offline-only contract harness for provider-extension authors. |
+| `src/eitaa_bridge/reporting/__init__.py` | Project | 0 | Local reporting core for the 1405 provincial cultural programs. |
+| `src/eitaa_bridge/reporting/aggregate.py` | Project | 8 | Provincial aggregation: events + facts -> one workbook row per program. |
+| `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
+| `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
+| `src/eitaa_bridge/reporting/excel_export.py` | Project | 9 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
+| `src/eitaa_bridge/reporting/forms.py` | Project | 15 | Versioned questionnaire definitions for the seven workbook programs. |
+| `src/eitaa_bridge/reporting/indexer.py` | Project | 12 | Multi-criteria Eitaa message indexer for the 1405 reporting core. |
+| `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
+| `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
+| `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
+| `src/eitaa_bridge/reporting/service.py` | Project | 13 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/version.py` | Project | 0 | — |
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
@@ -213,6 +228,8 @@
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
+| `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
+| `tests/test_bale_branch_api.py` | Python test | 48 | Offline tests for the Bale branch modular API (Phase 1). |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |
@@ -273,6 +290,8 @@
 | `tests/test_project_memory_integrity.py` | Python test | 5 | — |
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
+| `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
+| `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_ownership.py` | Python test | 34 | — |
 | `tests/test_sender_directory.py` | Python test | 1 | — |
