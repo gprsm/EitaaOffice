@@ -16,6 +16,7 @@ The engine never touches the main application: nothing in
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import secrets
 from dataclasses import dataclass
@@ -109,6 +110,7 @@ class BaleApi:
     def create(
         cls,
         *,
+        passphrase: str | None = None,
         vault_path: str | Path | None = None,
         log_path: str | Path | None = None,
     ) -> "BaleApi":
@@ -119,7 +121,7 @@ class BaleApi:
             config.vault_path = Path(vault_path)
         if log_path is not None:
             config.log_path = Path(log_path)
-        return cls(BaleClient(config))
+        return cls(BaleClient(config, passphrase=passphrase))
 
     @classmethod
     async def open(
@@ -131,7 +133,7 @@ class BaleApi:
         subscribe: bool = True,
     ) -> "BaleApi":
         """Open a connected facade from an existing vault session."""
-        api = cls.create(vault_path=vault_path, log_path=log_path)
+        api = cls.create(passphrase=passphrase, vault_path=vault_path, log_path=log_path)
         await api.connect(passphrase=passphrase, subscribe=subscribe)
         return api
 
@@ -228,6 +230,23 @@ class BaleApi:
             session = await self._client.auth_password(transaction_hash, password, passphrase=passphrase)
         except BaleError as exc:
             raise BaleApiError(f"ValidatePassword failed: {exc}", code="bale_auth_password_failed") from exc
+        return {"authenticated": True, "user_id": session.user_id}
+
+    async def auth_signup(
+        self,
+        transaction_hash: str,
+        first_name: str,
+        last_name: str = "",
+        *,
+        passphrase: str | None = None,
+    ) -> dict[str, Any]:
+        """Complete signup for an unregistered phone (rare path)."""
+        try:
+            session = await self._client.auth_signup(
+                transaction_hash, first_name, last_name, passphrase=passphrase
+            )
+        except BaleError as exc:
+            raise BaleApiError(f"SignUp failed: {exc}", code="bale_auth_signup_failed") from exc
         return {"authenticated": True, "user_id": session.user_id}
 
     async def account_card(self) -> dict[str, Any]:
@@ -350,6 +369,34 @@ class BaleApi:
         payload = _build_send_text(peer, random_id, text, silent=silent)
         response = await self._rpc("messaging", "SendMessage", payload)
         return {"user_id": peer.id, "random_id": random_id, "sent": True, "response_size": len(response)}
+
+    async def send_file_bytes(
+        self,
+        user_id: int | str,
+        name: str,
+        data: bytes,
+        *,
+        caption: str | None = None,
+        staging_dir: str | Path | None = None,
+    ) -> dict[str, Any]:
+        """Send in-memory bytes (browser upload) by staging them to disk.
+
+        The engine's upload path needs a real file; bytes go to a temp file
+        inside ``staging_dir`` (or the vault's data dir) and are removed
+        after the upload completes.
+        """
+        self._require_ws()
+        if not name or "/" in name or "\\" in name:
+            raise BaleApiError("Unsafe file name", code="bale_unsafe_name")
+        base = Path(staging_dir) if staging_dir else Path(self._client.config.vault_path).parent / "uploads"
+        base.mkdir(parents=True, exist_ok=True)
+        staged = base / f"{secrets.token_hex(8)}_{name}"
+        try:
+            staged.write_bytes(data)
+            return await self.send_file(user_id, staged, caption=caption)
+        finally:
+            with contextlib.suppress(OSError):
+                staged.unlink(missing_ok=True)
 
     async def send_file(
         self,

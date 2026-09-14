@@ -1693,9 +1693,11 @@
 
 ### V-193 — فاز ۱ شاخهٔ Bale: API ماژولار مخاطبین و پیام‌رسانی بله
 
-- تاریخ: 2026-09-14
+- تاریخ: 2026-09-14 (به‌روزرسانی UI در همان روز)
 - دامنه: شاخهٔ استثنایی `Bale` (برگرفته از `main`)؛ فقط پوشهٔ قرنطینه‌شدهٔ `src/eitaa_bridge/application/bale_client/` + `tests/test_bale_branch_api.py` + `run_bale_api.bat` + `docs/reports/BALE_BRANCH_PHASE1_REPORT.md`. هیچ فایل دیگری از برنامهٔ اصلی تغییر نکرد؛ رجیستری Provider و slot بله fail-closed ماند.
-- شاهد: `pytest tests/test_bale_branch_api.py` → 27 passed (codecهای تایپ‌شده، facade با fake در مرز WS، سرور HTTP loopback با socket واقعی). کل مجموعه backend → 793 passed، 2 failed که هر دو با `git stash` روی main بدون این تغییر بازتولید شد (CRLF asset ui33 و آرشیو office؛ از پیش موجود، مستقل از شاخه).
+- شاهد: `pytest tests/test_bale_branch_api.py` → 34 passed (codecهای تایپ‌شده، facade با fake در مرز WS، سرور HTTP loopback با socket واقعی، آپلود base64 با staging، auto-reconnect بدون vault). کل مجموعه backend → 793 passed، 2 failed که هر دو با `git stash` روی main بدون این تغییر بازتولید شد (CRLF asset ui33 و آرشیو office؛ از پیش موجود، مستقل از شاخه).
 - پوشش تأییدشده: build/decode ImportContacts با شمارهٔ تلفن؛ AddContact/RemoveContact؛ decode کاربر و دیالوگ با guard تحمل‌پذیر؛ ارسال متن/عکس با payload صحیح protobuf؛ خواندن تاریخچه و دانلود رسانه؛ کارت امن نشست بدون token؛ خطاهای code-دار؛ قرنطینهٔ release (G07) و fail-closed (G-02) هر دو پاس.
-- رویداد Live ثبت‌شده: در smoke-test سرور، یک فراخوانی StartPhoneAuth با شمارهٔ ساختگی به next-ws.bale.ai انجام و 200/transaction_hash واقعی دریافت شد (فراخوانی الگوی صحیح را تأیید کرد)؛ سرور بلافاصله متوقف شد. این رویداد مجوز عملیات Live نیست و OTP/ValidateCode هرگز اجرا نشد.
+- تأیید UI: پنل تک‌فایلی `webui.html` از `GET /ui` سرو شد؛ هر ۵ صفحه (احراز هویت/مخاطبین/پیام‌رسانی/گفتگوها/تنظیمات) در مرورگر واقعی باز و ناحیه‌ها/عناصر با DOM snapshot بررسی شد؛ ذخیرهٔ توکن در تنظیمات نوار وضعیت را به «نشستی ذخیره نشده» رساند (اتصال UI→API سالم)؛ تایپ در فیلد شماره کار کرد؛ syntax اسکریپت UI با Node تأیید شد؛ شاهد بصری در `gui-test-screenshots/t1_auth_page.png` و `t2_chat_page.png` (بررسی چشمی در این محیط مدل ممکن نشد و ثبت شد؛ ملاک، شاهد DOM است). دکمهٔ «درخواست کد» عمداً کلیک نشد (عملیات Live نیازمند تأیید همان لحظهٔ کاربر).
+- مداومت نشست: passphrase رمزگذاری vault در `data/bale_vault.key` سمت سرور نگه داشته می‌شود؛ reconnect خودکار در startup اجرا و بدون vault به‌صورت no-op تست شد؛ توکن API پایدار در `data/bale_api.token` (هر دو gitignored؛ فقط برای نشست سرور-local loopback).
+- رویداد Live ثبت‌شده: در smoke-test سرور (قبل از UI)، یک فراخوانی StartPhoneAuth با شمارهٔ ساختگی به next-ws.bale.ai انجام و 200/transaction_hash واقعی دریافت شد (فراخوانی الگوی صحیح را تأیید کرد)؛ سرور بلافاصله متوقف شد. این رویداد مجوز عملیات Live نیست و OTP/ValidateCode هرگز اجرا نشد.
 - Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام این شاخه در `main`.

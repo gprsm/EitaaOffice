@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 352
-- اثرانگشت منبع: `4789773ffd78d020`
+- اثرانگشت منبع: `c736f6768fb2aa8e`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -107,8 +107,8 @@
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/api.py` | Application | 271 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
-| `src/eitaa_bridge/application/bale_client/api.py` | Application | 43 | Stable Python API facade for the Bale personal client. |
-| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 35 | Loopback JSON/HTTP server exposing the BaleApi facade. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 45 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 41 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/bale_client/cli.py` | Application | 9 | — |
@@ -229,7 +229,7 @@
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
-| `tests/test_bale_branch_api.py` | Python test | 48 | Offline tests for the Bale branch modular API (Phase 1). |
+| `tests/test_bale_branch_api.py` | Python test | 55 | Offline tests for the Bale branch modular API (Phase 1). |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |

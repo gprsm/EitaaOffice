@@ -351,6 +351,28 @@ class TestBaleApiFacade:
             asyncio.run(api.list_contacts())
         assert err.value.code == "bale_rpc_error"
 
+    def test_send_file_bytes_stages_and_sends(self, tmp_path: Path) -> None:
+        api = _make_api(tmp_path)
+        result = asyncio.run(
+            api.send_file_bytes(4242, "photo.jpg", b"jpegdata", caption="تست")
+        )
+        assert result["sent"] is True
+        assert result["media_kind"] == "photo"
+        # Staged temp file must be cleaned up after the send.
+        uploads = tmp_path / "uploads"
+        assert not uploads.exists() or not any(uploads.iterdir())
+
+    def test_send_file_bytes_rejects_unsafe_name(self, tmp_path: Path) -> None:
+        api = _make_api(tmp_path)
+        with pytest.raises(BaleApiError) as err:
+            asyncio.run(api.send_file_bytes(1, "../evil.jpg", b"x"))
+        assert err.value.code == "bale_unsafe_name"
+
+    def test_vault_passphrase_flows_to_client(self, tmp_path: Path) -> None:
+        api = BaleApi.create(passphrase="stored-phrase", vault_path=tmp_path / "s.vault")
+        assert api._client.passphrase == "stored-phrase"
+        assert api._client.vault.path == tmp_path / "s.vault"
+
 
 # ---------------------------------------------------------------------------
 # HTTP server (loopback, real socket, fake service layer)
@@ -449,3 +471,48 @@ class TestApiServer:
             raise AssertionError("expected 404")
         except urllib.error.HTTPError as err:
             assert err.code == 404
+
+    def test_ui_served_without_token(self, server) -> None:
+        url, _, _ = server
+        with urllib.request.urlopen(f"{url}/ui", timeout=5) as response:
+            body = response.read().decode("utf-8")
+        assert "پنل بله" in body
+        assert "bale-branch-api" not in body[:50]
+
+    def test_send_upload_roundtrip(self, server) -> None:
+        url, prefix, token = server
+        import base64
+
+        result = self._request(
+            url, f"{prefix}/messages/send-upload", token,
+            {
+                "user_id": 4242,
+                "name": "pic.jpg",
+                "data_base64": base64.b64encode(b"jpegdata").decode("ascii"),
+                "caption": "تست آپلود",
+            },
+        )
+        assert result["sent"] is True
+        assert result["media_kind"] == "photo"
+
+    def test_send_upload_rejects_bad_base64(self, server) -> None:
+        url, prefix, token = server
+        try:
+            self._request(
+                url, f"{prefix}/messages/send-upload", token,
+                {"user_id": 1, "name": "x", "data_base64": "!!!not-base64!!!"},
+            )
+            raise AssertionError("expected 400")
+        except urllib.error.HTTPError as err:
+            assert err.code == 400
+            payload = json.loads(err.read().decode("utf-8"))
+            assert payload["error"] == "bale_invalid_upload"
+
+    def test_auto_reconnect_without_vault_is_noop(self, tmp_path: Path) -> None:
+        from eitaa_bridge.application.bale_client import api_server
+
+        service = api_server.BaleApiService(
+            vault_path=tmp_path / "missing.vault", log_path=tmp_path / "b.log"
+        )
+        service.startup_reconnect()  # no vault -> must not raise
+        assert service.health()["has_vault"] is False

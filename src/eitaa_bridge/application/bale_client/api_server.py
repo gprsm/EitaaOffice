@@ -43,6 +43,7 @@ import asyncio
 import inspect
 import json
 import logging
+import os
 import secrets
 import sys
 from http import HTTPStatus
@@ -64,14 +65,24 @@ ROUTE_PREFIX = f"/api/bale/v{API_VERSION}"
 class BaleApiService:
     """Owns the singleton facade and serializes access to it."""
 
-    def __init__(self, *, vault_path: Path, log_path: Path) -> None:
+    def __init__(
+        self,
+        *,
+        vault_path: Path,
+        log_path: Path,
+        vault_passphrase: str | None = None,
+        auto_reconnect: bool = True,
+    ) -> None:
         self.vault_path = vault_path
         self.log_path = log_path
+        self.vault_passphrase = vault_passphrase
+        self.auto_reconnect = auto_reconnect
         self.api: BaleApi | None = None
         self.loop: asyncio.AbstractEventLoop | None = None
         self.thread: Any = None  # asyncio runner thread handle
         self.transaction_hash: str | None = None
         self._expected_stage: str | None = None
+        self._last_connect_error: str | None = None
 
     # ------------------------------ loop plumbing ---------------------------
 
@@ -100,8 +111,36 @@ class BaleApiService:
 
     def _ensure_api(self) -> BaleApi:
         if self.api is None:
-            self.api = BaleApi.create(vault_path=self.vault_path, log_path=self.log_path)
+            self.api = BaleApi.create(
+                passphrase=self.vault_passphrase,
+                vault_path=self.vault_path,
+                log_path=self.log_path,
+            )
         return self.api
+
+    def _connect_locked(self, passphrase: str | None) -> dict[str, Any]:
+        """Synchronous connect used by both /connect and startup reconnect."""
+        api = self._ensure_api()
+        effective = passphrase or self.vault_passphrase
+        try:
+            result = self.run_coro(api.connect(passphrase=effective, subscribe=True))
+            self._last_connect_error = None
+            return result
+        except BaleApiError as exc:
+            self._last_connect_error = exc.code
+            raise
+
+    def startup_reconnect(self) -> None:
+        """Best-effort auto-reconnect when a vault session already exists."""
+        if not self.auto_reconnect or not self.vault_path.exists():
+            return
+        try:
+            self._connect_locked(None)
+            log.info("Startup auto-reconnect succeeded")
+        except BaleApiError as exc:
+            log.info("Startup auto-reconnect skipped: %s", exc.code)
+        except Exception:
+            log.exception("Startup auto-reconnect failed unexpectedly")
 
     def health(self) -> dict[str, Any]:
         connected = bool(self.api and self.api._client.ws and self.api._client.ws.connected)
@@ -109,16 +148,14 @@ class BaleApiService:
             "ok": True,
             "connected": connected,
             "has_vault": self.vault_path.exists(),
+            "last_connect_error": self._last_connect_error,
         }
 
     def account(self) -> dict[str, Any]:
         return self.run_coro(self._ensure_api().account_card())
 
     def connect(self, payload: dict[str, Any]) -> dict[str, Any]:
-        api = self._ensure_api()
-        return self.run_coro(
-            api.connect(passphrase=payload.get("passphrase"), subscribe=True)
-        )
+        return self._connect_locked(payload.get("passphrase"))
 
     def disconnect(self) -> dict[str, Any]:
         if self.api is not None:
@@ -163,16 +200,22 @@ class BaleApiService:
     def _connected_api(self) -> BaleApi:
         api = self._ensure_api()
         if not api._client.ws or not api._client.ws.connected:
-            # Auto-connect only when a vault session exists and no passphrase
-            # gate applies (the engine caches the loaded session per client).
-            if api._client.vault.exists() and api._client.session is None:
+            if api._client.vault.exists():
+                # Auto-connect using the server-managed vault passphrase.
                 try:
-                    self.run_coro(api.connect(passphrase=None, subscribe=True))
+                    self._connect_locked(None)
                 except BaleApiError:
                     raise
             if not api._client.ws or not api._client.ws.connected:
                 raise BaleApiError("Connect first via /connect", code="bale_not_connected")
         return api
+
+    def send_file_upload(self, user_id: Any, file_bytes: bytes, filename: str, caption: str | None) -> dict[str, Any]:
+        """Send a raw uploaded file (multipart) through the staging path."""
+        api = self._connected_api()
+        return self.run_coro(
+            api.send_file_bytes(int(user_id), filename, file_bytes, caption=caption)
+        )
 
     def contacts_list(self) -> list[dict[str, Any]]:
         api = self._connected_api()
@@ -229,6 +272,21 @@ class BaleApiService:
             )
         )
 
+    def send_upload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Send a base64-encoded file upload from the browser UI."""
+        user_id = _require(payload, "user_id")
+        data_b64 = _require(payload, "data_base64")
+        name = _require(payload, "name")
+        import base64
+
+        try:
+            file_bytes = base64.b64decode(str(data_b64), validate=True)
+        except Exception as exc:
+            raise BaleApiError("data_base64 is not valid base64", code="bale_invalid_upload") from exc
+        if len(file_bytes) > 50 * 1024 * 1024:
+            raise BaleApiError("Upload exceeds the 50MB limit", code="bale_upload_too_large")
+        return self.send_file_upload(user_id, file_bytes, str(name), payload.get("caption"))
+
     def read_history(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         api = self._connected_api()
         return self.run_coro(
@@ -267,6 +325,7 @@ ROUTES: dict[str, tuple[str, str]] = {
     "dialogs/list": ("POST", "dialogs_list"),
     "messages/send-text": ("POST", "send_text"),
     "messages/send-file": ("POST", "send_file"),
+    "messages/send-upload": ("POST", "send_upload"),
     "messages/read-history": ("POST", "read_history"),
     "messages/read-media": ("POST", "read_media"),
 }
@@ -318,10 +377,26 @@ class BaleApiRequestHandler(BaseHTTPRequestHandler):
             return method()
         return method(payload)
 
+    def _serve_ui(self) -> None:
+        """Serve the bundled single-file web UI (loopback-only)."""
+        ui_path = Path(__file__).with_name("webui.html")
+        try:
+            body = ui_path.read_bytes()
+        except OSError:
+            return self._send_json(HTTPStatus.NOT_FOUND, {"error": "ui_missing"})
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _handle(self, http_method: str) -> None:
         path = (self.path or "/").split("?", 1)[0].rstrip("/") or "/"
         if path == "/":
-            return self._send_json(HTTPStatus.OK, {"ok": True, "service": "bale-branch-api", "prefix": ROUTE_PREFIX})
+            return self._send_json(HTTPStatus.OK, {"ok": True, "service": "bale-branch-api", "prefix": ROUTE_PREFIX, "ui": "/ui"})
+        if path == "/ui":
+            return self._serve_ui()
         prefix = ROUTE_PREFIX + "/"
         if not path.startswith(prefix):
             return self._send_json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
@@ -396,6 +471,33 @@ def build_server(
     return httpd
 
 
+def build_server(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8791,
+    token: str,
+    vault_path: Path,
+    log_path: Path,
+    vault_passphrase: str | None = None,
+    auto_reconnect: bool = True,
+) -> ThreadingHTTPServer:
+    service = BaleApiService(
+        vault_path=vault_path,
+        log_path=log_path,
+        vault_passphrase=vault_passphrase,
+        auto_reconnect=auto_reconnect,
+    )
+    handler = type(
+        "BoundBaleApiRequestHandler",
+        (BaleApiRequestHandler,),
+        {"service": service, "token": token},
+    )
+    httpd = ThreadingHTTPServer((host, port), handler)
+    httpd.daemon_threads = True
+    service.startup_reconnect()
+    return httpd
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bale branch local API server")
     parser.add_argument("--host", default="127.0.0.1")
@@ -403,6 +505,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--token", help="Bearer token; generated when omitted")
     parser.add_argument("--vault", default="data/bale_session.vault")
     parser.add_argument("--log", default="data/bale_client.log")
+    parser.add_argument(
+        "--vault-passphrase",
+        help="Passphrase for the encrypted session vault; auto-generated and kept in data/bale_vault.key when omitted",
+    )
+    parser.add_argument("--no-auto-reconnect", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -416,14 +523,34 @@ def main(argv: list[str] | None = None) -> int:
     token = args.token or secrets.token_urlsafe(24)
     vault_path = Path(args.vault)
     log_path = Path(args.log)
+
+    # Session persistence: with no explicit passphrase the server generates
+    # one and keeps it beside the vault so restarts auto-reconnect without
+    # asking the user again. Local-disk machine boundary, loopback-only API.
+    if args.vault_passphrase:
+        passphrase = args.vault_passphrase
+    else:
+        key_file = vault_path.parent / "bale_vault.key"
+        try:
+            passphrase = key_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            key_file.parent.mkdir(parents=True, exist_ok=True)
+            passphrase = secrets.token_urlsafe(32)
+            key_file.write_text(passphrase, encoding="utf-8")
+            if os.name == "nt":
+                pass  # per-user profile dir already restricts access
+
     httpd = build_server(
         host=args.host,
         port=args.port,
         token=token,
         vault_path=vault_path,
         log_path=log_path,
+        vault_passphrase=passphrase,
+        auto_reconnect=not args.no_auto_reconnect,
     )
     print(f"Bale branch API listening on http://{args.host}:{args.port}{ROUTE_PREFIX}")
+    print(f"UI: http://{args.host}:{args.port}/ui")
     print(f"Authorization: Bearer {token}" if not args.token else "Using caller-provided token.")
     try:
         httpd.serve_forever()

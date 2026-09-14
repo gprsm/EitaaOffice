@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بله — پنل شاخه Bale</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #17202b; --panel2: #1d2836;
+    --border: #2a3b4d; --text: #e6edf3; --muted: #8b98a5;
+    --accent: #2ea6ff; --accent2: #7bd88f; --danger: #ff6b6b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; min-height: 100vh;
+  }
+  header {
+    width: 240px; background: var(--panel); border-left: 1px solid var(--border);
+    padding: 18px 14px; display: flex; flex-direction: column; gap: 14px;
+  }
+  header h1 { font-size: 17px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  nav { display: flex; flex-direction: column; gap: 6px; }
+  nav button {
+    text-align: right; background: none; border: none; color: var(--text);
+    padding: 9px 12px; border-radius: var(--radius); cursor: pointer; font-size: 14px;
+  }
+  nav button:hover { background: var(--panel2); }
+  nav button.active { background: var(--accent); color: #06111d; font-weight: 600; }
+  #statusBox {
+    margin-top: auto; font-size: 12px; padding: 10px;
+    background: var(--panel2); border-radius: var(--radius); border: 1px solid var(--border);
+  }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-start: 6px; }
+  .dot.on { background: var(--accent2); } .dot.off { background: var(--danger); }
+  main { flex: 1; padding: 22px; overflow-y: auto; max-height: 100vh; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page h2 { font-size: 18px; margin-bottom: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  input, textarea, select, button {
+    font-family: inherit; font-size: 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    padding: 9px 11px; outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  input { min-width: 220px; }
+  button.btn {
+    background: var(--accent); color: #06111d; font-weight: 600; cursor: pointer;
+    border: none; padding: 9px 18px;
+  }
+  button.btn.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.btn:disabled { opacity: .45; cursor: default; }
+  label { color: var(--muted); font-size: 12px; display: block; margin-bottom: 4px; }
+  .field { display: flex; flex-direction: column; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  tr:hover td { background: var(--panel2); }
+  .msg { padding: 10px 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; display: none; }
+  .msg.ok { display: block; background: rgba(123,216,143,.12); color: var(--accent2); }
+  .msg.err { display: block; background: rgba(255,107,107,.12); color: var(--danger); }
+  .chat { display: flex; flex-direction: column; gap: 2px; }
+  .chat .bubble {
+    max-width: 68%; padding: 8px 12px; border-radius: 12px;
+    background: var(--panel2); margin-bottom: 2px; font-size: 13px; line-height: 1.6;
+  }
+  .chat .bubble.me { align-self: flex-start; background: #123a22; border: 1px solid #1e5c33; }
+  .chat .bubble .meta { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .otp-row { display: flex; gap: 8px; direction: ltr; }
+  .otp-row input { text-align: center; font-size: 18px; letter-spacing: 4px; width: 200px; }
+  #authSteps { display: flex; flex-direction: column; gap: 12px; }
+  .step { display: none; }
+  .step.active { display: block; }
+  .spinner {
+    display: inline-block; width: 15px; height: 15px; border: 2px solid var(--muted);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>پنل بله</h1>
+    <div class="sub">شاخه Bale — فاز ۱ (آزمایشی)</div>
+  </div>
+  <nav id="nav">
+    <button data-page="auth" class="active">احراز هویت</button>
+    <button data-page="contacts">مخاطبین</button>
+    <button data-page="chat">پیام‌رسانی</button>
+    <button data-page="dialogs">گفتگوها</button>
+    <button data-page="settings">تنظیمات</button>
+  </nav>
+  <div id="statusBox">
+    <div>وضعیت اتصال<span class="dot off" id="connDot"></span></div>
+    <div id="statusDetail" style="margin-top:6px; color: var(--muted)">وصل نیست</div>
+    <button class="btn ghost" id="connectBtn" style="margin-top:8px; width:100%">اتصال خودکار</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ AUTH ============ -->
+  <section class="page active" id="page-auth">
+    <h2>احراز هویت تلفنی</h2>
+    <div class="card">
+      <div id="authSteps">
+        <div class="step active" id="step-phone">
+          <div class="row">
+            <div class="field">
+              <label>شماره تلفن (با +، مثال +98912…)</label>
+              <input id="phoneInput" placeholder="+98912xxxxxxx" autocomplete="off">
+            </div>
+            <button class="btn" id="sendCodeBtn">درخواست کد</button>
+          </div>
+          <div class="hint">کد تأیید به همین شماره در پیام‌رسان بله ارسال می‌شود. شمارهٔ ساختگی نزنید.</div>
+        </div>
+        <div class="step" id="step-code">
+          <div class="row">
+            <div class="field">
+              <label>کد تأیید (OTP)</label>
+              <input id="otpInput" placeholder="– – – – –" class="otp" inputmode="numeric">
+            </div>
+            <button class="btn" id="verifyBtn">تأیید کد</button>
+          </div>
+          <div class="hint">بعد از تأیید، نشست به‌صورت رمزشده ذخیره می‌شود و دفعات بعد بدون OTP وصل می‌شود.</div>
+        </div>
+        <div class="step" id="step-password">
+          <div class="row">
+            <div class="field">
+              <label>رمز دومرحله‌ای (اگر فعال است)</label>
+              <input id="passwordInput" type="password">
+            </div>
+            <button class="btn" id="passwordBtn">تأیید رمز</button>
+          </div>
+        </div>
+      </div>
+      <div class="msg" id="authMsg"></div>
+    </div>
+  </section>
+
+  <!-- ============ CONTACTS ============ -->
+  <section class="page" id="page-contacts">
+    <h2>مخاطبین</h2>
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <input id="contactSearch" placeholder="جستجو در مخاطبین…" style="flex:1; min-width:160px">
+        <button class="btn ghost" id="searchBtn">جستجو</button>
+        <button class="btn" id="listContactsBtn">همهٔ مخاطبین</button>
+      </div>
+      <table id="contactsTable">
+        <thead><tr><th>شناسه</th><th>نام</th><th>نام‌کاربری</th><th>ربات</th><th>عملیات</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="font-size:15px; margin-bottom:10px">افزودن مخاطب</h3>
+      <div class="row">
+        <div class="field"><label>شمارهٔ تلفن</label><input id="newPhone" placeholder="+98912xxxxxxx"></div>
+        <div class="field"><label>نام نمایشی</label><input id="newName" placeholder="مثلاً علی"></div>
+        <button class="btn" id="addContactBtn">افزودن با شماره</button>
+      </div>
+      <div class="msg" id="contactsMsg"></div>
+    </div>
+  </section>
+
+  <!-- ============ CHAT ============ -->
+  <section class="page" id="page-chat">
+    <h2>پیام‌رسانی</h2>
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <div class="field"><label>شناسه مخاطب</label><input id="chatTarget" placeholder="مثلاً 4242"></div>
+        <button class="btn ghost" id="loadHistoryBtn">نمایش گفتگو</button>
+      </div>
+      <div class="chat" id="chatBox" style="min-height:180px; max-height:360px; overflow-y:auto; padding:6px; background:var(--bg); border-radius:8px; border:1px solid var(--border)"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="msgText" placeholder="پیام متنی…" style="flex:1; min-width:200px">
+        <button class="btn" id="sendTextBtn">ارسال</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="field"><label>ارسال فایل (عکس/ویدئو/سند)</label><input id="msgFile" type="file" style="min-width:240px"></div>
+        <div class="field"><label>زیرنویس فایل</label><input id="msgCaption" placeholder="اختیاری"></div>
+        <button class="btn ghost" id="sendFileBtn">ارسال فایل</button>
+      </div>
+      <div class="msg" id="chatMsg"></div>
+    </div>
+  </section>
+
+  <!-- ============ DIALOGS ============ -->
+  <section class="page" id="page-dialogs">
+    <h2>گفتگوهای اخیر</h2>
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn" id="loadDialogsBtn">بارگذاری</button>
+      </div>
+      <table id="dialogsTable">
+        <thead><tr><th>شناسه</th><th>نخستین پیش‌نمایش</th><th>ناخوانده</th><th>شناسه آخرین پیام</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section class="page" id="page-settings">
+    <h2>تنظیمات</h2>
+    <div class="card">
+      <h3 style="font-size:15px; margin-bottom:10px">سرور API</h3>
+      <div class="row">
+        <div class="field"><label>آدرس</label><input id="cfgUrl" placeholder="http://127.0.0.1:8791"></div>
+        <div class="field"><label>توکن Bearer</label><input id="cfgToken" type="password" placeholder="token را وارد کنید"></div>
+        <button class="btn" id="saveCfgBtn">ذخیره در این مرورگر</button>
+        <button class="btn ghost" id="clearCfgBtn">حذف</button>
+      </div>
+      <div class="hint">توکن فقط در localStorage همین مرورگر می‌ماند. آدرس پیش‌فرض <code>http://127.0.0.1:8791</code> است.</div>
+      <div class="msg" id="settingsMsg"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const API = { url: "http://127.0.0.1:8791", token: "" };
+const $ = (id) => document.getElementById(id);
+
+/* ---------- config persistence (browser only) ---------- */
+function loadCfg() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("bale-ui-cfg") || "{}");
+    if (saved.url) API.url = saved.url;
+    if (saved.token) API.token = saved.token;
+    $("cfgUrl").value = API.url;
+    $("cfgToken").value = API.token ? "••••" : "";
+  } catch (_) { /* fresh start */ }
+}
+$("saveCfgBtn").onclick = () => {
+  const url = $("cfgUrl").value.trim();
+  const token = $("cfgToken").value.trim();
+  if (token && !token.startsWith("•")) API.token = token; // keep old if masked
+  if (url) API.url = url.replace(/\/+$/, "");
+  localStorage.setItem("bale-ui-cfg", JSON.stringify({ url: API.url, token: API.token }));
+  $("cfgToken").value = "••••";
+  refreshHealth();
+  showMsg("settings", "تنظیمات ذخیره شد.", true);
+};
+$("clearCfgBtn").onclick = () => {
+  localStorage.removeItem("bale-ui-cfg");
+  API.token = "";
+  $("cfgToken").value = "";
+  showMsg("settings", "تنظیمات حذف شد.", true);
+};
+
+/* ---------- request helper ---------- */
+let txHash = null;
+async function call(path, body, method) {
+  const opts = {
+    method: method || "POST",
+    headers: { "Authorization": "Bearer " + API.token, "Content-Type": "application/json" },
+  };
+  if (opts.method === "POST") opts.body = JSON.stringify(body || {});
+  const res = await fetch(API.url + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || data.error || ("HTTP " + res.status));
+  return data;
+}
+function showMsg(page, text, ok) {
+  const target = { auth: "authMsg", contacts: "contactsMsg", chat: "chatMsg", settings: "settingsMsg" }[page] || "authMsg";
+  const m = $(target);
+  if (!m) return;
+  m.textContent = text;
+  m.className = "msg " + (ok ? "ok" : "err");
+  clearTimeout(m._t);
+  m._t = setTimeout(() => { m.className = "msg"; }, 6000);
+}
+
+/* ---------- nav ---------- */
+document.querySelectorAll("#nav button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    $("page-" + btn.dataset.page).classList.add("active");
+  };
+});
+
+/* ---------- health/status ---------- */
+async function refreshHealth() {
+  try {
+    const h = await call("/api/bale/v1/health", null, "GET");
+    $("connDot").className = "dot " + (h.connected ? "on" : "off");
+    $("statusDetail").textContent = h.has_vault
+      ? (h.connected ? "وصل — نشست ذخیره‌شده فعال" : "نشست ذخیره‌شده هست؛ وصل نیست")
+      : "نشستی ذخیره نشده";
+    $("connectBtn").disabled = h.connected;
+  } catch (e) {
+    $("connDot").className = "dot off";
+    $("statusDetail").textContent = "سرور در دسترس نیست — سرور را اجرا کنید";
+    $("connectBtn").disabled = false;
+  }
+}
+setInterval(refreshHealth, 15000);
+
+$("connectBtn").onclick = async () => {
+  $("connectBtn").disabled = true;
+  try {
+    await call("/api/bale/v1/connect", {});
+    await refreshHealth();
+    showMsg("auth", "اتصال با نشست ذخیره‌شده برقرار شد.", true);
+  } catch (e) {
+    showMsg("auth", "اتصال خودکار نشد: " + e.message, false);
+    $("connectBtn").disabled = false;
+  }
+};
+
+/* ---------- auth flow ---------- */
+function setStep(name) {
+  ["phone", "code", "password"].forEach(s => $("step-" + s).classList.toggle("active", s === name));
+}
+$("sendCodeBtn").onclick = async () => {
+  const phone = $("phoneInput").value.trim();
+  if (!phone) return showMsg("auth", "شماره را وارد کنید.", false);
+  $("sendCodeBtn").disabled = true;
+  try {
+    const r = await call("/api/bale/v1/auth/start", { phone });
+    txHash = r.transaction_hash;
+    setStep("code");
+    showMsg("auth", "کد تأیید ارسال شد؛ کد را وارد کنید.", true);
+  } catch (e) { showMsg("auth", "خطا در ارسال کد: " + e.message, false); }
+  $("sendCodeBtn").disabled = false;
+};
+$("verifyBtn").onclick = async () => {
+  const code = $("otpInput").value.trim();
+  if (!code) return showMsg("auth", "کد را وارد کنید.", false);
+  $("verifyBtn").disabled = true;
+  try {
+    const r = await call("/api/bale/v1/auth/code", { transaction_hash: txHash, code });
+    if (r.authenticated) {
+      await call("/api/bale/v1/connect", {});
+      await refreshHealth();
+      setStep("phone");
+      showMsg("auth", "ورود کامل شد و نشست ذخیره‌سازی شد. user_id=" + r.user_id, true);
+    } else if (r.next === "password") {
+      setStep("password");
+      showMsg("auth", "رمز دومرحله‌ای لازم است.", true);
+    } else if (r.next === "signup") {
+      showMsg("auth", "این شماره ثبت‌نام نکرده — با اپ رسمی بله ثبت‌نام کنید.", false);
+    }
+  } catch (e) { showMsg("auth", "خطا در تأیید: " + e.message, false); }
+  $("verifyBtn").disabled = false;
+};
+$("passwordBtn").onclick = async () => {
+  const pw = $("passwordInput").value;
+  if (!pw) return showMsg("auth", "رمز را وارد کنید.", false);
+  try {
+    const r = await call("/api/bale/v1/auth/password", { transaction_hash: txHash, password: pw });
+    await call("/api/bale/v1/connect", {});
+    await refreshHealth();
+    setStep("phone");
+    showMsg("auth", "ورود کامل شد. user_id=" + r.user_id, true);
+  } catch (e) { showMsg("auth", "خطا: " + e.message, false); }
+};
+
+/* ---------- contacts ---------- */
+function renderContacts(list) {
+  const tb = $("contactsTable").querySelector("tbody");
+  tb.innerHTML = "";
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="5">موردی نبود</td></tr>'; return; }
+  list.forEach(c => {
+    const tr = document.createElement("tr");
+    const id = c.peer ? c.peer.id : c.id;
+    const name = c.name || c.local_name || "—";
+    const uname = c.username || "—";
+    tr.innerHTML =
+      "<td>" + id + "</td><td>" + esc(name) + "</td><td>" + esc(uname) + "</td>" +
+      "<td>" + (c.is_bot ? "بله" : "—") + "</td>" +
+      '<td><button class="btn ghost" data-id="' + id + '">حذف</button> ' +
+      '<button class="btn ghost" data-id="' + id + '" data-chat="1">گفتگو</button></td>';
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("button").forEach(b => {
+    b.onclick = () => {
+      const id = b.dataset.id;
+      if (b.dataset.chat) { $("chatTarget").value = id; document.querySelector('[data-page="chat"]').click(); }
+      else removeContact(id);
+    };
+  });
+}
+async function listContacts() {
+  try { renderContacts(await call("/api/bale/v1/contacts/list", {})); }
+  catch (e) { showMsg("contacts", "خطا: " + e.message, false); }
+}
+async function removeContact(id) {
+  if (!confirm("مخاطب " + id + " حذف شود؟")) return;
+  try {
+    await call("/api/bale/v1/contacts/remove", { user_id: id });
+    showMsg("contacts", "حذف شد.", true);
+    listContacts();
+  } catch (e) { showMsg("contacts", "خطا در حذف: " + e.message, false); }
+}
+$("listContactsBtn").onclick = listContacts;
+$("searchBtn").onclick = async () => {
+  const q = $("contactSearch").value.trim();
+  if (!q) return listContacts();
+  try { renderContacts(await call("/api/bale/v1/contacts/search", { query: q })); }
+  catch (e) { showMsg("contacts", "خطا: " + e.message, false); }
+};
+$("addContactBtn").onclick = async () => {
+  const phone = $("newPhone").value.trim();
+  const name = $("newName").value.trim() || "مخاطب بله";
+  if (!phone) return showMsg("contacts", "شماره را وارد کنید.", false);
+  try {
+    const r = await call("/api/bale/v1/contacts/add-phone", { phone, name });
+    showMsg("contacts", r.matched
+      ? "افزوده شد — شناسه: " + (r.users[0].id ?? r.users[0].peer?.id ?? "؟")
+      : "شماره ثبت نشد (کاربر بله نیست).", r.matched);
+    if (r.matched) listContacts();
+  } catch (e) { showMsg("contacts", "خطا: " + e.message, false); }
+};
+
+/* ---------- chat ---------- */
+function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+async function loadHistory() {
+  const uid = parseInt($("chatTarget").value.trim(), 10);
+  if (!uid) return showMsg("chat", "شناسهٔ مخاطب را وارد کنید.", false);
+  try {
+    const list = await call("/api/bale/v1/messages/read-history", { user_id: uid, limit: 30 });
+    const box = $("chatBox");
+    box.innerHTML = "";
+    if (!list.length) { box.innerHTML = '<div class="hint">گفتگویی یافت نشد.</div>'; return; }
+    list.slice().reverse().forEach(m => {
+      const div = document.createElement("div");
+      div.className = "bubble " + (m.sender_id === uid ? "" : "me");
+      div.innerHTML = (m.text ? esc(m.text) : "") +
+        (m.media ? '<div class="meta">📎 ' + esc(m.media.name) + " (" + m.media.media_kind + ")</div>" : "") +
+        '<div class="meta">' + new Date(m.date * 1000).toLocaleString("fa-IR") + " — #" + m.message_id + "</div>";
+      box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch (e) { showMsg("chat", "خطا: " + e.message, false); }
+}
+$("loadHistoryBtn").onclick = loadHistory;
+$("sendTextBtn").onclick = async () => {
+  const uid = parseInt($("chatTarget").value.trim(), 10);
+  const text = $("msgText").value.trim();
+  if (!uid || !text) return showMsg("chat", "شناسه و متن لازم است.", false);
+  try {
+    await call("/api/bale/v1/messages/send-text", { user_id: uid, text });
+    $("msgText").value = "";
+    showMsg("chat", "ارسال شد.", true);
+    loadHistory();
+  } catch (e) { showMsg("chat", "خطا در ارسال: " + e.message, false); }
+};
+$("sendFileBtn").onclick = async () => {
+  const uid = parseInt($("chatTarget").value.trim(), 10);
+  const f = $("msgFile").files[0];
+  if (!uid || !f) return showMsg("chat", "شناسه و فایل لازم است.", false);
+  if (f.size > 50 * 1024 * 1024) return showMsg("chat", "حجم فایل بیشتر از ۵۰ مگابایت است.", false);
+  $("sendFileBtn").disabled = true;
+  try {
+    const buf = await f.arrayBuffer();
+    let bin = "";
+    const bytes = new Uint8Array(buf);
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk)
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    const b64 = btoa(bin);
+    await call("/api/bale/v1/messages/send-upload", {
+      user_id: uid, name: f.name, data_base64: b64, caption: $("msgCaption").value.trim() || undefined,
+    });
+    showMsg("chat", "فایل ارسال شد.", true);
+    loadHistory();
+  } catch (e) { showMsg("chat", "خطا در ارسال فایل: " + e.message, false); }
+  $("sendFileBtn").disabled = false;
+};
+
+/* ---------- dialogs ---------- */
+$("loadDialogsBtn").onclick = async () => {
+  try {
+    const list = await call("/api/bale/v1/dialogs/list", { limit: 30 });
+    const tb = $("dialogsTable").querySelector("tbody");
+    tb.innerHTML = "";
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="4">گفتگویی نبود</td></tr>'; return; }
+    list.forEach(d => {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>" + (d.peer ? d.peer.id : "؟") + "</td>" +
+        "<td>" + esc(d.last_text || (d.last_document ? "📎 " + (d.last_document.name || "") : "—")) + "</td>" +
+        "<td>" + (d.unread_count ?? 0) + "</td>" +
+        "<td>" + (d.last_message_id ?? "—") + "</td>";
+      tb.appendChild(tr);
+    });
+  } catch (e) { showMsg("chat", "خطا: " + e.message, false); }
+};
+
+/* ---------- boot ---------- */
+loadCfg();
+refreshHealth();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "4789773ffd78d020",
+  "source_fingerprint": "c736f6768fb2aa8e",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -3414,217 +3414,227 @@
         {
           "name": "BaleApiError",
           "kind": "class",
-          "line": 53
+          "line": 54
         },
         {
           "name": "BaleApiError.__init__",
           "kind": "method",
-          "line": 56
+          "line": 57
         },
         {
           "name": "BaleAuthPending",
           "kind": "class",
-          "line": 61
+          "line": 62
         },
         {
           "name": "BaleAuthPending.__init__",
           "kind": "method",
-          "line": 62
+          "line": 63
         },
         {
           "name": "BaleNotConnected",
           "kind": "class",
-          "line": 68
+          "line": 69
         },
         {
           "name": "BaleNotConnected.__init__",
           "kind": "method",
-          "line": 69
+          "line": 70
         },
         {
           "name": "BaleAccountCard",
           "kind": "class",
-          "line": 74
+          "line": 75
         },
         {
           "name": "BaleAccountCard.to_dict",
           "kind": "method",
-          "line": 82
+          "line": 83
         },
         {
           "name": "BaleApi",
           "kind": "class",
-          "line": 91
+          "line": 92
         },
         {
           "name": "BaleApi.__init__",
           "kind": "method",
-          "line": 102
+          "line": 103
         },
         {
           "name": "BaleApi.create",
           "kind": "method",
-          "line": 109
+          "line": 110
         },
         {
           "name": "BaleApi.open",
           "kind": "method",
-          "line": 125
+          "line": 127
         },
         {
           "name": "BaleApi.connect",
           "kind": "method",
-          "line": 138
+          "line": 140
         },
         {
           "name": "BaleApi.close",
           "kind": "method",
-          "line": 166
+          "line": 168
         },
         {
           "name": "BaleApi.__aenter__",
           "kind": "method",
-          "line": 170
+          "line": 172
         },
         {
           "name": "BaleApi.__aexit__",
           "kind": "method",
-          "line": 173
+          "line": 175
         },
         {
           "name": "BaleApi._require_client",
           "kind": "method",
-          "line": 176
+          "line": 178
         },
         {
           "name": "BaleApi._require_ws",
           "kind": "method",
-          "line": 179
+          "line": 181
         },
         {
           "name": "BaleApi.auth_start",
           "kind": "method",
-          "line": 185
+          "line": 187
         },
         {
           "name": "BaleApi.auth_code",
           "kind": "method",
-          "line": 197
+          "line": 199
         },
         {
           "name": "BaleApi.auth_password",
           "kind": "method",
-          "line": 220
+          "line": 222
+        },
+        {
+          "name": "BaleApi.auth_signup",
+          "kind": "method",
+          "line": 235
         },
         {
           "name": "BaleApi.account_card",
           "kind": "method",
-          "line": 233
+          "line": 252
         },
         {
           "name": "BaleApi.list_contacts",
           "kind": "method",
-          "line": 246
+          "line": 265
         },
         {
           "name": "BaleApi.search_contacts",
           "kind": "method",
-          "line": 265
+          "line": 284
         },
         {
           "name": "BaleApi.add_contact_by_phone",
           "kind": "method",
-          "line": 275
+          "line": 294
         },
         {
           "name": "BaleApi.add_contact",
           "kind": "method",
-          "line": 302
+          "line": 321
         },
         {
           "name": "BaleApi.remove_contact",
           "kind": "method",
-          "line": 314
+          "line": 333
         },
         {
           "name": "BaleApi.list_dialogs",
           "kind": "method",
-          "line": 328
+          "line": 347
         },
         {
           "name": "BaleApi.send_text",
           "kind": "method",
-          "line": 337
+          "line": 356
+        },
+        {
+          "name": "BaleApi.send_file_bytes",
+          "kind": "method",
+          "line": 373
         },
         {
           "name": "BaleApi.send_file",
           "kind": "method",
-          "line": 354
+          "line": 401
         },
         {
           "name": "BaleApi.send_photo",
           "kind": "method",
-          "line": 390
+          "line": 437
         },
         {
           "name": "BaleApi.send_media",
           "kind": "method",
-          "line": 401
+          "line": 448
         },
         {
           "name": "BaleApi.read_history",
           "kind": "method",
-          "line": 412
+          "line": 459
         },
         {
           "name": "BaleApi.read_message_media",
           "kind": "method",
-          "line": 425
+          "line": 472
         },
         {
           "name": "BaleApi._rpc",
           "kind": "method",
-          "line": 458
+          "line": 505
         },
         {
           "name": "_normalize_phone",
           "kind": "function",
-          "line": 473
+          "line": 520
         },
         {
           "name": "_build_search",
           "kind": "function",
-          "line": 482
+          "line": 529
         },
         {
           "name": "_build_contact_user",
           "kind": "function",
-          "line": 488
+          "line": 535
         },
         {
           "name": "_build_load_dialogs",
           "kind": "function",
-          "line": 494
+          "line": 541
         },
         {
           "name": "_build_send_text",
           "kind": "function",
-          "line": 500
+          "line": 547
         },
         {
           "name": "_build_send_document",
           "kind": "function",
-          "line": 506
+          "line": 553
         },
         {
           "name": "_kind_to_mime",
           "kind": "function",
-          "line": 512
+          "line": 559
         },
         {
           "name": "_message_to_dict",
           "kind": "function",
-          "line": 529
+          "line": 576
         }
       ]
     },
@@ -3636,177 +3646,207 @@
         {
           "name": "BaleApiService",
           "kind": "class",
-          "line": 64
+          "line": 65
         },
         {
           "name": "BaleApiService.__init__",
           "kind": "method",
-          "line": 67
+          "line": 68
         },
         {
           "name": "BaleApiService.ensure_loop",
           "kind": "method",
-          "line": 78
+          "line": 89
         },
         {
           "name": "BaleApiService.run_coro",
           "kind": "method",
-          "line": 93
+          "line": 104
         },
         {
           "name": "BaleApiService._ensure_api",
           "kind": "method",
-          "line": 101
+          "line": 112
+        },
+        {
+          "name": "BaleApiService._connect_locked",
+          "kind": "method",
+          "line": 121
+        },
+        {
+          "name": "BaleApiService.startup_reconnect",
+          "kind": "method",
+          "line": 133
         },
         {
           "name": "BaleApiService.health",
           "kind": "method",
-          "line": 106
+          "line": 145
         },
         {
           "name": "BaleApiService.account",
           "kind": "method",
-          "line": 114
+          "line": 154
         },
         {
           "name": "BaleApiService.connect",
           "kind": "method",
-          "line": 117
+          "line": 157
         },
         {
           "name": "BaleApiService.disconnect",
           "kind": "method",
-          "line": 123
+          "line": 160
         },
         {
           "name": "BaleApiService.auth_start",
           "kind": "method",
-          "line": 130
+          "line": 167
         },
         {
           "name": "BaleApiService.auth_code",
           "kind": "method",
-          "line": 137
+          "line": 174
         },
         {
           "name": "BaleApiService.auth_password",
           "kind": "method",
-          "line": 150
+          "line": 187
         },
         {
           "name": "BaleApiService._connected_api",
           "kind": "method",
-          "line": 163
+          "line": 200
+        },
+        {
+          "name": "BaleApiService.send_file_upload",
+          "kind": "method",
+          "line": 213
         },
         {
           "name": "BaleApiService.contacts_list",
           "kind": "method",
-          "line": 177
+          "line": 220
         },
         {
           "name": "BaleApiService.contacts_search",
           "kind": "method",
-          "line": 181
+          "line": 224
         },
         {
           "name": "BaleApiService.contacts_add_phone",
           "kind": "method",
-          "line": 185
+          "line": 228
         },
         {
           "name": "BaleApiService.contacts_add",
           "kind": "method",
-          "line": 195
+          "line": 238
         },
         {
           "name": "BaleApiService.contacts_remove",
           "kind": "method",
-          "line": 201
+          "line": 244
         },
         {
           "name": "BaleApiService.dialogs_list",
           "kind": "method",
-          "line": 207
+          "line": 250
         },
         {
           "name": "BaleApiService.send_text",
           "kind": "method",
-          "line": 211
+          "line": 254
         },
         {
           "name": "BaleApiService.send_file",
           "kind": "method",
-          "line": 221
+          "line": 264
+        },
+        {
+          "name": "BaleApiService.send_upload",
+          "kind": "method",
+          "line": 275
         },
         {
           "name": "BaleApiService.read_history",
           "kind": "method",
-          "line": 232
+          "line": 290
         },
         {
           "name": "BaleApiService.read_media",
           "kind": "method",
-          "line": 242
+          "line": 300
         },
         {
           "name": "_require",
           "kind": "function",
-          "line": 275
+          "line": 334
         },
         {
           "name": "BaleApiRequestHandler",
           "kind": "class",
-          "line": 282
+          "line": 341
         },
         {
           "name": "BaleApiRequestHandler.log_message",
           "kind": "method",
-          "line": 288
+          "line": 347
         },
         {
           "name": "BaleApiRequestHandler._send_json",
           "kind": "method",
-          "line": 294
+          "line": 353
         },
         {
           "name": "BaleApiRequestHandler._authorized",
           "kind": "method",
-          "line": 303
+          "line": 362
         },
         {
           "name": "BaleApiRequestHandler._dispatch",
           "kind": "method",
-          "line": 307
+          "line": 366
+        },
+        {
+          "name": "BaleApiRequestHandler._serve_ui",
+          "kind": "method",
+          "line": 380
         },
         {
           "name": "BaleApiRequestHandler._handle",
           "kind": "method",
-          "line": 321
+          "line": 394
         },
         {
           "name": "BaleApiRequestHandler._read_json_body",
           "kind": "method",
-          "line": 358
+          "line": 433
         },
         {
           "name": "BaleApiRequestHandler.do_GET",
           "kind": "method",
-          "line": 373
+          "line": 448
         },
         {
           "name": "BaleApiRequestHandler.do_POST",
           "kind": "method",
-          "line": 376
+          "line": 451
         },
         {
           "name": "build_server",
           "kind": "function",
-          "line": 380
+          "line": 455
+        },
+        {
+          "name": "build_server",
+          "kind": "function",
+          "line": 474
         },
         {
           "name": "main",
           "kind": "function",
-          "line": 399
+          "line": 501
         }
       ]
     },
@@ -13685,77 +13725,112 @@
         {
           "name": "TestBaleApiFacade.test_read_history_returns_typed_dicts",
           "kind": "method",
-          "line": 295
+          "line": 294
         },
         {
           "name": "TestBaleApiFacade.test_read_message_media_downloads_document",
           "kind": "method",
-          "line": 303
+          "line": 302
         },
         {
           "name": "TestBaleApiFacade.test_read_message_media_missing_document_raises",
           "kind": "method",
-          "line": 321
+          "line": 320
         },
         {
           "name": "TestBaleApiFacade.test_send_file_missing_path",
           "kind": "method",
-          "line": 327
+          "line": 326
         },
         {
           "name": "TestBaleApiFacade.test_account_card_hides_tokens",
           "kind": "method",
-          "line": 333
+          "line": 332
         },
         {
           "name": "TestBaleApiFacade.test_rpc_error_maps_to_stable_code",
           "kind": "method",
-          "line": 342
+          "line": 341
+        },
+        {
+          "name": "TestBaleApiFacade.test_send_file_bytes_stages_and_sends",
+          "kind": "method",
+          "line": 354
+        },
+        {
+          "name": "TestBaleApiFacade.test_send_file_bytes_rejects_unsafe_name",
+          "kind": "method",
+          "line": 365
+        },
+        {
+          "name": "TestBaleApiFacade.test_vault_passphrase_flows_to_client",
+          "kind": "method",
+          "line": 371
         },
         {
           "name": "TestApiServer",
           "kind": "class",
-          "line": 361
+          "line": 382
         },
         {
           "name": "TestApiServer.server",
           "kind": "method",
-          "line": 363
+          "line": 384
         },
         {
           "name": "TestApiServer._request",
           "kind": "method",
-          "line": 388
+          "line": 409
         },
         {
           "name": "TestApiServer.test_health_and_root",
           "kind": "method",
-          "line": 400
+          "line": 421
         },
         {
           "name": "TestApiServer.test_auth_rejects_missing_token",
           "kind": "method",
-          "line": 408
+          "line": 429
         },
         {
           "name": "TestApiServer.test_contacts_flow_over_http",
           "kind": "method",
-          "line": 417
+          "line": 438
         },
         {
           "name": "TestApiServer.test_send_text_over_http",
           "kind": "method",
-          "line": 427
+          "line": 448
         },
         {
           "name": "TestApiServer.test_missing_field_returns_400",
           "kind": "method",
-          "line": 436
+          "line": 457
         },
         {
           "name": "TestApiServer.test_unknown_route_404",
           "kind": "method",
-          "line": 446
+          "line": 467
+        },
+        {
+          "name": "TestApiServer.test_ui_served_without_token",
+          "kind": "method",
+          "line": 475
+        },
+        {
+          "name": "TestApiServer.test_send_upload_roundtrip",
+          "kind": "method",
+          "line": 482
+        },
+        {
+          "name": "TestApiServer.test_send_upload_rejects_bad_base64",
+          "kind": "method",
+          "line": 498
+        },
+        {
+          "name": "TestApiServer.test_auto_reconnect_without_vault_is_noop",
+          "kind": "method",
+          "line": 511
         }
       ]
     },
