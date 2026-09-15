@@ -115,6 +115,7 @@
 - نتیجهٔ G-02: registration با حفظ `document:F-046` به state=`implemented` و configured/runtime/onboarding=false منتقل شد؛ capability/auth step و factory ندارد. آداپتر ناقص پیش از هر client/session/network quarantine می‌شود و UI fixture همین وضعیت را نمایش می‌دهد.
 - شاهد: اختصاصی `5/5`، مرتبط `21/21`، Backend کامل `599/599`، TypeScript/Observability و UI B2=`6/6`؛ هیچ عملیات Live/Network اجرا نشد.
 - Trigger بازبینی: تغییر صریح قرارداد توسط کاربر، تغییر F-046 یا هر تلاش برای فعال‌سازی factory/capability/runtime/onboarding.
+- به‌روزرسانی 2026-09-15 (شاخهٔ استثنایی `Bale`، کامیت `b4491b7f`): توسعهٔ شاخه با قرارداد کاربر ادامه یافت؛ مخاطبین Live با الگوی GetContacts→LoadUsers غنی‌شد و عملیات نشست (لیست/جستجوی مخاطبین، خواندن تاریخچه، ارسال متن) با مجوز همان لحظهٔ کاربر روی نشست ذخیره‌شده پذیرفته شد (V-194، F-072). این رکورد مجوز عملیات Live در آینده نیست و Provider slot اصلی همچنان fail-closed است.
 
 ## فصل ۹ — زیرساخت مجاز پس از Discovery
 

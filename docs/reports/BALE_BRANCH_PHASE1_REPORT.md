@@ -1,8 +1,8 @@
 # Bale Branch API — فاز ۱ (کنترل مخاطبین و پیام‌رسانی)
 
-وضعیت: `BALE_BRANCH_PHASE1+UI / OFFLINE_ACCEPTED / LIVE_AUTH_PENDING`
+وضعیت: `BALE_BRANCH_PHASE1+UI / OFFLINE_ACCEPTED / LIVE_ACCEPTED (session ops)`
 شاخه: `Bale` (استثنایی؛ از `main` جدا و پس از پذیرش کاربر حذف می‌شود)
-تاریخ: ۲۰۲۶-۰۹-۱۴ (به‌روزرسانی UI در همان روز)
+تاریخ: ۲۰۲۶-۰۹-۱۴ (به‌روزرسانی UI در همان روز؛ غنی‌سازی مخاطبین و پذیرش Live در ۲۰۲۶-۰۹-۱۵)
 
 ## ۱. دامنه و هدف
 
@@ -136,3 +136,38 @@ MEDIA_*)، یا نگهداری به‌صورت subpackage مستقل با همی
   دیالگ آن را نگه می‌دارد.
 - ارسال با `media_kind` صریح mime را بازنویسی می‌کند تا SendType عکس/ویدئو
   درست دسته‌بندی شود.
+
+## ۸. غنی‌سازی مخاطبین و پذیرش Live (۲۰۲۶-۰۹-۱۵)
+
+کامیت `b4491b7f` روی شاخهٔ `Bale`:
+
+- **شکل جدید پاسخ سرور**: `GetContacts` در Live فقط peer برمی‌گرداند؛ نام و
+  `access_hash` با فراخوانی دسته‌ای `LoadUsers` واکشی می‌شود. اگر پاسخ
+  رکورد کامل داشته باشد همان رکوردها ترجیح داده می‌شوند (پشتیبانی هر دو
+  شکل سرور).
+- **دیکد wrapped-text**: `local_name` و `username` به شکل پیام درهم‌پیچیدهٔ
+  `{1: text}` می‌آیند؛ `_decode_wrapped_text` هر دو شکل plain و wrapped را
+  می‌خواند.
+- **جستجوی محلی**: `SearchContacts` سرور فقط مخاطبین ذخیره‌شده را match
+  می‌کند؛ در نبود نتیجهٔ enriched، فهرست غنی‌شدهٔ محلی برای نام/username
+  اسکن می‌شود.
+- **خطای دسترسی**: `RpcError` حاوی `PermissionDenied` به کد پایدار
+  `bale_access_denied` نگاشت شد (گروه/کانال مجاز نیست).
+- **هشدار صوتی OTP**: هنگام `auth/start` فایل `data/otp_alert.wav` در
+  thread جداگانه پخش می‌شود (winsound در ویندوز، paplay/aplay/afplay در
+  سایر سیستم‌ها) تا پاسخ HTTP بلاک نشود.
+
+**شاهد**:
+
+- آفلاین: `pytest tests/test_bale_branch_api.py` → ۳۶/۳۶ پاس (۳ تست تازه:
+  دیکد wrapped، غنی‌سازی LoadUsers، سرور با پاسخ peer-only).
+- Live (با مجوز همان لحظهٔ کاربر روی نشست ذخیره‌شده):
+  `contacts/list` هر ۳ مخاطب را با نام کامل برگرداند؛
+  `contacts/search` با «محمد»، «محسن»، «اخوندیان» و «م» درست match شد؛
+  `messages/read-history` تاریخچه را خواند؛
+  `messages/send-text` پیام تستی ارسال و با read-back تأیید شد.
+
+**نقص باقیماندهٔ شناخته‌شده**: در `dialogs/list` مقدار `last_text` برای
+همهٔ گفتگوها `null` است — ظاهراً فیلد content در `LoadDialogs` به شکل
+دیگری wrap می‌شود یا خالی است. `read-history` متن کامل می‌دهد؛ این نقص
+غیرمسدودکننده است.

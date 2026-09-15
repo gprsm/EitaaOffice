@@ -1701,3 +1701,14 @@
 - مداومت نشست: passphrase رمزگذاری vault در `data/bale_vault.key` سمت سرور نگه داشته می‌شود؛ reconnect خودکار در startup اجرا و بدون vault به‌صورت no-op تست شد؛ توکن API پایدار در `data/bale_api.token` (هر دو gitignored؛ فقط برای نشست سرور-local loopback).
 - رویداد Live ثبت‌شده: در smoke-test سرور (قبل از UI)، یک فراخوانی StartPhoneAuth با شمارهٔ ساختگی به next-ws.bale.ai انجام و 200/transaction_hash واقعی دریافت شد (فراخوانی الگوی صحیح را تأیید کرد)؛ سرور بلافاصله متوقف شد. این رویداد مجوز عملیات Live نیست و OTP/ValidateCode هرگز اجرا نشد.
 - Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام این شاخه در `main`.
+
+### V-194 — غنی‌سازی مخاطبین شاخهٔ Bale و پذیرش Live عملیات نشست
+
+- تاریخ: 2026-09-15
+- دامنه: شاخهٔ `Bale`؛ کامیت `b4491b7f`؛ فقط `src/eitaa_bridge/application/bale_client/{api,api_server,codecs_ext}.py` و `tests/test_bale_branch_api.py`.
+- سطح: Unit/Contract (fake در مرز WS) + Live (نشست ذخیره‌شدهٔ کاربر با مجوز همان لحظه).
+- روش امن: `.venv/Scripts/python.exe -m pytest tests/test_bale_branch_api.py` → 36 passed؛ سرور loopback `api_server` روی 127.0.0.1:8791 با vault موجود auto-reconnect شد و عملیات contacts/list، contacts/search، messages/read-history و messages/send-text با curl اجرا شد.
+- نتیجه: GetContacts peer-only با LoadUsers غنی‌شد (نام کامل + access_hash هر ۳ مخاطب)؛ جستجو با «محمد»/«محسن»/«اخوندیان»/«م» درست match شد؛ پیام تستی ارسال و با read-back (message_id 4091180017836933156) تأیید شد. دیکد wrapped-text `{1: text}` برای local_name/username، نگاشت PermissionDenied→`bale_access_denied` و پخش `data/otp_alert.wav` پس از auth/start نیز در همین کامیت.
+- نقص شناخته‌شدهٔ غیرمسدودکننده: `dialogs/list` مقدار `last_text` را null برمی‌گرداند (شکل فیلد content در LoadDialogs)؛ متن کامل از `read-history` در دسترس است.
+- Artifact: `docs/reports/BALE_BRANCH_PHASE1_REPORT.md` فصل ۸.
+- Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام شاخهٔ `Bale` در `main`.
