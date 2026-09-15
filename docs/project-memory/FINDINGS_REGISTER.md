@@ -1001,3 +1001,14 @@
 - شاهد: V-194؛ ۳۶/۳۶ تست آفلاین + پذیرش Live روی نشست کاربر (لیست/جستجو/خواندن/ارسال).
 - نقص باز: `last_text` دیالوگ‌ها در `LoadDialogs` null است (غیرمسدودکننده؛ `read-history` متن کامل می‌دهد).
 - Trigger بازگشایی: تغییر codecهای `bale_client` یا drift جدید schema سرور بله.
+
+### F-073 — `last_text` دیالوگ‌ها در LoadDialogs همیشه null است
+
+- وضعیت: `OPEN / NON_BLOCKING`
+- تاریخ: 2026-09-15
+- دامنه: شاخهٔ استثنایی `Bale`؛ `src/eitaa_bridge/application/bale_client/codecs_ext.py` (`decode_dialog_summaries`).
+- یافته: در Live، `/dialogs/list` peer، `unread_count`، `sort_date` و `unread_mentions` را درست برمی‌گرداند اما `last_message_id`، `last_message_date`، `last_text` و `last_document` برای همهٔ گفتگوها null می‌مانند. decoder فعلی فیلد ۵ (message id)، ۶ (date) و ۷ (content) را از entry دیالوگ می‌خواند؛ ظاهراً در پاسخ واقعی سرور این فیلدها به شکل دیگری (nested یا wrapped در فیلد ۷) قرار دارند یا خالی‌اند. `sort_date` (فیلد ۳) نیز برای بعضی دیالوگ‌ها مقدار سرراست ۱۸۴۴۶۷۳... دارد که نشانهٔ decode نادرست uint64 است.
+- اثر: پیش‌نمایش آخرین پیام در UI گفتگوها خالی است؛ کارکرد مسدود نمی‌شود چون `read-history` متن کامل هر گفتگو را می‌دهد.
+- اقدام پیشنهادی: capture یک پاسخ واقعی `LoadDialogs` (با مجوز همان لحظهٔ کاربر)، بررسی ساختار raw با `decode_tree`، و اصلاح `decode_dialog_summaries` + تست آفلاین با شکل واقعی.
+- شاهد فعلی: خروجی Live در V-194 (سه دیالوگ با `last_text: null`).
+- Trigger تکرار/بازگشایی: کار بعدی روی شاخهٔ `Bale`، تغییر codecهای دیالوگ، یا drift جدید سرور.
