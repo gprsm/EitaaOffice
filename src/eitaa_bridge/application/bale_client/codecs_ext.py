@@ -145,7 +145,14 @@ def _decode_user_record(data: bytes) -> UserRecord | None:
         return None
     name = _decode_text(name_raw)
     local_raw = get_first(fields, USER_FIELD_LOCAL_NAME)
+    # Observed live 2026-09-15: local_name arrives as a wrapped message
+    # {1: text} (the user's custom nickname for the contact), not a string.
+    local_name = _decode_wrapped_text(local_raw)
     username_raw = get_first(fields, USER_FIELD_USERNAME)
+    if isinstance(username_raw, bytes):
+        username = _decode_text(username_raw) or _decode_wrapped_text(username_raw)
+    else:
+        username = None
     is_bot = get_first(fields, USER_FIELD_IS_BOT)
     is_deleted = get_first(fields, USER_FIELD_IS_DELETED)
     created_at = get_first(fields, USER_FIELD_CREATED_AT)
@@ -153,8 +160,8 @@ def _decode_user_record(data: bytes) -> UserRecord | None:
         id=user_id,
         access_hash=access_hash if isinstance(access_hash, int) else None,
         name=name,
-        local_name=_decode_text(local_raw) if isinstance(local_raw, bytes) else None,
-        username=_decode_text(username_raw) if isinstance(username_raw, bytes) else None,
+        local_name=local_name,
+        username=username,
         is_bot=bool(is_bot) if isinstance(is_bot, int) else False,
         is_deleted=bool(is_deleted) if isinstance(is_deleted, int) else False,
         created_at=created_at if isinstance(created_at, int) else None,
@@ -170,6 +177,24 @@ def _decode_text(raw: Any) -> str | None:
     except UnicodeDecodeError:
         return None
     return text if text and all(ch.isprintable() or ch in "\r\n\t" for ch in text) else None
+
+
+def _decode_wrapped_text(raw: Any) -> str | None:
+    """Decode ``{1: text}``-wrapped string fields (local_name/username shape).
+
+    Falls back to treating the blob as a plain string when it does not parse
+    as a wrapper message with a textual field 1.
+    """
+    if not isinstance(raw, bytes):
+        return None
+    direct = _decode_text(raw)
+    if direct is not None:
+        return direct
+    try:
+        inner = get_first(parse_fields(raw), 1)
+    except Exception:
+        return None
+    return _decode_text(inner)
 
 
 def _iter_user_blobs(data: bytes) -> list[tuple[int, bytes]]:

@@ -84,6 +84,23 @@ class TestCodecsExt:
         payload = ProtoWriter().message(4, noise).build()
         assert decode_users(payload) == []
 
+    def test_decode_users_local_name_wrapped_message(self) -> None:
+        """Live shape (2026-09-15): local_name/username arrive as {1: text}."""
+        record = (
+            ProtoWriter()
+            .int64(1, 1846320404)
+            .int64(2, 123)
+            .string(3, "کاربر جدید")
+            .message(4, ProtoWriter().string(1, "محسن"))
+            .message(9, ProtoWriter().string(1, "m_akhoondian"))
+            .build()
+        )
+        records = decode_users(ProtoWriter().message(1, record).build())
+        assert len(records) == 1
+        assert records[0].name == "کاربر جدید"
+        assert records[0].local_name == "محسن"
+        assert records[0].username == "m_akhoondian"
+
     def test_decode_users_wrapped_container_one_level_deep(self) -> None:
         inner = ProtoWriter().message(1, _user_record(31, "Wrapped")).build()
         payload = ProtoWriter().message(2, inner).build()
@@ -234,6 +251,26 @@ class TestBaleApiFacade:
         assert {c["peer"]["id"] for c in contacts} == {99, 88}
         names = {c["name"] for c in contacts}
         assert names == {"Contact A", "Contact B"}
+
+    def test_list_contacts_enriches_peer_only_response_via_load_users(self) -> None:
+        """Live GetContacts returns peer-only blobs; names come from LoadUsers."""
+        # Peer shape observed live 2026-09-15: {1: user_id, 2: type} under container 3.
+        peers = (
+            ProtoWriter()
+            .message(3, ProtoWriter().int64(1, 99).int32(2, 1))
+            .message(3, ProtoWriter().int64(1, 88).int32(2, 1))
+            .build()
+        )
+        enriched = ProtoWriter().message(1, _user_record(99, "Contact A")).message(1, _user_record(88, "Contact B")).build()
+        api = _make_api(Path("."))
+        api._client.ws.responses[("bale.users.v1.Users", "GetContacts")] = peers
+        api._client.ws.responses[("bale.users.v1.Users", "LoadUsers")] = enriched
+        contacts = asyncio.run(api.list_contacts())
+        assert {c["peer"]["id"] for c in contacts} == {99, 88}
+        names = {c["name"] for c in contacts}
+        assert names == {"Contact A", "Contact B"}
+        methods = [c[1] for c in api._client.ws.calls]
+        assert methods == ["GetContacts", "LoadUsers"]
 
     def test_add_contact_by_phone_builds_import_contacts(self) -> None:
         api = _make_api(Path("."))
@@ -388,8 +425,11 @@ class TestApiServer:
             vault_path=tmp_path / "session.vault", log_path=tmp_path / "bale.log"
         )
         fake_api = _make_api(tmp_path)
+        # Peer-only GetContacts (live shape) + LoadUsers enrichment.
+        peers = ProtoWriter().message(3, ProtoWriter().int64(1, 99).int32(2, 1)).build()
         users = ProtoWriter().message(1, _user_record(99, "Server Contact")).build()
-        fake_api._client.ws.responses[("bale.users.v1.Users", "GetContacts")] = users
+        fake_api._client.ws.responses[("bale.users.v1.Users", "GetContacts")] = peers
+        fake_api._client.ws.responses[("bale.users.v1.Users", "LoadUsers")] = users
         fake_api._client.ws.responses[("bale.users.v1.Users", "ImportContacts")] = users
         service.api = fake_api
         token = "test-token-123"

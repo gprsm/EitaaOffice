@@ -263,33 +263,67 @@ class BaleApi:
     # ------------------------------- contacts --------------------------------
 
     async def list_contacts(self) -> list[dict[str, Any]]:
-        """Return the account's contacts as typed summaries."""
+        """Return the account's contacts with names.
+
+        Live GetContacts (2026-09-15) returns peer-only blobs; names and
+        access hashes arrive from a follow-up LoadUsers batch. Some server
+        versions return full user records directly, so records are preferred
+        when present. Output shape is uniform: ``peer`` + display fields.
+        """
         self._require_ws()
         response = await self._rpc("users", "GetContacts", b"")
-        summaries = decode_contact_summaries(response)
-        if not summaries:
-            # Fall back to tolerant user-record decoding on container drift.
-            summaries = [
-                ContactSummary(
-                    peer=Peer(id=record.id, type=PeerType.PRIVATE, access_hash=record.access_hash),
-                    name=record.name or record.local_name,
-                    username=record.username,
-                    is_bot=record.is_bot,
-                    access_hash=record.access_hash,
-                )
-                for record in decode_users(response)
-            ]
-        return [s.to_dict() for s in summaries]
+        # Peer-only blobs decode as nameless records; treat those as "not
+        # enriched" and route them through the LoadUsers batch instead.
+        records = [r for r in decode_users(response) if _record_is_enriched(r)]
+        if not records:
+            peers = [s.peer for s in decode_contact_summaries(response)]
+            if not peers:
+                return []
+            enriched = await self._load_user_names(peers)
+            records = [enriched.get(p.id) or self._blank_record(p) for p in peers]
+        out: list[dict[str, Any]] = []
+        for record in records:
+            out.append(_contact_record_to_dict(record))
+        return out
+
+    async def _load_user_names(self, peers: list[Peer]) -> dict[int, Any]:
+        """LoadUsers for the given peers, keyed by user id ({} on failure)."""
+        try:
+            from .codecs import build_load_users
+
+            payload = build_load_users(peers)
+            response = await self._rpc("users", "LoadUsers", payload)
+            return {record.id: record for record in decode_users(response)}
+        except BaleApiError:
+            return {}
+
+    def _blank_record(self, peer: Peer) -> Any:
+        """Placeholder record for a peer LoadUsers did not return."""
+        from .codecs_ext import UserRecord
+
+        return UserRecord(id=peer.id, access_hash=peer.access_hash)
 
     async def search_contacts(self, query: str) -> list[dict[str, Any]]:
-        """Search contacts by free-text query (name/username/number)."""
+        """Search contacts by free-text query (name/username/number).
+
+        Server-side SearchContacts matches saved contacts only and can return
+        nameless partial records; those trigger a local scan of the enriched
+        contact list so nicknames (local_name) match too.
+        """
         self._require_ws()
         response = await self._rpc("users", "SearchContacts", _build_search(query))
-        records = decode_users(response)
-        if not records:
-            summaries = decode_contact_summaries(response)
-            return [dict(s) for s in summaries]
-        return [r.to_dict() for r in records]
+        lowered = query.strip().lower()
+        records = [r for r in decode_users(response) if _record_is_enriched(r)]
+        matches = [_contact_record_to_dict(r) for r in records]
+        if matches or not lowered:
+            return matches
+        return [c for c in await self.list_contacts() if self._contact_matches(c, lowered)]
+
+    @staticmethod
+    def _contact_matches(contact: dict[str, Any], lowered: str) -> bool:
+        name = (contact.get("name") or "").lower()
+        username = (contact.get("username") or "").lower()
+        return lowered in name or lowered in username
 
     async def add_contact_by_phone(
         self,
@@ -506,6 +540,13 @@ class BaleApi:
         try:
             return await self._client.raw_rpc(SERVICES[service_key], method, payload)
         except RpcError as exc:
+            text = str(exc)
+            if "PermissionDenied" in text:
+                raise BaleApiError(
+                    "Bale server denied access to this peer (group/channel not permitted "
+                    "for this session or not a member)",
+                    code="bale_access_denied",
+                ) from exc
             raise BaleApiError(f"RPC {method} failed: {exc}", code="bale_rpc_error") from exc
         except ProtocolError as exc:
             raise BaleApiError(f"RPC {method} transport failed: {exc}", code="bale_transport_error") from exc
@@ -516,6 +557,26 @@ class BaleApi:
 # ----------------------------------------------------------------------------
 # Wire helpers (kept local so the facade does not re-export engine internals)
 # ----------------------------------------------------------------------------
+
+def _record_is_enriched(record: Any) -> bool:
+    """True when a decoded user record carries display fields (not peer-only)."""
+    return bool(record.name or record.local_name or record.username)
+
+
+def _contact_record_to_dict(record: Any) -> dict[str, Any]:
+    """Uniform contact shape: ``peer`` plus display fields.
+
+    The user's own nickname (local_name) is the most useful display label;
+    fall back to the account-level name.
+    """
+    return {
+        "peer": {"id": record.id, "type": int(PeerType.PRIVATE)},
+        "name": record.local_name or record.name,
+        "username": record.username,
+        "is_bot": record.is_bot,
+        "access_hash": record.access_hash,
+    }
+
 
 def _normalize_phone(phone_number: str | int) -> int:
     cleaned = str(phone_number).strip().replace(" ", "").replace("-", "")

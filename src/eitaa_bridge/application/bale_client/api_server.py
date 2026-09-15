@@ -164,11 +164,43 @@ class BaleApiService:
 
     # --------------------------------- auth ---------------------------------
 
+    def _notify_otp_sent(self) -> None:
+        """Play the OTP alert sound (10s) in a background thread so the HTTP
+        response is not blocked."""
+        import threading
+
+        wav = Path(__file__).parents[3] / "data" / "otp_alert.wav"
+
+        def play() -> None:
+            try:
+                if not wav.exists():
+                    log.warning("OTP alert file missing: %s", wav)
+                    return
+                if os.name == "nt":
+                    import winsound
+
+                    winsound.PlaySound(str(wav), winsound.SND_FILENAME)
+                else:
+                    import shutil
+                    import subprocess
+
+                    player = next(
+                        (p for p in ("paplay", "aplay", "afplay") if shutil.which(p)),
+                        None,
+                    )
+                    if player:
+                        subprocess.run([player, str(wav)], check=False)
+            except Exception:
+                log.exception("OTP alert playback failed")
+
+        threading.Thread(target=play, name="bale-otp-alert", daemon=True).start()
+
     def auth_start(self, payload: dict[str, Any]) -> dict[str, Any]:
         phone = _require(payload, "phone")
         result = self.run_coro(self._ensure_api().auth_start(phone))
         self.transaction_hash = result["transaction_hash"]
         self._expected_stage = "code"
+        self._notify_otp_sent()
         return result
 
     def auth_code(self, payload: dict[str, Any]) -> dict[str, Any]:
