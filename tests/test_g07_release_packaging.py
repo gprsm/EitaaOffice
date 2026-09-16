@@ -311,6 +311,8 @@ def test_release_excludes_quarantined_bale_client_but_keeps_fail_closed_slot() -
     )
 
     wheel_path = root / "dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl"
+    if not wheel_path.exists():
+        build_wheel(root, root / "dist", force=True)
     with ZipFile(wheel_path) as wheel:
         names = wheel.namelist()
         metadata = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/METADATA")

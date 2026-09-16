@@ -1,9 +1,11 @@
 # وضعیت پایهٔ فعلی پروژه
 
 تاریخ مبنا: ۲۰۲۶-۰۸-۲۷
-آخرین همسان‌سازی: MULTI-ACCOUNT-CLEAN-INSTALL-RC5 در ۲۰۲۶-۰۸-۲۹
-وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-189، F-039 تا F-067 و گزارش‌های تثبیت/ویژگی؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+آخرین همسان‌سازی: BALE-FULL-INTEGRATION-10-PHASES در ۲۰۲۶-۰۹-۱۷
+وضعیت: `BALE_INTEGRATION_COMPLETE / CONTRACT_VERIFIED / QUALITY_GATES_PASSED / FULL_SUITE_100_PERCENT`  
+منابع شاهد جاری: V-103، V-108 تا V-195، F-039 تا F-074 و گزارش‌های تثبیت/ویژگی؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+
+Milestone BALE-FULL-INTEGRATION-10-PHASES: ادغام و فعال‌سازی کامل Provider پیام‌رسان بله در برنامهٔ اصلی در ۱۰ فاز معماری شامل Adapter کامل (`BaleProviderApplicationAdapter`) با پوشش متدهای ProviderAdapter، ContactAdapter و MediaAdapter، Process Worker اختصاصی (`BaleProviderProcessWorker`) بر بستر IPC فاز ۷ با احراز هویت HMAC، فعال‌سازی Slot رجیستری Provider با متادیتای رسمی (`CONTRACT_VERIFIED`، `configured=True`، `runtime_enabled=True`، `onboarding_enabled=True`)، چرخه‌عمر Onboarding و توانمندی‌ها در Coordinator، پشتیبانی بصری UI از نشان تجاری بله با رنگ سبز زمردی و نشان "ب" در گیت‌ها و فرم‌های احراز هویت، سناریوهای عملیاتی (مخاطبین با اولویت local_name، بارگذاری تاریخچه، ارسال متن، و نگاشت خطای bale_access_denied)، به‌روزرسانی Gateهای ثبات و اجرای کامل quality gates با نتیجهٔ ۱۰۰٪ موفقیت (۷۵/۷۵ تست بله، ۸۲۸+ تست کامل مخزن، تایپ‌چک TypeScript بدون خطا، تست مشاهده‌پذیری UI/Electron پاس‌شده، و ممیزی حافظه و اسناد بدون خطا). مرجع=F-074/V-195.
 
 Milestone MULTI-ACCOUNT-CLEAN-INSTALL-RC5: پروفایل نصب تازه اکنون AppUser Auth، Multi-session و Worker Process را هم‌زمان روشن دارد. startup بدون حساب در runtime ایزوله crash نمی‌کند؛ UI ابتدا فعال‌سازی دستگاه، سپس ساخت مدیر اولیه و بعد افزودن نخستین حساب Eitaa متعلق به همان مدیر را نشان می‌دهد. ساخت حساب اتصال/OTP/Worker را خودکار آغاز نمی‌کند. rehearsal مالکیت=`admin/owner/active`، Backend=`691/691`، UI onboarding=`8/8`، TypeScript/Observability و payload privacy سبزند. RC5 Setup=`31,295,296 / SHA 2BC28046...20CC / signer, verify-only, tamper PASS`، Portable SHA=`175D8011...E925` و Delivery ZIP=`61,883,250 / SHA 66AF0894...2D26 / 15 entries` است. پذیرش واقعی حساب دوم و مشاهدهٔ مقصد باز است. مرجع=F-067/ADR-52/V-189/report feature.
 

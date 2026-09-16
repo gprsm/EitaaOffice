@@ -487,8 +487,10 @@ class BridgeApplicationApi:
             default=None,
         )
         eitaa_provider = self._provider_registry.registration("eitaa").manifest.provider
+        bale_provider = self._provider_registry.registration("bale").manifest.provider
         self._provider_application_adapter_factories = {
             eitaa_provider: self._create_eitaa_application_adapter,
+            bale_provider: self._create_bale_application_adapter,
         }
         self._provider_orchestrator = ProviderApplicationOrchestrator(
             authorize_account=self._authorize_provider_operation_account,
@@ -2003,6 +2005,17 @@ class BridgeApplicationApi:
                 list_contacts=self._eitaa_provider_contacts,
                 upsert_contact=self._eitaa_provider_contact_upsert,
             ),
+        )
+
+    def _create_bale_application_adapter(
+        self,
+        account: ProviderAccountContext,
+    ) -> Any:
+        from .bale_provider_adapter import BaleProviderApplicationAdapter
+
+        return BaleProviderApplicationAdapter(
+            account,
+            self._provider_registry.registration(account.provider).manifest,
         )
 
     @contextmanager

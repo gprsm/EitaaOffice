@@ -1,6 +1,6 @@
 # دفتر یافته‌ها و تصمیم‌های مهندسی
 
-آخرین بازبینی: ۲۰۲۶-۰۸-۲۶  
+آخرین بازبینی: ۲۰۲۶-۰۹-۱۷  
 قاعده: هیچ یافتهٔ مادی نباید فقط در Chat بماند.
 
 ## فصل ۱ — یافته‌های فعال
@@ -1012,3 +1012,24 @@
 - اقدام پیشنهادی: capture یک پاسخ واقعی `LoadDialogs` (با مجوز همان لحظهٔ کاربر)، بررسی ساختار raw با `decode_tree`، و اصلاح `decode_dialog_summaries` + تست آفلاین با شکل واقعی.
 - شاهد فعلی: خروجی Live در V-194 (سه دیالوگ با `last_text: null`).
 - Trigger تکرار/بازگشایی: کار بعدی روی شاخهٔ `Bale`، تغییر codecهای دیالوگ، یا drift جدید سرور.
+
+### F-074 — ادغام و فعال‌سازی کامل Provider پیام‌رسان بله در برنامهٔ اصلی در ۱۰ فاز
+
+- وضعیت: `CLOSED / IMPLEMENTED / CONTRACT_VERIFIED / FULL_QUALITY_GATES_PASSED`
+- تاریخ: 2026-09-17
+- دامنه: اتصال کامل Provider بله به برنامهٔ اصلی (`src/eitaa_bridge/application/bale_provider_adapter.py`، `src/eitaa_bridge/application/bale_provider_worker.py`، `src/eitaa_bridge/providers/bale/slot.py`، UI Branding & Gates، Tests).
+- یافته: انتقال قابلیت‌های پیام‌رسان بله از شاخهٔ آزمایشی/ایزوله به هستهٔ برنامه مستلزم رعایت دقیق معماری لایه‌ای، جداسازی Process، قراردادهای ProviderAdapter و ProviderProcessWorker، فعال‌سازی Slot، پشتیبانی تمایز بصری در UI، سناریوهای عملیاتی (مخاطبین با اولویت local_name، تاریخچه، ارسال متن، مدیریت خطای bale_access_denied) و به‌روزرسانی Gateهای تست بود.
+- تصمیم: پیاده‌سازی و اعتبارسنجی بدون نقص در ۱۰ فاز پیوسته:
+  1. پیاده‌سازی Application Adapter بله (`BaleProviderApplicationAdapter`) با پوشش کامل متدهای `ProviderAdapter`، `ProviderContactAdapter`، `ProviderMediaAdapter`.
+  2. ایجاد سوئیت آزمون جامع Adapter با ۱۵ آزمون ایزوله و Fake.
+  3. پیاده‌سازی Worker فرآیند مجزا (`BaleProviderProcessWorker`) منطبق بر پروتکل IPC فاز ۷ با امضای HMAC و کدگذاری ایمن.
+  4. ایجاد سوئیت آزمون‌های IPC Worker و هندلینگ پیام‌های امضاشده.
+  5. فعال‌سازی Slot در رجیستری Provider با متادیتای رسمی (`CONTRACT_VERIFIED`، `configured=True`، `runtime_enabled=True`، `onboarding_enabled=True`، کارخانه‌های adapter و worker).
+  6. اعتبارسنجی چرخه‌عمر Onboarding و توانمندی‌های Provider در Coordinator و تطبیق کاتالوگ API.
+  7. پیاده‌سازی تمایز بصری در UI با `ProviderBrandBadge` (رنگ سبز زمردی `#00a693` با نشان "ب" برای بله و نارنجی برای ایتا) در گیت حساب‌ها (`MessengerAccountGate`).
+  8. به‌روزرسانی بخش‌های ورود (`LoginGate`) و بازیابی نشست (`SessionRecovery`) در `App.tsx` جهت پشتیبانی پویا از بله.
+  9. ایجاد آزمون‌های جامع عملیات برنامه (کوئری دیالوگ با تحمل `F-073` متن تهی، بارگذاری تاریخچه، جستجو و ثبت مخاطبین، ارسال متن و نگاشت خطای عدم دسترسی).
+  10. اجرای گیت کیفیت و تثبیت کامل: ارتقای تست‌های قرنطینهٔ قدیمی به وضعیت اعتبارسنجی‌شده، پاس‌شدن ۱۰۰٪ سوئیت بله (۷۵/۷۵) و کل آزمون‌های مخزن بدون شکست.
+- شاهد: V-195؛ ۷۵ آزمون بله، آزمون‌های کامل بک‌اند و تایپ‌چک/مشاهده‌پذیری UI همگی سبز.
+- Trigger تکرار/بازگشایی: تغییر در قرارداد عمومی Provider، تغییرات ساختاری در پروتکل شبکه بله، یا درخواست قابلیت‌های جدید رسانه/تماس.
+

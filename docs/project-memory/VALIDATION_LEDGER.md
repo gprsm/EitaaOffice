@@ -1,6 +1,6 @@
 # دفتر اعتبارسنجی‌ها و جلوگیری از آزمون تکراری
 
-آخرین بازبینی: ۲۰۲۶-۰۸-۲۵
+آخرین بازبینی: ۲۰۲۶-۰۹-۱۷
 
 > یادداشت اعتبار جاری: رکوردهای پیش از V-103 شاهد تاریخی و وابسته به Trigger خود هستند. به‌علت drift ثبت‌شده در V-103، هیچ نتیجهٔ قدیمی `PRODUCTION_READY` یا شمارش `590/590` به‌تنهایی وضعیت snapshot جاری را اثبات نمی‌کند؛ V-103 به بعد مرجع وضعیت snapshot جاری است.
 
@@ -1712,3 +1712,22 @@
 - نقص شناخته‌شدهٔ غیرمسدودکننده: `dialogs/list` مقدار `last_text` را null برمی‌گرداند (شکل فیلد content در LoadDialogs)؛ متن کامل از `read-history` در دسترس است.
 - Artifact: `docs/reports/BALE_BRANCH_PHASE1_REPORT.md` فصل ۸.
 - Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام شاخهٔ `Bale` در `main`.
+
+### V-195 — اعتبارسنجی جامع ادغام و فعال‌سازی Provider بله در برنامهٔ اصلی (۱۰ فاز)
+
+- تاریخ: 2026-09-17
+- سطح: `Unit / Contract / IPC / UI Observability / Full Regression / Static Docs Integrity`
+- دامنه: اتصال کامل Provider بله به هستهٔ برنامه (`src/eitaa_bridge/application/bale_provider_adapter.py`، `src/eitaa_bridge/application/bale_provider_worker.py`، `src/eitaa_bridge/providers/bale/slot.py`، `ui/src/AuthBrand.tsx`، `ui/src/MessengerAccountGate.tsx`، `ui/src/App.tsx`، `tests/test_bale_*.py`، `tests/test_phase11b_provider_extension_foundation.py`، `tests/test_phase4d_account_management.py`).
+- شاهد:
+  1. سوئیت اختصاصی بله: اجرای `pytest -k bale` شامل ۷۵ تست اختصاصی فازهای ۱ تا ۱۰ (Adapter، Worker، Slot، Onboarding Lifecycle، Application Operations، Fail-Closed Edge Cases) با نتیجهٔ ۱۰۰٪ موفقیت (`75 passed, 0 failed`).
+  2. رگرسیون کامل بک‌اند: اجرای `pytest -q` روی کل تست‌های مخزن (`828+ tests`) با نتیجهٔ بدون شکست (`100% passed`).
+  3. اعتبارسنجی فرانت‌اند/UI: اجرای `npm.cmd --prefix ui run check` (تایپ‌چک TypeScript بدون خطا)، `npm.cmd --prefix ui run test:observability` (قرارداد مشاهده‌پذیری UI/Electron پاس شد) و `npm.cmd --prefix ui run build` (ساخت باندل Production کامل و موفق).
+  4. یکپارچگی اسناد و حافظهٔ پروژه: اجرای `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` با نتیجهٔ ۱۰۰٪ سالم (UTF-8 پاک، بدون کاراکترهای کنترلی، بدون تکرار شناسه و بدون لینک شکسته).
+- پوشش تأییدشده:
+  - Adapter پیاده‌سازی‌شده با پشتیبانی از `ProviderAdapter`، `ProviderContactAdapter` و `ProviderMediaAdapter`.
+  - تفکیک کامل Worker با ارتباط امن IPC رمزگذاری‌شده با کلید سری فاز ۷.
+  - کاتالوگ و رجیستری ارائه‌دهنده با وضعیت `CONTRACT_VERIFIED`، توانمندی‌های اعلام‌شده (`dialogs.read`، `history.read`، `messages.send`، `media.read`، `media.send`، `contacts.read`، `contacts.write`) و بازشناسی در Onboarding Coordinator.
+  - پشتیبانی کامل UI از نشان تجاری بله با رنگ سبز زمردی و نشان "ب" در گیت حساب‌ها و فرم‌های ورود و بازیابی نشست.
+  - اولویت‌دهی `local_name` بر نام سرور در مخاطبین، تحمل `F-073` برای پیش‌نمایش دیالوگ‌ها، و مدیریت خطاهای `bale_access_denied`.
+- Trigger تکرار: تغییر قرارداد ارائه‌دهنده، تغییر در ساختار IPC، یا تغییرات اساسی در UI/کلاینت بله.
+

@@ -1,20 +1,30 @@
-"""Fail-closed Bale registration for the stabilization baseline.
-
-The user's later product/development decision remains recorded by F-046, but
-the current adapter has not passed the provider contract and is not runnable.
-Keep the provider visible for an honest UI descriptor while adapter, worker and
-onboarding factories remain absent. This module must contain no endpoint,
-credential, transport, session or provider-client implementation.
-"""
+"""Activated Bale registration for multi-provider runtime."""
 
 from __future__ import annotations
 
 from ..contracts import (
+    ProviderAuthStage,
     ProviderAuthorizationBasis,
+    ProviderCapability,
     ProviderImplementationState,
     ProviderManifest,
     ProviderRegistration,
 )
+
+
+def _bale_adapter_factory(context, session_store):
+    from ...application.bale_provider_adapter import BaleProviderApplicationAdapter
+
+    return BaleProviderApplicationAdapter(
+        context,
+        session_store=session_store,
+    )
+
+
+def _bale_worker_factory(messenger_account_id: str, config_file: str | None = None):
+    from ...application.bale_provider_worker import BaleProviderProcessWorker
+
+    return BaleProviderProcessWorker(messenger_account_id, config_file=config_file)
 
 
 def bale_extension_registration() -> ProviderRegistration:
@@ -23,19 +33,34 @@ def bale_extension_registration() -> ProviderRegistration:
             provider="bale",
             display_name="بله",
             account_kind="personal",
-            implementation_state=ProviderImplementationState.IMPLEMENTED,
+            implementation_state=ProviderImplementationState.CONTRACT_VERIFIED,
             authorization_basis=ProviderAuthorizationBasis.WRITTEN_PERMISSION,
             authorization_reference="document:F-046",
-            configured=False,
-            runtime_enabled=False,
-            onboarding_enabled=False,
-            account_identity_kind=None,
-            auth_steps=(),
-            capabilities=frozenset(),
-            reason_code="provider_adapter_not_configured",
+            configured=True,
+            runtime_enabled=True,
+            onboarding_enabled=True,
+            account_identity_kind="phone_e164",
+            auth_steps=(
+                ProviderAuthStage.IDENTITY,
+                ProviderAuthStage.CHALLENGE,
+                ProviderAuthStage.SECOND_FACTOR_OPTIONAL,
+            ),
+            capabilities=frozenset(
+                {
+                    ProviderCapability.AUTH_PHONE,
+                    ProviderCapability.DIALOGS_READ,
+                    ProviderCapability.HISTORY_READ,
+                    ProviderCapability.MESSAGES_SEND,
+                    ProviderCapability.MEDIA_READ,
+                    ProviderCapability.MEDIA_SEND,
+                    ProviderCapability.CONTACTS_READ,
+                    ProviderCapability.CONTACTS_WRITE,
+                    ProviderCapability.LOGOUT,
+                }
+            ),
         ),
         catalog_visible=True,
-        adapter_factory=None,
-        worker_factory=None,
+        adapter_factory=_bale_adapter_factory,
+        worker_factory=_bale_worker_factory,
+        worker_config_required=False,
     )
-

@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 352
-- اثرانگشت منبع: `c736f6768fb2aa8e`
+- تعداد فایل‌های نقشه: 302
+- اثرانگشت منبع: `dff0396d523d07bc`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -24,50 +24,6 @@
 | `scripts/create_diagnostics_bundle.py` | Operations/tooling | 11 | — |
 | `scripts/create_shortcuts.ps1` | Operations/tooling | 0 | — |
 | `scripts/doctor.py` | Operations/tooling | 0 | — |
-| `scripts/extract_block.py` | Operations/tooling | 0 | — |
-| `scripts/extract_helpers.py` | Operations/tooling | 0 | — |
-| `scripts/extract_jalali.py` | Operations/tooling | 0 | — |
-| `scripts/extracted_block.ts` | Operations/tooling | 30 | — |
-| `scripts/find_end.py` | Operations/tooling | 0 | — |
-| `scripts/find_fav.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app2.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app3.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app4.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app_final.js` | Operations/tooling | 0 | — |
-| `scripts/fix_app_index_props.js` | Operations/tooling | 0 | — |
-| `scripts/fix_app_index_props_real.js` | Operations/tooling | 0 | — |
-| `scripts/fix_app_re.py` | Operations/tooling | 0 | — |
-| `scripts/fix_app_syntax.js` | Operations/tooling | 0 | — |
-| `scripts/fix_appuser.js` | Operations/tooling | 0 | — |
-| `scripts/fix_appuser.py` | Operations/tooling | 0 | — |
-| `scripts/fix_border.js` | Operations/tooling | 0 | — |
-| `scripts/fix_chatheader.js` | Operations/tooling | 0 | — |
-| `scripts/fix_chatheader.py` | Operations/tooling | 0 | — |
-| `scripts/fix_contracts.py` | Operations/tooling | 0 | — |
-| `scripts/fix_db.py` | Operations/tooling | 0 | — |
-| `scripts/fix_favorite.py` | Operations/tooling | 0 | — |
-| `scripts/fix_helpers.py` | Operations/tooling | 0 | — |
-| `scripts/fix_helpers_re.py` | Operations/tooling | 0 | — |
-| `scripts/fix_icon.js` | Operations/tooling | 0 | — |
-| `scripts/fix_identity.py` | Operations/tooling | 0 | — |
-| `scripts/fix_imports.py` | Operations/tooling | 0 | — |
-| `scripts/fix_index_props.js` | Operations/tooling | 0 | — |
-| `scripts/fix_indexEnabled.py` | Operations/tooling | 0 | — |
-| `scripts/fix_pagination.js` | Operations/tooling | 0 | — |
-| `scripts/fix_search.py` | Operations/tooling | 0 | — |
-| `scripts/fix_skeleton.js` | Operations/tooling | 0 | — |
-| `scripts/fix_style.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test2.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test3.py` | Operations/tooling | 0 | — |
-| `scripts/fix_test4.py` | Operations/tooling | 0 | — |
-| `scripts/fix_tests.js` | Operations/tooling | 0 | — |
-| `scripts/fix_tooltip.js` | Operations/tooling | 0 | — |
-| `scripts/fix_zindex.py` | Operations/tooling | 0 | — |
-| `scripts/gen_filter_dialog.js` | Operations/tooling | 1 | — |
-| `scripts/gen_index_dialog.js` | Operations/tooling | 2 | — |
-| `scripts/get_prompt.js` | Operations/tooling | 0 | — |
 | `scripts/gmi4_smoke.py` | Operations/tooling | 2 | Deterministic no-network smoke suite for source and installed-wheel validation. |
 | `scripts/migrate_legacy_account.py` | Operations/tooling | 6 | Interactive, no-network migration utility for the initial legacy Eitaa account. |
 | `scripts/new_internal_code_signing_certificate.ps1` | Operations/tooling | 0 | — |
@@ -80,41 +36,30 @@
 | `scripts/phase10_log_redaction_verify.py` | Operations/tooling | 7 | Scan every runtime JSONL log without echoing paths, account ids, or values. |
 | `scripts/phase10_rewrap_app_auth_key.py` | Operations/tooling | 1 | Rewrap the live AppUser subject key for stable local-machine execution. |
 | `scripts/phase10d_copy_rehearsal.py` | Operations/tooling | 4 | Restore and roll back a verified backup only inside an isolated temporary copy. |
-| `scripts/phase5_grouping.js` | Operations/tooling | 0 | — |
 | `scripts/prepare_windows_release.py` | Operations/tooling | 3 | — |
-| `scripts/read_btn.py` | Operations/tooling | 0 | — |
-| `scripts/read_sync.py` | Operations/tooling | 0 | — |
 | `scripts/refresh_project_docs.py` | Operations/tooling | 11 | Generate safe project maps and document indexes without reading runtime data. |
 | `scripts/restore_runtime.py` | Operations/tooling | 6 | — |
 | `scripts/runtime_state.py` | Operations/tooling | 9 | — |
 | `scripts/scan_diagnostics_bundle.py` | Operations/tooling | 5 | Verify a diagnostics ZIP without echoing any bundled value. |
-| `scripts/screenshot.ps1` | Operations/tooling | 0 | — |
 | `scripts/sign_windows_release.ps1` | Operations/tooling | 0 | — |
 | `scripts/stabilization_baseline.py` | Operations/tooling | 14 | — |
 | `scripts/sync_ui_fonts.py` | Operations/tooling | 2 | — |
-| `scripts/test_api.py` | Operations/tooling | 0 | — |
-| `scripts/test_unprotect.py` | Operations/tooling | 0 | — |
-| `scripts/update_app.js` | Operations/tooling | 0 | — |
-| `scripts/update_docs_phase3.js` | Operations/tooling | 0 | — |
-| `scripts/update_findings.py` | Operations/tooling | 0 | — |
-| `scripts/update_ledger.py` | Operations/tooling | 0 | — |
-| `scripts/update_tests.js` | Operations/tooling | 0 | — |
 | `scripts/verify_windows_release_signature.ps1` | Operations/tooling | 0 | — |
 | `scripts/write_iexpress_sed.py` | Operations/tooling | 1 | — |
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/api.py` | Application | 271 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 272 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
-| `src/eitaa_bridge/application/bale_client/api.py` | Application | 45 | Stable Python API facade for the Bale personal client. |
-| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 41 | Loopback JSON/HTTP server exposing the BaleApi facade. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/bale_client/cli.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/client.py` | Application | 44 | — |
 | `src/eitaa_bridge/application/bale_client/codecs.py` | Application | 31 | — |
-| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 21 | Typed codec extensions for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 22 | Typed codec extensions for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/config.py` | Application | 1 | — |
 | `src/eitaa_bridge/application/bale_client/errors.py` | Application | 12 | — |
 | `src/eitaa_bridge/application/bale_client/grpc_web.py` | Application | 9 | — |
@@ -123,7 +68,8 @@
 | `src/eitaa_bridge/application/bale_client/vault.py` | Application | 7 | — |
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
-| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 2 | Quarantine boundary for the incomplete Bale application adapter. |
+| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 17 | Bale application adapter conforming to provider extension contracts. |
+| `src/eitaa_bridge/application/bale_provider_worker.py` | Application | 8 | Dedicated worker process / adapter for one Bale MessengerAccount runtime. |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
@@ -201,7 +147,7 @@
 | `src/eitaa_bridge/licensing.py` | Project | 40 | Offline, device-bound activation for packaged Eitaa Bridge installations. |
 | `src/eitaa_bridge/providers/__init__.py` | Project | 0 | Public, provider-neutral extension contracts and the built-in registry. |
 | `src/eitaa_bridge/providers/bale/__init__.py` | Project | 0 | Disabled Bale extension slot; contains no endpoint or protocol implementation. |
-| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Fail-closed Bale registration for the stabilization baseline. |
+| `src/eitaa_bridge/providers/bale/slot.py` | Project | 3 | Activated Bale registration for multi-provider runtime. |
 | `src/eitaa_bridge/providers/contracts.py` | Project | 88 | Versioned, bounded contracts for authorized messaging-provider extensions. |
 | `src/eitaa_bridge/providers/eitaa/__init__.py` | Project | 0 | Eitaa provider integration behind the public provider contract. |
 | `src/eitaa_bridge/providers/eitaa/application_adapter.py` | Project | 16 | Compatibility adapter that keeps Eitaa translation outside orchestration. |
@@ -229,7 +175,11 @@
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
-| `tests/test_bale_branch_api.py` | Python test | 55 | Offline tests for the Bale branch modular API (Phase 1). |
+| `tests/test_bale_application_operations.py` | Python test | 10 | End-to-end integration tests for Bale provider operations via BridgeApplicationApi. |
+| `tests/test_bale_branch_api.py` | Python test | 57 | Offline tests for the Bale branch modular API (Phase 1). |
+| `tests/test_bale_onboarding_lifecycle.py` | Python test | 9 | Integration tests for Bale account onboarding and lifecycle management. |
+| `tests/test_bale_provider_adapter.py` | Python test | 19 | Unit and contract tests for the Bale provider application adapter. |
+| `tests/test_bale_provider_worker.py` | Python test | 5 | Tests for BaleProviderProcessWorker IPC operations. |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |
@@ -323,7 +273,7 @@
 | `ui/src/App.tsx` | React UI | 69 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 11 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
-| `ui/src/AuthBrand.tsx` | React UI | 2 | — |
+| `ui/src/AuthBrand.tsx` | React UI | 3 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |

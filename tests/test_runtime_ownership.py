@@ -629,7 +629,7 @@ def test_new_office_build_archives_previous_release_without_deleting_unrelated_f
 
     builder = (root / "BUILD_OFFICE_SETUP_EXE.bat").read_text(encoding="utf-8").lower()
     assert "archive_previous_office_release.ps1" in builder
-    assert "0.8.0-rc5-multiaccount" in builder
+    assert "0.8.0-rc6a-authchildrpc" in builder
 
 
 def test_checked_in_windows_icon_is_multiresolution_and_source_is_rgba_png():

@@ -153,6 +153,12 @@ function EitaaApp() {
     window.addEventListener(AUTH_SESSION_INVALID_EVENT, recoverInvalidSession)
     return () => window.removeEventListener(AUTH_SESSION_INVALID_EVENT, recoverInvalidSession)
   }, [refreshStatus])
+  const messengerAccounts = useMessengerAccounts()
+  const activeAccount = messengerAccounts.selected
+  const provider = activeAccount?.provider || 'eitaa'
+  const isBale = provider.toLowerCase() === 'bale'
+  const providerDisplayName = isBale ? 'بله' : 'ایتا'
+
   let content: ReactNode
   if (fatal) content = <StartupError message={fatal} retry={refreshStatus} />
   else if (!status) content = <Splash />
@@ -161,7 +167,7 @@ function EitaaApp() {
   else if (!status.authenticated) content = <LoginGate key={`login-${loginEpoch}`} initialChallenge={status.challenge} onAuthenticated={handleAuthenticated} />
   else {
     const sessionWarning = status.remote_warning
-      ? `نشست محلی باز شد، اما بررسی ارتباط با ایتا موفق نبود${status.remote_error_type ? ` (${status.remote_error_type})` : ''}. همگام‌سازی را دوباره امتحان کنید.`
+      ? `نشست محلی باز شد، اما بررسی ارتباط با ${providerDisplayName} موفق نبود${status.remote_error_type ? ` (${status.remote_error_type})` : ''}. همگام‌سازی را دوباره امتحان کنید.`
       : undefined
     content = <Workspace onLogout={refreshStatus} sessionWarning={sessionWarning} />
   }
@@ -223,6 +229,11 @@ function SessionRecovery({ status, onFreshLogin }: { status: AuthStatus; onFresh
 }
 
 function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () => Promise<void> | void; initialChallenge?: AuthChallengeSummary }) {
+  const messengerAccounts = useMessengerAccounts()
+  const activeAccount = messengerAccounts.selected
+  const provider = activeAccount?.provider || 'eitaa'
+  const isBale = provider.toLowerCase() === 'bale'
+  const providerDisplayName = isBale ? 'بله' : 'ایتا'
   const [step, setStep] = useState<'phone' | 'code' | 'password'>(() => initialChallenge?.stage === 'password' ? 'password' : initialChallenge?.challenge_id ? 'code' : 'phone')
   const [challengeId, setChallengeId] = useState(() => String(initialChallenge?.challenge_id || '').trim())
   const [phone, setPhone] = useState('+98')
@@ -232,7 +243,7 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [hint, setHint] = useState(() => initialChallenge?.challenge_id
-    ? `کد ورود از طریق ${initialChallenge.delivery_type || 'ایتا'} ارسال شد.`
+    ? `کد ورود از طریق ${initialChallenge.delivery_type || providerDisplayName} ارسال شد.`
     : '')
   const [identityRecoveryRequired, setIdentityRecoveryRequired] = useState(false)
   useEffect(() => {
@@ -243,7 +254,7 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
     if (!issuedChallengeId) throw new Error('شناسهٔ امن چالش ورود از سرویس دریافت نشد. صفحه را تازه‌سازی و دوباره تلاش کنید.')
     setChallengeId(issuedChallengeId)
     setIdentityRecoveryRequired(false)
-    setHint(`کد از طریق ${result.challenge?.delivery_type || 'ایتا'} ارسال شد.`)
+    setHint(`کد از طریق ${result.challenge?.delivery_type || providerDisplayName} ارسال شد.`)
     setStep('code')
   }
   const requestFreshCode = async () => {
@@ -323,9 +334,9 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
   return <LoginSurface><Box component="form" onSubmit={submit} noValidate>
     <Stack spacing={2.25}>
       <AppUserLogoutButton disabled={busy} />
-      <AuthBrandPill label="حساب ایتا" />
+      <AuthBrandPill label={activeAccount?.label || `حساب ${providerDisplayName}`} provider={provider} />
       <Box>
-        <Typography variant="h5" component="h2" textAlign="center">ورود به ایتا</Typography>
+        <Typography variant="h5" component="h2" textAlign="center">ورود به {providerDisplayName}</Typography>
       </Box>
       <Stack direction="row" spacing={0.75} aria-label="مراحل ورود">
         {(['phone', 'code', 'password'] as const).map((item, index) => {
@@ -337,7 +348,7 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
           </Stack>
         })}
       </Stack>
-      {step === 'phone' && <TextField inputRef={phoneInputRef} label="شماره تلفن ایتا" type="tel" name="phone" dir="ltr" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+98912…" slotProps={{ htmlInput: { inputMode: 'tel', spellCheck: false, dir: 'ltr' } }} helperText="شماره را با کد کشور وارد کنید؛ نمونه: ‎+98912…" />}
+      {step === 'phone' && <TextField inputRef={phoneInputRef} label={`شماره تلفن ${providerDisplayName}`} type="tel" name="phone" dir="ltr" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+98912…" slotProps={{ htmlInput: { inputMode: 'tel', spellCheck: false, dir: 'ltr' } }} helperText="شماره را با کد کشور وارد کنید؛ نمونه: ‎+98912…" />}
       {step === 'code' && <TextField label="کد یک‌بارمصرف" dir="ltr" autoFocus value={code} onChange={e => setCode(normalizeLoginCodeInput(e.target.value))} autoComplete="one-time-code" slotProps={{ htmlInput: { dir: 'ltr', inputMode: 'numeric' } }} />}
       {step === 'password' && <TextField label="رمز دوم حساب" type="password" autoFocus value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />}
       <Box aria-live="polite">{hint && <Alert severity="info">{hint}</Alert>}{error && <Alert severity="error">{error}</Alert>}</Box>
