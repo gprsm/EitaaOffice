@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 352
-- اثرانگشت منبع: `c736f6768fb2aa8e`
+- تعداد فایل‌های نقشه: 359
+- اثرانگشت منبع: `afa6cbcbf3f30d1a`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -105,21 +105,21 @@
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/api.py` | Application | 271 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 283 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
-| `src/eitaa_bridge/application/bale_client/api.py` | Application | 45 | Stable Python API facade for the Bale personal client. |
-| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 41 | Loopback JSON/HTTP server exposing the BaleApi facade. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/bale_client/cli.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/client.py` | Application | 44 | — |
 | `src/eitaa_bridge/application/bale_client/codecs.py` | Application | 31 | — |
-| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 21 | Typed codec extensions for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 23 | Typed codec extensions for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/config.py` | Application | 1 | — |
 | `src/eitaa_bridge/application/bale_client/errors.py` | Application | 12 | — |
 | `src/eitaa_bridge/application/bale_client/grpc_web.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/lab.py` | Application | 45 | — |
-| `src/eitaa_bridge/application/bale_client/models.py` | Application | 15 | — |
+| `src/eitaa_bridge/application/bale_client/models.py` | Application | 16 | — |
 | `src/eitaa_bridge/application/bale_client/vault.py` | Application | 7 | — |
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
@@ -220,7 +220,9 @@
 | `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
 | `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
-| `src/eitaa_bridge/reporting/service.py` | Project | 13 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
+| `src/eitaa_bridge/reporting/service.py` | Project | 23 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 27 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/version.py` | Project | 0 | — |
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
@@ -229,7 +231,7 @@
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
-| `tests/test_bale_branch_api.py` | Python test | 55 | Offline tests for the Bale branch modular API (Phase 1). |
+| `tests/test_bale_branch_api.py` | Python test | 60 | Offline tests for the Bale branch modular API (Phase 1). |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |
@@ -290,8 +292,11 @@
 | `tests/test_project_memory_integrity.py` | Python test | 5 | — |
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
+| `tests/test_reporting_api.py` | Python test | 10 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
+| `tests/test_reporting_store.py` | Python test | 17 | Unit and integration tests for the ReportingStore and service persistence. |
+| `tests/test_reporting_suggester.py` | Python test | 4 | — |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_ownership.py` | Python test | 34 | — |
 | `tests/test_sender_directory.py` | Python test | 1 | — |
@@ -318,6 +323,7 @@
 | `ui/scripts/run-phase11b2-orchestration-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase9-acceptance-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
+| `ui/scripts/run-reporting-ui-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
 | `ui/src/App.tsx` | React UI | 69 | — |
@@ -348,6 +354,7 @@
 | `ui/src/MessageIndexEditor.tsx` | React UI | 1 | — |
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 15 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |
 | `ui/src/SettingsPage.tsx` | React UI | 10 | — |

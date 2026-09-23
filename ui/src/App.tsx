@@ -31,6 +31,7 @@ const SettingsPage = lazy(() => import('./SettingsPage').then(module => ({ defau
 const MessageFilterDialog = lazy(() => import('./MessageFilterDialog').then(module => ({ default: module.MessageFilterDialog })))
 const ContentIndexDialog = lazy(() => import('./ContentIndexDialog').then(module => ({ default: module.ContentIndexDialog })))
 const MessageIndexEditor = lazy(() => import('./MessageIndexEditor').then(module => ({ default: module.MessageIndexEditor })))
+const ReportingWorkbench = lazy(() => import('./ReportingWorkbench').then(module => ({ default: module.ReportingWorkbench })))
 import {
   MessengerAccountGate,
   MessengerAccountMenuControl,
@@ -394,6 +395,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [communityOpen, setCommunityOpen] = useState(false)
   const [showWordPressPanel, setShowWordPressPanel] = useState(() => readStored<boolean>(STORAGE.showWordPressPanel, false))
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [reportingOpen, setReportingOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkMode, setBulkMode] = useState<BulkMode>('members')
   const [bulkMemberIds, setBulkMemberIds] = useState<number[]>([])
@@ -1593,6 +1595,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         wordpressEnabled={wordpressPanelAvailable}
         onSection={showDialogSection}
         onSettings={() => setSettingsOpen(true)}
+        onReporting={() => setReportingOpen(true)}
         onAddDialog={() => setManualOpen(true)}
         onSync={() => void syncDialogs()}
         onContacts={() => setContactsOpen(true)}
@@ -1678,6 +1681,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
         <Suspense fallback={<Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: '100dvh' }}><CircularProgress /><Typography>در حال آماده‌سازی تنظیمات…</Typography></Stack>}>
           <SettingsPage sites={sites} onClose={() => setSettingsOpen(false)} onChanged={loadSites} showWordPressPanel={showWordPressPanel} onShowWordPressPanelChange={setShowWordPressPanel} />
+        </Suspense>
+      </DialogContent>
+    </Dialog>
+    <Dialog open={reportingOpen} fullScreen onClose={() => setReportingOpen(false)}>
+      <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
+        <Suspense fallback={<Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: '100dvh' }}><CircularProgress /><Typography>در حال آماده‌سازی سامانه گزارش‌ها…</Typography></Stack>}>
+          <ReportingWorkbench onClose={() => setReportingOpen(false)} />
         </Suspense>
       </DialogContent>
     </Dialog>

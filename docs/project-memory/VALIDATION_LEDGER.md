@@ -1709,6 +1709,42 @@
 - سطح: Unit/Contract (fake در مرز WS) + Live (نشست ذخیره‌شدهٔ کاربر با مجوز همان لحظه).
 - روش امن: `.venv/Scripts/python.exe -m pytest tests/test_bale_branch_api.py` → 36 passed؛ سرور loopback `api_server` روی 127.0.0.1:8791 با vault موجود auto-reconnect شد و عملیات contacts/list، contacts/search، messages/read-history و messages/send-text با curl اجرا شد.
 - نتیجه: GetContacts peer-only با LoadUsers غنی‌شد (نام کامل + access_hash هر ۳ مخاطب)؛ جستجو با «محمد»/«محسن»/«اخوندیان»/«م» درست match شد؛ پیام تستی ارسال و با read-back (message_id 4091180017836933156) تأیید شد. دیکد wrapped-text `{1: text}` برای local_name/username، نگاشت PermissionDenied→`bale_access_denied` و پخش `data/otp_alert.wav` پس از auth/start نیز در همین کامیت.
-- نقص شناخته‌شدهٔ غیرمسدودکننده: `dialogs/list` مقدار `last_text` را null برمی‌گرداند (شکل فیلد content در LoadDialogs)؛ متن کامل از `read-history` در دسترس است.
+- نقص شناخته‌شدهٔ غیرمسدودکننده: برطرف شد در V-195 (F-073 بسته شد).
 - Artifact: `docs/reports/BALE_BRANCH_PHASE1_REPORT.md` فصل ۸.
 - Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام شاخهٔ `Bale` در `main`.
+
+### V-195 — رفع نقص F-073 در LoadDialogs و غنی‌سازی متن و رسانهٔ دیالوگ‌ها
+
+- تاریخ: 2026-09-22
+- دامنه: شاخهٔ `Bale`؛ `codecs.py`، `codecs_ext.py`، `api.py`، `api_server.py`، `models.py`، `webui.html`، `tests/test_bale_branch_api.py`.
+- سطح: Unit/Contract + Live (نشست ذخیره‌شدهٔ کاربر روی سرور لوپ‌بک).
+- روش امن:
+  1. `.venv/Scripts/python.exe -m pytest tests/test_bale_branch_api.py` → 39 passed (۳ تست جدید).
+  2. `.venv/Scripts/python.exe -m pytest tests/test_bale_stabilization_fail_closed.py` → 5 passed.
+  3. اجرای Live روی سرور loopback پورت ۸۷۹۱: متد `dialogs/list` فراخوانی شد؛ دیالوگ‌ها با موفقیت دریافت و تأیید شدند.
+- نتیجه:
+  - در `build_load_dialogs` پیش‌فرض فیلد ۱ به `offset_date: int = (1 << 63) - 1` تغییر یافت؛ سرور تمام گفتگوهای فعال جاری را برگرداند.
+  - فیلد ۱۳ برای پیام‌های ربات و تعاملی در `decode_content` بازگشایی شد و زیرعنوان، نام سند و متن آنها استخراج گردید.
+  - فیلدهای `sort_date` و `last_message_date` با `_signed_int_or_none` به int64 علامت‌دار تبدیل شدند.
+  - متد `to_dict` به `FileDetails` اضافه و در `DialogSummary.to_dict()` به همراه `media_kind` یکپارچه شد.
+  - پیام خطای ۴۰۱ در `webui.html` به راهنمای فارسی تبدیل شد.
+  - نتیجهٔ Live: گفتگوی محسن (peer 1846320404) با `last_message_id: 4091180017836933156` و متن کامل فارسی، و گفتگوهای دارای رسانه با `last_document` و `media_kind` معتبر تأیید شدند.
+- Trigger تکرار: تغییر پروتکل سرور بله یا بازگشایی F-073.
+
+### V-196 — سامانه جامع مدیریت گزارش‌های فرهنگی ۱۴۰۵، صف بازبینی، کاربرگ‌های هفت‌گانه، صدور اکسل تجمیعی و دستیار هوشمند
+
+- تاریخ: 2026-09-23
+- دامنه: ماژول `reporting` (`store.py`, `service.py`, `suggester.py`, `__init__.py`)، `BridgeApplicationApi` در `api.py`، مؤلفه کاربری `ReportingWorkbench.tsx` و ناوبری `WorkspaceNavigation.tsx`/`App.tsx` و آزمون‌ها.
+- سطح: Unit/Contract/Store Persistence/API Integration/UI Contract.
+- روش امن:
+  1. آزمون‌های آفلاین پایگاه داده SQLite و چرخه حیات فکت‌ها: `tests/test_reporting_store.py` (۱۰ تست سبز).
+  2. آزمون‌های یکپارچگی مسیرهای API v2 (تنظیمات، اسکن، بررسی نامزدها، کاربرگ‌ها، اعتبارسنجی خانه‌های ستاره‌دار و مسدودکنندهٔ اکسل، دستیار هوشمند): `tests/test_reporting_api.py` (۶ تست سبز).
+  3. آزمون‌های قواعد استخراج و انطباق قوانین دستورالعمل ۱۴۰۵ توسط دستیار هوشمند (قاعده C12 زیارت عاشورا، قاعده B9 تکریم با حضور رئیس‌کل، استخراج حوزه قضایی و شرکت‌کنندگان): `tests/test_reporting_suggester.py` (۴ تست سبز).
+  4. آزمون‌های هسته و ایندکسر قبلی: `tests/test_reporting_core.py` و `tests/test_reporting_indexer.py` (۶۲ تست سبز).
+  5. آزمون‌های کامپایل و قرارداد رابط کاربری: `npm run check` (خروجی 0) و `npm run test:reporting-ui` (سبز).
+- نتیجه:
+  - ۸۲ تست پایتون بدون شکست یا پرش اجرا شدند (100% PASS).
+  - کامپایل TypeScript با MUI v6 بدون خطا پاس شد.
+  - هیچ دادهٔ واقعی بازنویسی یا حذف نشد؛ الگوی اصلی اکسل دست‌نخورده باقی ماند و صدور نهایی روی نسخه کپی ایجاد شد.
+- Trigger تکرار: تغییر ساختار جداول SQLite گزارش‌ها، تغییر مسیرهای API v2 یا به‌روزرسانی مؤلفه‌های UI گزارش‌ها.
+

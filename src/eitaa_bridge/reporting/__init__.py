@@ -41,6 +41,7 @@ from .forms import (
     ALL_FORMS,
     FORMS_BY_PROGRAM,
     FilledForm,
+    FormAnswer,
     QuestionnaireDefinition,
     prefill_form,
 )
@@ -50,10 +51,13 @@ from .indexer import (
     IndexDecision,
     MessageIntent,
 )
-from .monitor import EitaaReportMonitor, MonitorResult
+from .monitor import DialogWatchConfig, EitaaReportMonitor, MonitorResult
 from .service import ReportingService
+from .store import ReportingStore
+from .suggester import AgentSuggestion, ReportingSuggester
 
 __all__ = [
+    "AgentSuggestion",
     "ALL_FORMS",
     "ASHURA_ANNEX_SHEET_NAME",
     "CEREMONIES_PROGRAM_ID",
@@ -66,6 +70,7 @@ __all__ = [
     "BaleSendReport",
     "CountingRuleEngine",
     "DEFAULT_MONITOR_TARGETS",
+    "DialogWatchConfig",
     "EitaaCandidateExtractor",
     "EitaaIntentIndexer",
     "EitaaReportMonitor",
@@ -73,6 +78,7 @@ __all__ = [
     "Fact",
     "FactValueKind",
     "FilledForm",
+    "FormAnswer",
     "IndexDecision",
     "MessageIntent",
     "MonitorResult",
@@ -85,6 +91,8 @@ __all__ = [
     "ReportedEvent",
     "ReportingExportError",
     "ReportingService",
+    "ReportingStore",
+    "ReportingSuggester",
     "RULES_VERSION",
     "TemplateNotFoundError",
     "UnitScope",

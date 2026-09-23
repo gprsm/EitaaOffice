@@ -18,7 +18,7 @@ import threading
 import time
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Mapping
@@ -148,6 +148,20 @@ from .provider_orchestration import (
     ProviderOperationActor,
 )
 from .scheduler import EitaaPriority
+from ..reporting import (
+    ALL_FORMS,
+    FORMS_BY_PROGRAM,
+    DialogWatchConfig,
+    FilledForm,
+    FormAnswer,
+    ProgramId,
+    ReportedEvent,
+    ReportingExportError,
+    ReportingService,
+    ReportingStore,
+    UnresolvedStarCellsError,
+    UnitScope,
+)
 
 
 _LOCALIZED_LOGIN_CODE_DIGITS = str.maketrans(
@@ -268,6 +282,15 @@ _MESSENGER_ACCOUNT_CONTACT_QUERY_ROUTE = re.compile(
 )
 _MESSENGER_ACCOUNT_CONTACT_UPSERT_ROUTE = re.compile(
     r"^/api/v2/messenger-accounts/(?P<messenger_account_id>[0-9a-fA-F-]{36})/contacts/upsert$"
+)
+_REPORTING_CANDIDATE_REVIEW_ROUTE = re.compile(
+    r"^/api/v2/reporting/candidates/(?P<candidate_id>[a-zA-Z0-9_-]+)/review$"
+)
+_REPORTING_CANDIDATE_SUGGEST_ROUTE = re.compile(
+    r"^/api/v2/reporting/candidates/(?P<candidate_id>[a-zA-Z0-9_-]+)/suggest$"
+)
+_REPORTING_FORM_ROUTE = re.compile(
+    r"^/api/v2/reporting/forms/(?P<program_id>[a-zA-Z0-9_-]+)$"
 )
 _SAFE_LOG_ROUTE_SEGMENT = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _SAFE_CLIENT_ERROR_TYPE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,80}$")
@@ -468,6 +491,9 @@ class BridgeApplicationApi:
                 self._application_logger.emit(
                     "persistent_jobs_recovered", fields=recovery.safe_summary()
                 )
+        reporting_db = self.base_directory / "data" / "reporting" / "reporting.sqlite3"
+        self._reporting_store = ReportingStore(reporting_db)
+        self._reporting_service = ReportingService(store=self._reporting_store)
         self._request_runtime: ContextVar[
             EitaaAccountRuntime | EitaaProcessRuntime | None
         ] = ContextVar(
@@ -1341,6 +1367,46 @@ class BridgeApplicationApi:
                 return self._audit_query(app_session, query)
             if selected_method == "POST" and path == "/api/v2/audit/export":
                 return self._audit_export(app_session, payload)
+
+            # Reporting management routes
+            if selected_method == "GET" and path == "/api/v2/reporting/config":
+                return self._reporting_get_config()
+            if selected_method == "PUT" and path == "/api/v2/reporting/config":
+                return self._reporting_set_config(payload)
+            if selected_method == "POST" and path == "/api/v2/reporting/scan":
+                return self._reporting_scan(payload)
+            if selected_method == "GET" and path == "/api/v2/reporting/candidates":
+                return self._reporting_list_candidates(query)
+            cand_review_match = _REPORTING_CANDIDATE_REVIEW_ROUTE.fullmatch(path)
+            if selected_method == "POST" and cand_review_match:
+                return self._reporting_review_candidate(
+                    cand_review_match.group("candidate_id"),
+                    payload,
+                    app_session=app_session,
+                )
+            cand_suggest_match = _REPORTING_CANDIDATE_SUGGEST_ROUTE.fullmatch(path)
+            if selected_method in ("POST", "GET") and cand_suggest_match:
+                return self._reporting_suggest_candidate(
+                    cand_suggest_match.group("candidate_id"),
+                    payload,
+                )
+            if selected_method == "GET" and path == "/api/v2/reporting/events":
+                return self._reporting_list_events(query)
+            if selected_method == "GET" and path == "/api/v2/reporting/forms":
+                return self._reporting_list_forms()
+            form_match = _REPORTING_FORM_ROUTE.fullmatch(path)
+            if selected_method == "GET" and form_match:
+                return self._reporting_get_form(form_match.group("program_id"))
+            if selected_method == "PUT" and form_match:
+                return self._reporting_save_form(
+                    form_match.group("program_id"),
+                    payload,
+                    app_session=app_session,
+                )
+            if selected_method == "POST" and path == "/api/v2/reporting/export":
+                return self._reporting_export(payload, app_session=app_session)
+            if selected_method == "GET" and path == "/api/v2/reporting/exports":
+                return self._reporting_list_exports(query)
             if selected_method == "POST" and path == "/api/v2/app-auth/logout":
                 return self._app_auth_logout(app_session, request_id=request_id)
             if selected_method == "POST" and path == "/api/v2/app-auth/logout-all":
@@ -3057,6 +3123,378 @@ class BridgeApplicationApi:
             ),
         )
         return ApiResponse(200, {"ok": True, "export": result.safe_summary()})
+
+    # ----------------------------------------------------------------------
+    # Reporting Endpoints Handlers
+    # ----------------------------------------------------------------------
+    def _reporting_get_config(self) -> ApiResponse:
+        config = self._reporting_store.get_config()
+        targets = [
+            {
+                "label": t.label,
+                "match_keywords": list(t.match_keywords),
+                "enabled": t.enabled,
+            }
+            for t in self._reporting_store.list_targets()
+        ]
+        return ApiResponse(200, {"ok": True, "config": config, "targets": targets})
+
+    def _reporting_set_config(self, payload: Mapping[str, Any]) -> ApiResponse:
+        settings = payload.get("config") or {}
+        if isinstance(settings, dict) and settings:
+            self._reporting_store.set_config(settings)
+        targets = payload.get("targets")
+        if isinstance(targets, list):
+            for t in targets:
+                if isinstance(t, dict) and "label" in t:
+                    cfg = DialogWatchConfig(
+                        label=str(t["label"]),
+                        match_keywords=tuple(str(k) for k in t.get("match_keywords", ())),
+                        enabled=bool(t.get("enabled", True)),
+                    )
+                    self._reporting_store.save_target(cfg)
+        return self._reporting_get_config()
+
+    def _reporting_scan(self, payload: Mapping[str, Any]) -> ApiResponse:
+        messages = payload.get("messages")
+        if isinstance(messages, list) and messages:
+            tuples: list[tuple[str, str, str]] = []
+            for item in messages:
+                if isinstance(item, (list, tuple)) and len(item) == 3:
+                    tuples.append((str(item[0]), str(item[1]), str(item[2])))
+            result = self._reporting_service.scan_and_record_texts(tuples)
+            return ApiResponse(200, {"ok": True, "result": result.summary()})
+
+        limit = int(payload.get("limit_per_dialog", 50))
+        runtime = self._request_runtime.get() or self._v1_runtime
+        if runtime is not None and hasattr(runtime, "core") and runtime.core is not None:
+            result = self._reporting_service.scan_and_record_provider(runtime.core, limit_per_dialog=limit)
+            return ApiResponse(200, {"ok": True, "result": result.summary()})
+
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "result": {
+                    "scanned": 0,
+                    "event_reports": 0,
+                    "informational": 0,
+                    "promotional": 0,
+                    "candidates": [],
+                },
+                "note": "runtime_not_available",
+            },
+        )
+
+    def _reporting_list_candidates(self, query: Mapping[str, str]) -> ApiResponse:
+        status = query.get("status", "pending")
+        limit = int(query.get("limit", 100))
+        candidates = self._reporting_service.list_review_candidates(
+            status=status if status != "all" else None, limit=limit
+        )
+        return ApiResponse(200, {"ok": True, "candidates": candidates})
+
+    def _reporting_review_candidate(
+        self,
+        candidate_id: str,
+        payload: Mapping[str, Any],
+        *,
+        app_session: Any = None,
+    ) -> ApiResponse:
+        action = str(payload.get("action", "")).strip().lower()
+        operator = (
+            app_session.principal.display_name
+            if app_session and hasattr(app_session, "principal")
+            else "central_staff"
+        )
+        if action == "approve":
+            event_id = str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}")
+            raw_date = payload.get("occurred_on")
+            if raw_date:
+                try:
+                    occurred = date.fromisoformat(str(raw_date))
+                except ValueError:
+                    occurred = date.today()
+            else:
+                occurred = date.today()
+            unit_str = str(payload.get("unit", "provincial_hq"))
+            unit = (
+                UnitScope(unit_str)
+                if unit_str in {u.value for u in UnitScope}
+                else UnitScope.PROVINCIAL_HQ
+            )
+            unit_name = str(payload.get("unit_name", ""))
+            official_present = payload.get("official_present")
+            if official_present is not None:
+                official_present = bool(official_present)
+
+            event = self._reporting_service.approve_candidate_to_event(
+                candidate_id,
+                event_id=event_id,
+                occurred_on=occurred,
+                unit=unit,
+                unit_name=unit_name,
+                official_present=official_present,
+                staff_member=operator,
+            )
+            if event is None:
+                return ApiResponse(
+                    404, {"ok": False, "error": {"message": "Candidate not found."}}
+                )
+            return ApiResponse(
+                200, {"ok": True, "status": "approved", "event_id": event.event_id}
+            )
+
+        elif action == "reject":
+            reason = str(payload.get("reason", ""))
+            ok = self._reporting_service.reject_candidate(
+                candidate_id, staff_member=operator, reason=reason
+            )
+            if not ok:
+                return ApiResponse(
+                    404, {"ok": False, "error": {"message": "Candidate not found."}}
+                )
+            return ApiResponse(200, {"ok": True, "status": "rejected"})
+
+        return ApiResponse(
+            400,
+            {
+                "ok": False,
+                "error": {"message": "Invalid action; must be 'approve' or 'reject'."},
+            },
+        )
+
+    def _reporting_suggest_candidate(
+        self,
+        candidate_id: str,
+        payload: Mapping[str, Any] | None,
+    ) -> ApiResponse:
+        body = payload or {}
+        text = str(body.get("text", ""))
+        label = str(body.get("dialog_label", ""))
+        suggestion = self._reporting_service.suggest_candidate_review(
+            candidate_id=candidate_id,
+            text=text,
+            dialog_label=label,
+        )
+        if suggestion is None:
+            return ApiResponse(
+                404, {"ok": False, "error": {"message": "Candidate not found."}}
+            )
+        return ApiResponse(200, {"ok": True, "suggestion": suggestion.to_dict()})
+
+
+    def _reporting_list_events(self, query: Mapping[str, str]) -> ApiResponse:
+        limit = int(query.get("limit", 100))
+        events = self._reporting_service.get_stored_events(limit=limit)
+        serialized = []
+        for ev in events:
+            serialized.append(
+                {
+                    "event_id": ev.event_id,
+                    "program_kinds": [k.value for k in ev.program_kinds],
+                    "occurred_on": ev.occurred_on.isoformat(),
+                    "unit": ev.unit.value,
+                    "unit_name": ev.unit_name,
+                    "occasion": ev.occasion,
+                    "occasion_class": ev.occasion_class.value if ev.occasion_class else None,
+                    "official_present": ev.official_present,
+                    "is_ashura_pilgrimage": ev.is_ashura_pilgrimage,
+                    "created_by": ev.created_by,
+                    "facts": [
+                        {
+                            "metric": f.metric,
+                            "value": f.value,
+                            "value_kind": f.value_kind.value,
+                            "source": f.source.value,
+                            "created_by": f.created_by,
+                        }
+                        for f in ev.facts
+                    ],
+                }
+            )
+        return ApiResponse(200, {"ok": True, "events": serialized})
+
+    def _reporting_list_forms(self) -> ApiResponse:
+        definitions = self._reporting_service.definitions()
+        saved = self._reporting_service.load_filled_forms()
+        forms_list = []
+        for defn in definitions:
+            f = saved.get(defn.program_id.value)
+            questions_data = [
+                {
+                    "key": q.key,
+                    "label": q.label,
+                    "qtype": q.qtype,
+                    "star": q.star,
+                    "human_gate": q.human_gate,
+                    "choices": list(q.choices),
+                    "auto_from": q.auto_from,
+                    "current_value": (
+                        f.answers[q.key].value if f and q.key in f.answers else None
+                    ),
+                }
+                for q in defn.questions
+            ]
+            forms_list.append(
+                {
+                    "program_id": defn.program_id.value,
+                    "title": defn.title,
+                    "questions": questions_data,
+                    "unresolved_star": (
+                        list(f.unresolved_star_keys(defn)) if f else list(defn.star_keys())
+                    ),
+                    "unresolved_human_gate": (
+                        list(f.unresolved_human_gates(defn))
+                        if f
+                        else list(defn.human_gate_keys())
+                    ),
+                }
+            )
+        return ApiResponse(200, {"ok": True, "forms": forms_list})
+
+    def _reporting_get_form(self, program_id: str) -> ApiResponse:
+        if program_id not in FORMS_BY_PROGRAM:
+            return ApiResponse(
+                404, {"ok": False, "error": {"message": f"Unknown program {program_id!r}"}}
+            )
+        defn = FORMS_BY_PROGRAM[program_id]
+        saved = self._reporting_service.load_filled_forms()
+        f = saved.get(program_id)
+        questions_data = [
+            {
+                "key": q.key,
+                "label": q.label,
+                "qtype": q.qtype,
+                "star": q.star,
+                "human_gate": q.human_gate,
+                "choices": list(q.choices),
+                "auto_from": q.auto_from,
+                "current_value": (
+                    f.answers[q.key].value if f and q.key in f.answers else None
+                ),
+            }
+            for q in defn.questions
+        ]
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "form": {
+                    "program_id": defn.program_id.value,
+                    "title": defn.title,
+                    "questions": questions_data,
+                    "unresolved_star": (
+                        list(f.unresolved_star_keys(defn))
+                        if f
+                        else list(defn.star_keys())
+                    ),
+                    "unresolved_human_gate": (
+                        list(f.unresolved_human_gates(defn))
+                        if f
+                        else list(defn.human_gate_keys())
+                    ),
+                },
+            },
+        )
+
+    def _reporting_save_form(
+        self,
+        program_id: str,
+        payload: Mapping[str, Any],
+        *,
+        app_session: Any = None,
+    ) -> ApiResponse:
+        if program_id not in FORMS_BY_PROGRAM:
+            return ApiResponse(
+                404, {"ok": False, "error": {"message": f"Unknown program {program_id!r}"}}
+            )
+        defn = FORMS_BY_PROGRAM[program_id]
+        answers_raw = payload.get("answers") or {}
+        form = FilledForm(program_id=defn.program_id)
+        operator = (
+            app_session.principal.display_name
+            if app_session and hasattr(app_session, "principal")
+            else "central_staff"
+        )
+        for k, val in answers_raw.items():
+            form.set(k, val, answered_by=operator)
+        self._reporting_service.save_filled_form(form, updated_by=operator)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "program_id": program_id,
+                "unresolved_star": list(form.unresolved_star_keys(defn)),
+            },
+        )
+
+    def _reporting_export(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: Any = None,
+    ) -> ApiResponse:
+        operator = (
+            app_session.principal.display_name
+            if app_session and hasattr(app_session, "principal")
+            else "central_staff"
+        )
+        province = str(payload.get("province_name", "مازندران"))
+        period = str(payload.get("report_period", "۱۴۰۵"))
+        allow_unresolved = bool(payload.get("allow_unresolved_star", False))
+        dest_str = payload.get("destination")
+        dest = (
+            Path(dest_str)
+            if dest_str
+            else self.base_directory
+            / "data"
+            / "reporting"
+            / f"report_{period}_{uuid.uuid4().hex[:6]}.xlsx"
+        )
+
+        try:
+            out_path = self._reporting_service.export_with_audit(
+                destination=dest,
+                province_name=province,
+                report_period=period,
+                allow_unresolved_star=allow_unresolved,
+                exported_by=operator,
+            )
+        except UnresolvedStarCellsError as exc:
+            return ApiResponse(
+                400,
+                {
+                    "ok": False,
+                    "error": {
+                        "code": "unresolved_star_cells",
+                        "message": "Export blocked: required star cells are unfilled.",
+                        "blockers": exc.blockers,
+                    },
+                },
+            )
+        except ReportingExportError as exc:
+            return ApiResponse(
+                500,
+                {
+                    "ok": False,
+                    "error": {"code": exc.code, "message": str(exc)},
+                },
+            )
+
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "export_path": str(out_path),
+                "file_name": out_path.name,
+            },
+        )
+
+    def _reporting_list_exports(self, query: Mapping[str, str]) -> ApiResponse:
+        limit = int(query.get("limit", 50))
+        exports = self._reporting_store.list_exports(limit=limit)
+        return ApiResponse(200, {"ok": True, "exports": exports})
 
     @staticmethod
     def _payload_text(payload: Mapping[str, Any], key: str) -> str:

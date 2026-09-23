@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -35,17 +36,19 @@ from .model import (
 )
 from .monitor import EitaaReportMonitor, MonitorResult
 from .rules import CountingRuleEngine, RULES_VERSION
+from .store import ReportingStore
 
 
 @dataclass(slots=True)
 class ReportingService:
-    """Stateless pipeline facade over the reporting core."""
+    """Pipeline facade over the reporting core with optional persistent storage."""
 
     engine: CountingRuleEngine = field(default_factory=CountingRuleEngine)
     aggregator: ProvincialAggregator = field(default_factory=ProvincialAggregator)
     extractor: EitaaCandidateExtractor = field(default_factory=EitaaCandidateExtractor)
     indexer: EitaaIntentIndexer = field(default_factory=EitaaIntentIndexer)
     monitor: EitaaReportMonitor = field(default_factory=EitaaReportMonitor)
+    store: ReportingStore | None = None
 
     # -- Level 1: Eitaa candidates -----------------------------------------
     def candidates_from_message(self, text: str, *, message_ref: str = "", sender_hint: str = "") -> EventCandidate | None:
@@ -61,10 +64,91 @@ class ReportingService:
 
         return self.monitor.scan_texts(messages)
 
+    def scan_and_record_texts(self, messages: Sequence[tuple[str, str, str]], *, dialog_label: str = "") -> MonitorResult:
+        """Scan messages and persist decisions and candidate events into the store."""
+        result = self.monitor.scan_texts(messages)
+        if self.store is not None:
+            for decision in result.decisions:
+                self.store.record_decision(decision)
+            for candidate in result.candidates:
+                self.store.save_candidate(candidate, dialog_label=dialog_label)
+        return result
+
     def scan_provider_once(self, core: Any, *, limit_per_dialog: int = 50) -> MonitorResult:
         """Scan configured dialogs through a live ``eitaa_core`` runtime."""
 
         return self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog)
+
+    def scan_and_record_provider(self, core: Any, *, limit_per_dialog: int = 50) -> MonitorResult:
+        """Scan configured dialogs via live runtime and persist decisions into store."""
+        result = self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog)
+        if self.store is not None:
+            for decision in result.decisions:
+                self.store.record_decision(decision)
+            for candidate in result.candidates:
+                self.store.save_candidate(candidate)
+        return result
+
+    def list_review_candidates(self, *, status: str | None = "pending", limit: int = 100) -> list[dict[str, Any]]:
+        """List candidates currently in the review queue."""
+        if self.store is None:
+            return []
+        return self.store.list_candidates(status=status, limit=limit)
+
+    def approve_candidate_to_event(
+        self,
+        candidate_id: str,
+        *,
+        event_id: str,
+        occurred_on: date,
+        unit: UnitScope = UnitScope.PROVINCIAL_HQ,
+        unit_name: str = "",
+        official_present: bool | None = None,
+        staff_member: str = "",
+    ) -> ReportedEvent | None:
+        """Approve an event candidate, creating a confirmed ReportedEvent in store."""
+        if self.store is None:
+            return None
+        candidate_dict = self.store.get_candidate(candidate_id)
+        if not candidate_dict:
+            return None
+
+        kinds = tuple(ProgramKind(k) for k in candidate_dict["suggested_kinds"])
+        occasion_class = (
+            OccasionClass(candidate_dict["occasion_class"])
+            if candidate_dict["occasion_class"]
+            else None
+        )
+        candidate = EventCandidate(
+            event_key=candidate_dict["event_key"],
+            suggested_kinds=kinds,
+            extracted_attendees=candidate_dict["extracted_attendees"],
+            extracted_date=candidate_dict["extracted_date"],
+            occasion_class=occasion_class,
+            is_ashura_pilgrimage=bool(candidate_dict["is_ashura_pilgrimage"]),
+            sender_hint=candidate_dict["sender_hint"] or "",
+            source_message_refs=tuple(candidate_dict["source_message_refs"]),
+            confidence_note=candidate_dict["confidence_note"] or "",
+        )
+        event = self.event_from_candidate(
+            candidate,
+            event_id=event_id,
+            occurred_on=occurred_on,
+            unit=unit,
+            unit_name=unit_name,
+            official_present=official_present,
+            staff_member=staff_member,
+        )
+        self.store.save_event(event)
+        self.store.approve_candidate(candidate_id, event_id=event.event_id, reviewed_by=staff_member)
+        return event
+
+    def reject_candidate(self, candidate_id: str, *, staff_member: str = "", reason: str = "") -> bool:
+        """Reject an event candidate from entering the reporting pipeline."""
+        if self.store is None:
+            return False
+        self.store.reject_candidate(candidate_id, reviewed_by=staff_member, reason=reason)
+        return True
 
     def event_from_candidate(
         self,
@@ -154,3 +238,96 @@ class ReportingService:
         if not definitions:
             definitions = list(ALL_FORMS)
         return star_cell_report(definitions, filled_forms)
+
+    # -- Persistence helpers -------------------------------------------------
+    def save_filled_form(self, form: FilledForm, *, updated_by: str = "") -> None:
+        """Persist answers of a completed or partially-filled form."""
+        if self.store is not None:
+            self.store.save_filled_form(form, updated_by=updated_by)
+
+    def load_filled_forms(self) -> dict[str, FilledForm]:
+        """Load all saved filled forms from persistent storage."""
+        if self.store is not None:
+            return self.store.list_filled_forms()
+        return {}
+
+    def get_stored_events(self, *, limit: int = 100) -> list[ReportedEvent]:
+        """Load confirmed events from persistent storage."""
+        if self.store is not None:
+            return self.store.list_events(limit=limit)
+        return []
+
+    def export_with_audit(
+        self,
+        events: Sequence[ReportedEvent] | None = None,
+        filled_forms: Mapping[str, FilledForm] | None = None,
+        destination: Path | None = None,
+        *,
+        province_name: str = "",
+        report_period: str = "۱۴۰۵",
+        template_root: Path | None = None,
+        allow_unresolved_star: bool = False,
+        exported_by: str = "",
+    ) -> Path:
+        """Export unified report and record audit trail with SHA-256 hash."""
+        evs = list(events) if events is not None else self.get_stored_events()
+        forms = dict(filled_forms) if filled_forms is not None else self.load_filled_forms()
+        dest = destination or Path("unified_report_1405.xlsx")
+        out_path = self.export(
+            evs,
+            forms,
+            dest,
+            province_name=province_name,
+            report_period=report_period,
+            template_root=template_root,
+            allow_unresolved_star=allow_unresolved_star,
+        )
+        if self.store is not None and out_path.exists():
+            file_sha = hashlib.sha256(out_path.read_bytes()).hexdigest()
+            self.store.record_export(
+                export_path=out_path,
+                file_sha256=file_sha,
+                report_period=report_period,
+                province_name=province_name,
+                total_events=len(evs),
+                exported_by=exported_by,
+            )
+        return out_path
+
+    def suggest_candidate_review(
+        self,
+        candidate_id: str,
+        text: str = "",
+        *,
+        dialog_label: str = "",
+    ) -> Any:
+        """Run intelligent privacy-safe agent suggestion on a candidate."""
+        from .suggester import ReportingSuggester
+
+        cand_info = None
+        if self.store is not None:
+            cands = self.store.list_candidates(status=None)
+            for c in cands:
+                if c.get("candidate_id") == candidate_id:
+                    cand_info = c
+                    break
+
+        matched_progs: list[str] = []
+        attendees: int | None = None
+        label = dialog_label
+
+        if cand_info:
+            matched_progs = cand_info.get("matched_programs") or []
+            attendees = cand_info.get("attendee_count")
+            if not label:
+                label = cand_info.get("dialog_label") or ""
+
+        suggester = ReportingSuggester()
+        return suggester.analyze(
+            candidate_id=candidate_id,
+            text=text,
+            matched_programs=matched_progs,
+            existing_attendees=attendees,
+            dialog_label=label,
+        )
+

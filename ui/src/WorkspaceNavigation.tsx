@@ -24,6 +24,7 @@ import PersonOutlineRounded from '@mui/icons-material/PersonOutlineRounded'
 import SendRounded from '@mui/icons-material/SendRounded'
 import SettingsRounded from '@mui/icons-material/SettingsRounded'
 import StarOutlineRounded from '@mui/icons-material/StarOutlineRounded'
+import SummarizeRounded from '@mui/icons-material/SummarizeRounded'
 import SyncRounded from '@mui/icons-material/SyncRounded'
 import { WordPressIcon } from './WordPressIcon'
 
@@ -55,6 +56,7 @@ export function WorkspaceNavigation({
   wordpressEnabled,
   onSection,
   onSettings,
+  onReporting,
   onAddDialog,
   onSync,
   onContacts,
@@ -75,6 +77,7 @@ export function WorkspaceNavigation({
   wordpressEnabled: boolean
   onSection: (value: WorkspaceSectionValue) => void
   onSettings: () => void
+  onReporting?: () => void
   onAddDialog: () => void
   onSync: () => void
   onContacts: () => void
@@ -153,6 +156,7 @@ export function WorkspaceNavigation({
         </Tooltip>)}
       </Stack>
       <Stack spacing={0.25} sx={{ display: { xs: 'none', md: 'flex' }, mt: 'auto', px: 0.5, pb: 1 }}>
+        {onReporting && <Tooltip title="گزارش‌ها ۱۴۰۵" placement="left"><Button color="inherit" onClick={onReporting} sx={{ minWidth: 0, minHeight: 54, flexDirection: 'column', fontSize: '0.68rem' }}><SummarizeRounded />گزارش‌ها</Button></Tooltip>}
         <Tooltip title="مخاطبان" placement="left"><Button color="inherit" onClick={onContacts} sx={{ minWidth: 0, minHeight: 54, flexDirection: 'column', fontSize: '0.68rem' }}><ContactsRounded />مخاطبان</Button></Tooltip>
         {wordpressVisible
           ? <Tooltip title={wordpressEnabled ? 'وردپرس' : 'ابتدا تنظیمات وردپرس را کامل کنید'} placement="left"><span><Button color="inherit" disabled={!wordpressEnabled} onClick={onWordpress} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><WordPressIcon />وردپرس</Button></span></Tooltip>
@@ -208,6 +212,7 @@ export function WorkspaceNavigation({
       <Divider sx={{ my: 1 }} />
       <Stack spacing={0.25}>
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SettingsRounded />} onClick={() => invoke(onSettings)}>تنظیمات</Button>
+        {onReporting && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SummarizeRounded />} onClick={() => invoke(onReporting)}>سامانه گزارش‌های فرهنگی ۱۴۰۵</Button>}
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<ContactsRounded />} onClick={() => invoke(onContacts)}>مدیریت مخاطبان</Button>
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<AddCommentRounded />} disabled={!dialogsEnabled} onClick={() => invoke(onAddDialog)}>افزودن دستی گفتگو</Button>
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SyncRounded />} disabled={syncing || !dialogsEnabled} onClick={() => invoke(onSync)}>{syncing ? 'در حال همگام‌سازی…' : 'همگام‌سازی گفتگوها'}</Button>
