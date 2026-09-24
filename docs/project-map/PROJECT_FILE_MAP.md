@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 359
-- اثرانگشت منبع: `afa6cbcbf3f30d1a`
+- تعداد فایل‌های نقشه: 360
+- اثرانگشت منبع: `2cd12a4b8bd7fb6e`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -11,6 +11,7 @@
 | `installer/EitaaBridge.iss` | Installer | 0 | — |
 | `installer/license-policy.json` | Installer | 0 | — |
 | `scripts/archive_previous_office_release.ps1` | Operations/tooling | 0 | — |
+| `scripts/background_server.py` | Operations/tooling | 13 | Eitaa Bridge persistent background server controller. |
 | `scripts/backup_runtime.py` | Operations/tooling | 3 | — |
 | `scripts/build_gmi4_release.py` | Operations/tooling | 3 | Generate review artifacts and privacy-clean GMI4 ZIPs from the signed GMI3 base. |
 | `scripts/build_self_contained_setup.py` | Operations/tooling | 4 | Build a one-file Windows setup bootstrap with embedded release resources. |

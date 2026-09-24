@@ -76,20 +76,25 @@ _UNIT_MARKERS: tuple[str, ...] = (
 )
 
 _OCCASION_KEYWORDS: tuple[tuple[OccasionClass, tuple[str, ...]], ...] = (
-    (OccasionClass.RELIGIOUS, ("محرم", "صفر", "ربیع", "مولودی", "ولادت", "شهادت", "وفات", "غدیر", "عید فطر", "عید قربان", "هفته وحدت", "زیارت", "عاشورا", "تسلیت", "تولد", "امام")),
-    (OccasionClass.REVOLUTIONARY, ("۲۲ بهمن", "22 بهمن", "انقلاب", "۱۳ آبان", "13 آبان", "پیروزی", "اسلامی", "بهمن", "آزادی")),
-    (OccasionClass.NATIONAL, ("هفته", "روز کارگر", "روز دختر", "روز عصای سفید", "روز خانواده", "میلاد", "روز زن", "روز مرد", "روز کارمند", "روز ارباب رجوع")),
+    (OccasionClass.RELIGIOUS, ("محرم", "صفر", "ربیع", "مولودی", "ولادت", "شهادت", "وفات", "غدیر", "عید فطر", "عید قربان", "هفته وحدت", "زیارت", "عاشورا", "تسلیت", "تولد", "امام", "دعای توسل")),
+    (OccasionClass.REVOLUTIONARY, ("۲۲ بهمن", "22 بهمن", "انقلاب", "۱۳ آبان", "13 آبان", "پیروزی", "اسلامی", "بهمن", "آزادی", "هفته دفاع مقدس", "دفاع مقدس", "شهدای خدمت", "یادواره شهدا")),
+    (OccasionClass.NATIONAL, ("هفته", "روز کارگر", "روز دختر", "روز عصای سفید", "روز خانواده", "میلاد", "روز زن", "روز مرد", "روز کارمند", "روز ارباب رجوع", "هفته دولت")),
 )
 
 _PROGRAM_HINTS: tuple[tuple[ProgramKind, tuple[str, ...]], ...] = (
     (ProgramKind.TRIP, ("اردو", "زیارتی", "بازدید")),
     (ProgramKind.QURAN_CONTEST, ("قرآنی", "قرآن")),
     (ProgramKind.CONTEST, ("مسابقه", "مسابقات", "مسابقهای", "رقابت", "جشنواره")),
-    (ProgramKind.CEREMONY, ("مراسم", "مناسبت", "مولودی", "یادبود", "هفته", "همایش", "نشست", "دیدار")),
-    (ProgramKind.PRAYER, ("نماز", "جماعت", "تکلیف", "نمازخانه")),
-    (ProgramKind.HONOR, ("تکریم", "تجلیل", "بازنشسته", "تقدیر")),
-    (ProgramKind.CUSTOMER_CARE, ("ارباب رجوع", "رضایت", "مشتری")),
-    (ProgramKind.CHARTER, ("منشور", "اخلاق")),
+    (ProgramKind.CEREMONY, ("مراسم", "مناسبت", "مولودی", "یادبود", "هفته", "همایش", "نشست", "دیدار", "موکب", "ایستگاه صلواتی")),
+    (ProgramKind.PRAYER, ("نماز", "جماعت", "تکلیف", "نمازخانه", "شورای اقامه نماز", "ستاد اقامه نماز", "خادمین نماز", "بین الصلاتین", "احکام")),
+    (ProgramKind.HONOR, ("تکریم", "تجلیل", "بازنشسته", "تقدیر", "لوح تقدیر", "لوح سپاس", "ایثارگر", "جانباز", "همکار نمونه")),
+    (ProgramKind.CUSTOMER_CARE, ("ارباب رجوع", "رضایت", "مشتری", "میز خدمت", "ملاقات مردمی", "دیدار مردمی")),
+    (ProgramKind.CHARTER, ("منشور", "اخلاق", "الگوی تعالی", "سلامت اداری", "صیانت", "رفتار حرفه ای")),
+)
+
+_ADMIN_CRIME_MARKERS: tuple[str, ...] = (
+    "دستگیری", "بازداشت", "کشف جرم", "قاچاق", "مواد مخدر", "سارق",
+    "اجرای احکام", "کیفرخواست", "قتل", "قصاص", "سامانه ثنا", "مزایده",
 )
 
 _ATTENDEE_RE = re.compile(r"([۰-۹0-9]{1,6})\s*(?:نفر|شخص|کاربر|شرکت[‌ ]?کننده|مدعو)")
@@ -219,6 +224,10 @@ class EitaaIntentIndexer:
         has_link_only = bool(_URL_RE.search(normalized)) and len(stripped) < 40
         if has_link_only:
             score += ScoreWeights.LINK_ONLY
+
+        matched_crime = tuple(marker for marker in _ADMIN_CRIME_MARKERS if marker in normalized)
+        if matched_crime and not program_hits:
+            score -= 4.0
 
         has_media_mention = bool(_MEDIA_PHOTO_RE.search(normalized))
         date_hint = None

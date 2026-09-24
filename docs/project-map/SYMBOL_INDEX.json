@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "afa6cbcbf3f30d1a",
+  "source_fingerprint": "2cd12a4b8bd7fb6e",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -19,6 +19,78 @@
       "role": "Operations/tooling",
       "summary": "",
       "symbols": []
+    },
+    {
+      "path": "scripts/background_server.py",
+      "role": "Operations/tooling",
+      "summary": "Eitaa Bridge persistent background server controller.",
+      "symbols": [
+        {
+          "name": "get_root",
+          "kind": "function",
+          "line": 29
+        },
+        {
+          "name": "get_paths",
+          "kind": "function",
+          "line": 33
+        },
+        {
+          "name": "find_python",
+          "kind": "function",
+          "line": 50
+        },
+        {
+          "name": "query_health",
+          "kind": "function",
+          "line": 62
+        },
+        {
+          "name": "rotate_log_if_needed",
+          "kind": "function",
+          "line": 75
+        },
+        {
+          "name": "is_process_alive",
+          "kind": "function",
+          "line": 89
+        },
+        {
+          "name": "read_recorded_pid",
+          "kind": "function",
+          "line": 114
+        },
+        {
+          "name": "action_status",
+          "kind": "function",
+          "line": 126
+        },
+        {
+          "name": "action_run",
+          "kind": "function",
+          "line": 141
+        },
+        {
+          "name": "action_start",
+          "kind": "function",
+          "line": 187
+        },
+        {
+          "name": "action_stop",
+          "kind": "function",
+          "line": 232
+        },
+        {
+          "name": "action_restart",
+          "kind": "function",
+          "line": 275
+        },
+        {
+          "name": "main",
+          "kind": "function",
+          "line": 281
+        }
+      ]
     },
     {
       "path": "scripts/backup_runtime.py",
@@ -12570,52 +12642,52 @@
         {
           "name": "IndexDecision",
           "kind": "class",
-          "line": 105
+          "line": 110
         },
         {
           "name": "IndexDecision.is_event_report",
           "kind": "method",
-          "line": 126
+          "line": 131
         },
         {
           "name": "IndexDecision.evidence",
           "kind": "method",
-          "line": 129
+          "line": 134
         },
         {
           "name": "EitaaIntentIndexer",
           "kind": "class",
-          "line": 147
+          "line": 152
         },
         {
           "name": "EitaaIntentIndexer.__init__",
           "kind": "method",
-          "line": 152
+          "line": 157
         },
         {
           "name": "EitaaIntentIndexer._unit_hints",
           "kind": "method",
-          "line": 156
+          "line": 161
         },
         {
           "name": "EitaaIntentIndexer._occasion",
           "kind": "method",
-          "line": 159
+          "line": 164
         },
         {
           "name": "EitaaIntentIndexer.classify",
           "kind": "method",
-          "line": 166
+          "line": 171
         },
         {
           "name": "EitaaIntentIndexer.candidate_from_decision",
           "kind": "method",
-          "line": 254
+          "line": 263
         },
         {
           "name": "index_dialog_batch",
           "kind": "function",
-          "line": 283
+          "line": 292
         }
       ]
     },
