@@ -267,8 +267,14 @@ async function call(path, body, method) {
   if (opts.method === "POST") opts.body = JSON.stringify(body || {});
   const res = await fetch(API.url + path, opts);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || data.error || ("HTTP " + res.status));
+  if (!res.ok) {
+    if (res.status === 401 || data.error === "unauthorized") {
+      throw new Error("توکن امنیتی API نامعتبر است یا ثبت نشده است. لطفاً از برگهٔ تنظیمات توکن را بررسی و ذخیره کنید.");
+    }
+    throw new Error(data.message || data.error || ("HTTP " + res.status));
+  }
   return data;
+
 }
 function showMsg(page, text, ok) {
   const target = { auth: "authMsg", contacts: "contactsMsg", chat: "chatMsg", settings: "settingsMsg" }[page] || "authMsg";

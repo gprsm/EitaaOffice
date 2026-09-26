@@ -1,0 +1,40 @@
+[Unit]
+Description=Eitaa Bridge application service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=eitaa-bridge
+Group=eitaa-bridge
+WorkingDirectory=/srv/projects/eitaa-bridge/shared
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-/srv/projects/eitaa-bridge/shared/.env
+ExecStart=/srv/projects/eitaa-bridge/current/.venv/bin/python -m eitaa_bridge.interfaces.http_api --config /srv/projects/eitaa-bridge/shared/bridge.json --env-file /srv/projects/eitaa-bridge/shared/.env --ui-root /srv/projects/eitaa-bridge/current/ui/dist
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=45s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/srv/projects/eitaa-bridge/shared
+
+[Install]
+WantedBy=multi-user.target

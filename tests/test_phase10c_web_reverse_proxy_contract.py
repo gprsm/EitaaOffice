@@ -118,6 +118,27 @@ def test_web_profile_loads_as_loopback_backend_with_external_https(config_file):
     }
 
 
+def test_web_profile_can_enable_remote_messenger_auth_over_https(config_file):
+    payload = _web_payload(config_file)
+    payload["deployment"]["remote_messenger_auth"]["enabled"] = True
+    _write_payload(config_file, payload)
+
+    deployment = BridgeConfigLoader.load(config_file).deployment
+    assert deployment.remote_messenger_auth.enabled is True
+
+    context = DeploymentRequestPolicy(deployment, 8765).evaluate(
+        method="POST",
+        path="/api/v1/auth/request-code",
+        host_header=PUBLIC_HOST,
+        origin=PUBLIC_ORIGIN,
+        client_address="127.0.0.1",
+        forwarded_proto="https",
+        forwarded_for=FORWARDED_CLIENT,
+    )
+    assert context.rejection_code is None
+    assert context.secure_request is True
+
+
 def test_checked_in_web_example_is_valid_and_contains_no_machine_specific_address():
     example = Path(__file__).parents[1] / "bridge.web-reverse-proxy.example.json"
     config = BridgeConfigLoader.load(example)
@@ -125,6 +146,32 @@ def test_checked_in_web_example_is_valid_and_contains_no_machine_specific_addres
     assert config.deployment.bind_host == "127.0.0.1"
     assert config.deployment.allowed_hosts == (PUBLIC_HOST,)
     assert config.deployment.allowed_origins == (PUBLIC_ORIGIN,)
+
+
+def test_linux_remote_auth_migration_is_rollback_safe_and_https_scoped():
+    script = (
+        Path(__file__).parents[1]
+        / "deploy"
+        / "linux"
+        / "enable-remote-messenger-auth"
+    ).read_text(encoding="utf-8")
+
+    assert 'deployment.get("mode") != "web_reverse_proxy"' in script
+    assert 'remote["enabled"] = True' in script
+    assert "BridgeConfigLoader.load" in script
+    assert "rollback" in script
+    assert "readiness failed; config restored" in script
+
+
+def test_linux_publisher_requires_browser_auth_status_after_restart():
+    script = (
+        Path(__file__).parents[1] / "deploy" / "linux" / "eitaa-bridge.publish"
+    ).read_text(encoding="utf-8")
+    assert "check_release_ready()" in script
+    assert "/api/v1/readiness" in script
+    assert "/api/v2/app-auth/status" in script
+    assert 'p.get("enabled") is True' in script
+    assert "if check_release_ready; then" in script
 
 
 def test_plain_http_port_80_is_configurable_without_binding_it(config_file):

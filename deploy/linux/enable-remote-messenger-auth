@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+config=/srv/projects/eitaa-bridge/shared/bridge.json
+service=eitaa-bridge.service
+gateway=http://127.0.0.1:8876/api/v1/readiness
+
+[[ $(id -u) -eq 0 ]] || {
+    echo "enable-remote-messenger-auth: root is required" >&2
+    exit 1
+}
+[[ -f "$config" ]] || {
+    echo "enable-remote-messenger-auth: production config is missing" >&2
+    exit 1
+}
+
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+backup="${config}.before-remote-auth-${stamp}.bak"
+temporary=$(mktemp "${config}.remote-auth.XXXXXX")
+trap 'rm -f -- "$temporary"' EXIT
+
+install -m 0600 -o eitaa-bridge -g eitaa-bridge "$config" "$backup"
+python3 - "$config" "$temporary" <<'PY'
+import json
+import os
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1])
+target = Path(sys.argv[2])
+payload = json.loads(source.read_text(encoding="utf-8"))
+deployment = payload.get("deployment")
+if not isinstance(deployment, dict) or deployment.get("mode") != "web_reverse_proxy":
+    raise SystemExit("enable-remote-messenger-auth: HTTPS reverse-proxy mode is required")
+remote = deployment.get("remote_messenger_auth")
+if not isinstance(remote, dict):
+    raise SystemExit("enable-remote-messenger-auth: remote auth policy is missing")
+remote["enabled"] = True
+remote["cleartext_http_risk_acknowledgement"] = None
+with target.open("w", encoding="utf-8", newline="\n") as handle:
+    json.dump(payload, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+    handle.flush()
+    os.fsync(handle.fileno())
+PY
+chown eitaa-bridge:eitaa-bridge "$temporary"
+chmod 0600 "$temporary"
+mv -f -- "$temporary" "$config"
+
+rollback() {
+    install -m 0600 -o eitaa-bridge -g eitaa-bridge "$backup" "$config"
+    systemctl restart "$service" || true
+}
+
+if ! /srv/projects/eitaa-bridge/current/.venv/bin/python -c \
+    'from eitaa_bridge.infrastructure.config import BridgeConfigLoader; BridgeConfigLoader.load("/srv/projects/eitaa-bridge/shared/bridge.json")'; then
+    rollback
+    echo "enable-remote-messenger-auth: validation failed; config restored" >&2
+    exit 1
+fi
+
+if ! systemctl restart "$service"; then
+    rollback
+    echo "enable-remote-messenger-auth: restart failed; config restored" >&2
+    exit 1
+fi
+
+for _ in $(seq 1 30); do
+    if curl --fail --silent --max-time 2 "$gateway" >/dev/null; then
+        echo "enable-remote-messenger-auth: enabled; backup=$backup"
+        exit 0
+    fi
+    sleep 1
+done
+
+rollback
+echo "enable-remote-messenger-auth: readiness failed; config restored" >&2
+exit 1

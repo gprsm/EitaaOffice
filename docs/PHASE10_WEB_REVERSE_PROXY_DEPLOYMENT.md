@@ -105,6 +105,14 @@ Caddy باید certificate معتبر و redirect پیش‌فرض HTTP به HTTP
 
 - `GET /api/v1/health`: liveness محدود و بدون Secret؛
 - `GET /api/v1/readiness`: فقط هنگام آماده‌بودن برای درخواست 200؛ در maintenance/shutdown برابر 503؛
+- در استقرار وب با AppUser Auth، `GET /api/v2/app-auth/status` بدون Bearer باید پاسخ
+  `200` با `ok=true` و `enabled=true` بدهد. Bearer محلی نباید پیش از ورود مرورگر را
+  مسدود کند؛ APIهای محافظت‌شده همچنان نشست معتبر AppUser و برای mutation توکن
+  CSRF می‌خواهند. Bearer به‌تنهایی مجوز عملیات کاربر یا ارسال پیام نیست.
+- در انتشار Linux، gate پس از restart هم readiness و هم وضعیت ورود بدون credential
+  را از gateway هم‌میزبان می‌سنجد. شکست هرکدام باید همان rollback اتمیک نسخه را
+  فعال کند. خطای موقت ورود در UI حداکثر یک بار خودکار تکرار می‌شود و سپس اقدام
+  دستی و کد خطای امن نشان داده می‌شود؛ خطای پیکربندی خودکار تکرار نمی‌شود.
 - service manager ابتدا readiness را از مدار خارج می‌کند، سپس پذیرش درخواست جدید را می‌بندد و تا
   `shutdown_grace_seconds` برای drain درخواست‌های فعال صبر می‌کند؛
 - Proxy باید health checkها را با همان Host و forwarded contract ارسال کند و backend را مستقیماً
@@ -115,6 +123,12 @@ Caddy باید certificate معتبر و redirect پیش‌فرض HTTP به HTTP
 Authentication مبتنی بر AppUser session است. Browser فقط Cookie امن را نگه می‌دارد؛ درخواست‌های
 تغییردهنده باید `Origin` دقیق HTTPS و CSRF وابسته به همان نشست داشته باشند. wildcard CORS، Origin
 خالی برای درخواست unsafe، Cookie بدون Secure و اعتماد به Host دلخواه مجاز نیست.
+
+احراز هویت پیام‌رسان از مرورگر راه دور یک قابلیت opt-in است. مقدار
+`deployment.remote_messenger_auth.enabled=true` فقط در پروفایل `web_reverse_proxy` معتبر است؛
+در این حالت نیز درخواست باید از Proxy هم‌میزبان مورد اعتماد، با `X-Forwarded-Proto: https`،
+Host/Origin دقیق، نشست AppUser معتبر و CSRF همان نشست عبور کند. این flag در
+`trusted_lan_http` همچنان fail-closed است و مجوز ارسال OTP روی HTTP بدون TLS ایجاد نمی‌کند.
 
 ## Limits و عملیات
 

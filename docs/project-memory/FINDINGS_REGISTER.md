@@ -1004,11 +1004,123 @@
 
 ### F-073 — `last_text` دیالوگ‌ها در LoadDialogs همیشه null است
 
-- وضعیت: `OPEN / NON_BLOCKING`
-- تاریخ: 2026-09-15
-- دامنه: شاخهٔ استثنایی `Bale`؛ `src/eitaa_bridge/application/bale_client/codecs_ext.py` (`decode_dialog_summaries`).
-- یافته: در Live، `/dialogs/list` peer، `unread_count`، `sort_date` و `unread_mentions` را درست برمی‌گرداند اما `last_message_id`، `last_message_date`، `last_text` و `last_document` برای همهٔ گفتگوها null می‌مانند. decoder فعلی فیلد ۵ (message id)، ۶ (date) و ۷ (content) را از entry دیالوگ می‌خواند؛ ظاهراً در پاسخ واقعی سرور این فیلدها به شکل دیگری (nested یا wrapped در فیلد ۷) قرار دارند یا خالی‌اند. `sort_date` (فیلد ۳) نیز برای بعضی دیالوگ‌ها مقدار سرراست ۱۸۴۴۶۷۳... دارد که نشانهٔ decode نادرست uint64 است.
-- اثر: پیش‌نمایش آخرین پیام در UI گفتگوها خالی است؛ کارکرد مسدود نمی‌شود چون `read-history` متن کامل هر گفتگو را می‌دهد.
-- اقدام پیشنهادی: capture یک پاسخ واقعی `LoadDialogs` (با مجوز همان لحظهٔ کاربر)، بررسی ساختار raw با `decode_tree`، و اصلاح `decode_dialog_summaries` + تست آفلاین با شکل واقعی.
-- شاهد فعلی: خروجی Live در V-194 (سه دیالوگ با `last_text: null`).
-- Trigger تکرار/بازگشایی: کار بعدی روی شاخهٔ `Bale`، تغییر codecهای دیالوگ، یا drift جدید سرور.
+- وضعیت: `RESOLVED / LIVE_ACCEPTED`
+- تاریخ: 2026-09-15 (ثبت)، 2026-09-22 (حل)
+- دامنه: شاخهٔ استثنایی `Bale`؛ `codecs.py`، `codecs_ext.py`، `api.py`، `api_server.py`، `models.py`.
+- ریشه‌یابی و یافته:
+  1. در `build_load_dialogs` فیلد ۱ به نام `min_date` برابر `0` فرستاده می‌شد؛ سرور بله این فیلد را به عنوان `offset_date` تفسیر می‌کند و با مقدار `0` تنها ۳ گفتگوی بسیار قدیمی سال ۲۰۲۰ را با محتوای خالی برمی‌گرداند. با تغییر پیش‌فرض به `(1 << 63) - 1`، سرور تمام ۲۰ گفتگوی فعال جاری را همراه فیلدهای `message_id`، `sender_id`، `date` و محتوای غنی برگرداند.
+  2. در `decode_content` محتوای نوع ۱۳ (پیام‌های تعاملی و الگودار ربات‌ها) دیکد نمی‌شد؛ پشتیبانی بازگشتی از فیلد ۱۳ برای استخراج سند، زیرعنوان، متن و دکمه‌ها اضافه شد.
+  3. مقادیر `sort_date` و `last_message_date` به signed int64 تبدیل شدند تا مقادیر منفی پروتوباف به مقادیر غیرعادی تبدیل نشوند.
+  4. متد `to_dict` به `FileDetails` اضافه و در `DialogSummary.to_dict()` به همراه `media_kind` یکپارچه شد.
+  5. پیام خطای UI در `webui.html` هنگام دریافت خطای `unauthorized` به پیام فارسی خوانا ارتقا یافت.
+- اثر: نقص F-073 به‌طور کامل برطرف شد؛ پیش‌نمایش آخرین پیام و رسانه برای گفتگوهای زنده به‌درستی نمایش داده می‌شود.
+- شاهد: V-195؛ ۳۹/۳۹ تست آفلاین `test_bale_branch_api.py` و ۵/۵ تست تثبیت `test_bale_stabilization_fail_closed.py` + آزمون Live موفق روی سرور فعال (پورت ۸۷۹۱) و تایید دریافت مقادیر واقعی برای `last_text`، `last_document` و `last_message_id`.
+- Trigger تکرار/بازگشایی: تغییر پروتکل سرور بله در ساختار پیام‌های دیالوگ.
+
+### F-074 — وابستگی Windows DPAPI مانع bootstrap واقعی روی Linux بود
+
+- وضعیت: `RESOLVED / LIVE_DEPLOYED / CDN_PUBLIC_TLS_PENDING_USER`
+- تاریخ: 2026-09-22
+- دامنه: Coordinator identity/AppAuth، بستهٔ Linux، systemd، Nginx و خط انتشار چندسایتی.
+- یافته: API روی Linux بالا می‌آمد، اما نخستین fingerprint کاربر یا حفاظت شماره به `WindowsDpapiPhoneProtector` می‌رسید و bootstrap/onboarding را fail-closed متوقف می‌کرد. همچنین سرور میزبان چند دامنه به releaseهای جدا، state پایدار و فرمان انتشار مشترک نیاز داشت.
+- تصمیم: `FileKeyPhoneProtector` و `FileKeySubjectFingerprinter` برای غیرWindows با AES-GCM/HMAC و کلیدهای service-owned `0600` افزوده شد؛ Windows DPAPI تغییر نکرد. استقرار با release immutable، `shared` جدا، کاربر systemd اختصاصی، Backend فقط Loopback، Nginx همان‌میزبان، gateway داخلی و dispatcher ریشه‌مالک انجام شد.
+- شاهد: V-196؛ full Backend=`809 passed + 1 skipped` از ۸۱۰؛ UI TypeScript/Build/Observability سبز؛ تست Live redirect/UI/login/cookie/session سبز؛ پورت‌های داخلی از بیرون بسته و سایت‌های قبلی سالم.
+- باقی‌ماندهٔ بیرونی: کاربر باید CDN را برای certificate عمومی فعال کند. origin TLS حاضر است و HTTP عمداً به HTTPS redirect می‌شود؛ کاهش Secure Cookie یا بازکردن Backend مجاز نیست.
+- Trigger بازگشایی: تغییر محافظ هویت، مالکیت کلید، پروفایل Proxy، systemd unit، handler انتشار، دامنه/CDN یا پورت‌های داخلی.
+
+### F-075 — قفل تاریخی HTTP، OTP را در استقرار امن HTTPS نیز رد می‌کرد
+
+- وضعیت: `RESOLVED / SOURCE_FIXED / LIVE_DEPLOYED`
+- تاریخ: 2026-09-22
+- دامنه: `HttpDeploymentConfig`، سیاست درخواست Reverse Proxy، Config تولید Linux و آزمون Phase 10-C.
+- یافته: پاسخ زندهٔ endpoint دریافت کد با `remote_messenger_auth_disabled` و mode=`web_reverse_proxy` ثابت کرد درخواست پیش از Provider رد می‌شود. Config تولید flag را خاموش داشت و اعتبارسنجی نیز روشن‌کردن آن را در همهٔ modeها ممنوع می‌کرد؛ بنابراین کنترل قدیمی Phase 6-A به‌اشتباه HTTPS معتبر را هم مانند HTTP شبکهٔ داخلی می‌بست.
+- تصمیم: flag فقط در `web_reverse_proxy` معتبر شد؛ الزامات Loopback backend، Proxy مورد اعتماد، forwarded proto برابر HTTPS، Host/Origin دقیق، Secure Cookie، AppUser Auth و CSRF دست‌نخورده ماند. `trusted_lan_http` همچنان fail-closed است.
+- شاهد: V-197؛ contract هدفمند 50/50 و full Backend سبز پس از rebuild wheel؛ release تازه و migration rollback-safe روی Production موفق، readiness=200 و probe بدون credential به‌جای قفل deployment به AppUser auth رسید. درخواست واقعی OTP یا تماس Provider در تشخیص/آزمون انجام نشد.
+- Trigger بازگشایی: تغییر remote auth paths، Proxy/TLS contract، Origin/CSRF، Config تولید یا نتیجهٔ live پس از انتشار.
+
+### F-076 — Child لینوکس شمارهٔ حساب را با محافظ هویت ویندوز باز می‌کرد
+
+- وضعیت: `RESOLVED / SOURCE_FIXED / LIVE_DEPLOYED`
+- تاریخ: 2026-09-22
+- دامنه: `application/account_runtime.py` و انتخاب محافظ هویت در Child/Registry.
+- شاهد ریشه: پس از رفع F-075، درخواست‌های واقعی کاربر پیش از تماس با Provider در audit با `eitaa.auth.request_code.denied`، `account_phone_resolution_failed` و `CoordinatorIdentityError` ثبت شدند. کد Child و Registry همچنان `WindowsDpapiPhoneProtector` می‌ساخت، در حالی‌که onboarding لینوکس از `FileKeyPhoneProtector` استفاده می‌کرد.
+- تصمیم: هر دو مسیر Runtime از `default_phone_protector` مشترک استفاده کنند؛ type contract به `PhoneProtector` تعمیم یافت. کلید و ciphertext عملیاتی تغییر یا جابه‌جا نشدند.
+- شاهد آزمون: V-198؛ تست Child با هویت ساختگی از همان کلید Coordinator شماره را بازیابی می‌کند. نسخهٔ اصلاحی روی سرور فعال است و بررسی فقط‌خواندنی با کاربر سرویس، بازشدن هویت یک حساب موجود را تأیید کرد. پس از انتشار، اقدام خود کاربر در UI با audit امن `eitaa.auth.request_code.succeeded` ثبت شد؛ این Run خودش OTP ارسال نکرد.
+- Trigger بازگشایی: تغییر factory هویت، account_process، Registry یا فرمت کلید/هویت.
+
+### F-077 — فرم ورود، شمارهٔ دیگر را برای حساب انتخاب‌شده پیشنهاد می‌کرد
+
+- وضعیت: `RESOLVED / SOURCE_FIXED / LIVE_DEPLOYED`
+- تاریخ: 2026-09-23
+- دامنه: فرم ورود ایتا و انتخاب حساب در UI چندحسابی.
+- شاهد: audit امن پس از انتشار F-076 سه رخداد `eitaa.auth.login.completed` و چند خروج موفق ثبت کرد؛ ردهای متأخر `eitaa.auth.request_code.denied` با `account_phone_mismatch` بودند. سرور به‌درستی اتصال شمارهٔ دیگر به همان MessengerAccount را رد می‌کند، ولی UI گزینهٔ «ورود با شماره‌ای دیگر» را در همان scope نشان می‌داد و پیام عمومی Child را نمایش می‌داد.
+- تصمیم: guard سرور دست‌نخورده بماند؛ انتخاب/افزودن حساب در فرم ورود در دسترس باشد، راهنمای شمارهٔ ماسک‌شدهٔ حساب نشان داده شود، عدم تطابق پیام فارسی قابل اقدام داشته باشد و متن دکمهٔ بازگشت به شماره در حالت چندحسابی به «اصلاح شمارهٔ همین حساب» تغییر کند.
+- شاهد اعتبارسنجی: V-199. هیچ شمارهٔ کامل، کد یا نشست در این سند ثبت نشد.
+- Trigger بازگشایی: تغییر Account Gate، error code هویت، یا فرم ورود.
+
+### F-078 — اعتبارسنجی زودهنگام Bearer مانع راه‌اندازی ورود کاربر و پروب‌ها در حضور AppUser Auth بود
+
+- وضعیت: `RESOLVED / SOURCE_FIXED / LIVE_DEPLOYED`
+- تاریخ: 2026-09-24
+- دامنه: `src/eitaa_bridge/application/api.py` (`_dispatch_inner` و `authorize_local_resource`)، تفکیک مرز نشست کاربر از توکن محلی Bearer، پروب‌های سرویس و دسترسی به کش رسانه.
+- ریشهٔ قطعی: متد `self._authorize(authorization)` در ابتدای `_dispatch_inner` و `authorize_local_resource` به‌صورت سراسری و بدون بررسی فعال بودن `app_user_auth` فراخوانی می‌شد. با تنظیم `EITAA_BRIDGE_API_TOKEN` در محیط عملیاتی، تمام درخواست‌های مرورگر (فاقد هدر Bearer) از جمله `/api/v2/app-auth/status`، ورود، و حتی پروب readiness خط انتشار با HTTP 401 `api_unauthorized` («راه‌اندازی ورود نرم‌افزار انجام نشد — A valid local API bearer token is required.») متوقف می‌شدند.
+- تصمیم معماری و محدودیت‌ها:
+  1. طرح «نشست یا Bearer برای همهٔ مسیرها» رد شد. توکن Bearer به‌هیچ‌وجه جایگزین نشست کاربر برای دسترسی به APIهای کاربر یا ارسال پیام نخواهد بود.
+  2. در استقرار دارای `app_user_auth_enabled=True`، مسیرهای عمومی و پیش از ورود (`/api/v1/health`، `/readiness`، `/schema`، `/api/v2/app-auth/status`، `/login`، `/register` و `/setup`) بدون هدر Bearer قابل دسترس‌اند.
+  3. کلیهٔ کنترل‌های امنیتی لایهٔ HTTP شامل بررسی دقیق Origin، محدودیت‌های نرخ درخواست و قفل ورود (`lockout_minutes`)، و ممنوعیت راه‌اندازی اولیهٔ مدیر از راه دور (`bootstrap_admin_loopback_only: True`) حفظ شدند.
+  4. تمام مسیرهای محافظت‌شده کاربری (شامل ارسال پیام، مدیریت حساب‌ها، تنظیمات و ...) منحصراً بر پایهٔ نشست معتبر AppUser و توکن CSRF (برای درخواست‌های نامتقارن) ارزیابی می‌شوند؛ ارسال توکن Bearer بدون نشست کاربر با `app_auth_required` رد می‌شود.
+  5. در `authorize_local_resource` و کش رسانه، درخواست‌های مرورگر با نشست معتبر بدون هدر Bearer پذیرفته می‌شوند.
+  6. در حالت تک‌کاربرهٔ سنتی (`app_user_auth_enabled=False`)، رفتار الزام Bearer روی تمام مسیرها جهت حفظ سازگاری دست‌نخورده ماند.
+- شاهد اعتبارسنجی: V-200 و V-201؛ تست هدفمند اولیه ۷/۷ سبز بود. آزمون تکمیلی با
+  همان پروفایل `web_reverse_proxy` تولید، چندحسابی فعال، Bearer تنظیم‌شده،
+  forwarded HTTPS و منع setup از IP بیرونی اضافه شد. UI اکنون خطای آغاز ورود را
+  به راهنمای امن تبدیل می‌کند، برای خطاهای گذرا فقط یک بار خودکار تلاش می‌کند،
+  و رویداد وضعیت ورود نمی‌تواند حلقهٔ refresh بسازد. gate انتشار علاوه بر readiness
+  پاسخ وضعیت ورود مرورگر را هم الزام می‌کند.
+- وضعیت اتصال onlineexam: ارزیابی امن و فقط‌خواندنی نشان داد `onlineexam` اکنون متصل یا موفق نیست (توکن آن خالی بوده و لاگ سرور نیز درخواستی نشان نمی‌دهد؛ به علاوه در صورت ارسال نیز به دلیل نبود نشست کاربری مسدود می‌شد). طرح احراز هویت ماشینی مستقل در قالب توکن اختصاصی محدود به مسیر پیام و مقید به یک حساب مشخص به کاربر پیشنهاد شد.
+- به‌روزرسانی عملیاتی V-203: در اسکن بعدی مقدار غیرخالی توکن در محیط `onlineexam`
+  دیده شد؛ آن کپی بنا به درخواست مالک حذف گردید. نبود آن در اعتبارسنجی Production
+  این پروژه مانع آغاز backend بود؛ شرط اعتبارسنجی اصلاح و نسخهٔ بدون توکن ساخته
+  و با وضعیت `healthy` فعال شد. ادعای «توکن خالی» در شاهد تاریخی بالا، وضعیت
+  زمان همان بررسی است و به وضعیت فعلی تعمیم داده نمی‌شود.
+- Trigger بازگشایی: تغییر خط انتشار، تغییر کنترل‌های session/Bearer در API، تغییر
+  مسیر بازیابی آغاز UI، یا پیاده‌سازی احراز هویت ماشینی جدید.
+- پذیرش زنده: release `20260924T045946Z-d81b875cbac0` از مسیر رسمی منتشر شد؛
+  پاسخ عمومی `app-auth/status` برابر `200` با `enabled=true`،
+  `authenticated=false` و `setup_required=false` است. صفحهٔ واقعی در مرورگر
+  فرم ورود را نشان داد؛ readiness عمومی و gateway هر دو `200`، مسیر `/me` بدون
+  نشست `401` و سرویس systemd فعال است. ورود تعاملی با حساب واقعی انجام نشد.
+
+### F-079 — پاسخ ورود Child در مرز IPC کلید ممنوع داشت
+
+- وضعیت: `SERVER_DEPLOYED / INSTALLED_IPC_CHECK_PASSED / LIVE_OTP_RECHECK_PENDING`
+- تاریخ: 2026-09-25
+- دامنه: سه پاسخ ورود ایتا در `eitaa_auth_child_operations.py`؛ تکمیل کد، نیاز به رمز دوم و تکمیل رمز دوم.
+- یافته: `LoginStepResult.safe_summary()` در همهٔ این پاسخ‌ها کلید `session` دارد، حتی وقتی مقدار آن تهی است. اعتبارسنج IPC این کلید را با `ipc_payload_forbidden` رد می‌کند. همین خطا در درخت محلی `AntiGravity2` پیش از اصلاح برای هر سه حالت بازتولید شد.
+- اصلاح: Child فقط فیلدهای شناخته‌شدهٔ نتیجه را عبور می‌دهد و خلاصهٔ غیرمحرمانهٔ نشست را زیر `session_snapshot` قرار می‌دهد. والد از قبل این فیلد را برای پاسخ HTTP به `session` برمی‌گرداند.
+- مرز شاهد: release `20260925T194540Z-52d1b93b938b` روی سرور فعال است و ماژول نصب‌شدهٔ آن آزمون مصنوعی IPC را گذرانده؛ ورود واقعی با OTP و صفحهٔ پس از refresh هنوز تأیید نشده‌اند. نشست‌های موجود در ریشهٔ عملیاتی محلی هنگام اصلاح کد تغییر نکردند.
+- مرجع: V-205، V-207 و `tests/test_auth_child_ipc_summary.py`.
+- Trigger بازبینی: ورود واقعی پس از انتشار نسخهٔ تازه، خطای جدید در مرحلهٔ OTP، یا تغییر قرارداد Core/IPC/HTTP.
+
+### F-080 — پس از ورود واقعی، فهرست گفت‌وگو و پیام خالی ماند
+
+- وضعیت: `PARTIAL / LOCAL_UI_RECOVERED / PROCESS_WORKER_UI_COMPATIBILITY_OPEN`
+- تاریخ: 2026-09-25
+- یافته: کاربر ورود واقعی با شماره و OTP را موفق گزارش کرد، اما صفحه هیچ پیام یا گفت‌وگویی نشان نداد. پیش از پاک‌سازی V-208، نشست ایتا در سرور `authenticated` بود و پایگاه دادهٔ پیام حساب جاری صفر ردیف در جدول‌های `dialogs` و `messages` داشت.
+- مرز شاهد: بازنشانی کامل داده‌ها در V-204 تاریخچهٔ محلی را حذف کرده بود؛ روشن نیست چرا پس از ورود تازه همگام‌سازی دوباره آن را پر نکرد. حذف توکن‌ها در V-208 این علت را تعیین یا اصلاح نمی‌کند. ورود و همگام‌سازی تازه پس از پاک‌سازی هنوز آزموده نشده است.
+- اقدام بعدی: پس از ورود تازهٔ کاربر، وضعیت sync و خطاهای امن Worker/API و شمارش‌های پایگاه داده بررسی شوند، بدون ثبت متن پیام، شناسهٔ مخاطب یا شمارهٔ کامل.
+- بازبینی محلی 2026-09-26 پس از بازنشانی V-209: ورود واقعی موفق بود و Core یک صفحهٔ ۲۵ گفت‌وگویی از مجموع ۲۰۶ مورد با warning صفر دریافت کرد، اما DB پیام صفر گفت‌وگو/پیام داشت. UI پیش از بارگذاری گفتگو `GET /api/v1/sites` را می‌خواست؛ این درخواست با `eitaa_process_operation_ipc_required` و HTTP 400 رد می‌شد، `siteKey` خالی می‌ماند و `loadDialogs/syncDialogs` اصلاً اجرا نمی‌شد. علت در این نصب، فعال شدن `worker_process` هنگام کپی sample config بود؛ Config محلی پیش از بازنشانی این flag را خاموش داشت.
+- فقط در `bridge.json` عملیاتی همین نصب، `worker_process.enabled=false` شد؛ `app_user_auth` و `multi_session` روشن ماندند. پس از توقف مالکیت‌دار و راه‌اندازی دوباره، routeهای sites/dialog sync/message list با HTTP 200 اجرا شدند و DB محلی به ۲۰۶ گفت‌وگو رسید. این شاهد رفع نمایش در نصب محلی است؛ پاسخ دیداری کاربر و تکمیل تاریخچهٔ پیام جداگانه ثبت می‌شود.
+- راه‌حل پایدارِ پروفایل نصب با Worker Process روشن هنوز باز است: UI فعلی از routeهای v1 استفاده می‌کند و نگاشت آن‌ها به Child RPC/DTO با حفظ Membership، Capability و account scope باید طراحی و آزموده شود. صرف بازکردن guard بدون مهاجرت مسیرهای Core کافی نیست. خطای منفرد avatar با fallback جدا از مانع اصلی است.
+- مرجع: V-204، V-207، V-208 و V-210.
+
+### F-081 — آغاز چندحسابی درون‌فرایندی پس از ساخت مدیر و پیش از حساب پیام‌رسان شکست می‌خورد
+
+- وضعیت: `CLOSED_CODE_AND_FULL_OFFLINE_REGRESSION / LOCAL_FRESH_BOOT_VERIFIED`
+- تاریخ: 2026-09-26
+- Trigger: درخواست بازنشانی دوبارهٔ نصب محلی با یک مدیر تازه و صفر حساب پیام‌رسان؛ برای نمایش گفت‌وگوها پس از ورود، Worker Process در Config محلی طبق V-210 خاموش ماند.
+- یافته: `BridgeApplicationApi` فقط وقتی Worker Process روشن بود، «بدون حساب runnable» را onboarding bootstrap می‌شناخت. پس از ساخت مدیر و پیش از افزودن نخستین حساب، `clean_install_bootstrap` false می‌شد و آغاز دوباره با `multi_session_legacy_default_required` شکست می‌خورد. این نقص با DB تازهٔ واقعی پیش از اصلاح بازتولید شد.
+- اصلاح: تشخیص نبود حساب runnable مستقل از حالت Worker Process شد. هنگام onboarding، Process mode همچنان بدون runtime v1 آغاز می‌شود و in-process mode از legacy runtime بی‌اثر برای bootstrap استفاده می‌کند. مسیرهای حساب‌محور همچنان Membership/انتخاب حساب را الزام می‌کنند؛ Provider یا حساب پیش‌فرض پنهان ساخته نمی‌شود.
+- شاهد: regression تازه روی config/DB ساختگی، targeted clean-install=`3/3`، مجموعهٔ هدفمند reporting/package پس از همسان‌سازی wheel و بازگرداندن الگوی ثابت=`37/37`، full Backend نهایی exit=0 با یک skip موجود، TypeScript و Observability PASS؛ boot محلی واقعی `app-auth/status=200` با `setup_required=false` و `authenticated=false`. ورود/OTP/Send تازه‌ای در این اصلاح انجام نشد.
+- مرجع: V-211 و `tests/test_clean_install_http_boot.py`.
+- Trigger بازبینی: تغییر startup runtime registry، حالت multi-session/worker، onboarding مدیر و حساب نخست یا گزارش خرابی نصب تازه.

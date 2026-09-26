@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "default_site_key": "primary-site",
+  "bridge": {
+    "diagnostics_root": "diagnostics/bridge",
+    "diagnostics_enabled": true,
+    "composition_state_file": "data/bridge_compositions.json"
+  },
+  "deployment": {
+    "schema_version": 1,
+    "mode": "web_reverse_proxy",
+    "bind": {
+      "host": "127.0.0.1",
+      "port": 8765
+    },
+    "allowed_hosts": [
+      "eitaa.farhangimaz.ir"
+    ],
+    "allowed_origins": [
+      "https://eitaa.farhangimaz.ir"
+    ],
+    "allowed_private_client_cidrs": [],
+    "cleartext_http_risk_acknowledgement": null,
+    "private_lan_only_acknowledgement": null,
+    "bootstrap_admin_loopback_only": true,
+    "same_origin_only": true,
+    "secure_cookie": true,
+    "limits": {
+      "max_json_body_bytes": 2097152,
+      "max_upload_bytes": 134217728,
+      "request_timeout_seconds": 30,
+      "requests_per_minute": 240,
+      "uploads_per_minute": 12,
+      "shutdown_grace_seconds": 15
+    },
+    "reverse_proxy": {
+      "enabled": true,
+      "trusted_proxy_cidrs": [
+        "127.0.0.0/8",
+        "::1/128"
+      ],
+      "required_forwarded_proto": "https",
+      "require_forwarded_for": true
+    },
+    "remote_messenger_auth": {
+      "enabled": true,
+      "cleartext_http_risk_acknowledgement": null
+    }
+  },
+  "features": {
+    "app_user_auth": {
+      "enabled": true,
+      "self_registration_enabled": false,
+      "idle_timeout_minutes": 525600,
+      "absolute_timeout_hours": 8760,
+      "max_failed_attempts": 5,
+      "lockout_minutes": 15
+    },
+    "multi_session": {
+      "enabled": true,
+      "legacy_default_messenger_account_id": null
+    },
+    "worker_process": {
+      "schema_version": 1,
+      "enabled": true,
+      "startup_timeout_seconds": 15,
+      "request_timeout_seconds": 60,
+      "heartbeat_interval_seconds": 5,
+      "heartbeat_timeout_seconds": 15,
+      "heartbeat_failure_threshold": 3,
+      "restart_window_seconds": 300,
+      "max_restarts": 3,
+      "backoff_initial_seconds": 2,
+      "backoff_max_seconds": 60,
+      "quarantine_seconds": 300
+    }
+  },
+  "core": {
+    "session_file": "data/eitaa_session.json",
+    "database_file": "data/eitaa_messages.sqlite3",
+    "media_directory": "data/media",
+    "diagnostics_root": "diagnostics/core",
+    "diagnostics_enabled": true,
+    "timeout_seconds": 30.0
+  },
+  "wordpress_sites": [
+    {
+      "site_key": "primary-site",
+      "base_url": "https://farhangimaz.ir",
+      "default_status": "draft",
+      "default_category_id": null,
+      "timeout_seconds": 30.0,
+      "verify_tls": true,
+      "retry_attempts": 2,
+      "username_env": "EITAA_BRIDGE_WP_PRIMARY_USERNAME",
+      "application_password_env": "EITAA_BRIDGE_WP_PRIMARY_APP_PASSWORD"
+    }
+  ]
+}

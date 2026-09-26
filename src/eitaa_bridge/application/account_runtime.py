@@ -45,8 +45,9 @@ from ..infrastructure.eitaa.session_ownership import (
 from ..infrastructure.coordinator import (
     CoordinatorDatabase,
     MessengerAccountRuntimeRecord,
+    PhoneProtector,
     WorkerInstanceRecord,
-    WindowsDpapiPhoneProtector,
+    default_phone_protector,
     validate_canonical_e164,
 )
 from .scheduler import EitaaOperationScheduler, EitaaPriority
@@ -433,7 +434,7 @@ class EitaaAccountRuntime:
         runtime_record: MessengerAccountRuntimeRecord | None = None,
         worker_lease: AccountWorkerLease | None = None,
         coordinator: CoordinatorDatabase | None = None,
-        phone_protector: WindowsDpapiPhoneProtector | None = None,
+        phone_protector: PhoneProtector | None = None,
     ) -> None:
         self.ownership = ownership
         self.runtime_record = runtime_record
@@ -560,7 +561,7 @@ class EitaaAccountRuntime:
         runtime_record: MessengerAccountRuntimeRecord,
         *,
         coordinator: CoordinatorDatabase,
-        phone_protector: WindowsDpapiPhoneProtector,
+        phone_protector: PhoneProtector,
     ) -> "EitaaAccountRuntime":
         ownership = EitaaSessionOwnership.for_messenger_account(
             config.source_file.parent,
@@ -665,9 +666,7 @@ class EitaaAccountRuntime:
             coordinator = CoordinatorDatabase(
                 coordinator_root / "coordinator.sqlite3"
             )
-            phone_protector = WindowsDpapiPhoneProtector(
-                coordinator_root / "identity.key.dpapi"
-            )
+            phone_protector = default_phone_protector(coordinator_root)
             return cls(
                 ownership,
                 diagnostics=diagnostics,
@@ -1023,11 +1022,8 @@ class EitaaRuntimeRegistry:
             / "coordinator.sqlite3"
         )
         self._coordinator = CoordinatorDatabase(coordinator_path)
-        self._phone_protector = WindowsDpapiPhoneProtector(
-            config.source_file.parent
-            / "data"
-            / "coordinator"
-            / "identity.key.dpapi"
+        self._phone_protector = default_phone_protector(
+            config.source_file.parent / "data" / "coordinator"
         )
         feature = config.features.multi_session
         if (

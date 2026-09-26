@@ -147,6 +147,51 @@ class TestCodecsExt:
         assert peer.id == 4242
         assert peer.type == PeerType.PRIVATE
 
+    def test_build_load_dialogs_defaults(self) -> None:
+        from eitaa_bridge.application.bale_client.codecs import build_load_dialogs
+        from eitaa_bridge.application.bale_client.wire import parse_fields, get_first
+
+        payload = build_load_dialogs(limit=25)
+        fields = parse_fields(payload)
+        offset = get_first(fields, 1)
+        limit = get_first(fields, 2)
+        assert offset == (1 << 63) - 1
+        assert limit == 25
+
+        # explicit min_date backwards-compatibility
+        payload_compat = build_load_dialogs(min_date=1000, limit=10)
+        fields_compat = parse_fields(payload_compat)
+        assert get_first(fields_compat, 1) == 1000
+
+    def test_decode_content_wrapped_template(self) -> None:
+        from eitaa_bridge.application.bale_client.codecs import decode_content
+
+        # Inner text inside field 13 -> field 1
+        inner = encode_text_content("پیام تستی بازو")
+        f13_body = ProtoWriter().message(1, inner).build()
+        content = ProtoWriter().message(13, f13_body).build()
+        text, doc = decode_content(content)
+        assert text == "پیام تستی بازو"
+        assert doc is None
+
+    def test_decode_dialog_summaries_signed_dates(self) -> None:
+        peer = ProtoWriter().int32(1, 1).int64(2, 4242).build()
+        sentinel_uint64 = 18446737278344972745
+        entry = (
+            ProtoWriter()
+            .message(1, peer)
+            .int64(3, sentinel_uint64)
+            .int64(6, sentinel_uint64)
+            .build()
+        )
+        payload = ProtoWriter().message(3, entry).build()
+        dialogs = decode_dialog_summaries(payload)
+        assert len(dialogs) == 1
+        assert dialogs[0].sort_date == -6795364578871
+        assert dialogs[0].last_message_date == -6795364578871
+
+
+
 
 # ---------------------------------------------------------------------------
 # Engine-level fake: a connected client whose RPC calls return canned bytes

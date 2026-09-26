@@ -1709,6 +1709,285 @@
 - سطح: Unit/Contract (fake در مرز WS) + Live (نشست ذخیره‌شدهٔ کاربر با مجوز همان لحظه).
 - روش امن: `.venv/Scripts/python.exe -m pytest tests/test_bale_branch_api.py` → 36 passed؛ سرور loopback `api_server` روی 127.0.0.1:8791 با vault موجود auto-reconnect شد و عملیات contacts/list، contacts/search، messages/read-history و messages/send-text با curl اجرا شد.
 - نتیجه: GetContacts peer-only با LoadUsers غنی‌شد (نام کامل + access_hash هر ۳ مخاطب)؛ جستجو با «محمد»/«محسن»/«اخوندیان»/«م» درست match شد؛ پیام تستی ارسال و با read-back (message_id 4091180017836933156) تأیید شد. دیکد wrapped-text `{1: text}` برای local_name/username، نگاشت PermissionDenied→`bale_access_denied` و پخش `data/otp_alert.wav` پس از auth/start نیز در همین کامیت.
-- نقص شناخته‌شدهٔ غیرمسدودکننده: `dialogs/list` مقدار `last_text` را null برمی‌گرداند (شکل فیلد content در LoadDialogs)؛ متن کامل از `read-history` در دسترس است.
+- نقص شناخته‌شدهٔ غیرمسدودکننده: برطرف شد در V-195 (F-073 بسته شد).
 - Artifact: `docs/reports/BALE_BRANCH_PHASE1_REPORT.md` فصل ۸.
 - Trigger تکرار: تغییر codecهای `bale_client`، فعال‌سازی Provider Bale، یا ادغام شاخهٔ `Bale` در `main`.
+
+### V-195 — رفع نقص F-073 در LoadDialogs و غنی‌سازی متن و رسانهٔ دیالوگ‌ها
+
+- تاریخ: 2026-09-22
+- دامنه: شاخهٔ `Bale`؛ `codecs.py`، `codecs_ext.py`، `api.py`، `api_server.py`، `models.py`، `webui.html`، `tests/test_bale_branch_api.py`.
+- سطح: Unit/Contract + Live (نشست ذخیره‌شدهٔ کاربر روی سرور لوپ‌بک).
+- روش امن:
+  1. `.venv/Scripts/python.exe -m pytest tests/test_bale_branch_api.py` → 39 passed (۳ تست جدید).
+  2. `.venv/Scripts/python.exe -m pytest tests/test_bale_stabilization_fail_closed.py` → 5 passed.
+  3. اجرای Live روی سرور loopback پورت ۸۷۹۱: متد `dialogs/list` فراخوانی شد؛ دیالوگ‌ها با موفقیت دریافت و تأیید شدند.
+- نتیجه:
+  - در `build_load_dialogs` پیش‌فرض فیلد ۱ به `offset_date: int = (1 << 63) - 1` تغییر یافت؛ سرور تمام گفتگوهای فعال جاری را برگرداند.
+  - فیلد ۱۳ برای پیام‌های ربات و تعاملی در `decode_content` بازگشایی شد و زیرعنوان، نام سند و متن آنها استخراج گردید.
+  - فیلدهای `sort_date` و `last_message_date` با `_signed_int_or_none` به int64 علامت‌دار تبدیل شدند.
+  - متد `to_dict` به `FileDetails` اضافه و در `DialogSummary.to_dict()` به همراه `media_kind` یکپارچه شد.
+  - پیام خطای ۴۰۱ در `webui.html` به راهنمای فارسی تبدیل شد.
+  - نتیجهٔ Live: گفتگوی محسن (peer 1846320404) با `last_message_id: 4091180017836933156` و متن کامل فارسی، و گفتگوهای دارای رسانه با `last_document` و `media_kind` معتبر تأیید شدند.
+- Trigger تکرار: تغییر پروتکل سرور بله یا بازگشایی F-073.
+
+### V-196 — پذیرش استقرار Linux، انتشار چندسایتی و حفاظت هویت غیرWindows
+
+- تاریخ: 2026-09-22
+- دامنه: `infrastructure/coordinator/{identity,app_auth}.py`، exportها، تست Linux، `deploy/linux/`، Nginx/systemd و میزبان production.
+- سطح: Unit/Full regression + UI contracts/build + privacy scan + live deployment بدون عملیات Messenger/WordPress.
+- نتیجهٔ محلی: تست هدفمند FileKey=`2 passed + 1 POSIX-only skipped`؛ full Backend=`809 passed + 1 skipped` از ۸۱۰؛ TypeScript PASS؛ Observability PASS؛ Vite build=`1021 modules`؛ wheel آفلاین بازسازی و source parity PASS.
+- بسته: ۱۷۵ entry، بدون `.env`، `bridge.json` واقعی، session، data، runtime، diagnostics عملیاتی، backups، Git، pyc یا cache؛ SHA-256=`57CF28A9...5652EE`.
+- نتیجهٔ Live: `publish-site deploy eitaa-bridge` موفق؛ readiness و systemd active؛ Nginx syntax PASS؛ redirect 308، UI 200، login 200، `/me`=200 و Cookie دارای `Secure/HttpOnly/SameSite=Strict`؛ listenerهای Backend/gateway فقط Loopback؛ فایروال فقط listenerهای عمومی موجود را نگه داشت؛ بررسی بیرونی پورت‌های داخلی timeout شد؛ پنج vhost قبلی 200 باقی ماندند؛ exposure سرویس systemd=`3.1 OK`.
+- E2E آفلاین شبکهٔ سرویس: ورود مدیر، Cookie و session از HTTPS origin با resolve محلی اجرا شد؛ هیچ اتصال Provider، OTP، ارسال پیام، WordPress write یا انتقال session/data محلی انجام نشد.
+- باقی‌مانده: certificate عمومی Edge توسط کاربر در CDN فعال می‌شود؛ آزمون origin با self-signed و `--insecure` فقط برای پذیرش هم‌میزبان بود.
+- Trigger تکرار: هر تغییر F-074 یا تغییر سرور/CDN/Nginx/systemd/publish handler.
+
+### V-197 — پذیرش رفع قفل OTP در پروفایل HTTPS Reverse Proxy
+
+- تاریخ: 2026-09-22
+- دامنه: `config.py`، `test_phase10c_web_reverse_proxy_contract.py`، Config و اسناد استقرار Linux.
+- Trigger: گزارش کاربر از پیام «درخواست با سیاست استقرار HTTP سازگار نیست» هنگام دریافت کد در UI عمومی.
+- ریشهٔ تأییدشده: probe بدون credential روی endpoint عمومی پاسخ 403 با error code امن `remote_messenger_auth_disabled` و mode=`web_reverse_proxy` داد؛ هیچ شماره، OTP، Cookie یا تماس Provider در probe وجود نداشت.
+- RED→GREEN: Config وب با remote auth روشن پیش از اصلاح با `deployment_remote_messenger_auth_risk_not_acknowledged` رد می‌شد. پس از محدودکردن قابلیت به `web_reverse_proxy`، contract درخواست request-code با Proxy/HTTPS/Origin معتبر پذیرفته شد و adversarialهای Proxy موجود دست‌نخورده ماندند.
+- شاهد: تست‌های Phase 10-C/6-A/6-B برابر `50 passed`؛ تست هدفمند نهایی همراه parity wheel برابر `51 passed`؛ full Backend پس از rebuild wheel برابر `811 passed + 1 skipped` از 812؛ parity wheel PASS با SHA-256=`9D9D1131...F7FEA`.
+- انتشار Live: release با hash محتوایی `A654D4E8...125A1` از مسیر مشترک `publish-site` منتشر شد. migration نسخه‌دار Config، backup محدود، validation، restart و readiness را موفق طی کرد. پس از انتشار، readiness عمومی=200 و probe بدون credential روی request-code به‌جای `remote_messenger_auth_disabled` پاسخ مورد انتظار `app_auth_required` داد؛ یعنی مرز deployment عبور و مرز AppUser حفظ شد. redirect=308، UI=200، login=200 و `/me`=200 نیز بدون Provider دوباره پذیرفته شدند.
+- عملیات Provider: درخواست واقعی OTP، شماره، Cookie در خروجی، تماس Provider، Send یا WordPress write اجرا نشد.
+
+### V-198 — پذیرش انتخاب محافظ هویت در Child لینوکس
+
+- تاریخ: 2026-09-22
+- دامنه: `application/account_runtime.py`، آزمون هویت غیرWindows، آزمون lifecycle احراز هویت و ابزار read-only استقرار.
+- Trigger: گزارش کاربر از «The Eitaa Child rejected the request» پس از رفع قفل HTTP. audit واقعی فقط کدهای امن `eitaa.auth.request_code.denied`، `account_phone_resolution_failed` و نوع `CoordinatorIdentityError` را نشان داد.
+- علت: Child و Registry از `WindowsDpapiPhoneProtector` استفاده می‌کردند، اما AppAuth روی Linux با `FileKeyPhoneProtector` هویت شماره را ذخیره کرده بود.
+- آزمون ساختگی: مسیر ساخت Runtime حساب‌محور Child با identity رمزگذاری‌شدهٔ ساختگی از کلید Coordinator شماره را بازیابی کرد؛ آزمون‌های جداگانهٔ چرخهٔ auth و Child RPC نیز سبز شدند. full Backend پس از به‌روزرسانی seam آزمون‌های lifecycle سبز شد؛ TypeScript، Observability، integrity حافظه و بررسی پیوند اسناد نیز PASS بودند.
+- انتشار: بستهٔ پاک با hash=`C99BDE0E...2A73E` از مسیر مشترک `publish-site` منتشر شد؛ release فعال=`20260922T191611Z-c99bde0e318a` و سرویس active است. فایل `account_runtime.py` در کد اصلی و release فعال SHA-256 یکسان=`D3B6DBA6...2391F4` دارد.
+- پذیرش سرور: بررسی فقط‌خواندنی با خود کاربر سرویس `identity_unlock=passed accounts=1` داد. readiness عمومی=200؛ redirect=308، UI=200، login=200 و `/me`=200. دادهٔ شماره، کلید و نشست در خروجی دیده نشد.
+- شاهد عملیاتی تکمیلی: بعد از انتشار، اقدام خود کاربر در UI با audit امن `eitaa.auth.request_code.succeeded`، سپس سه `eitaa.auth.login.completed` و چند `eitaa.auth.logout.completed` ثبت شد. بنابراین ورود کامل با حساب واقعی موفق بوده است. ردهای پس از آخرین خروج با `account_phone_mismatch` مربوط به شماره‌ای متفاوت از هویت حساب انتخاب‌شده‌اند.
+- مرز: خود این Run درخواست OTP یا تماس Provider ایجاد نکرد. هیچ شماره، کد، Cookie یا متن خصوصی در شاهد ثبت نشد.
+
+### V-199 — وضوح هویت حساب در فرم ورود ایتا
+
+- تاریخ: 2026-09-23
+- دامنه: `ui/src/App.tsx`، `ui/src/MessengerAccountGate.tsx` و آزمون قرارداد onboarding.
+- Trigger: audit زندهٔ بعد از V-198 ورود کامل را تأیید کرد، ولی ردهای جدید `account_phone_mismatch` و متن گمراه‌کنندهٔ «ورود با شماره‌ای دیگر» در UI دیده شد.
+- آزمون: `npm.cmd --prefix ui run check`، `npm.cmd --prefix ui run test:phase11-onboarding` (۹/۹) و `npm.cmd --prefix ui run build` (۱۰۲۱ ماژول) و `npm.cmd --prefix ui run test:observability` همگی PASS.
+- نتیجه: UI بدون افشای شمارهٔ کامل، راهنمای حساب انتخاب‌شده و مسیر انتخاب/افزودن حساب دیگر را در مرحلهٔ ورود ارائه می‌کند؛ خطای عدم تطابق قابل اقدام است. کنترل تطابق سمت سرور عوض نشده است.
+- انتشار: بستهٔ محدود ۱۷۴ entry با privacy scan نام‌ها و SHA-256=`C98B89BD...2996A` از مسیر `publish-site` در release `20260923T064140Z-c98b89bd1e27` فعال شد؛ سرویس active، UI و readiness هر دو 200 هستند. هش bundle رابط روی سرور و source برابر=`55C28E9E...3AC55`، و هش `account_runtime.py` برابر=`D3B6DBA6...2391F4` ماند.
+- سطح شاهد: قرارداد/build محلی و انتشار/health زنده؛ ورود تعاملی پس از این تغییر UI یا درخواست OTP توسط این Run انجام نشد.
+
+### V-200 — تفکیک مرز احراز هویت Bearer از نشست کاربر و آزمون‌های امنیتی
+
+- تاریخ: 2026-09-24
+- دامنه: `src/eitaa_bridge/application/api.py`، آزمون‌های رگرسیون جدید `tests/test_bearer_and_app_user_auth_boundary.py`، سرور HTTP، و مستندات حافظهٔ مهندسی.
+- سطح: `LOCAL_REGRESSION / AUTH_BOUNDARY / SECURITY_CONTROLS / STATIC_CODE_VERIFICATION`
+- Run: `WEB-AUTH-R01`
+- نتایج آزمون هدفمند (`tests/test_bearer_and_app_user_auth_boundary.py`): ۷ از ۷ تست سبز، exit code=0:
+  1. `test_when_app_user_auth_enabled_pre_login_and_probes_do_not_require_bearer`: پروب‌های `/api/v1/health`، `/readiness`، `/schema`، وضعیت احراز هویت `/api/v2/app-auth/status`، ورود و bootstrap بدون هدر Bearer با موفقیت عمل کردند.
+  2. `test_when_app_user_auth_enabled_protected_endpoints_require_session_and_bearer_alone_is_rejected`: مسیرهای محافظت‌شده بدون نشست کاربر با HTTP 401 (`app_auth_required`) مسدود می‌شوند؛ ارسال Bearer به‌تنهایی بدون نشست کاربری مسدود باقی می‌ماند؛ درخواست با نشست کاربری بدون Bearer موفق است.
+  3. `test_when_app_user_auth_enabled_local_resource_and_media_cache_accessible_with_session_without_bearer`: دسترسی به فایل و کش رسانه برای نشست کاربری بدون هدر Bearer مجاز است (HTTP 204).
+  4. `test_when_app_user_auth_disabled_legacy_bearer_enforcement_strictly_preserved`: رفتار سازگار با گذشته در حالت تک‌کاربره بررسی و تأیید شد (عدم ارسال Bearer باعث ۴۰۱ می‌شود).
+  5. `test_http_server_end_to_end_bearer_boundary_with_browser_session`: چرخهٔ کامل شبکهٔ HTTP شامل ورود مرورگر، اعتبارسنجی CSRF، کش رسانه و آپلود فایل با Cookie نشست و بدون Bearer تأیید شد.
+  6. `test_bearer_alone_cannot_send_messages_when_app_user_auth_enabled`: ارسال پیام از مسیر `/api/v1/messages/send` فقط با توکن Bearer (بدون نشست کاربری) با HTTP 401 (`app_auth_required`) رد شد.
+  7. `test_http_server_preserves_origin_and_remote_setup_security`: رد Originهای غیرمجاز و حفاظت راه‌اندازی مدیر تأیید شد.
+- نتایج آزمون‌های تکمیلی:
+  - مجموعهٔ ۱۰۴ تست شامل `test_application_api.py`, `test_app_user_api.py`, `test_phase10c_web_reverse_proxy_contract.py`, `test_phase6c`, `test_phase6b`, `test_phase6a` همگی PASS شدند.
+  - فرانت‌اند: `npm run check` و `npm run test:observability` هر دو PASS شدند.
+  - اسناد و حافظه: `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` هر دو PASS شدند.
+- وضعیت سرور و داده‌ها: هیچ تغییری روی سرور لینوکس اعمال نشده و هیچ سرویسی restart نشده است. فایل موقت رمز بلافاصله حذف شد. هیچ توکن، رمز، کوکی یا دادهٔ خصوصی در گزارش یا اسناد درج نشد.
+
+### V-201 — بازبینی مستقل ورود وب، بازیابی محدود UI و gate انتشار
+
+- تاریخ: 2026-09-24
+- دلیل بازآزمایی: پاسخ زندهٔ Production پس از V-200 همچنان `401 api_unauthorized` بود؛
+  سناریوی وب چندحسابی با Bearer فعال و بررسی وضعیت ورود در gate انتشار هنوز پوشش نداشت.
+- Run: `WEB-AUTH-R02`؛ سطح پیش از انتشار: `LOCAL_CONTRACT / FULL_REGRESSION / RELEASE_REHEARSAL`.
+- آزمون `tests/test_bearer_and_app_user_auth_boundary.py`: ۸/۸ پاس، از جمله
+  پروفایل تولید `web_reverse_proxy` با چندحسابی، Bearer فعال، forwarded HTTPS،
+  login و Cookie امن؛ setup از IP بیرونی و Bearer تنها برای API محافظت‌شده رد شدند.
+- آزمون `tests/test_phase10c_web_reverse_proxy_contract.py`: ۱۷/۱۷ پاس؛
+  قرارداد جدید publisher هر دو مسیر readiness و app-auth/status را الزام می‌کند.
+- UI: TypeScript check، build تولید، Observability، Phase 10 local activation،
+  Phase 11 onboarding و `test:auth-startup` پاس شدند. بازیابی خطای گذرا فقط یک
+  تکرار خودکار دارد؛ خطای پیکربندی تکرار نمی‌شود و خطای status رویداد refresh
+  مجدد تولید نمی‌کند.
+- full backend suite در اجرای نخست فقط به‌دلیل wheel قدیمی در کنترل parity
+  بسته‌بندی شکست خورد؛ wheel با ابزار استاندارد پروژه بازسازی شد و اجرای دوم
+  full suite با exit code صفر پایان یافت (یک skip پلتفرمی).
+- `check_project_memory_integrity.py` و `refresh_project_docs.py --check
+  --check-links` پاس شدند؛ سند و نقشهٔ تولیدشده به‌روز شدند.
+- بستهٔ انتشار از artifact فعال پیشین ساخته شد و فقط API auth، UI ساخته‌شده،
+  handler انتشار و راهنمای همان handler جایگزین شدند. نام‌های ممنوع در ۱۷۷
+  entry بسته صفر بود؛ SHA-256 بسته `D81B875CBAC060D225A8F1D6EF6A6F6D9AC761E8DFE741EE102545A3D08FFCD7`.
+- Live: handler قبلی و فایل انتشار قبلی با هش مرجع تطبیق داده شدند؛ handler
+  جدید با backup محدود نصب شد و `publish-site deploy eitaa-bridge` نسخهٔ
+  `20260924T045946Z-d81b875cbac0` را فعال کرد. gateway هنگام restart چند
+  پاسخ گذرای 502 داد، سپس gate هر دو بررسی را پذیرفت و انتشار موفق شد.
+- پس از انتشار: `app-auth/status` عمومی `200` با `ok=true`، `enabled=true`،
+  `authenticated=false` و `setup_required=false`؛ UI و readiness عمومی `200`،
+  readiness gateway `200`، `/api/v2/app-auth/me` بدون نشست `401` و systemd
+  فعال. مرورگر واقعی فرم ورود محلی را بدون خطای آغاز نمایش داد. ورود تعاملی
+  یا ارسال واقعی پیام در این Run انجام نشد.
+- Trigger تکرار: تغییر auth dispatch/resource، مسیر رویداد/تلاش UI، پروفایل
+  وب، publisher یا نتیجهٔ انتشار زنده.
+
+### V-202 — ایجاد حساب مدیر کل عملیاتی در سرور
+
+- تاریخ: 2026-09-24؛ سطح شاهد: `LIVE / APP_AUTH / WEB_REVERSE_PROXY`.
+- دلیل بررسی زنده: درخواست صریح مالک برای ایجاد یک حساب مدیر کل با نام کاربری و
+  رمز تعیین‌شده در نسخهٔ منتشرشده، پس از V-201.
+- پیش از تغییر، حساب درخواستی وجود نداشت و دو مدیر فعال دیگر در پایگاه داده ثبت
+  بودند. عملیات با هویت کاربری سرویس، در یک تراکنش SQLite انجام شد و رویداد
+  `app_user.operator_created` با `actor_type=system` و دلیل امن در زنجیرهٔ Audit
+  ثبت گردید؛ رمز فقط از ورودی تعاملی خوانده و با PasswordHasher خود برنامه هش شد.
+- احراز هویت داخلی برنامه، نقش `admin` و وضعیت فعال حساب را تأیید کرد و نشست
+  بررسی بسته شد. ورود از HTTPS عمومی با Origin مجاز نیز موفق شد، نقش مدیر کل را
+  بازگرداند و نشست بررسی در همان مسیر logout شد.
+- نخستین درخواست بررسی HTTPS بدون Origin طبق سیاست استقرار با 403 رد شد؛ پس از
+  افزودن Origin معتبر، درخواست موفق بود. این رد یک کنترل امنیتی مورد انتظار است.
+- اسکریپت یک‌بارمصرف از سرور و رایانهٔ محلی حذف شد. هیچ رمز، Cookie، Token یا
+  دادهٔ خصوصی در این سند، فرمان‌های پایدار یا خروجی آزمون ثبت نشد. کد محصول
+  تغییر نکرد؛ بنابراین مجموعهٔ کامل تست کد تکرار نشد.
+- Trigger تکرار: تغییر رمز یا نقش این حساب، تغییر سیاست Origin/ورود، یا شکست
+  ورود در سایت منتشرشده.
+
+### V-203 — ابطال و حذف توکن‌های عملیاتی ایتا در سرور
+
+- تاریخ: 2026-09-24؛ سطح شاهد: `LIVE / CREDENTIAL_REVOCATION / SERVICE_RECOVERY`.
+- دلیل بررسی زنده: درخواست صریح مالک برای حذف همهٔ توکن‌های موجود روی سرورِ
+  ایتا به‌دلیل احتمال بروز مشکل.
+- موجودی پیش از اقدام: یک توکن API در محیط سرویس ایتا، یک کپی همان نوع توکن
+  در محیط `onlineexam`، سه نشست فعال AppUser، یک نشست فعال پیام‌رسان ایتا و
+  چهار فایل بایگانی نشست ایتا. هیچ فایل در backup مشترک وجود نداشت.
+- با نشست مدیر، خروج رسمی تنها حساب ایتا از API انجام شد؛ `remote_ok=true`
+  و فایل نشست فعال از مسیر سرویس آرشیو گردید. سپس نشست‌های همهٔ کاربران از
+  مسیر رسمی مدیریت باطل شدند؛ چهار نشست شامل نشست موقت همین عملیات باطل شد.
+- سرویس موقتاً متوقف شد؛ یک انتساب `EITAA_BRIDGE_API_TOKEN` از `.env` حذف و
+  پنج فایل بایگانی نشست ایتا پاک شد. سایر متغیرهای محیطی، رمزهای کاربران،
+  کلیدهای محافظت هویت و داده‌های پیام تغییر نکردند. سرویس دوباره فعال شد.
+- بررسی پس از اقدام: نشست فعال AppUser=0؛ وضعیت حساب ایتا=`revoked`؛ فایل
+  نشست/آرشیو ایتا=0؛ انتساب توکن API=0؛ سایر انتساب‌های توکن محیطی=0؛
+  systemd=`active`، `app-auth/status` عمومی سالم و readiness عمومی HTTP 200.
+- اسکن تکمیلی در `/srv/projects` کپی دوم توکن را در `.env` پروژهٔ `onlineexam`
+  نشان داد؛ آن انتساب نیز حذف و کانتینر backend دوباره ساخته شد. اعتبارسنجی
+  Production آن پروژه نبود توکن را به‌طور نامتناسب مانع آغاز کل بک‌اند می‌کرد،
+  در حالی‌که آداپتور ارسال در نبود توکن fail-closed است. شرط اعتبارسنجی اصلاح شد:
+  توکنِ تنظیم‌شده بدون URL رد می‌شود، اما URL بدون توکن مجاز است و ارسال انجام
+  نمی‌شود. فایل آزمون متناظر به‌روز شد؛ ساخت TypeScript و دو بررسی رفتاری روی
+  تصویر ساخته‌شده پاس شدند. کانتینر جدید `healthy` است، توکن محیطی آن خالی و
+  صفحهٔ عمومی `onlineexam` HTTP 200 است.
+- اسکن نهایی همهٔ فایل‌های محیطی پروژه‌های `/srv/projects` انتساب توکن ایتای
+  غیرخالی=0، کپی فایل نشست ایتا=0، نشست فعال AppUser=0 و نشست authenticated
+  پیام‌رسان ایتا=0 را نشان داد. ارسال OTP ایتا از `onlineexam` تا پیکربندی
+  مجاز تازه در دسترس نیست.
+- فایل‌های یک‌بارمصرف از سرور و رایانهٔ محلی حذف شدند. هیچ مقدار توکن، رمز،
+  Cookie یا دادهٔ خصوصی ثبت نشد. کد Eitaa Bridge تغییر نکرد؛ مجموعهٔ کامل تست
+  آن تکرار نشد. اصلاح کوچک کد `onlineexam` روی نسخهٔ سرور ساخته و در زمان اجرا
+  بررسی شد.
+- Trigger تکرار: ایجاد توکن یا نشست تازه، بازیابی دادهٔ عملیاتی از نسخهٔ
+  پشتیبان، یا تغییر قرارداد خروج و احراز هویت.
+
+### V-204 — بازنشانی کامل داده‌ها و حساب‌های سرور ایتا با یک مدیر اولیه
+
+- تاریخ: 2026-09-24؛ سطح شاهد: `LIVE / EXPLICIT_FULL_RESET / INITIAL_ADMIN`.
+- دامنه با پاسخ صریح مالک مشخص شد: همهٔ حساب‌های محلی و پیام‌رسان، توکن‌ها،
+  پیام‌ها، مخاطبان و رسانه‌های ذخیره‌شدهٔ پروژهٔ ایتا روی این سرور پاک شوند؛
+  سپس فقط حساب اولیه با نام کاربری `آخوندیان` و رمز تعیین‌شده ساخته شود.
+- موجودی پیش از حذف: AppUser=3، credential=3، PhoneAccount=1،
+  MessengerAccount=1، نشست‌های تاریخی AppUser=16، رخداد Audit=82؛ داده=8
+  فایل، runtime=164 فایل و diagnostics=10 فایل. سرویس پیش از حذف متوقف شد.
+- محتوای پوشه‌های عملیاتی `data`، `runtime`، `diagnostics`، `backups` و
+  `catalog` از مسیر تثبیت‌شدهٔ `shared` حذف و پوشه‌های خالی دوباره ساخته شدند.
+  پیکربندی استقرار `bridge.json` و `.env` برای اجرای سرویس حفظ شدند؛ نسخهٔ
+  قدیمی فایل اعتبار مدیر اولیه در مسیر deploy نیز حذف شد. هیچ نسخهٔ پشتیبان
+  از داده‌ها/توکن‌های حذف‌شده در سرور ایجاد نشد.
+- با `CoordinatorAppAuth.bootstrap_admin` خود برنامه، فقط کاربر `آخوندیان`
+  با نقش `admin` و وضعیت `active` ساخته شد. رمز از ورودی تعاملی خوانده و مقدار
+  آن در فرمان، فایل یا سند ثبت نشد. نشست‌های حاصل از راه‌اندازی و بررسی ورود
+  بسته شدند؛ ردیف‌های هش نشستِ آزمایشی نیز هنگام توقف سرویس حذف و پایگاه داده
+  `VACUUM` شد.
+- ورود HTTPS عمومی با نام کاربری جدید و نقش مدیر موفق و نشست آزمون بسته شد.
+  بررسی نهایی پس از restart: AppUser=1، credential=1، PhoneAccount=0،
+  MessengerAccount=0، local_contacts=0، app_user_sessions=0، فایل دادهٔ حساب=0
+  و فایل نشست ایتا=0؛ `PRAGMA quick_check=ok` و خطای FK=0. systemd=`active`،
+  `app-auth/status` بدون نشست سالم و readiness عمومی HTTP 200 است.
+- backend پروژهٔ `onlineexam` همچنان `healthy` و فاقد توکن ایتا است. استفاده
+  از حساب ایتا و ارسال OTP آن تا اتصال و پیکربندی مجاز تازه ممکن نیست. کد
+  Eitaa Bridge تغییر نکرد؛ اسکریپت موقت از سرور و رایانهٔ محلی حذف شد.
+- Trigger تکرار: بازیابی نسخهٔ پشتیبان، ایجاد کاربر یا اتصال پیام‌رسان تازه،
+  یا تغییر پیکربندی و کد راه‌اندازی اولیه.
+
+### V-205 — بازتولید و رفع محلی خطای پاسخ Child پس از OTP
+
+- تاریخ: 2026-09-25؛ سطح شاهد: `OFFLINE / LOCAL SOURCE FIX / LIVE PENDING`.
+- Trigger بررسی: گزارش تازهٔ کاربر از ادامهٔ خطای Child پس از ارسال کد و تصحیح مسیر مبنا به `D:\eitaa Project\AntiGravity2`؛ شاهدهای قبلی ورود برای این نسخه و این رخداد کافی نیستند.
+- موجودی فقط‌خواندنی نشان داد نشست‌های واقعی در درخت محلی حاضرند. حذف نشست در اجرای قبلی توسط بازبینی خودکار ابزار با `blocked by policy` رد شده بود؛ در این اجرا هیچ نشست واقعی پاک یا جابه‌جا نشد.
+- RED: سه آزمون با `LoginStepResult` واقعی Core در محیط موقت بدون نشست کاربر، هر سه با `ipc_payload_forbidden` شکست خوردند.
+- GREEN هدفمند: اصلاح `session_snapshot` در هر سه پاسخ Child؛ مجموعهٔ Auth Child/IPC برابر `19/19 passed`.
+- full Backend نخست فقط در wheel/source parity شکست خورد، زیرا wheel قبلی با source تازه یک فایل اختلاف داشت. wheel محلی از source بازسازی شد و اجرای نهایی full Backend بدون شکست، با یک skip موجود، گذشت.
+- TypeScript و UI/Electron Observability هر دو PASS. Server deploy، Login/OTP واقعی، ارسال پیام، تغییر دادهٔ عملیاتی و Git publication انجام نشد.
+- Trigger تکرار: تغییر Auth Child/IPC، بستهٔ wheel، یا ورود واقعی پس از انتشار.
+
+### V-206 — پاک‌سازی دستی نشست‌ها و بازنشانی اعتبار مدیر محلی
+
+- تاریخ: 2026-09-25؛ سطح شاهد: `LOCAL OPERATION / USER AUTHORIZED / READ-BACK VERIFIED`.
+- پس از اجرای دستی دستور پاک‌سازی توسط کاربر، بررسی فقط‌خواندنی نشان داد فایل نشست فعال در ریشه، `data` و `runtime` صفر، ردیف نشست AppUser صفر، وضعیت دو نشست پیام‌رسان `absent` و `PRAGMA quick_check=ok` است.
+- به درخواست صریح کاربر، حساب فعال مدیر محلی با نام ورود `akhoondian` شناسایی شد؛ این نام ورود از قبل روی همان حساب تنظیم بود. رمز همان حساب با `PasswordHasher` خود برنامه، نمک تازه و افزایش نسخهٔ credential بازنشانی شد. هیچ حساب تازه‌ای ساخته نشد.
+- نشست فعال همان مدیر هنگام بازنشانی صفر بود. بررسی مستقلِ fingerprint نام ورود، نقش و وضعیت حساب، صحت هش رمز جدید و `PRAGMA quick_check=ok` موفق بود.
+- مقدار رمز در فرمان، فایل، خروجی یا سند ثبت نشد. سرور و حساب‌های دیگر تغییر نکردند.
+- Trigger تکرار: ورود ناموفق با اعتبار جدید، بازیابی نسخهٔ پشتیبان یا تغییر سازوکار هش/هویت ورود.
+
+### V-207 — انتشار نسخهٔ محلی AntiGravity2 روی سرور ایتا
+
+- تاریخ: 2026-09-25؛ سطح شاهد: `LIVE DEPLOY / INSTALLED PACKAGE / HTTP HEALTH / REAL OTP PENDING`.
+- به درخواست مالک، بسته از درخت محلی `D:\eitaa Project\AntiGravity2` با مسیر رسمی Linux ساخته شد. ساخت UI، بسته‌بندی تمیز 314 فایل، اسکن حریم خصوصی بسته، بررسی import، یکپارچگی اسناد و آزمون‌های محلی ثبت‌شده در V-205 موفق بودند. بستهٔ انتشار شامل 339 فایل بود و SHA-256 آن `52d1b93b938b2f8c0742a690c14df5fb432dd2ea79faf5fbe2d6706319011a24` است.
+- در نسخهٔ قبلی سرور، فایل source اصلاح Child را داشت اما ماژول نصب‌شده در `.venv/site-packages` فاقد اصلاح بود؛ سرویس همان ماژول نصب‌شده را اجرا می‌کرد. این اختلاف، ناکارآمدی اصلاح صرفاً روی source و restart را توضیح می‌دهد.
+- checksum بسته روی سرور تأیید و با `publish-site deploy eitaa-bridge` منتشر شد. release جاری `20260925T194540Z-52d1b93b938b` است؛ `publish-site status` سرویس را `active` گزارش کرد. انتشار رسمی shared config/data را حفظ کرد.
+- ماژول نصب‌شدهٔ release جدید تابع `_login_result_ipc_summary` را دارد. دو نتیجهٔ مصنوعی تکمیل ورود و نیاز به رمز دوم از اعتبارسنج IPC ماژول نصب‌شده گذشتند. UI عمومی و `app-auth/status` هر دو HTTP 200 و گواهی TLS معتبر بود.
+- ورود واقعی با OTP و نمای پس از refresh هنوز توسط کاربر آزموده نشده است. وضعیت challenge موجود `expired` است و برای آزمون، OTP تازه لازم است. رمزها، کد ورود و دادهٔ خصوصی در این سند ثبت نشده‌اند.
+- Trigger تکرار: خطای ورود پس از OTP تازه، انتشار release دیگر یا تغییر قرارداد Child/IPC.
+
+### V-208 — حذف دوبارهٔ توکن‌ها و نشست‌های ایتا از سرور
+
+- تاریخ: 2026-09-25؛ سطح شاهد: `LIVE / OWNER AUTHORIZED TOKEN PURGE / READ-BACK VERIFIED`.
+- Trigger: کاربر پس از ورود واقعی با شماره و OTP، صفحهٔ بدون گفت‌وگو و پیام گزارش کرد و حذف کامل توکن‌های ذخیره‌شدهٔ ایتا در سرور را خواست. پیش از اقدام، یک نشست پیام‌رسان `authenticated`، دو نشست فعال و چهار نشست باطل‌شدهٔ AppUser، سه فایل نشست ایتا شامل بایگانی‌ها و دو انتساب غیرخالی `EITAA_BRIDGE_API_TOKEN` در تنظیمات Eitaa Bridge و `onlineexam` موجود بود. پایگاه دادهٔ پیام حساب جاری، صفر گفت‌وگو و صفر پیام داشت.
+- سرویس ایتا و backend هم‌میزبان متوقف شدند. دو انتساب توکن از `.env` حذف شدند؛ گذار حساب پیام‌رسان با Coordinator به `revoked` و نسل تازه ثبت شد؛ سه فایل نشست ایتا پاک شدند؛ هر شش ردیف نشست AppUser با `secure_delete` حذف و پایگاه داده `VACUUM` شد. حساب‌های کاربری، پیام‌ها، مخاطبان، کلیدهای هویت و سایر تنظیمات حذف نشدند.
+- بازسازی نخست backend هم‌میزبان با توکن خالی به اعتبارسنجی Production برخورد و کانتینر ناسالم شد. شرط اعتبارسنجی در source همان پروژه روی سرور اصلاح شد تا توکن خالی را بپذیرد و در صورت وجود توکن، URL را الزامی کند؛ آزمون متناظر اضافه شد. اجرای Jest روی source سرور به‌دلیل نبود `node_modules` میسر نبود؛ ساخت Docker/TypeScript موفق شد و دو بررسی مستقیم ماژول کامپایل‌شده، پذیرش نبود توکن و رد توکن بدون URL را تأیید کردند. کانتینر بازساخته‌شده `healthy` است.
+- پس از راه‌اندازی: فایل نشست ایتا در `/srv/projects` صفر؛ انتساب غیرخالی توکن ایتا در فایل‌های `.env*` صفر؛ مقدار توکن در فرایند سرویس ایتا و کانتینر backend خالی؛ ردیف نشست AppUser صفر؛ وضعیت حساب پیام‌رسان `revoked`؛ `PRAGMA quick_check=ok`. release ایتا فعال، وضعیت ورود عمومی HTTP 200 با TLS معتبر و صفحهٔ عمومی `onlineexam` HTTP 200 است. اسکن نام کلیدهای شناخته‌شده در runtime/diagnostics نیز موردی نیافت؛ بستهٔ قدیمی backup فاقد `.env` و فایل نشست بود.
+- محدودیت: پاک‌سازی محلی اعتبار نشست نزد خود سرویس ایتا را از راه شبکه ابطال نکرد و علت صفر ماندن cache گفت‌وگو/پیام هنوز مشخص نیست. بعد از ورود تازه، همگام‌سازی تاریخچه باید جداگانه بررسی شود. اصلاح `onlineexam` روی source سرور است و باید در منبع انتشار بعدی آن پروژه نیز حفظ شود. هیچ مقدار توکن، OTP، رمز یا محتوای پیام در سند ثبت نشد.
+- Trigger تکرار: بازگشت توکن در config/deploy، ورود تازه با صفحهٔ خالی، یا انتشار دوبارهٔ `onlineexam`.
+
+### V-209 — بازنشانی محلی کامل برای آزمون از ابتدا
+
+- تاریخ: 2026-09-26؛ سطح شاهد: `LOCAL / OWNER AUTHORIZED RESET / BACKUP CRC / READ-BACK / API SMOKE`.
+- Trigger: درخواست صریح مالک برای آزمون دوبارهٔ نرم‌افزار در همین پوشه با حذف همهٔ داده‌های کاربری و نگه‌داشتن فقط یک مدیر. نصب‌کننده یا انتشار ساخته نشد.
+- پشتیبان مستقل در کنار پروژه پیش از اقدام یافت شد: 2,045,454,957 بایت، 92,257 فایل، آزمون CRC همهٔ ورودی‌ها PASS و SHA-256=`FF06A47B36E192D54E437B9EA1E6476D46BB83191CC7C332926B7D3214E555BF`. شمار فایل‌های `data/runtime/diagnostics/backups/catalog` با موجودی پیش از انتقال برابر بود.
+- فرمان حذف گروهی در بازبینی خودکار با `blocked by policy` پیش از اجرا رد شد. مسیر امن‌ترِ انتقال بازگشت‌پذیر به آرشیو بیرون درخت پروژه استفاده شد؛ پشتیبان اصلی تغییر نکرد. داده، نشست، DB، log، diagnostics، backup، catalog، Config واقعی، `.env`، دادهٔ عملیاتی Bale، screenshot و فایل پژوهشی کاربر از درخت جاری خارج شدند. `bridge.json` از `bridge.example.json` تازه ساخته شد.
+- با `CoordinatorAppAuth.bootstrap_admin` خود محصول یک کاربر `admin` با نقش `admin/active` و اعتبار تازه ساخته شد. نشست موقت bootstrap با `secure_delete` حذف و DB `VACUUM` شد. بازخوانی: `app_users=1`، `app_user_credentials=1`، `phone_accounts=0`، `messenger_accounts=0`، `app_user_sessions=0`، `PRAGMA quick_check=ok` و خطای FK صفر. رمز در سند، فرمان یا log ثبت نشد.
+- Boot محلی `BridgeApplicationApi` با Config نمونه و بدون Provider/network موفق شد؛ `app-auth/status` با HTTP 200، `enabled=true`، `setup_required=false` و `authenticated=false` پاسخ داد. log/diagnostics و DB مخاطب خالی که همین smoke ساخته بود نیز از درخت جاری خارج شدند.
+- چون کد محصول تغییر نکرد و هدف فقط state محلی بود، full Backend و UI suite دوباره اجرا نشدند؛ اجرای آن‌ها cache تازه می‌ساخت و شاهد مستقیم بیشتری برای این بازنشانی نمی‌داد.
+- محدودیت: ۱۴ پوشهٔ کش آزمون با ACL غیرقابل‌دسترسی در ریشه باقی ماندند؛ پشتیبان برای آن‌ها صفر فایل دارد. پاک‌سازی درون پروژه، نشست سمت سرویس Eitaa/Bale، سرور و دادهٔ مرورگر خارج از پروژه را ابطال/پاک نکرد. کد، Git، مستندات و artifactهای build حفظ شدند.
+- Trigger تکرار: بازگردانی پشتیبان، ایجاد حساب/نشست جدید، اجرای برنامه پس از این نقطه یا تغییر Config/کد bootstrap.
+
+### V-210 — بازیابی فهرست گفتگو در نصب تازهٔ محلی
+
+- تاریخ: 2026-09-26؛ سطح شاهد: `LOCAL LIVE AUTH / SAFE LOG COUNTS / CONFIG REPAIR / OWNED RESTART / DB READ-BACK`.
+- Trigger بررسی دوبارهٔ F-080: گزارش تازهٔ کاربر پس از ورود واقعی ایتا در درخت بازنشانی‌شدهٔ V-209. دادهٔ پیام و شماره/شناسهٔ مخاطب خوانده یا ثبت نشد.
+- پیش از اصلاح: Auth request/submit/status همگی HTTP 200؛ log امن Core دریافت ۲۵ گفت‌وگو از مجموع ۲۰۶ و parse warning صفر را ثبت کرد. DB حساب هنوز `dialogs=0/messages=0` بود. در log API، `GET /api/v1/sites` مکرر HTTP 400 با `eitaa_process_operation_ipc_required` و خطای renderer `ApiError` داشت؛ هیچ درخواست dialogs list/sync اجرا نشده بود.
+- علت: Config نمونهٔ کپی‌شده در V-209 `worker_process.enabled=true` داشت، در حالی که Config محلی قبلی false بود. guard فرایندی routeهای v1 UI را می‌بندد؛ UI نیز تا دریافت site key نه فهرست را بار می‌گیرد نه sync را آغاز می‌کند. تغییر صرف guard بدون Child RPC برای بقیهٔ routeها امن نیست.
+- اصلاح عملیاتی فقط روی `bridge.json` محلی: worker process=false، AppUser Auth=true و Multi-session=true. Config با loader معتبر بود. توقف با ابزار مالکیت‌دار و راه‌اندازی دوباره انجام شد؛ تلاش نخست هم‌زمان با پایان launcher قبلی فقط پنجرهٔ قبلی را هدف گرفت، تلاش دوم Backend/UI تازه را آغاز کرد.
+- پس از restart: routeهای sites، dialog sync/status، live sync، message list/sync با HTTP 200 اجرا شدند؛ DB پیام حساب `dialogs=206` و `messages=1` در نقطهٔ بازخوانی، `quick_check=ok`. یک خطای avatar با HTTP 502/Core discovery در میان پاسخ‌های موفق avatar دیده شد و مانع فهرست نیست. شمار پیام مربوط به زمان بازخوانی است، نه ادعای تکمیل همگام‌سازی تاریخچه.
+- کد محصول تغییر نکرد؛ full Backend/UI suite به‌خاطر تغییر فقط Config اجرایی تکرار نشد. سازگاری پروفایل Worker Process روشن با UI v1 باز است و نیازمند اصلاح کد و full regression خواهد بود. هیچ Send/WordPress/OTP تازه توسط Agent انجام نشد؛ Provider read فقط در اجرای عادی UI پس از اقدام خود کاربر رخ داد.
+- Trigger تکرار: گزارش خالی‌ماندن UI پس از restart، تغییر Config/مسیر v1/v2 یا مهاجرت UI به Child RPC.
+
+### V-211 — بازنشانی دوم نصب محلی و اصلاح آغاز بدون حساب
+
+- تاریخ: 2026-09-26؛ سطح شاهد: `OWNER AUTHORIZED LOCAL RESET / OFFLINE RED-GREEN / FULL BACKEND / UI CHECK / READ-BACK`.
+- Trigger: درخواست صریح مالک برای پاک‌سازی دوباره پس از ورود و نمایش گفتگوها، با حفظ هدف قبلیِ فقط یک مدیر و آزمون دوباره از ابتدا. پشتیبان مستقل اولیه با SHA-256 ثبت‌شده در V-209 بدون تغییر باقی بود.
+- برنامه با مسیر توقف مالکیت‌دار بسته شد و listener محلی صفر بود. `data` (۲۲۹ فایل)، `runtime` (۲۴۲۳ فایل، شامل پروفایل مرورگر این نوبت)، `diagnostics` و Config عملیاتی به آرشیو بازگشت‌پذیر دوم بیرون پروژه منتقل شدند. `.env`، catalog و backup در درخت جاری وجود نداشتند. Config تازه از نمونه ساخته و فقط Worker Process برای سازگاری UI محلی false شد؛ AppUser Auth و Multi-session true ماندند.
+- با bootstrap رسمی یک مدیر `admin/active` تازه ساخته شد؛ نشست موقت bootstrap با `secure_delete` و `VACUUM` حذف شد. رمز فقط به مالک تحویل می‌شود و در سند/فرمان ثبت نشده است. پس از بازنشانی AppUser=1، credential=1، PhoneAccount=0، MessengerAccount=0 و AppUser session=0 بودند؛ `quick_check=ok` و خطای FK صفر.
+- RED واقعی: boot با مدیر موجود و صفر حساب در حالت in-process به `multi_session_legacy_default_required` خورد. F-081 با تشخیص onboarding بدون runnable account در هر دو حالت Worker اصلاح شد. تست regression ساختگی بدون Provider افزوده و `tests/test_clean_install_http_boot.py` برابر `3/3` شد؛ boot محلی واقعی سپس `app-auth/status=200`، `enabled=true`، `setup_required=false` و `authenticated=false` داد.
+- full Backend نخست به‌جز پنج مورد گذشت: یک wheel/source parity به‌خاطر تغییر تازهٔ API و چهار تست گزارش به‌علت نبود workbook ثابت که در بازنشانی اول اشتباهاً دادهٔ کاربری شمرده شده بود. workbook ۲۸٬۸۸۷ بایتیِ الگوی گزارش از آرشیو برگشت؛ دادهٔ نشست یا استفادهٔ سابق نیست. wheel قبلی جداگانه حفظ و wheel محلی از source جاری بازساخته شد (SHA-256=`18DAF24A60DBD9B36306E96CDBBCCB3A0CFEE164F5ACADE650CFC5B7162D2C0`). آزمون هدفمند reporting/package=`37/37` سبز شد.
+- full Backend نهایی با basetemp بیرون پروژه و cache provider خاموش exit=0، failure صفر و یک skip موجود داشت. `npm --prefix ui run check` و `test:observability` هر دو exit=0 شدند. آثار جدید smoke/test در runtime، diagnostics، contacts/sender DB و log Bale نیز به آرشیو دوم منتقل شدند؛ فقط Coordinator مدیر و کلید هویت تازه در `data` باقی ماندند.
+- محدودیت: ۱۴ پوشهٔ کش آزمون دارای ACL بسته از V-209 همچنان در ریشه‌اند و پشتیبان اولیه برایشان صفر فایل داشت. کد، Git، اسناد و الگوی ثابت گزارش حفظ شدند. هیچ Login/OTP/Send/WordPress/Provider network توسط Agent اجرا نشد؛ برنامه برای آزمون کاربر بسته باقی ماند.
+- Trigger تکرار: آزمون ورود بعدی کاربر، بازگردانی state قدیمی، تغییر Config یا قرارداد bootstrap/registry.

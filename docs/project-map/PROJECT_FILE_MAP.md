@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 352
-- اثرانگشت منبع: `c736f6768fb2aa8e`
+- تعداد فایل‌های نقشه: 357
+- اثرانگشت منبع: `8778c5f5ccf27d4b`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -107,19 +107,19 @@
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/api.py` | Application | 271 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
-| `src/eitaa_bridge/application/bale_client/api.py` | Application | 45 | Stable Python API facade for the Bale personal client. |
-| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 41 | Loopback JSON/HTTP server exposing the BaleApi facade. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/bale_client/cli.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/client.py` | Application | 44 | — |
 | `src/eitaa_bridge/application/bale_client/codecs.py` | Application | 31 | — |
-| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 21 | Typed codec extensions for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/codecs_ext.py` | Application | 23 | Typed codec extensions for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/config.py` | Application | 1 | — |
 | `src/eitaa_bridge/application/bale_client/errors.py` | Application | 12 | — |
 | `src/eitaa_bridge/application/bale_client/grpc_web.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/lab.py` | Application | 45 | — |
-| `src/eitaa_bridge/application/bale_client/models.py` | Application | 15 | — |
+| `src/eitaa_bridge/application/bale_client/models.py` | Application | 16 | — |
 | `src/eitaa_bridge/application/bale_client/vault.py` | Application | 7 | — |
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
@@ -128,7 +128,7 @@
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
 | `src/eitaa_bridge/application/doctor.py` | Application | 5 | — |
-| `src/eitaa_bridge/application/eitaa_auth_child_operations.py` | Application | 14 | Eitaa account authentication lifecycle executed inside one Child process. |
+| `src/eitaa_bridge/application/eitaa_auth_child_operations.py` | Application | 15 | Eitaa account authentication lifecycle executed inside one Child process. |
 | `src/eitaa_bridge/application/eitaa_provider_runtime_operations.py` | Application | 24 | Bounded Eitaa application operations owned by one account runtime. |
 | `src/eitaa_bridge/application/eitaa_provider_worker.py` | Application | 13 | Dedicated Child-process host for one Eitaa MessengerAccount runtime. |
 | `src/eitaa_bridge/application/fake_provider_worker.py` | Application | 5 | Provider-neutral fake worker used to prove the Phase 7 IPC boundary. |
@@ -163,9 +163,9 @@
 | `src/eitaa_bridge/infrastructure/contact_store.py` | Infrastructure | 31 | Bridge-owned local contact directory with conservative deduplication. |
 | `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 22 | Bridge-owned SQLite storage for local index suggestions and feedback. |
 | `src/eitaa_bridge/infrastructure/coordinator/__init__.py` | Infrastructure | 0 | Coordinator persistence and safe legacy-migration primitives. |
-| `src/eitaa_bridge/infrastructure/coordinator/app_auth.py` | Infrastructure | 66 | Local AppUser credentials, sessions, throttling, roles, and safe audit. |
+| `src/eitaa_bridge/infrastructure/coordinator/app_auth.py` | Infrastructure | 69 | Local AppUser credentials, sessions, throttling, roles, and safe audit. |
 | `src/eitaa_bridge/infrastructure/coordinator/audit.py` | Infrastructure | 21 | Authorized, tamper-evident Coordinator audit query and JSONL export. |
-| `src/eitaa_bridge/infrastructure/coordinator/identity.py` | Infrastructure | 18 | Protected phone identity primitives for the local Windows coordinator. |
+| `src/eitaa_bridge/infrastructure/coordinator/identity.py` | Infrastructure | 25 | Protected phone identity primitives for the local Windows coordinator. |
 | `src/eitaa_bridge/infrastructure/coordinator/jobs.py` | Infrastructure | 35 | Persistent, account-scoped operation jobs owned by the Coordinator. |
 | `src/eitaa_bridge/infrastructure/coordinator/migration.py` | Infrastructure | 28 | Copy-and-verify migration from the single-account legacy layout. |
 | `src/eitaa_bridge/infrastructure/coordinator/rate_policy.py` | Infrastructure | 25 | Persisted per-account execution limits, backoff, and circuit breaking. |
@@ -228,11 +228,13 @@
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
+| `tests/test_auth_child_ipc_summary.py` | Python test | 1 | Authentication results must remain valid across the Child IPC boundary. |
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
-| `tests/test_bale_branch_api.py` | Python test | 55 | Offline tests for the Bale branch modular API (Phase 1). |
+| `tests/test_bale_branch_api.py` | Python test | 60 | Offline tests for the Bale branch modular API (Phase 1). |
 | `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
+| `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
-| `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |
+| `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |
 | `tests/test_composer_workflow.py` | Python test | 48 | — |
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
@@ -257,13 +259,14 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
+| `tests/test_linux_identity_protection.py` | Python test | 4 | — |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
 | `tests/test_multi_account_lab.py` | Python test | 3 | — |
 | `tests/test_mvp6_operations.py` | Python test | 23 | — |
 | `tests/test_observability_contract.py` | Python test | 7 | — |
 | `tests/test_offline_license.py` | Python test | 15 | — |
 | `tests/test_phase10b_local_activation.py` | Python test | 3 | — |
-| `tests/test_phase10c_web_reverse_proxy_contract.py` | Python test | 20 | — |
+| `tests/test_phase10c_web_reverse_proxy_contract.py` | Python test | 23 | — |
 | `tests/test_phase10d_operational_acceptance.py` | Python test | 10 | — |
 | `tests/test_phase11_0_multi_account_onboarding.py` | Python test | 13 | — |
 | `tests/test_phase11b1_multi_provider_core.py` | Python test | 10 | — |
@@ -310,6 +313,7 @@
 | `ui/electron/preload.cjs` | Electron shell | 0 | — |
 | `ui/scripts/capture-rtl-layout.cjs` | UI validation | 5 | — |
 | `ui/scripts/finalize-ui-build.mjs` | UI validation | 0 | — |
+| `ui/scripts/run-auth-startup-recovery-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-grouped-media-tests.mjs` | UI validation | 1 | — |
 | `ui/scripts/run-mobile-auth-live-tests.mjs` | UI validation | 1 | — |
 | `ui/scripts/run-observability-tests.mjs` | UI validation | 0 | — |
@@ -321,7 +325,7 @@
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
 | `ui/src/App.tsx` | React UI | 69 | — |
-| `ui/src/AppUserGate.tsx` | React UI | 11 | — |
+| `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
@@ -333,6 +337,7 @@
 | `ui/src/HeaderMessageSearch.tsx` | React UI | 3 | — |
 | `ui/src/lib/accountScope.mjs` | React UI | 3 | — |
 | `ui/src/lib/api.ts` | React UI | 17 | — |
+| `ui/src/lib/authStartupRecovery.mjs` | React UI | 3 | — |
 | `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
 | `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
 | `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |

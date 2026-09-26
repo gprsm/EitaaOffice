@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+usage() {
+    echo "usage: publish-site list | status <site> | deploy <site>" >&2
+    exit 2
+}
+
+[[ $# -ge 1 ]] || usage
+action=$1
+
+if [[ "$action" == "list" ]]; then
+    find /usr/local/lib/site-publisher -maxdepth 1 -type f -name '*.publish' \
+        -printf '%f\n' 2>/dev/null | sed 's/\.publish$//' | sort
+    exit 0
+fi
+
+[[ $# -eq 2 ]] || usage
+site=$2
+[[ "$site" =~ ^[a-z][a-z0-9-]{0,62}$ ]] || {
+    echo "publish-site: invalid site name" >&2
+    exit 2
+}
+[[ "$action" == "status" || "$action" == "deploy" ]] || usage
+
+handler="/usr/local/lib/site-publisher/${site}.publish"
+[[ -f "$handler" && -x "$handler" && ! -L "$handler" ]] || {
+    echo "publish-site: no registered handler for ${site}" >&2
+    exit 1
+}
+owner=$(stat -c '%u' "$handler")
+mode=$(stat -c '%a' "$handler")
+permissions=$((8#$mode))
+[[ "$owner" == "0" ]] && (( (permissions & 0022) == 0 )) || {
+    echo "publish-site: insecure handler ownership or mode" >&2
+    exit 1
+}
+
+exec "$handler" "$action"

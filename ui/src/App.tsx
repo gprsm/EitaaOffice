@@ -32,6 +32,7 @@ const MessageFilterDialog = lazy(() => import('./MessageFilterDialog').then(modu
 const ContentIndexDialog = lazy(() => import('./ContentIndexDialog').then(module => ({ default: module.ContentIndexDialog })))
 const MessageIndexEditor = lazy(() => import('./MessageIndexEditor').then(module => ({ default: module.MessageIndexEditor })))
 import {
+  AddMessengerAccountButton,
   MessengerAccountGate,
   MessengerAccountMenuControl,
   useMessengerAccounts,
@@ -223,6 +224,7 @@ function SessionRecovery({ status, onFreshLogin }: { status: AuthStatus; onFresh
 }
 
 function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () => Promise<void> | void; initialChallenge?: AuthChallengeSummary }) {
+  const messengerAccounts = useMessengerAccounts()
   const [step, setStep] = useState<'phone' | 'code' | 'password'>(() => initialChallenge?.stage === 'password' ? 'password' : initialChallenge?.challenge_id ? 'code' : 'phone')
   const [challengeId, setChallengeId] = useState(() => String(initialChallenge?.challenge_id || '').trim())
   const [phone, setPhone] = useState('+98')
@@ -291,6 +293,8 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
       } else if (e instanceof ApiError && e.code === 'phone_unprotection_failed') {
         setIdentityRecoveryRequired(true)
         setError('کلید محافظت محلیِ مهاجرت قبلی در این اجرای ویندوز قابل بازکردن نیست. می‌توانید شمارهٔ همین حساب را با یک کلید پایدار تازه بازیابی کنید.')
+      } else if (e instanceof ApiError && e.code === 'eitaa_account_phone_mismatch') {
+        setError('شمارهٔ واردشده با حساب پیام‌رسان انتخاب‌شده مطابقت ندارد. شمارهٔ همین حساب را وارد کنید یا حساب دیگری را انتخاب یا اضافه کنید.')
       } else if (e instanceof ApiError && e.code === 'auth_provider_code_expired') {
         try {
           const result = await api<any>('POST', '/api/v1/auth/request-code', {})
@@ -324,6 +328,10 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
     <Stack spacing={2.25}>
       <AppUserLogoutButton disabled={busy} />
       <AuthBrandPill label="حساب ایتا" />
+      {messengerAccounts.featureEnabled && <>
+        <MessengerAccountMenuControl />
+        <AddMessengerAccountButton />
+      </>}
       <Box>
         <Typography variant="h5" component="h2" textAlign="center">ورود به ایتا</Typography>
       </Box>
@@ -337,7 +345,7 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
           </Stack>
         })}
       </Stack>
-      {step === 'phone' && <TextField inputRef={phoneInputRef} label="شماره تلفن ایتا" type="tel" name="phone" dir="ltr" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+98912…" slotProps={{ htmlInput: { inputMode: 'tel', spellCheck: false, dir: 'ltr' } }} helperText="شماره را با کد کشور وارد کنید؛ نمونه: ‎+98912…" />}
+      {step === 'phone' && <TextField inputRef={phoneInputRef} label="شماره تلفن ایتا" type="tel" name="phone" dir="ltr" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+98912…" slotProps={{ htmlInput: { inputMode: 'tel', spellCheck: false, dir: 'ltr' } }} helperText={messengerAccounts.featureEnabled && messengerAccounts.selected ? `شمارهٔ حساب انتخاب‌شده را با کد کشور وارد کنید (راهنما: ${messengerAccounts.selected.phone_hint}).` : 'شماره را با کد کشور وارد کنید؛ نمونه: ‎+98912…'} />}
       {step === 'code' && <TextField label="کد یک‌بارمصرف" dir="ltr" autoFocus value={code} onChange={e => setCode(normalizeLoginCodeInput(e.target.value))} autoComplete="one-time-code" slotProps={{ htmlInput: { dir: 'ltr', inputMode: 'numeric' } }} />}
       {step === 'password' && <TextField label="رمز دوم حساب" type="password" autoFocus value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />}
       <Box aria-live="polite">{hint && <Alert severity="info">{hint}</Alert>}{error && <Alert severity="error">{error}</Alert>}</Box>
@@ -348,7 +356,7 @@ function LoginGate({ onAuthenticated, initialChallenge }: { onAuthenticated: () 
       {identityRecoveryRequired && <Button type="button" variant="outlined" color="warning" disabled={busy} onClick={() => void recoverPhoneIdentity()}>
         بازیابی امن محافظت شماره
       </Button>}
-      {step !== 'phone' && <Button type="button" variant="text" onClick={() => { setStep('phone'); setChallengeId(''); setCode(''); setPassword(''); setHint('') }}>ورود با شماره‌ای دیگر</Button>}
+      {step !== 'phone' && <Button type="button" variant="text" onClick={() => { setStep('phone'); setChallengeId(''); setCode(''); setPassword(''); setHint('') }}>{messengerAccounts.featureEnabled ? 'اصلاح شمارهٔ همین حساب' : 'ورود با شماره‌ای دیگر'}</Button>}
     </Stack>
   </Box></LoginSurface>
 }

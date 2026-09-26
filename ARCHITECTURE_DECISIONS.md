@@ -498,3 +498,37 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - `EitaaReportMonitor` روی `eitaa_core` فقط می‌خواند و در نبود runtime پرهیز می‌کند (abstain). کاندیدهای `event_report` با provenance پیام به صف بازبینی ستاد می‌روند؛ همان inوازه‌های انسانی ADR-53 (حضور مقام، تأیید مقدار) همچنان برقرارند.
 - بله (Bale) با تمرکز ارسال/دریافت پیام به برنامه اضافه شد: `BaleMessagingFacade` روی `application/bale_client` موجود (auth/session/history/send) سوار است؛ آداپتر Provider قرنطینه‌شدهٔ G-02 دست‌نخورده ماند. تاریخچهٔ بله از همان خط لولهٔ intent ایندکس می‌شود و خطای Provider هرگز با متن خام بیرون نمی‌ریزد (فقط نوع خطا).
 - منبع تصمیم: `SRC-USER-IR-008`، Q-IR-016، F-071، V-191.
+
+## ۵۵. استقرار Linux از state پایدار، release تغییرناپذیر و کلید محدود به کاربر سرویس استفاده می‌کند
+
+- رفتار Windows برای حفاظت هویت همچنان DPAPI است. روی میزبان غیرWindows، کلید ۳۲ بایتی جداگانه با ایجاد اتمیک، فایل معمولی غیرsymlink، مجوز `0600` و پوشهٔ `0700` نگه‌داری و شماره با AES-GCM و AAD نسخه‌دار رمز می‌شود؛ Username فقط HMAC می‌شود. کلید یا plaintext وارد release، log یا Git نمی‌شود.
+- release فقط source، UI ساخته‌شده و وابستگی vendored مجاز را دارد. `data/runtime/diagnostics/backups/catalog` و Config/Credential در `shared` پایدار می‌مانند و symlink اتمیک `current` با readiness و rollback کنترل می‌شود.
+- Backend در پروفایل `web_reverse_proxy` فقط روی Loopback است. Nginx تنها listener عمومی ۸۰/۴۴۳ و یک gateway هم‌میزبان Loopback برای برنامهٔ دوم دارد؛ هدرهای forwarded ورودی پاک و مقادیر canonical دوباره ساخته می‌شوند.
+- فرمان مشترک انتشار `publish-site deploy <site>` فقط handlerهای root-owned، غیرsymlink و غیرقابل‌نوشتن برای group/other را اجرا می‌کند. هر سایت handler مستقل، inbox هش‌شده و health gate خودش را دارد؛ این الگو از تداخل سایت‌های متعدد جلوگیری می‌کند.
+- TLS عمومی در CDN پایان می‌یابد و Nginx گواهی origin مستقل دارد. تا فعال‌شدن CDN، HTTPS مستقیم origin برای مرورگر اعتماد عمومی ندارد؛ این وضعیت نباید با خاموش‌کردن Secure Cookie یا ارسال HTTP دور زده شود.
+- منبع تصمیم: F-074، V-196 و `docs/reports/features/LINUX_PRODUCTION_DEPLOYMENT_REPORT_2026-09-22.md`.
+
+## ۵۶. احراز هویت پیام‌رسان راه دور فقط در پروفایل HTTPS Reverse Proxy مجاز است
+
+- قفل `remote_messenger_auth` در `trusted_lan_http` باقی می‌ماند؛ OTP، رمز دوم، logout و reset نشست نباید روی HTTP شبکهٔ داخلی با تغییر سادهٔ Config فعال شوند.
+- در `web_reverse_proxy`، روشن‌کردن صریح flag مجاز است، زیرا Loader هم‌زمان Loopback بودن Backend، Proxy هم‌میزبان، `X-Forwarded-Proto: https`، Host/Origin دقیق، Secure Cookie و AppUser Auth را الزام می‌کند. مسیرهای unsafe همچنان به Origin و CSRF نشست معتبر نیاز دارند.
+- Config تولید Linux این flag را روشن می‌کند تا UI عمومی HTTPS بتواند چرخهٔ request-code/OTP را اجرا کند؛ نمونهٔ عمومی Web برای opt-in بودن قابلیت خاموش می‌ماند.
+- منبع تصمیم: F-075، V-197 و `docs/PHASE10_WEB_REVERSE_PROXY_DEPLOYMENT.md`.
+
+## ۵۷. تمام مسیرهای Runtime ایتا باید از محافظ هویت همان سیستم‌عامل استفاده کنند
+
+- حفاظت و بازیابی شمارهٔ حساب در Coordinator، Registry و Child باید یک factory مشترک داشته باشد. روی Windows مسیر DPAPI و روی Linux مسیر کلید محدودشدهٔ سرویس انتخاب می‌شود.
+- Child قبل از تماس با Provider باید بتواند هویت محافظت‌شدهٔ حساب انتخاب‌شده را با همان کلیدی که هنگام onboarding استفاده شده بازیابی کند. خطای بازیابی نباید با درخواست مکرر OTP یا تغییر دادهٔ حساب دور زده شود.
+- منبع تصمیم: F-076 و V-198.
+
+## ۵۸. ورود وب و کنترل انتشار باید یک قرارداد واحد داشته باشند
+
+- در حالت AppUser Auth، Bearer محلی از مسیر ورود و APIهای دارای نشست کاربری حذف
+  می‌شود؛ Bearer به‌تنهایی جانشین نشست AppUser یا مجوز ارسال پیام نیست. حالت
+  تک‌کاربرهٔ قدیمی الزام Bearer خود را حفظ می‌کند.
+- انتشار Linux فقط با readiness کافی پذیرفته نمی‌شود: وضعیت ورود AppUser بدون
+  credential هم باید از gateway هم‌میزبان پاسخ سالم بدهد، وگرنه نسخهٔ قبلی با
+  همان مسیر رسمی rollback می‌شود.
+- UI خطاهای گذرای آغاز ورود را حداکثر یک بار خودکار تکرار می‌کند. خطاهای احراز
+  هویت و پیکربندی نیازمند اقدام‌اند و چرخهٔ درخواست خودکار ایجاد نمی‌کنند.
+- منبع تصمیم: F-078، V-200 و V-201.

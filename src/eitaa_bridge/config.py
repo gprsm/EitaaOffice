@@ -177,7 +177,7 @@ class AppUserAuthFeatureConfig:
 
 @dataclass(slots=True, frozen=True)
 class RemoteMessengerAuthPolicyConfig:
-    """Future policy gate; Phase 6-A deliberately cannot enable it."""
+    """Explicit gate for browser-driven messenger authentication."""
 
     enabled: bool = False
     cleartext_http_risk_acknowledgement: str | None = None
@@ -347,7 +347,10 @@ class HttpDeploymentConfig:
                 "The UI and API must remain same-origin; public CORS is not supported.",
                 code="deployment_same_origin_required",
             )
-        if self.remote_messenger_auth.enabled:
+        if (
+            self.remote_messenger_auth.enabled
+            and self.mode != "web_reverse_proxy"
+        ):
             if (
                 self.remote_messenger_auth.cleartext_http_risk_acknowledgement
                 != REMOTE_MESSENGER_AUTH_ACKNOWLEDGEMENT
@@ -357,7 +360,7 @@ class HttpDeploymentConfig:
                     code="deployment_remote_messenger_auth_risk_not_acknowledged",
                 )
             raise BridgeConfigurationError(
-                "Remote messenger authentication is not available in Phase 6-A.",
+                "Remote messenger authentication is available only behind the validated HTTPS reverse-proxy profile.",
                 code="deployment_remote_messenger_auth_not_available",
             )
 

@@ -72,6 +72,10 @@ class FileDetails:
     mime_type: str
     caption: str | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 
 @dataclass(slots=True)
 class FileUploadInfo:

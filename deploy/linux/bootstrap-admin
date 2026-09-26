@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+credential_file=/home/akhoondian/deploy/.eitaa-initial-admin
+[[ ! -e "$credential_file" ]] || {
+    echo "bootstrap-admin: credential file already exists" >&2
+    exit 1
+}
+
+umask 077
+password=$(openssl rand -base64 30 | tr -d '\n')
+payload=$(mktemp)
+response=$(mktemp)
+trap 'rm -f "$payload" "$response"' EXIT
+
+python3 - "$password" "$payload" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+Path(sys.argv[2]).write_text(json.dumps({
+    "username": "admin",
+    "password": sys.argv[1],
+    "display_name": "مدیر سامانه",
+}, ensure_ascii=False), encoding="utf-8")
+PY
+
+status=$(curl --silent --show-error --output "$response" --write-out '%{http_code}' \
+    --header 'Content-Type: application/json' \
+    --data-binary "@$payload" \
+    http://127.0.0.1:8876/api/v2/app-auth/setup)
+[[ "$status" == "201" ]] || {
+    echo "bootstrap-admin: setup request failed with HTTP $status" >&2
+    exit 1
+}
+python3 - "$response" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("authenticated") is not True:
+    raise SystemExit("bootstrap-admin: setup response was not authenticated")
+PY
+
+{
+    echo 'username=admin'
+    printf 'password=%s\n' "$password"
+    echo 'must_change_password=yes'
+} > "$credential_file"
+chmod 0600 "$credential_file"
+chown akhoondian:akhoondian "$credential_file"
+echo "bootstrap-admin: initial administrator created; credentials stored in the protected deploy file"

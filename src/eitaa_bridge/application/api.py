@@ -373,7 +373,6 @@ class BridgeApplicationApi:
             coordinator_store = CoordinatorDatabase(coordinator_database)
             no_runnable_account = (
                 config.features.multi_session.enabled
-                and config.features.worker_process.enabled
                 and not coordinator_store.has_runnable_messenger_account()
             )
             allow_onboarding_bootstrap = clean_install_bootstrap or no_runnable_account
@@ -386,15 +385,16 @@ class BridgeApplicationApi:
             )
             selected_runtime: EitaaAccountRuntime | EitaaProcessRuntime | None
             if config.features.multi_session.enabled:
-                if allow_onboarding_bootstrap and config.features.worker_process.enabled:
-                    # A fresh process-isolated installation has no account and
-                    # therefore no valid v1 runtime yet.  AppUser bootstrap and
-                    # MessengerAccount onboarding are runtime-independent; the
-                    # first account runtime is created only after an explicit
-                    # account Start request.
-                    selected_runtime = None
-                elif clean_install_bootstrap:
-                    selected_runtime = runtime_registry.legacy_runtime
+                if allow_onboarding_bootstrap:
+                    # With no runnable account, onboarding must remain reachable
+                    # after the first admin has been created as well as on an
+                    # entirely empty install. Process mode has no v1 runtime;
+                    # in-process mode can retain its inert legacy runtime.
+                    selected_runtime = (
+                        None
+                        if config.features.worker_process.enabled
+                        else runtime_registry.legacy_runtime
+                    )
                 else:
                     try:
                         selected_runtime = runtime_registry.resolve_v1()
@@ -1252,7 +1252,8 @@ class BridgeApplicationApi:
         messenger_account_id: str | None = None,
     ) -> ApiResponse:
         try:
-            self._authorize(authorization)
+            if not self.app_user_auth_enabled:
+                self._authorize(authorization)
             selected_method = method.upper().strip()
             parsed = urlsplit(raw_path)
             path = parsed.path.rstrip("/") or "/"
@@ -1820,8 +1821,8 @@ class BridgeApplicationApi:
     ) -> ApiResponse:
         """Authorize uploads and cached media served outside JSON routing."""
         try:
-            self._authorize(authorization)
             if not self.app_user_auth_enabled:
+                self._authorize(authorization)
                 if messenger_account_id:
                     raise CoordinatorAuthorizationError(
                         "Account selection is not enabled.",
