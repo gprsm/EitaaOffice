@@ -1,6 +1,6 @@
 {
   "product": "Eitaa Bridge",
-  "version": "0.7.0-ui-mvp6.1.1-gmi4.2",
+  "version": "0.7.0-ui-mvp6.1.1-bale1",
   "package": "0.7.0.dev31",
   "ui": "0.7.29",
   "core": "0.6.0-core7.4.5-gmi1",
@@ -8,7 +8,7 @@
   "sqlite_schema": 9,
   "content_index_schema": 2,
   "contact_schema": 1,
-  "stage": "gmi4.2-rtl-eitaa-contacts-quick-send",
+  "stage": "bale-branch-production",
   "source_smoke": "768/768 Python tests passed on the full-suite run after the F-069 auth Child-RPC migration (v1 auth routes now execute inside the account Child process through audited eitaa.auth.* RPC); zero failures or errors, including 7 new end-to-end auth regression tests that spawn a real Child.",
   "installed_wheel_smoke": "The installer builder rebuilt the bridge wheel from current source, passed allowlist dry-run and wheel/source parity, installed cryptography and all other runtime packages from local wheels only, and passed runtime checker plus install-copy and packaged activation simulations.",
   "typescript": "Full TypeScript project check and UI/Electron observability contract passed after the internal code-signing changes; UI source was unchanged.",
