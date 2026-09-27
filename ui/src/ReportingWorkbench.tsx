@@ -51,6 +51,7 @@ import SettingsRounded from '@mui/icons-material/SettingsRounded'
 import SummarizeRounded from '@mui/icons-material/SummarizeRounded'
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded'
 import { api, ApiError } from './lib/api'
+import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
 
@@ -580,6 +581,14 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
               <Stack direction="row" spacing={1} alignItems="center">
                 <SettingsRounded fontSize="small" />
                 <span>تنظیمات رصد گفتگوها</span>
+              </Stack>
+            }
+          />
+          <Tab
+            label={
+              <Stack direction="row" spacing={1} alignItems="center">
+                <SummarizeRounded fontSize="small" />
+                <span>داشبورد دفتر</span>
               </Stack>
             }
           />
@@ -1129,6 +1138,8 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           </Stack>
         )}
 
+        {/* ================= TAB 4: داشبورد دفتر ================= */}
+        {currentTab === 4 && <OfficeDashboard />}
         {/* ================= TAB 3: تنظیمات رصد گفتگوها ================= */}
         {currentTab === 3 && (
           <Stack spacing={3}>

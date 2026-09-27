@@ -150,6 +150,8 @@ from .provider_orchestration import (
 )
 from .scheduler import EitaaPriority
 from ..reporting import (
+    build_prayer_dossier,
+    realization_report,
     ALL_FORMS,
     FORMS_BY_PROGRAM,
     DialogWatchConfig,
@@ -297,6 +299,9 @@ _REPORTING_CANDIDATE_REVIEW_ROUTE = re.compile(
 )
 _REPORTING_CANDIDATE_SUGGEST_ROUTE = re.compile(
     r"^/api/v2/reporting/candidates/(?P<candidate_id>[a-zA-Z0-9_-]+)/suggest$"
+)
+_OFFICE_NORMALIZE_REVIEW_ROUTE = re.compile(
+    r"^/api/v3/office/queue/(?P<candidate_id>[a-zA-Z0-9_-]+)/review$"
 )
 _REPORTING_FORM_ROUTE = re.compile(
     r"^/api/v2/reporting/forms/(?P<program_id>[a-zA-Z0-9_-]+)$"
@@ -1611,6 +1616,24 @@ class BridgeApplicationApi:
                 return self._reporting_export(payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/reporting/exports":
                 return self._reporting_list_exports(query)
+            # Office product (v3): sections, registry, queues, dossier
+            if selected_method == "GET" and path == "/api/v3/office/sections":
+                return self._office_sections(query)
+            if selected_method == "GET" and path == "/api/v3/office/registry":
+                return self._office_registry(query)
+            if selected_method == "GET" and path == "/api/v3/office/queue":
+                return self._office_queue()
+            office_review_match = _OFFICE_NORMALIZE_REVIEW_ROUTE.fullmatch(path)
+            if selected_method == "POST" and office_review_match:
+                return self._office_review_normalization(
+                    office_review_match.group("candidate_id"), payload
+                )
+            if selected_method == "GET" and path == "/api/v3/office/dossier":
+                return self._office_dossier(query)
+            if selected_method == "GET" and path == "/api/v3/office/bimonthly":
+                return self._office_bimonthly(query)
+            if selected_method == "GET" and path == "/api/v3/office/wp-links":
+                return self._office_wp_links(query)
             if selected_method == "POST" and path == "/api/v2/app-auth/logout":
                 return self._app_auth_logout(app_session, request_id=request_id)
             if selected_method == "POST" and path == "/api/v2/app-auth/logout-all":
@@ -3538,6 +3561,139 @@ class BridgeApplicationApi:
             ),
         )
         return ApiResponse(200, {"ok": True, "export": result.safe_summary()})
+
+    # ----------------------------------------------------------------------
+    # Office Product Handlers (v3) — sections/registry/queue/dossier
+    # ----------------------------------------------------------------------
+    def _office_sections(self, query: Mapping[str, str]) -> ApiResponse:
+        period = (query.get("period") or "1405").strip()
+        sections = self._reporting_store.list_sections()
+        events = self._reporting_store.list_events(limit=1000)
+        payload = []
+        for section in sections:
+            section_id = section["section_id"]
+            facts = self._reporting_store.list_entity_facts(
+                entity_type="section", entity_id=f"section:{section_id}", period=period
+            )
+            plans = self._reporting_store.list_plan_items(period=period, section=section_id)
+            section_events = [
+                e for e in events
+                if any(k.value in section.get("kinds", []) for k in e.program_kinds)
+            ]
+            realization = realization_report(plans, section_events, scope="provincial_hq") if plans else []
+            gaps = [item for item in realization if item.get("gap")]
+            payload.append({
+                **section,
+                "events_count": len(section_events),
+                "facts_count": len(facts),
+                "realization": realization,
+                "open_gaps": len(gaps),
+            })
+        return ApiResponse(200, {"ok": True, "period": period, "sections": payload})
+
+    def _office_registry(self, query: Mapping[str, str]) -> ApiResponse:
+        kind = (query.get("kind") or "units").strip()
+        if kind == "units":
+            items = [
+                {"unit_id": u.unit_id, "name": u.name, "kind": u.kind, "notes": u.notes}
+                for u in self._reporting_store.list_units()
+            ]
+        elif kind == "imams":
+            items = [
+                {"imam_id": i.imam_id, "unit_id": i.unit_id, "full_name": i.full_name,
+                 "position": i.position, "source_kind": i.source_kind, "status": i.status,
+                 "version": i.version}
+                for i in self._reporting_store.list_imams()
+            ]
+        elif kind == "venues":
+            items = [
+                {"venue_id": v.venue_id, "unit_id": v.unit_id, "name": v.name,
+                 "notes": v.notes}
+                for v in self._reporting_store.list_venues()
+            ]
+        elif kind == "nomokalaf":
+            items = [
+                {"nom_id": n.nom_id, "unit_id": n.unit_id, "year": n.year,
+                 "grain": n.grain, "person_count": n.person_count,
+                 "full_name": n.full_name}
+                for n in self._reporting_store.list_nomokalaf()
+            ]
+        elif kind == "persons":
+            person_kind = (query.get("person_kind") or "").strip() or None
+            items = [
+                {"person_id": pr.person_id, "kind": pr.kind, "full_name": pr.full_name,
+                 "personnel_no": pr.personnel_no, "phone": pr.phone,
+                 "relation": pr.relation, "related_personnel_no": pr.related_personnel_no,
+                 "notes": pr.notes}
+                for pr in self._reporting_store.list_persons(kind=person_kind)
+            ]
+        else:
+            return ApiResponse(400, {"ok": False, "error": f"unknown registry kind: {kind}"})
+        return ApiResponse(200, {"ok": True, "kind": kind, "items": items})
+
+    def _office_queue(self) -> ApiResponse:
+        candidates = self._reporting_store.list_normalization_candidates(status="pending")
+        wp_pending = [
+            link for link in self._reporting_store.list_wp_links(limit=1000)
+            if link["match_status"] in {"candidate", "unmatched"}
+        ]
+        return ApiResponse(200, {
+            "ok": True,
+            "normalization": candidates,
+            "wp_links": wp_pending,
+        })
+
+    def _office_review_normalization(self, candidate_id: str, payload: Mapping[str, Any]) -> ApiResponse:
+        action = (payload.get("action") or "").strip()
+        reviewed_by = (payload.get("reviewed_by") or "office-operator").strip()
+        if action == "approve":
+            coded = str(payload.get("coded_value") or "").strip()
+            if not coded:
+                return ApiResponse(400, {"ok": False, "error": "coded_value required"})
+            fact = self._reporting_store.approve_normalization_candidate(
+                candidate_id, coded_value=coded, reviewed_by=reviewed_by,
+            )
+            return ApiResponse(200, {"ok": True, "fact_id": fact.fact_id})
+        if action == "reject":
+            self._reporting_store.reject_normalization_candidate(
+                candidate_id, reviewed_by=reviewed_by,
+                reason=str(payload.get("reason") or ""),
+            )
+            return ApiResponse(200, {"ok": True})
+        return ApiResponse(400, {"ok": False, "error": "action must be approve|reject"})
+
+    def _office_dossier(self, query: Mapping[str, str]) -> ApiResponse:
+        period = (query.get("period") or "1405").strip()
+        dossier = build_prayer_dossier(
+            events=self._reporting_store.list_events(limit=1000),
+            units=self._reporting_store.list_units(),
+            facts=self._reporting_store.list_entity_facts(period=period),
+            imams=self._reporting_store.list_imams(),
+            period=period,
+        )
+        return ApiResponse(200, {"ok": True, "dossier": dossier})
+
+    def _office_bimonthly(self, query: Mapping[str, str]) -> ApiResponse:
+        period = (query.get("period") or "1405-P1").strip()
+        facts = self._reporting_store.list_entity_facts(
+            entity_type="section", period=period
+        )
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for fact in facts:
+            grouped.setdefault(fact.entity_id, []).append({
+                "metric": fact.metric,
+                "value": fact.value,
+                "text_value": fact.text_value,
+                "unit": fact.unit_of_measure,
+                "note": fact.note,
+            })
+        return ApiResponse(200, {"ok": True, "period": period, "sections": grouped})
+
+    def _office_wp_links(self, query: Mapping[str, str]) -> ApiResponse:
+        status = (query.get("status") or "").strip() or None
+        section = (query.get("section") or "").strip() or None
+        links = self._reporting_store.list_wp_links(status=status, section=section, limit=1000)
+        return ApiResponse(200, {"ok": True, "links": links})
 
     # ----------------------------------------------------------------------
     # Reporting Endpoints Handlers
