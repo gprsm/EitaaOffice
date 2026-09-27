@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable, Mapping
 
-METRIC_DICTIONARY_VERSION = "prayer-metrics-v1"
+METRIC_DICTIONARY_VERSION = "office-metrics-v2"
 
 UNITS = frozenset({"count", "currency", "percent", "text", "choice"})
 
@@ -433,8 +433,15 @@ ASSESSMENT_INSTRUMENT_1405 = AssessmentInstrument(
     fields=_ASSESSMENT_FIELDS,
 )
 
+# Workbook count metrics live in workbook_metrics.py; the local import keeps
+# the module graph acyclic (workbook_metrics needs MetricDefinition above).
+from .workbook_metrics import WORKBOOK_METRICS  # noqa: E402
+
 METRIC_DICTIONARY = MetricDictionary(
-    [f.metric for f in _ASSESSMENT_FIELDS] + list(PRAYER_EVENT_METRICS) + list(PROGRAM_PERIOD_METRICS)
+    [f.metric for f in _ASSESSMENT_FIELDS]
+    + list(PRAYER_EVENT_METRICS)
+    + list(PROGRAM_PERIOD_METRICS)
+    + list(WORKBOOK_METRICS)
 )
 
 # Council-session mandate threshold: the 1405 دستورالعمل expects the top band

@@ -34,9 +34,11 @@ from .model import (
 )
 from .monitor import DialogWatchConfig
 from .plans import Mandate, PlanItem
-from .registry import EntityFact, ImamRecord, NomokalafRecord, UnitRecord, VenueRecord
+from .registry import EntityFact, ImamRecord, NomokalafRecord, PersonRecord, UnitRecord, VenueRecord
+from .sections import OFFICE_SECTIONS
+from .wp_links import WpPostLink
 
-REPORTING_SCHEMA_VERSION = 3
+REPORTING_SCHEMA_VERSION = 4
 
 
 def _utc_now() -> str:
@@ -328,6 +330,64 @@ class ReportingStore:
                     notes TEXT,
                     created_at TEXT NOT NULL
                 );
+
+                -- Section registry (F-088 §4): sections are data rows, not
+                -- code enums; adding a report topic means adding a row.
+                CREATE TABLE IF NOT EXISTS reporting_sections (
+                    section_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    workbook_code TEXT NOT NULL DEFAULT '',
+                    workbook_sheet TEXT NOT NULL DEFAULT '',
+                    visit_label TEXT NOT NULL DEFAULT '',
+                    kinds_json TEXT NOT NULL DEFAULT '[]',
+                    notes TEXT,
+                    created_at TEXT NOT NULL
+                );
+
+                -- Comprehensive person base: employees and their family
+                -- members. PII columns below (national_id/phone) stay local;
+                -- projections aggregate to counts only.
+                CREATE TABLE IF NOT EXISTS registry_persons (
+                    person_id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL DEFAULT 'employee' CHECK(kind IN ('employee', 'family')),
+                    full_name TEXT NOT NULL DEFAULT '',
+                    personnel_no TEXT NOT NULL DEFAULT '',
+                    national_id TEXT NOT NULL DEFAULT '',
+                    phone TEXT NOT NULL DEFAULT '',
+                    relation TEXT NOT NULL DEFAULT '',
+                    related_personnel_no TEXT NOT NULL DEFAULT '',
+                    unit_id TEXT NOT NULL DEFAULT '',
+                    gender TEXT NOT NULL DEFAULT '',
+                    birth_year TEXT NOT NULL DEFAULT '',
+                    evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+                    version INTEGER NOT NULL DEFAULT 1,
+                    source TEXT NOT NULL DEFAULT 'manual',
+                    notes TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_persons_personnel ON registry_persons(personnel_no);
+                CREATE INDEX IF NOT EXISTS idx_persons_related ON registry_persons(related_personnel_no);
+
+                -- WordPress post ↔ event links (F-088 §2): the missing
+                -- connection between published news and the event corpus.
+                CREATE TABLE IF NOT EXISTS wp_post_links (
+                    link_id TEXT PRIMARY KEY,
+                    post_slug TEXT NOT NULL,
+                    title TEXT NOT NULL DEFAULT '',
+                    source_ref TEXT NOT NULL DEFAULT '',
+                    section TEXT NOT NULL DEFAULT '',
+                    published_on TEXT,
+                    event_id TEXT NOT NULL DEFAULT '',
+                    match_status TEXT NOT NULL DEFAULT 'unmatched'
+                        CHECK(match_status IN ('unmatched', 'auto', 'candidate', 'confirmed')),
+                    confidence REAL NOT NULL DEFAULT 0.0,
+                    note TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_wp_links_status ON wp_post_links(match_status);
+                CREATE INDEX IF NOT EXISTS idx_wp_links_section ON wp_post_links(section);
                 """
             )
 
@@ -382,6 +442,33 @@ class ReportingStore:
                     "INSERT INTO reporting_schema (version, applied_at) VALUES (?, ?)",
                     (REPORTING_SCHEMA_VERSION, _utc_now()),
                 )
+
+            # Seed the section registry from the canonical definitions (only
+            # when empty — operator-added sections are never overwritten).
+            count_sections = conn.execute("SELECT COUNT(*) FROM reporting_sections").fetchone()[0]
+            if count_sections == 0:
+                now = _utc_now()
+                for section in OFFICE_SECTIONS:
+                    section.validate()
+                    conn.execute(
+                        """
+                        INSERT INTO reporting_sections (
+                            section_id, title, source, workbook_code, workbook_sheet,
+                            visit_label, kinds_json, notes, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            section.section_id,
+                            section.title,
+                            section.source,
+                            section.workbook_code,
+                            section.workbook_sheet,
+                            section.visit_label,
+                            json.dumps(list(section.kinds), ensure_ascii=False),
+                            section.notes,
+                            now,
+                        ),
+                    )
 
             # Seed default watch targets if none exist
             count_targets = conn.execute("SELECT COUNT(*) FROM reporting_targets").fetchone()[0]
@@ -1715,3 +1802,225 @@ class ReportingStore:
                 )
                 for row in rows
             ]
+
+    # ----------------------------------------------------------------------
+    # Section Registry (data-driven report axes, F-088 section 4)
+    # ----------------------------------------------------------------------
+    def list_sections(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM reporting_sections ORDER BY source, section_id"
+            ).fetchall()
+            return [
+                {
+                    "section_id": row["section_id"],
+                    "title": row["title"],
+                    "source": row["source"],
+                    "workbook_code": row["workbook_code"],
+                    "workbook_sheet": row["workbook_sheet"],
+                    "visit_label": row["visit_label"],
+                    "kinds": json.loads(row["kinds_json"]),
+                    "notes": row["notes"] or "",
+                }
+                for row in rows
+            ]
+
+    def upsert_section(self, *, section_id: str, title: str, source: str,
+                       workbook_code: str = "", workbook_sheet: str = "",
+                       visit_label: str = "", kinds: Sequence[str] = (),
+                       notes: str = "") -> None:
+        """Operator-defined section (adds new topics; canonical seeds keep ids)."""
+        from .sections import SECTION_SOURCES
+
+        if not section_id.strip() or not title.strip():
+            raise ReportingStoreError("Section id and title cannot be empty.")
+        if source not in SECTION_SOURCES:
+            raise ReportingStoreError(f"Unknown section source: {source!r}")
+        now = _utc_now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO reporting_sections (
+                    section_id, title, source, workbook_code, workbook_sheet,
+                    visit_label, kinds_json, notes, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(section_id) DO UPDATE SET
+                    title = excluded.title, source = excluded.source,
+                    workbook_code = excluded.workbook_code,
+                    workbook_sheet = excluded.workbook_sheet,
+                    visit_label = excluded.visit_label,
+                    kinds_json = excluded.kinds_json,
+                    notes = excluded.notes
+                """,
+                (
+                    section_id, title, source, workbook_code, workbook_sheet,
+                    visit_label, json.dumps(list(kinds), ensure_ascii=False),
+                    notes, now,
+                ),
+            )
+
+    # ----------------------------------------------------------------------
+    # Person Registry (employees + families; PII stays local by design)
+    # ----------------------------------------------------------------------
+    def save_person(self, person: PersonRecord) -> None:
+        person.validate()
+        now = _utc_now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO registry_persons (
+                    person_id, kind, full_name, personnel_no, national_id, phone,
+                    relation, related_personnel_no, unit_id, gender, birth_year,
+                    evidence_refs_json, version, source, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(person_id) DO UPDATE SET
+                    kind = excluded.kind,
+                    full_name = excluded.full_name,
+                    personnel_no = excluded.personnel_no,
+                    national_id = excluded.national_id,
+                    phone = excluded.phone,
+                    relation = excluded.relation,
+                    related_personnel_no = excluded.related_personnel_no,
+                    unit_id = excluded.unit_id,
+                    gender = excluded.gender,
+                    birth_year = excluded.birth_year,
+                    evidence_refs_json = excluded.evidence_refs_json,
+                    source = excluded.source,
+                    notes = excluded.notes,
+                    version = registry_persons.version + 1,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    person.person_id,
+                    person.kind,
+                    person.full_name,
+                    person.personnel_no,
+                    person.national_id,
+                    person.phone,
+                    person.relation,
+                    person.related_personnel_no,
+                    person.unit_id,
+                    person.gender,
+                    person.birth_year,
+                    json.dumps(list(person.evidence_refs), ensure_ascii=False),
+                    person.version,
+                    person.source.value,
+                    person.notes,
+                    now,
+                    now,
+                ),
+            )
+
+    def list_persons(self, *, kind: str | None = None, personnel_no: str | None = None,
+                     unit_id: str | None = None) -> list[PersonRecord]:
+        query = "SELECT * FROM registry_persons"
+        clauses: list[str] = []
+        params: list[Any] = []
+        if kind:
+            clauses.append("kind = ?")
+            params.append(kind)
+        if personnel_no:
+            clauses.append("personnel_no = ? OR related_personnel_no = ?")
+            params.extend([personnel_no, personnel_no])
+        if unit_id:
+            clauses.append("unit_id = ?")
+            params.append(unit_id)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [
+                PersonRecord(
+                    person_id=row["person_id"],
+                    kind=row["kind"],
+                    full_name=row["full_name"] or "",
+                    personnel_no=row["personnel_no"] or "",
+                    national_id=row["national_id"] or "",
+                    phone=row["phone"] or "",
+                    relation=row["relation"] or "",
+                    related_personnel_no=row["related_personnel_no"] or "",
+                    unit_id=row["unit_id"] or "",
+                    gender=row["gender"] or "",
+                    birth_year=row["birth_year"] or "",
+                    evidence_refs=tuple(json.loads(row["evidence_refs_json"])),
+                    version=row["version"],
+                    source=ValueSource(row["source"]) if row["source"] in {s.value for s in ValueSource} else ValueSource.MANUAL,
+                    notes=row["notes"] or "",
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    updated_at=datetime.fromisoformat(row["updated_at"]),
+                )
+                for row in rows
+            ]
+
+    def person_family(self, personnel_no: str) -> list[PersonRecord]:
+        """Family members related to one employee's personnel number."""
+        return self.list_persons(kind="family", personnel_no=personnel_no)
+
+    # ----------------------------------------------------------------------
+    # WordPress post links (post to event, F-088 section 2)
+    # ----------------------------------------------------------------------
+    def save_wp_link(self, link: WpPostLink) -> str:
+        """Insert a post link; duplicate slugs return the existing link id."""
+        link.validate()
+        now = _utc_now()
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT link_id FROM wp_post_links WHERE post_slug = ?",
+                (link.post_slug,),
+            ).fetchone()
+            if existing:
+                return str(existing["link_id"])
+            link_id = link.link_id or f"wplink-{uuid.uuid4().hex[:10]}"
+            conn.execute(
+                """
+                INSERT INTO wp_post_links (
+                    link_id, post_slug, title, source_ref, section, published_on,
+                    event_id, match_status, confidence, note, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    link_id,
+                    link.post_slug,
+                    link.title,
+                    link.source_ref,
+                    link.section,
+                    link.published_on.isoformat() if link.published_on else None,
+                    link.event_id,
+                    link.match_status,
+                    link.confidence,
+                    link.note,
+                    now,
+                ),
+            )
+            return link_id
+
+    def link_wp_post_to_event(self, link_id: str, event_id: str, *,
+                              match_status: str = "confirmed") -> None:
+        """Attach an imported event to a post; status auto or confirmed only."""
+        if match_status not in {"auto", "confirmed"}:
+            raise ReportingStoreError(f"Invalid link status: {match_status!r}")
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE wp_post_links SET event_id = ?, match_status = ? WHERE link_id = ?",
+                (event_id, match_status, link_id),
+            )
+
+    def list_wp_links(self, *, status: str | None = None, section: str | None = None,
+                      limit: int = 500) -> list[dict[str, Any]]:
+        query = "SELECT * FROM wp_post_links"
+        clauses: list[str] = []
+        params: list[Any] = []
+        if status:
+            clauses.append("match_status = ?")
+            params.append(status)
+        if section:
+            clauses.append("section = ?")
+            params.append(section)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [dict(row) for row in rows]

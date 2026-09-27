@@ -339,3 +339,41 @@ def prefill_form(
             form.set(question.key, first.value, value_kind=first.value_kind, source=first.source)
 
     return form
+
+
+# ---------------------------------------------------------------------------
+# Narrative-financial form (قالب گزارش عملکرد — reporting-document-genres 2):
+# one per section per period. Fields map 1:1 to the official template; the
+# finance pair mirrors the program_obstacles/program_proposals and
+# allocated_budget/spent_budget section facts so the form prefills from the
+# fact layer and the bimonthly numeric sheet stays a separate projection.
+# Ordering rule of the official template: transformation_doc actions first,
+# then inherent_duty, then outstanding (PlanItem.action_class).
+# ---------------------------------------------------------------------------
+
+NARRATIVE_FORM_VERSION = "narrative-form-v1"
+
+
+def _narrative_questions() -> tuple[Question, ...]:
+    return (
+        Question(key="narrative_title", label="عنوان برنامه/ اقدام", qtype=QuestionType.TEXT, star=True),
+        Question(key="narrative_mandate_basis", label="مستند قانونی (راهکار سند تحول / ذاتی به موجب)", qtype=QuestionType.TEXT, star=True),
+        Question(key="narrative_actions", label="اقدامات انجام شده", qtype=QuestionType.TEXT, star=True),
+        Question(key="narrative_results", label="نتایج و دستاوردهای حاصله", qtype=QuestionType.TEXT, star=True),
+        Question(key="narrative_obstacles", label="موانع پیشرفت برنامه", qtype=QuestionType.TEXT, star=True, auto_from="program_obstacles"),
+        Question(key="narrative_proposals", label="راهکارها و پیشنهادات", qtype=QuestionType.TEXT, star=True, auto_from="program_proposals"),
+        Question(key="narrative_evidence", label="مستندات (عکس/مکاتبه/...)", qtype=QuestionType.TEXT, star=True),
+        Question(key="narrative_allocated_budget", label="میزان اعتبار تخصیصی", qtype=QuestionType.CURRENCY, star=True, auto_from="allocated_budget"),
+        Question(key="narrative_spent_budget", label="میزان هزینه‌کرد تا پایان دوره", qtype=QuestionType.CURRENCY, star=True, auto_from="spent_budget"),
+        Question(key="narrative_finance_notes", label="ملاحظات مالی", qtype=QuestionType.TEXT),
+    )
+
+
+NARRATIVE_REPORT_FORM = QuestionnaireDefinition(
+    program_id=ProgramId.PRAYER,  # placeholder program id; the narrative form
+    # is instantiated per section at render time (sections are data, program
+    # ids are the legacy enum — F-088 §4).
+    title="قالب گزارش عملکرد (روایی-مالی) — پرکاربرگ هر بخش و دوره",
+    questions=_narrative_questions(),
+    version=NARRATIVE_FORM_VERSION,
+)

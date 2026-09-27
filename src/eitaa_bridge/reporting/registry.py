@@ -245,3 +245,56 @@ def nomokalaf_coverage(
     covered = len(covered_ids)
     rate = (covered / total_persons) if total_persons else 0.0
     return {"covered": float(covered), "total": float(total_persons), "coverage_rate": round(rate, 4)}
+
+
+# ---------------------------------------------------------------------------
+# Comprehensive person registry (کارکنان و خانواده‌ها) — the base data that
+# transcends single sections (F-090 follow-up). Covers employees, spouses,
+# children and other relatives with OPTIONAL identifying fields only:
+# nothing is required, nothing is fabricated. کد ملی / شماره تماس / شماره
+# پرسنلی stay inside the local store and never reach projections or logs.
+# ---------------------------------------------------------------------------
+
+PERSON_KINDS = frozenset({"employee", "family"})
+PERSON_RELATIONS = frozenset({"", "self", "spouse", "child", "parent", "sibling", "other"})
+
+
+@dataclass(slots=True)
+class PersonRecord:
+    """A person in the office's comprehensive base data.
+
+    ``kind`` distinguishes employees from family members. For family members
+    ``relation`` says how they relate to ``related_personnel_no`` (e.g. a
+    child of employee 12345678). Every field except the ids is optional —
+    the registry grows gradually exactly like the نومکلف bank.
+    """
+
+    person_id: str
+    kind: str = "employee"
+    full_name: str = ""
+    personnel_no: str = ""
+    national_id: str = ""
+    phone: str = ""
+    relation: str = ""  # spouse | child | parent | sibling | other | "" | self
+    related_personnel_no: str = ""  # the employee this family member belongs to
+    unit_id: str = ""
+    gender: str = ""
+    birth_year: str = ""  # jalali year as text, optional
+    evidence_refs: tuple[str, ...] = ()
+    version: int = 1
+    source: ValueSource = ValueSource.MANUAL
+    notes: str = ""
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
+
+    def validate(self) -> None:
+        if not self.person_id.strip():
+            raise ValueError("Person id cannot be empty.")
+        if self.kind not in PERSON_KINDS:
+            raise ValueError(f"Unknown person kind: {self.kind!r}")
+        if self.relation not in PERSON_RELATIONS:
+            raise ValueError(f"Unknown person relation: {self.relation!r}")
+        if self.kind == "family" and self.relation == "self":
+            raise ValueError("A family member cannot relate to themselves.")
+        if self.kind == "family" and not self.related_personnel_no.strip():
+            raise ValueError("Family members need the related employee's personnel number.")
