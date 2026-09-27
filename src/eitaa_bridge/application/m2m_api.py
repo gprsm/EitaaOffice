@@ -19,6 +19,7 @@ from . import agent_gateway as agent_gateway_module
 from .agent_gateway import AgentChatContext, TestAgentAdapter, session_store
 from ..errors import BridgeError
 
+import asyncio
 import re
 import time
 import hashlib
@@ -59,52 +60,99 @@ async def handle_agent_chat(body: Mapping[str, Any], service_auth_context: Any) 
     if len(str(message)) > _AGENT_MAX_MESSAGE_CHARS:
         return ApiResponse(400, {"ok": False, "error": "validation_error", "reason": "message too long"})
 
+    store = agent_gateway_module.session_store
     context = AgentChatContext(
         web_user_id=str(web_user_id),
         session_id=str(session_id),
         service_name=getattr(service_auth_context, "service_name", "default_service")
     )
+    # A message id is bound to the content of its request: the hash never
+    # carries the message text into logs, audit or receipts.
+    message_hash = hashlib.sha256(str(message).encode("utf-8")).hexdigest()
 
     try:
-        # Idempotent chat: a retried message id returns the stored reply and
-        # never reaches the adapter twice.
-        replayed_reply = session_store.get_reply(context, str(message_id))
-        if replayed_reply is not None:
-            current_adapter = agent_gateway_module.default_agent_adapter
+        # Atomic first-run/replay decision, safe against racing requests on
+        # the same message id (in-process guarantee; see the contract).
+        outcome, payload = store.claim_reply(context, str(message_id), message_hash)
+
+        if outcome == "conflict":
+            return ApiResponse(409, {"ok": False, "error": "agent_message_id_conflict"})
+
+        if outcome == "replay":
+            record = payload
             return ApiResponse(200, {
                 "ok": True,
-                "response": replayed_reply,
+                "response": record.response,
                 "session_id": context.session_id,
-                "is_test_response": bool(getattr(current_adapter, "is_test_adapter", False)),
+                "is_test_response": record.is_test_response,
                 "replayed": True,
             })
 
-        # The adapter sees the bounded prior conversation; storing history
-        # without using it would not be a continuation.
+        if outcome == "inflight":
+            inflight = payload
+            loop = asyncio.get_running_loop()
+            wait_seconds = float(getattr(agent_gateway_module, "AGENT_INFLIGHT_WAIT_SECONDS", 30.0))
+            finished = await loop.run_in_executor(
+                None, lambda: inflight.event.wait(wait_seconds)
+            )
+            if not finished:
+                # The first attempt is still running; nothing was retried and
+                # nothing was double-charged to the agent.
+                return ApiResponse(503, {"ok": False, "error": "agent_reply_pending"})
+            if inflight.error_code is not None:
+                code = inflight.error_code
+                if code == "agent_communication_failed":
+                    return ApiResponse(502, {"ok": False, "error": "agent_communication_failed"})
+                return ApiResponse(400, {"ok": False, "error": code})
+            record = inflight.result
+            if record is None:
+                return ApiResponse(503, {"ok": False, "error": "agent_reply_pending"})
+            return ApiResponse(200, {
+                "ok": True,
+                "response": record.response,
+                "session_id": context.session_id,
+                "is_test_response": record.is_test_response,
+                "replayed": True,
+            })
+
+        # This caller owns the first adapter attempt.
         current_adapter = agent_gateway_module.default_agent_adapter
-        history = session_store.get_history(context)
+        history = store.get_history(context)
         try:
             response = await current_adapter.chat(
                 str(message), context.session_id, context, history=history
             )
         except BridgeError as e:
             code = getattr(e, "code", "agent_communication_failed")
+            store.fail_reply(context, str(message_id), code)
             if code == "agent_communication_failed":
                 return ApiResponse(502, {"ok": False, "error": "agent_communication_failed"})
             return ApiResponse(400, {"ok": False, "error": code})
         except Exception:
             # Any adapter-side failure is an upstream agent outage, not a
             # client error; fail honestly with 502.
+            store.fail_reply(context, str(message_id), "agent_communication_failed")
             return ApiResponse(502, {"ok": False, "error": "agent_communication_failed"})
-        session_store.add_message(context, "user", str(message))
-        session_store.add_message(context, "agent", response.response)
-        session_store.store_reply(context, str(message_id), response.response)
+        except BaseException:
+            # Cancellation (client disconnect, loop teardown) must release
+            # racing waiters too; nothing is cached because nothing completed.
+            store.fail_reply(context, str(message_id), "agent_first_attempt_cancelled")
+            raise
+        store.add_message(context, "user", str(message))
+        store.add_message(context, "agent", response.response)
+        store.complete_reply(
+            context,
+            str(message_id),
+            message_hash,
+            response.response,
+            bool(response.is_test_response),
+        )
 
         return ApiResponse(200, {
             "ok": True,
             "response": response.response,
             "session_id": response.session_id,
-            "is_test_response": response.is_test_response,
+            "is_test_response": bool(response.is_test_response),
             "replayed": False,
         })
     except BridgeError as e:

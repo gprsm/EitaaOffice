@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "ece5aed8ed307f6c",
+  "source_fingerprint": "fa472b158def2ac9",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -2045,117 +2045,142 @@
         {
           "name": "AgentChatContext",
           "kind": "class",
-          "line": 29
+          "line": 45
         },
         {
           "name": "AgentChatResponse",
           "kind": "class",
-          "line": 39
+          "line": 55
         },
         {
           "name": "AgentAdapter",
           "kind": "class",
-          "line": 46
+          "line": 62
         },
         {
           "name": "AgentAdapter.chat",
           "kind": "method",
-          "line": 47
+          "line": 63
         },
         {
           "name": "AgentAdapter.health",
           "kind": "method",
-          "line": 56
+          "line": 72
         },
         {
           "name": "TestAgentAdapter",
           "kind": "class",
-          "line": 59
+          "line": 75
         },
         {
           "name": "TestAgentAdapter.chat",
           "kind": "method",
-          "line": 64
+          "line": 80
         },
         {
           "name": "TestAgentAdapter.health",
           "kind": "method",
-          "line": 82
+          "line": 98
         },
         {
           "name": "ConfigurableAgentAdapter",
           "kind": "class",
-          "line": 86
+          "line": 102
         },
         {
           "name": "ConfigurableAgentAdapter.__init__",
           "kind": "method",
-          "line": 95
+          "line": 111
         },
         {
           "name": "ConfigurableAgentAdapter.chat",
           "kind": "method",
-          "line": 101
+          "line": 117
         },
         {
           "name": "ConfigurableAgentAdapter.health",
           "kind": "method",
-          "line": 146
+          "line": 162
         },
         {
           "name": "configure_default_adapter",
           "kind": "function",
-          "line": 154
+          "line": 170
         },
         {
           "name": "ChatMessage",
           "kind": "class",
-          "line": 186
+          "line": 216
+        },
+        {
+          "name": "ReplyRecord",
+          "kind": "class",
+          "line": 223
+        },
+        {
+          "name": "InflightCall",
+          "kind": "class",
+          "line": 233
         },
         {
           "name": "AgentChatSessionStore",
           "kind": "class",
-          "line": 192
+          "line": 247
         },
         {
           "name": "AgentChatSessionStore.__init__",
           "kind": "method",
-          "line": 193
+          "line": 258
         },
         {
-          "name": "AgentChatSessionStore._cleanup_expired",
+          "name": "AgentChatSessionStore._cleanup_expired_locked",
           "kind": "method",
-          "line": 198
+          "line": 266
         },
         {
           "name": "AgentChatSessionStore._remove_session",
           "kind": "method",
-          "line": 206
+          "line": 275
+        },
+        {
+          "name": "AgentChatSessionStore._ensure_session_locked",
+          "kind": "method",
+          "line": 281
         },
         {
           "name": "AgentChatSessionStore.add_message",
           "kind": "method",
-          "line": 212
+          "line": 295
         },
         {
           "name": "AgentChatSessionStore.get_messages",
           "kind": "method",
-          "line": 236
+          "line": 306
         },
         {
           "name": "AgentChatSessionStore.get_history",
           "kind": "method",
-          "line": 242
+          "line": 314
         },
         {
-          "name": "AgentChatSessionStore.store_reply",
+          "name": "AgentChatSessionStore.claim_reply",
           "kind": "method",
-          "line": 249
+          "line": 330
+        },
+        {
+          "name": "AgentChatSessionStore.complete_reply",
+          "kind": "method",
+          "line": 364
+        },
+        {
+          "name": "AgentChatSessionStore.fail_reply",
+          "kind": "method",
+          "line": 398
         },
         {
           "name": "AgentChatSessionStore.get_reply",
           "kind": "method",
-          "line": 259
+          "line": 413
         }
       ]
     },
@@ -6105,62 +6130,62 @@
         {
           "name": "_value_hash",
           "kind": "function",
-          "line": 40
+          "line": 41
         },
         {
           "name": "handle_agent_chat",
           "kind": "async function",
-          "line": 44
+          "line": 45
         },
         {
           "name": "handle_agent_health",
           "kind": "async function",
-          "line": 118
+          "line": 166
         },
         {
           "name": "_get_actor",
           "kind": "function",
-          "line": 131
+          "line": 179
         },
         {
           "name": "_check_scope",
           "kind": "function",
-          "line": 143
+          "line": 191
         },
         {
           "name": "_check_account_allowed",
           "kind": "function",
-          "line": 148
+          "line": 196
         },
         {
           "name": "_validate_provider",
           "kind": "function",
-          "line": 160
+          "line": 208
         },
         {
           "name": "_error_response",
           "kind": "function",
-          "line": 188
+          "line": 236
         },
         {
           "name": "handle_send_text",
           "kind": "async function",
-          "line": 200
+          "line": 248
         },
         {
           "name": "handle_resolve_recipients",
           "kind": "function",
-          "line": 288
+          "line": 336
         },
         {
           "name": "handle_message_status",
           "kind": "function",
-          "line": 345
+          "line": 393
         },
         {
           "name": "dispatch_m2m",
           "kind": "async function",
-          "line": 395
+          "line": 443
         }
       ]
     },
@@ -13679,92 +13704,177 @@
         {
           "name": "context",
           "kind": "function",
-          "line": 15
+          "line": 18
         },
         {
           "name": "store",
           "kind": "function",
-          "line": 23
+          "line": 26
         },
         {
           "name": "test_test_agent_adapter",
           "kind": "function",
-          "line": 26
+          "line": 29
         },
         {
           "name": "test_configurable_agent_adapter_success",
           "kind": "function",
-          "line": 35
+          "line": 38
         },
         {
           "name": "test_configurable_agent_adapter_health",
           "kind": "function",
-          "line": 51
+          "line": 54
         },
         {
           "name": "test_session_store_creation_and_ttl",
           "kind": "function",
-          "line": 62
+          "line": 65
         },
         {
           "name": "test_session_store_max_sessions",
           "kind": "function",
-          "line": 75
+          "line": 89
         },
         {
           "name": "test_m2m_endpoint_chat",
           "kind": "function",
-          "line": 86
+          "line": 100
         },
         {
           "name": "test_m2m_endpoint_chat_unauthorized",
           "kind": "function",
-          "line": 106
+          "line": 120
         },
         {
           "name": "test_m2m_endpoint_health",
           "kind": "function",
-          "line": 123
+          "line": 137
         },
         {
           "name": "_chat_body",
           "kind": "function",
-          "line": 136
+          "line": 150
         },
         {
           "name": "test_m2m_endpoint_chat_requires_message_id",
           "kind": "function",
-          "line": 147
+          "line": 161
         },
         {
           "name": "test_m2m_endpoint_chat_replays_same_message_id",
           "kind": "function",
-          "line": 165
+          "line": 179
         },
         {
           "name": "test_m2m_endpoint_chat_passes_bounded_history_to_adapter",
           "kind": "function",
-          "line": 209
+          "line": 223
         },
         {
           "name": "test_m2m_endpoint_chat_session_isolated_per_service",
           "kind": "function",
-          "line": 246
+          "line": 260
         },
         {
           "name": "test_m2m_endpoint_agent_outage_maps_to_502",
           "kind": "function",
-          "line": 275
+          "line": 289
         },
         {
           "name": "test_agent_adapter_configuration_is_explicit_and_fail_closed",
           "kind": "function",
-          "line": 305
+          "line": 319
         },
         {
           "name": "test_agent_gateway_has_no_messaging_or_data_powers",
           "kind": "function",
-          "line": 344
+          "line": 358
+        },
+        {
+          "name": "_ensure_default_adapter",
+          "kind": "function",
+          "line": 390
+        },
+        {
+          "name": "_fresh_store",
+          "kind": "function",
+          "line": 398
+        },
+        {
+          "name": "_install_store",
+          "kind": "function",
+          "line": 403
+        },
+        {
+          "name": "_BarrierAdapter",
+          "kind": "class",
+          "line": 411
+        },
+        {
+          "name": "_BarrierAdapter.__init__",
+          "kind": "method",
+          "line": 416
+        },
+        {
+          "name": "_BarrierAdapter.arm_gate",
+          "kind": "method",
+          "line": 421
+        },
+        {
+          "name": "_BarrierAdapter.chat",
+          "kind": "method",
+          "line": 424
+        },
+        {
+          "name": "_BarrierAdapter.health",
+          "kind": "method",
+          "line": 434
+        },
+        {
+          "name": "test_f090_concurrent_same_message_id_runs_adapter_once_in_one_loop",
+          "kind": "function",
+          "line": 438
+        },
+        {
+          "name": "test_f090_concurrent_same_message_id_runs_adapter_once_across_threads",
+          "kind": "function",
+          "line": 470
+        },
+        {
+          "name": "test_f090_expired_session_is_invisible_on_read_and_never_reaches_agent",
+          "kind": "function",
+          "line": 504
+        },
+        {
+          "name": "test_f090_replay_preserves_stored_is_test_response_across_adapter_swap",
+          "kind": "function",
+          "line": 576
+        },
+        {
+          "name": "test_f090_replayed_message_id_with_different_text_is_rejected",
+          "kind": "function",
+          "line": 632
+        },
+        {
+          "name": "test_f090_external_http_agent_url_is_rejected_but_loopback_is_allowed",
+          "kind": "function",
+          "line": 663
+        },
+        {
+          "name": "test_f090_waiter_times_out_then_replays_once_first_completes",
+          "kind": "function",
+          "line": 694
+        },
+        {
+          "name": "test_f090_cancelled_first_request_releases_waiter_with_failure",
+          "kind": "function",
+          "line": 762
+        },
+        {
+          "name": "test_f090_first_attempt_failure_releases_waiter_with_same_error",
+          "kind": "function",
+          "line": 835
         }
       ]
     },

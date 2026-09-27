@@ -1,11 +1,11 @@
 # Education System API Contract
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Date:** 2026-09-27
 **Status:** Design/Implementation (offline-tested; NOT live-accepted)
 
-F-085 security review items are implemented and offline-tested (see
-`VALIDATION_LEDGER.md` V-217); live acceptance remains a separate gate.
+F-085 and F-090 review items are implemented and offline-tested (V-217,
+V-222). Live acceptance is a separate gate.
 
 ## Data Ownership Boundaries
 
@@ -151,15 +151,36 @@ all answer `not_found` — ownership is never guessed.
 - Requires the `agent.chat` scope. The web user identity, the chat session,
   the AppUser session and the provider session are distinct concepts and are
   never merged into one identifier.
-- `message_id` (8–128 chars of `[A-Za-z0-9._:-]`) is required. Retrying the
-  same id inside the session window returns the stored reply with
-  `replayed: true` and never calls the adapter twice; a different id is a new
-  message.
+- `message_id` (8–128 chars of `[A-Za-z0-9._:-]`) is required and bound to
+  the request content. Retrying the same id with the same text inside the
+  session window returns the stored reply with `replayed: true`; reusing the
+  id with different text is rejected with `409 agent_message_id_conflict`;
+  a different id is a new message.
+- First-run/replay is decided atomically per
+  (service, web user, session, message_id) inside one backend process:
+  racing requests wait for the first adapter attempt (bounded wait, 30s by
+  default). If the first attempt is still running when the wait expires the
+  waiter gets `503 agent_reply_pending`; if it failed, waiters receive the
+  same failure; if it was cancelled, waiters get
+  `agent_first_attempt_cancelled`. **Scope of the guarantee:** the reply
+  cache is in-memory and per-process — after a backend restart, or across
+  multiple backend processes, the same message id may run the adapter again.
+  No exactly-once execution is claimed beyond this process boundary.
 - Conversation continuation is real: the adapter receives the bounded prior
   conversation (last 20 turns) of exactly this (service, web user, session);
-  other services and users never see it.
+  other services and users never see it. Session expiry (one hour of
+  inactivity) is enforced on every read — expired history and replies are
+  erased before any read and never reach the adapter.
+- A cached reply keeps its own `is_test_response` flag and text; replay
+  returns exactly what was stored, regardless of which adapter is currently
+  configured.
 - Adapter failures surface as `502 agent_communication_failed`; timeouts and
-  outages are upstream failures, not client errors.
+  outages are upstream failures, not client errors. **Retry policy:** the
+  bridge never auto-retries a failed attempt. After a failure it is unknown
+  whether the request reached the agent; retrying with the same message id
+  will run the adapter again as an explicit caller decision, while a new
+  message id is always a new message. Never assume a same-id retry is
+  side-effect-free.
 - The adapter is wired only from an explicit `bridge.json` `agent_gateway`
   section (`enabled`, `url`, `model`, `api_key_env` naming a set environment
   variable). Nothing is guessed; an invalid section fails startup. Until a
@@ -220,20 +241,9 @@ all answer `not_found` — ownership is never guessed.
 2. **Assign accounts/scopes**: bound to specific messenger accounts and scopes.
 3. **Rotate**: invalidates the old token immediately and issues a new one.
 4. **Revoke**: disables the credential immediately.
-5. **Agent config**: a real agent adapter requires explicit configuration;
-   until then every chat response is marked `is_test_response: true`.
-
-## Open Implementation Gaps (F-085)
-
-- A credential created with no selected messenger accounts currently has an
-  unrestricted account list. The service authorization path does not perform
-  an AppUser membership check. Issue only explicitly account-bound credentials
-  while this boundary is being corrected.
-- Receipt status is not bound to a service identity and currently lacks a
-  scope check. Do not share status keys across services or rely on this route
-  for service-isolated receipt access.
-- Chat has no `message_id` or replay protection. Stored message history is not
-  passed to the agent adapter, and the configurable adapter is not wired into
-  runtime configuration. Chat continuity and live agent connection are pending.
-- The per-request service authorization context requires explicit reset;
-  a same-context request sequence has not been regression tested.
+5. **Agent config**: a real agent adapter requires explicit configuration —
+   `enabled`, `url`, `model` and `api_key_env` naming a set environment
+   variable. External endpoints must use HTTPS; plain HTTP is accepted only
+   for loopback hosts (`127.0.0.1`, `::1`, `localhost`) as an explicit
+   same-host exception. An invalid configuration fails startup; without
+   configuration every chat response is marked `is_test_response: true`.

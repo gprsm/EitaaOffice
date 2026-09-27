@@ -2073,3 +2073,30 @@
 - دروازه‌های نهایی: مجموعهٔ کامل Backend پس از بازسازی wheel سبز (EXIT=0)؛ `npm run check` و `npm run test:observability` خروجی صفر؛ `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` سبز.
 - حدود: تمام آزمون‌ها آفلاین و با Fake هستند؛ هیچ ارسال/ورود/import واقعی و هیچ حساب یا credential واقعی استفاده نشد؛ پذیرش زندهٔ سه مرز (ارسال ایتا، ارسال بله، گفت‌وگوی عامل) همچنان به دروازه‌های خودش نیاز دارد و سبزی Fake پذیرش زنده نیست.
 - مرجع: F-085 (بسته)، F-086، قرارداد نسخهٔ 1.2.0.
+
+### V-221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / ISOLATED SYNTHETIC RUNTIME REPRO / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.
+- Trigger بررسی مجدد: درخواست صریح مالک برای بررسی ادعای انجام کار پس از تغییر کد و قراردادهای F-085 و تصمیم F-086؛ شاهد V-217 با همین تغییر کد باید مستقلاً بازبینی می‌شد. هیچ عملیات Live پیام‌رسان یا عامل انجام نشد.
+- مرز Git: checkout محلی تمیز روی `Bale` و c6ace8a8 بود؛ origin/Bale در زمان بررسی به f961ac18 رسیده بود و c6ace8a8 را در تاریخچه داشت. تفاوت دوردست بعدی به کار گزارش‌سازی مربوط است؛ برای این ممیزی fetch فقط‌خواندنی انجام شد و checkout/merge/reset/commit/push انجام نشد.
+- اجرای مستقل: `python -m pytest -q` با exit=0، یک skip و یک هشدار deprecation از `websockets`؛ `npm.cmd --prefix ui run check` و `npm.cmd --prefix ui run test:observability` هر دو exit=0؛ checker حافظه و `refresh_project_docs.py --check --check-links` نیز exit=0. همه آفلاین و با دادهٔ مصنوعی بودند.
+- پس از ثبت F-090 و اصلاح قرارداد/ baseline، مولد اسناد اجرا شد؛ integrity، freshness، link check و `git diff --check` دوباره exit=0 داشتند. تنها چهار فایل Markdown بازبینی تغییر کرده‌اند؛ کد محصول یا دادهٔ عملیاتی تغییر نکرد.
+- بازتولید محدود F-090: probe نخست به‌دلیل مقداردهی‌نشدن آداپتور پیش‌فرض در harness مستقل پیش از ساخت API اجرا نشد (خطای setup probe، نه محصول)؛ پس از فراخوانی `configure_default_adapter(None)`، همان probe خروجی ساختگی نشان داد: دو درخواست هم‌زمان با یک `message_id` دو فراخوانی آداپتور داشتند؛ پاسخ آزمایشیِ بازپخش‌شده پس از تغییر آداپتور پرچم `is_test_response=false` گرفت؛ تاریخچه پس از گذشت بیش از TTL یک‌ساعته هنوز با `get_history` قابل خواندن بود. این موارد آزمون Live یا exploit شبکه نیستند.
+- بازبینی ایستا: حصار صریح credential و Provider، scope/مالکیت رسید و مهاجرت v9 در source وجود دارند. بلهٔ شخصی در registry و adapter حضور دارد، اما manifest آگاهانه `runtime_enabled=false` و `onboarding_enabled=false` دارد؛ از آزمون آفلاین نمی‌توان آماده‌بودن ارسال M2M بله را نتیجه گرفت. قرارداد 1.2.0 بخش پایانی منسوخ دربارهٔ F-085 دارد.
+- نتیجه: ادعای سبز بودن آزمون‌های موجود و انتشار کامیت c6ace8a8 تأیید شد؛ ادعای بسته‌شدن کامل قرارداد replay/TTL چت و آمادگی عملیاتی سه مرز تأیید نشد. Trigger تکرار: رفع F-090، سپس آزمون هم‌زمانی/انقضا/تغییر آداپتور و مجموعهٔ کامل؛ پذیرش واقعی جداگانه است.
+- مرجع: F-090، F-085، F-086 و قرارداد `docs/contracts/EDUCATION_SYSTEM_API_CONTRACT_v1.md`.
+
+### V-222 — رفع F-090: اتمیک‌شدن replay چت، انقضا هنگام خواندن و حفظ پرچم پاسخ
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `RED REPRODUCERS FIRST / CONCURRENCY + FAKE-CLOCK + ADAPTER-SWAP TESTS / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / WHEEL PARITY`.
+- Trigger بررسی مجدد: دستور مالک برای رفع کامل F-090 از وضعیت فعلی مخزن؛ شناسهٔ V-222 پس از بررسی شناسه‌های هر دو شاخه انتخاب شد (محلی تا V-221، دوردست تا V-220).
+- REDهای بازتولیدشده (پیش از اصلاح، همگی با دادهٔ ساختگی و بدون شبکه):
+  1. `test_f090_concurrent_same_message_id_runs_adapter_once_in_one_loop` و `..._across_threads`: آداپتور دقیقاً ۲ بار فراخوانی شد (شمارش واقعی فراخوانی، نه فقط برابری پاسخ).
+  2. `test_f090_expired_session_is_invisible_on_read_and_never_reaches_agent`: تاریخچه و reply پس از TTL یک‌ساعته با ساعت ساختگی همچنان خواندنی بودند.
+  3. `test_f090_replay_preserves_stored_is_test_response_across_adapter_swap`: پاسخ آزمایشی پس از تعویض آداپتور با `is_test_response=false` بازپخش می‌شد.
+  4. مکمل: `..._with_different_text_is_rejected` (بازپخش بدون تعارض)، `..._waiter_times_out_then_replays_once_first_completes`، `..._cancelled_first_request_releases_waiter_with_failure`، `..._first_attempt_failure_releases_waiter_with_same_error`، `..._external_http_agent_url_is_rejected_but_loopback_is_allowed`.
+- نکتهٔ harness (جدا از نقص محصول): اتصال اولیهٔ `default_agent_adapter` در سطح ماژول غایب بود و فقط با `configure_default_adapter` ساخته می‌شد؛ probe مستقل V-221 همین را «خطای setup» دیده بود. اکنون اتصال اولیه در ماژول برقرار است و آزمون‌ها با `_ensure_default_adapter()` از آمیختن خطای setup با RED محصول جلوگیری می‌کنند.
+- اصلاحات: store با قفل process-wide، ساعت تزریقی، انقضا پیش از هر خواندن، رکورد پاسخ کامل (متن/پرچم/hash/زمان) و registry اتمیک in-flight؛ مسیر منتظر با `run_in_executor` و سقف پیکربندی‌پذیر؛ قید message_id به hash محتوا با `409 agent_message_id_conflict`؛ قانون HTTPS بیرونی/HTTP فقط loopback در پیکربندی. دامنهٔ ضمانت replay در قرارداد نسخهٔ 1.3.0 صریحاً «در-فرایند و تا restart» است و ادعای exactly-once فراتر از آن نشده است؛ سیاست retry پس از قطع عامل (عدم تلاش خودکار، تصمیم صریح فراخوان) مستند شد.
+- نتایج دروازه‌ها: آزمون‌های هدفمند (agent_gateway شامل ۱۰ آزمون F-090، service_auth، m2m_endpoints، بله‌ها، schema، phase5) سبز؛ مجموعهٔ کامل Backend پس از بازسازی wheel سبز (EXIT=0)؛ `npm run check` و `npm run test:observability` خروجی صفر؛ integrity و `refresh_project_docs.py --check --check-links` سبز.
+- حدود: همهٔ شواهد آفلاین و ساختگی‌اند؛ هیچ ورود، OTP، import، ارسال واقعی ایتا/بله، اتصال عامل واقعی یا انتشار سرور انجام نشد؛ پذیرش زندهٔ سه مرز همچنان دروازهٔ مستقل دارد.
+- مرجع: F-090 (بسته)، F-085، F-086، قرارداد نسخهٔ 1.3.0.
