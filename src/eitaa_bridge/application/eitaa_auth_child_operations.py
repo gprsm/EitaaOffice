@@ -82,6 +82,16 @@ class EitaaAuthChildOperations:
             "session_generation": record.session_generation,
         }
 
+    @staticmethod
+    def _login_result_ipc_summary(result: Any) -> dict[str, object]:
+        summary = result.safe_summary()
+        return {
+            "completed": summary["completed"],
+            "password_required": summary["password_required"],
+            "session_snapshot": summary["session"],
+            "password_challenge": summary["password_challenge"],
+        }
+
     def _archive_uncoordinated_session(self) -> str | None:
         session_file = self._core_config().session_file
         if not session_file.is_file():
@@ -585,7 +595,7 @@ class EitaaAuthChildOperations:
                 return {
                     "ok": True,
                     "step": "completed",
-                    **result.safe_summary(),
+                    **self._login_result_ipc_summary(result),
                     **self._account_auth_fields(record),
                 }
             if result.password_required:
@@ -606,7 +616,7 @@ class EitaaAuthChildOperations:
                 return {
                     "ok": True,
                     "step": "password",
-                    **result.safe_summary(),
+                    **self._login_result_ipc_summary(result),
                     "challenge": self.runtime.auth_challenge.safe_summary(),
                     **self._account_auth_fields(record),
                 }
@@ -700,7 +710,7 @@ class EitaaAuthChildOperations:
             return {
                 "ok": True,
                 "step": "completed",
-                **result.safe_summary(),
+                **self._login_result_ipc_summary(result),
                 **self._account_auth_fields(record),
             }
 

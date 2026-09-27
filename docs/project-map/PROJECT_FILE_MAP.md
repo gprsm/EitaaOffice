@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 366
-- اثرانگشت منبع: `f718d676fbf98c55`
+- تعداد فایل‌های نقشه: 383
+- اثرانگشت منبع: `4511295b0c24f1f4`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -105,8 +105,9 @@
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
-| `src/eitaa_bridge/application/account_runtime.py` | Application | 48 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/api.py` | Application | 283 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/account_runtime.py` | Application | 49 | Account-scoped Eitaa runtime and fail-closed registry. |
+| `src/eitaa_bridge/application/agent_gateway.py` | Application | 23 | AI Agent Chat Gateway (chat-only surface). |
+| `src/eitaa_bridge/application/api.py` | Application | 291 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
@@ -124,15 +125,16 @@
 | `src/eitaa_bridge/application/bale_client/vault.py` | Application | 7 | — |
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
-| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 2 | Quarantine boundary for the incomplete Bale application adapter. |
+| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 18 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
 | `src/eitaa_bridge/application/doctor.py` | Application | 5 | — |
-| `src/eitaa_bridge/application/eitaa_auth_child_operations.py` | Application | 14 | Eitaa account authentication lifecycle executed inside one Child process. |
+| `src/eitaa_bridge/application/eitaa_auth_child_operations.py` | Application | 15 | Eitaa account authentication lifecycle executed inside one Child process. |
 | `src/eitaa_bridge/application/eitaa_provider_runtime_operations.py` | Application | 24 | Bounded Eitaa application operations owned by one account runtime. |
 | `src/eitaa_bridge/application/eitaa_provider_worker.py` | Application | 13 | Dedicated Child-process host for one Eitaa MessengerAccount runtime. |
 | `src/eitaa_bridge/application/fake_provider_worker.py` | Application | 5 | Provider-neutral fake worker used to prove the Phase 7 IPC boundary. |
+| `src/eitaa_bridge/application/m2m_api.py` | Application | 12 | Machine-to-machine API surface for the education/exam system integration. |
 | `src/eitaa_bridge/application/process_runtime.py` | Application | 40 | Parent-side control proxy for one account-owned Eitaa Child process. |
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
@@ -164,14 +166,15 @@
 | `src/eitaa_bridge/infrastructure/contact_store.py` | Infrastructure | 31 | Bridge-owned local contact directory with conservative deduplication. |
 | `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 22 | Bridge-owned SQLite storage for local index suggestions and feedback. |
 | `src/eitaa_bridge/infrastructure/coordinator/__init__.py` | Infrastructure | 0 | Coordinator persistence and safe legacy-migration primitives. |
-| `src/eitaa_bridge/infrastructure/coordinator/app_auth.py` | Infrastructure | 66 | Local AppUser credentials, sessions, throttling, roles, and safe audit. |
+| `src/eitaa_bridge/infrastructure/coordinator/app_auth.py` | Infrastructure | 69 | Local AppUser credentials, sessions, throttling, roles, and safe audit. |
 | `src/eitaa_bridge/infrastructure/coordinator/audit.py` | Infrastructure | 21 | Authorized, tamper-evident Coordinator audit query and JSONL export. |
-| `src/eitaa_bridge/infrastructure/coordinator/identity.py` | Infrastructure | 18 | Protected phone identity primitives for the local Windows coordinator. |
+| `src/eitaa_bridge/infrastructure/coordinator/identity.py` | Infrastructure | 25 | Protected phone identity primitives for the local Windows coordinator. |
 | `src/eitaa_bridge/infrastructure/coordinator/jobs.py` | Infrastructure | 35 | Persistent, account-scoped operation jobs owned by the Coordinator. |
 | `src/eitaa_bridge/infrastructure/coordinator/migration.py` | Infrastructure | 28 | Copy-and-verify migration from the single-account legacy layout. |
 | `src/eitaa_bridge/infrastructure/coordinator/rate_policy.py` | Infrastructure | 25 | Persisted per-account execution limits, backoff, and circuit breaking. |
 | `src/eitaa_bridge/infrastructure/coordinator/receipts.py` | Infrastructure | 13 | Persistent, privacy-safe idempotency claims for provider mutations. |
 | `src/eitaa_bridge/infrastructure/coordinator/schema.py` | Infrastructure | 2 | Versioned SQLite schema for the multi-provider coordinator. |
+| `src/eitaa_bridge/infrastructure/coordinator/service_credentials.py` | Infrastructure | 11 | M2M Service Credentials for automated integrations. |
 | `src/eitaa_bridge/infrastructure/coordinator/store.py` | Infrastructure | 76 | Transactional coordinator database with safe bootstrap and append-only audit. |
 | `src/eitaa_bridge/infrastructure/data_scope.py` | Infrastructure | 12 | Canonical provider/account scope for Bridge-owned data repositories. |
 | `src/eitaa_bridge/infrastructure/diagnostics/__init__.py` | Infrastructure | 0 | — |
@@ -202,7 +205,11 @@
 | `src/eitaa_bridge/licensing.py` | Project | 40 | Offline, device-bound activation for packaged Eitaa Bridge installations. |
 | `src/eitaa_bridge/providers/__init__.py` | Project | 0 | Public, provider-neutral extension contracts and the built-in registry. |
 | `src/eitaa_bridge/providers/bale/__init__.py` | Project | 0 | Disabled Bale extension slot; contains no endpoint or protocol implementation. |
-| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Fail-closed Bale registration for the stabilization baseline. |
+| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Bale personal provider registration (owner-authorized path). |
+| `src/eitaa_bridge/providers/bale_bot/__init__.py` | Project | 0 | — |
+| `src/eitaa_bridge/providers/bale_bot/adapter.py` | Project | 13 | Bale Bot Provider Adapter (official Bot API, scaffold). |
+| `src/eitaa_bridge/providers/bale_bot/errors.py` | Project | 1 | Error mapping for Bale Bot API. |
+| `src/eitaa_bridge/providers/bale_bot/manifest.py` | Project | 0 | — |
 | `src/eitaa_bridge/providers/contracts.py` | Project | 88 | Versioned, bounded contracts for authorized messaging-provider extensions. |
 | `src/eitaa_bridge/providers/eitaa/__init__.py` | Project | 0 | Eitaa provider integration behind the public provider contract. |
 | `src/eitaa_bridge/providers/eitaa/application_adapter.py` | Project | 16 | Compatibility adapter that keeps Eitaa translation outside orchestration. |
@@ -213,18 +220,18 @@
 | `src/eitaa_bridge/providers/testing.py` | Project | 9 | Offline-only contract harness for provider-extension authors. |
 | `src/eitaa_bridge/reporting/__init__.py` | Project | 0 | Local reporting core for the 1405 provincial cultural programs. |
 | `src/eitaa_bridge/reporting/aggregate.py` | Project | 8 | Provincial aggregation: events + facts -> one workbook row per program. |
-| `src/eitaa_bridge/reporting/assessment_import.py` | Project | 9 | Import of the 1405 وضعیت‌سنجی workbook into the shell (F-075 / design doc §8). |
+| `src/eitaa_bridge/reporting/assessment_import.py` | Project | 9 | Import of the 1405 وضعیت‌سنجی workbook into the shell (F-088 / design doc §8). |
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
 | `src/eitaa_bridge/reporting/excel_export.py` | Project | 9 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
 | `src/eitaa_bridge/reporting/forms.py` | Project | 15 | Versioned questionnaire definitions for the seven workbook programs. |
 | `src/eitaa_bridge/reporting/indexer.py` | Project | 12 | Multi-criteria Eitaa message indexer for the 1405 reporting core. |
-| `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-075). |
+| `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-088). |
 | `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
 | `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
-| `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-075 / design doc §3, §10). |
-| `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-075). |
-| `src/eitaa_bridge/reporting/registry.py` | Project | 15 | Registry layer of the reporting section shell (F-075 / ADR-55). |
+| `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-088 / design doc §3, §10). |
+| `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-088). |
+| `src/eitaa_bridge/reporting/registry.py` | Project | 15 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/service.py` | Project | 23 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/reporting/store.py` | Project | 47 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
@@ -233,21 +240,25 @@
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
 | `tests/test_account_runtime.py` | Python test | 12 | — |
+| `tests/test_agent_gateway.py` | Python test | 18 | — |
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
+| `tests/test_auth_child_ipc_summary.py` | Python test | 1 | Authentication results must remain valid across the Child IPC boundary. |
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
+| `tests/test_bale_bot_adapter.py` | Python test | 13 | Offline tests for the Bale Bot scaffold adapter and its fail-closed status. |
 | `tests/test_bale_branch_api.py` | Python test | 60 | Offline tests for the Bale branch modular API (Phase 1). |
-| `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
+| `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
+| `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
-| `tests/test_clean_install_http_boot.py` | Python test | 4 | Regression: a clean process-isolated install must boot the HTTP server. |
+| `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |
 | `tests/test_composer_workflow.py` | Python test | 48 | — |
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
 | `tests/test_contact_sources_handoff.py` | Python test | 3 | — |
 | `tests/test_content_index.py` | Python test | 13 | — |
 | `tests/test_coordinator_migration.py` | Python test | 9 | — |
-| `tests/test_coordinator_schema.py` | Python test | 12 | — |
+| `tests/test_coordinator_schema.py` | Python test | 13 | — |
 | `tests/test_core_binding.py` | Python test | 4 | — |
 | `tests/test_deployment_port_settings.py` | Python test | 4 | — |
 | `tests/test_diagnostics.py` | Python test | 4 | — |
@@ -265,13 +276,15 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
+| `tests/test_linux_identity_protection.py` | Python test | 4 | — |
+| `tests/test_m2m_endpoints.py` | Python test | 42 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
 | `tests/test_multi_account_lab.py` | Python test | 3 | — |
 | `tests/test_mvp6_operations.py` | Python test | 23 | — |
 | `tests/test_observability_contract.py` | Python test | 7 | — |
 | `tests/test_offline_license.py` | Python test | 15 | — |
 | `tests/test_phase10b_local_activation.py` | Python test | 3 | — |
-| `tests/test_phase10c_web_reverse_proxy_contract.py` | Python test | 20 | — |
+| `tests/test_phase10c_web_reverse_proxy_contract.py` | Python test | 23 | — |
 | `tests/test_phase10d_operational_acceptance.py` | Python test | 10 | — |
 | `tests/test_phase11_0_multi_account_onboarding.py` | Python test | 13 | — |
 | `tests/test_phase11b1_multi_provider_core.py` | Python test | 10 | — |
@@ -301,12 +314,13 @@
 | `tests/test_reporting_api.py` | Python test | 10 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
-| `tests/test_reporting_shell.py` | Python test | 33 | Tests for the section-shell phase 1 (F-075): metrics, registry, plans, |
+| `tests/test_reporting_shell.py` | Python test | 33 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 17 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_ownership.py` | Python test | 34 | — |
 | `tests/test_sender_directory.py` | Python test | 1 | — |
+| `tests/test_service_auth.py` | Python test | 16 | Tests for M2M service authentication and authorization boundaries. |
 | `tests/test_session_ownership.py` | Python test | 8 | — |
 | `tests/test_stabilization_baseline.py` | Python test | 3 | — |
 | `tests/test_ui2_scroll_repair.py` | Python test | 8 | — |
@@ -322,6 +336,7 @@
 | `ui/electron/preload.cjs` | Electron shell | 0 | — |
 | `ui/scripts/capture-rtl-layout.cjs` | UI validation | 5 | — |
 | `ui/scripts/finalize-ui-build.mjs` | UI validation | 0 | — |
+| `ui/scripts/run-auth-startup-recovery-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-grouped-media-tests.mjs` | UI validation | 1 | — |
 | `ui/scripts/run-mobile-auth-live-tests.mjs` | UI validation | 1 | — |
 | `ui/scripts/run-observability-tests.mjs` | UI validation | 0 | — |
@@ -334,7 +349,7 @@
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
 | `ui/src/App.tsx` | React UI | 69 | — |
-| `ui/src/AppUserGate.tsx` | React UI | 11 | — |
+| `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
@@ -346,6 +361,7 @@
 | `ui/src/HeaderMessageSearch.tsx` | React UI | 3 | — |
 | `ui/src/lib/accountScope.mjs` | React UI | 3 | — |
 | `ui/src/lib/api.ts` | React UI | 17 | — |
+| `ui/src/lib/authStartupRecovery.mjs` | React UI | 3 | — |
 | `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
 | `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
 | `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |
@@ -363,6 +379,7 @@
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
 | `ui/src/ReportingWorkbench.tsx` | React UI | 15 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
+| `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 6 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |
 | `ui/src/SettingsPage.tsx` | React UI | 10 | — |
 | `ui/src/stylis.d.ts` | React UI | 0 | — |

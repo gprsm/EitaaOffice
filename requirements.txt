@@ -1,3 +1,4 @@
 eitaa-core==0.6.0.dev19
 requests>=2.31,<3
 cryptography==46.0.7
+websockets>=12,<17

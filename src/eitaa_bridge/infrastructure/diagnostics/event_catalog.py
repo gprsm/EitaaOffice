@@ -137,6 +137,9 @@ _DEFINITIONS: Final[tuple[EventDefinition, ...]] = (
     EventDefinition("provider_operation_idempotency_interrupted", "provider_operation", "uncertain", audit_required=True),
     EventDefinition("provider_operation_adapter_close_failed", "provider_operation", "degraded"),
     EventDefinition("read_receipt_failed", "read_receipt", "failed"),
+    EventDefinition("service_credential_created", "service_credential", "succeeded", audit_required=True),
+    EventDefinition("service_credential_revoked", "service_credential", "succeeded", audit_required=True),
+    EventDefinition("service_credential_rotated", "service_credential", "succeeded", audit_required=True),
 )
 EVENT_CATALOG: Final[dict[str, EventDefinition]] = {item.name: item for item in _DEFINITIONS}
 

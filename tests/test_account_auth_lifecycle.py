@@ -183,12 +183,13 @@ def _install_auth(
 
 
 def _install_phone_reveal(monkeypatch) -> None:
-    def reveal(_self, protected: ProtectedPhone) -> str:
-        return PHONE_A if protected.ciphertext.endswith(b"a") else PHONE_B
+    class FakePhoneProtector:
+        def reveal(self, protected: ProtectedPhone) -> str:
+            return PHONE_A if protected.ciphertext.endswith(b"a") else PHONE_B
 
     monkeypatch.setattr(
-        "eitaa_bridge.application.account_runtime.WindowsDpapiPhoneProtector.reveal",
-        reveal,
+        "eitaa_bridge.application.account_runtime.default_phone_protector",
+        lambda _root: FakePhoneProtector(),
     )
 
 

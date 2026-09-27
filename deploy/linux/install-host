@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+[[ $# -eq 2 ]] || {
+    echo "usage: install-host <release.tar.gz> <sha256>" >&2
+    exit 2
+}
+artifact=$(readlink -f "$1")
+expected=${2,,}
+[[ -f "$artifact" && "$expected" =~ ^[0-9a-f]{64}$ ]] || {
+    echo "install-host: invalid artifact or checksum" >&2
+    exit 2
+}
+actual=$(sha256sum "$artifact" | awk '{print $1}')
+[[ "$actual" == "$expected" ]] || {
+    echo "install-host: artifact checksum mismatch" >&2
+    exit 1
+}
+
+export SUDO_ASKPASS=/home/akhoondian/deploy/scripts/askpass.sh
+staging=$(mktemp -d /home/akhoondian/deploy/eitaa-install.XXXXXX)
+trap 'rm -rf -- "$staging"' EXIT
+chmod 0700 "$staging"
+tar -xzf "$artifact" -C "$staging" deploy/linux
+
+if ! getent passwd eitaa-bridge >/dev/null; then
+    sudo -A adduser --system --group \
+        --home /srv/projects/eitaa-bridge/shared \
+        --no-create-home eitaa-bridge
+fi
+sudo -A setfacl -m u:eitaa-bridge:--x /srv/projects
+
+sudo -A install -d -m 0750 -o root -g eitaa-bridge \
+    /srv/projects/eitaa-bridge \
+    /srv/projects/eitaa-bridge/releases \
+    /srv/projects/eitaa-bridge/receipts
+sudo -A install -d -m 0700 -o eitaa-bridge -g eitaa-bridge \
+    /srv/projects/eitaa-bridge/shared \
+    /srv/projects/eitaa-bridge/shared/data \
+    /srv/projects/eitaa-bridge/shared/runtime \
+    /srv/projects/eitaa-bridge/shared/diagnostics \
+    /srv/projects/eitaa-bridge/shared/backups \
+    /srv/projects/eitaa-bridge/shared/catalog
+sudo -A install -d -m 0750 -o akhoondian -g akhoondian \
+    /srv/deploy-inbox/eitaa-bridge
+
+if [[ ! -e /srv/projects/eitaa-bridge/shared/bridge.json ]]; then
+    sudo -A install -m 0600 -o eitaa-bridge -g eitaa-bridge \
+        "$staging/deploy/linux/bridge.production.json" \
+        /srv/projects/eitaa-bridge/shared/bridge.json
+fi
+if [[ ! -e /srv/projects/eitaa-bridge/shared/.env ]]; then
+    sudo -A install -m 0600 -o eitaa-bridge -g eitaa-bridge \
+        /dev/null /srv/projects/eitaa-bridge/shared/.env
+fi
+
+sudo -A install -d -m 0755 -o root -g root /usr/local/lib/site-publisher
+sudo -A install -m 0755 -o root -g root \
+    "$staging/deploy/linux/publish-site" /usr/local/sbin/publish-site
+sudo -A install -m 0755 -o root -g root \
+    "$staging/deploy/linux/eitaa-bridge.publish" \
+    /usr/local/lib/site-publisher/eitaa-bridge.publish
+sudo -A install -m 0755 -o root -g root \
+    "$staging/deploy/linux/bootstrap-admin" \
+    /usr/local/sbin/eitaa-bridge-bootstrap-admin
+sudo -A install -m 0644 -o root -g root \
+    "$staging/deploy/linux/eitaa-bridge.service" \
+    /etc/systemd/system/eitaa-bridge.service
+sudo -A install -m 0644 -o root -g root \
+    "$staging/deploy/linux/nginx-eitaa.conf" \
+    /etc/nginx/sites-available/farhangimaz-eitaa.conf
+if [[ ! -e /etc/nginx/sites-enabled/farhangimaz-eitaa.conf ]]; then
+    sudo -A ln -s /etc/nginx/sites-available/farhangimaz-eitaa.conf \
+        /etc/nginx/sites-enabled/farhangimaz-eitaa.conf
+fi
+
+if [[ ! -e /etc/nginx/ssl-origin/eitaa.key || \
+      ! -e /etc/nginx/ssl-origin/eitaa.crt ]]; then
+    sudo -A openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 825 \
+        -subj '/CN=eitaa.farhangimaz.ir' \
+        -addext 'subjectAltName=DNS:eitaa.farhangimaz.ir' \
+        -keyout /etc/nginx/ssl-origin/eitaa.key \
+        -out /etc/nginx/ssl-origin/eitaa.crt >/dev/null 2>&1
+    sudo -A chmod 0600 /etc/nginx/ssl-origin/eitaa.key
+    sudo -A chmod 0644 /etc/nginx/ssl-origin/eitaa.crt
+fi
+
+sudo -A systemctl daemon-reload
+sudo -A systemctl enable eitaa-bridge.service
+sudo -A nginx -t
+sudo -A systemctl reload nginx
+
+install -m 0640 "$artifact" /srv/deploy-inbox/eitaa-bridge/release.tar.gz
+printf '%s  release.tar.gz\n' "$actual" \
+    > /srv/deploy-inbox/eitaa-bridge/release.sha256
+chmod 0640 /srv/deploy-inbox/eitaa-bridge/release.sha256
+
+sudo -A publish-site deploy eitaa-bridge
+echo "install-host: base installation and first release completed"

@@ -1,4 +1,4 @@
-"""Mandate layer and approved program plans (F-075 / design doc §3, §10).
+"""Mandate layer and approved program plans (F-088 / design doc §3, §10).
 
 The chain is: ابلاغ (mandate) ← بخش (section) ← طرح (campaign) ← رویداد ←
 فکت/مدرک. A mandate is a first-class entity (circulars, correspondences,

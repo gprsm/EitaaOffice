@@ -44,6 +44,7 @@ def _uuid4(value: object, *, code: str) -> str:
 class ProviderOperationReceiptRecord:
     messenger_account_id: str
     actor_app_user_id: str
+    service_credential_id: str | None
     provider: str
     operation: str
     idempotency_key: str
@@ -81,6 +82,7 @@ class ProviderOperationReceiptStore:
         idempotency_key: str,
         request_fingerprint: str,
         claim_deadline_unix_ms: int,
+        service_credential_id: str | None = None,
     ) -> ProviderOperationClaim:
         account_id, actor_id, selected_operation, selected_key, fingerprint = (
             self._validate_identity(
@@ -115,7 +117,12 @@ class ProviderOperationReceiptStore:
                     selected_key,
                 )
                 if existing is not None:
-                    self._assert_request_match(existing, actor_id, fingerprint)
+                    self._assert_request_match(
+                        existing,
+                        actor_id,
+                        fingerprint,
+                        service_credential_id=service_credential_id,
+                    )
                     connection.commit()
                     return ProviderOperationClaim(self._record(existing), False)
                 scope = connection.execute(
@@ -131,16 +138,28 @@ class ProviderOperationReceiptStore:
                     """,
                     (actor_id, account_id),
                 ).fetchone()
-                allowed = bool(
-                    scope is not None
-                    and str(scope["actor_status"]) == "active"
-                    and str(scope["global_role"]) == actor_global_role
-                    and str(scope["lifecycle_state"]) != "archived"
-                    and (
-                        actor_global_role == "admin"
-                        or str(scope["membership_status"] or "") == "active"
+                bound_service = str(service_credential_id or "").strip() or None
+                if bound_service is not None:
+                    # Service (M2M) receipts are anchored to the credential's
+                    # creator; membership is intentionally not consulted here
+                    # because service access is fenced by the credential itself.
+                    allowed = bool(
+                        scope is not None
+                        and str(scope["actor_status"]) == "active"
+                        and str(scope["global_role"]) == "admin"
+                        and str(scope["lifecycle_state"]) != "archived"
                     )
-                )
+                else:
+                    allowed = bool(
+                        scope is not None
+                        and str(scope["actor_status"]) == "active"
+                        and str(scope["global_role"]) == actor_global_role
+                        and str(scope["lifecycle_state"]) != "archived"
+                        and (
+                            actor_global_role == "admin"
+                            or str(scope["membership_status"] or "") == "active"
+                        )
+                    )
                 if not allowed:
                     raise CoordinatorSchemaError(
                         "The provider receipt actor cannot operate this account.",
@@ -150,15 +169,16 @@ class ProviderOperationReceiptStore:
                 connection.execute(
                     """
                     INSERT INTO provider_operation_receipts(
-                        messenger_account_id,actor_app_user_id,provider,operation,
+                        messenger_account_id,actor_app_user_id,service_credential_id,provider,operation,
                         idempotency_key,request_fingerprint,claim_deadline_unix_ms,
                         outcome,result_reference,
                         contact_created,safe_reason_code,created_at,updated_at,completed_at
-                    ) VALUES(?,?,?,?,?,?,?,'in_progress',NULL,NULL,NULL,?,?,NULL)
+                    ) VALUES(?,?,?,?,?,?,?,?,'in_progress',NULL,NULL,NULL,?,?,NULL)
                     """,
                     (
                         account_id,
                         actor_id,
+                        bound_service,
                         str(scope["provider"]),
                         selected_operation,
                         selected_key,
@@ -198,6 +218,7 @@ class ProviderOperationReceiptStore:
         result_reference: str | None,
         contact_created: bool | None,
         safe_reason_code: str | None,
+        service_credential_id: str | None = None,
     ) -> ProviderOperationReceiptRecord:
         account_id, actor_id, selected_operation, selected_key, fingerprint = (
             self._validate_identity(
@@ -259,7 +280,12 @@ class ProviderOperationReceiptStore:
                         "The provider operation claim was not found.",
                         code="provider_receipt_claim_missing",
                     )
-                self._assert_request_match(existing, actor_id, fingerprint)
+                self._assert_request_match(
+                    existing,
+                    actor_id,
+                    fingerprint,
+                    service_credential_id=service_credential_id,
+                )
                 if str(existing["outcome"]) != "in_progress":
                     self._assert_result_match(
                         existing,
@@ -370,6 +396,8 @@ class ProviderOperationReceiptStore:
         row: sqlite3.Row,
         actor_id: str,
         request_fingerprint: str,
+        *,
+        service_credential_id: str | None = None,
     ) -> None:
         if str(row["actor_app_user_id"]) != actor_id:
             raise CoordinatorSchemaError(
@@ -380,6 +408,18 @@ class ProviderOperationReceiptStore:
             raise CoordinatorSchemaError(
                 "The provider idempotency key belongs to another request.",
                 code="provider_idempotency_payload_mismatch",
+            )
+        stored_service = (
+            str(row["service_credential_id"])
+            if row["service_credential_id"] is not None
+            else None
+        )
+        if stored_service != (str(service_credential_id) if service_credential_id else None):
+            # Never attribute a legacy (owner-less) or another service's
+            # receipt to this caller: ownership must be proven, not guessed.
+            raise CoordinatorSchemaError(
+                "The provider idempotency key belongs to another service.",
+                code="provider_idempotency_owner_mismatch",
             )
 
     @staticmethod
@@ -414,6 +454,11 @@ class ProviderOperationReceiptStore:
         return ProviderOperationReceiptRecord(
             messenger_account_id=str(row["messenger_account_id"]),
             actor_app_user_id=str(row["actor_app_user_id"]),
+            service_credential_id=(
+                str(row["service_credential_id"])
+                if row["service_credential_id"] is not None
+                else None
+            ),
             provider=str(row["provider"]),
             operation=str(row["operation"]),
             idempotency_key=str(row["idempotency_key"]),

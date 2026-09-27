@@ -87,13 +87,15 @@ def build_load_history(peer: Peer, *, offset_date: int = (1 << 63) - 1, load_mod
 
 def build_load_dialogs(
     *,
-    min_date: int = 0,
+    offset_date: int = (1 << 63) - 1,
+    min_date: int | None = None,
     limit: int = 20,
     dialog_type: int = 0,
     exclude_pinned: bool = False,
     archive: bool = False,
 ) -> bytes:
-    writer = ProtoWriter().int64(1, min_date).int32(2, limit)
+    effective_offset = offset_date if min_date is None else min_date
+    writer = ProtoWriter().int64(1, effective_offset).int32(2, limit)
     if dialog_type:
         writer.int32(4, dialog_type)
     if exclude_pinned:
@@ -101,6 +103,7 @@ def build_load_dialogs(
     if archive:
         writer.bool(6, True)
     return writer.build()
+
 
 
 def build_update_message(peer: Peer, message_id: int, text: str) -> bytes:
@@ -280,7 +283,26 @@ def decode_content(data: bytes) -> tuple[str | None, FileDetails | None]:
             doc = _decode_document(raw)
             if doc:
                 return doc.caption, doc
+    raw_13 = get_first(fields, 13)
+    if isinstance(raw_13, bytes):
+        f13_fields = parse_fields(raw_13)
+        inner_content = get_first(f13_fields, 1)
+        if isinstance(inner_content, bytes):
+            text, doc = decode_content(inner_content)
+            if text or doc:
+                return text, doc
+        f5_raw = get_first(f13_fields, 5)
+        if isinstance(f5_raw, bytes):
+            for item in parse_fields(f5_raw):
+                if isinstance(item.value, bytes):
+                    sub = parse_fields(item.value)
+                    first_str = get_first(sub, 1)
+                    if isinstance(first_str, bytes):
+                        t = _as_text(first_str)
+                        if t:
+                            return t, None
     return None, None
+
 
 
 def _decode_document(data: bytes) -> FileDetails | None:

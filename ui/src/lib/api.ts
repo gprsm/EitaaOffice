@@ -1,4 +1,5 @@
 import { accountScopeIsCurrent, captureAccountScope } from './accountScope.mjs'
+import { shouldRefreshAppAuthAfterError } from './authStartupRecovery.mjs'
 
 export const AUTH_SESSION_INVALID_EVENT = 'eitaa-bridge:auth-session-invalid'
 export const APP_AUTH_SESSION_INVALID_EVENT = 'eitaa-bridge:app-auth-session-invalid'
@@ -157,10 +158,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
     if (error.status === 401 && error.code === 'auth_session_invalid') {
       window.dispatchEvent(new Event(AUTH_SESSION_INVALID_EVENT))
     }
-    if (
-      error.code === 'app_auth_required'
-      || error.code === 'app_auth_session_invalid'
-    ) {
+    if (shouldRefreshAppAuthAfterError(path, error.code)) {
       appCsrfToken = ''
       setSelectedMessengerAccountId(null)
       window.dispatchEvent(new Event(APP_AUTH_SESSION_INVALID_EVENT))

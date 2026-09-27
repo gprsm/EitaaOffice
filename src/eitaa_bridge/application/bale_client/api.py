@@ -378,12 +378,18 @@ class BaleApi:
 
     # ------------------------------- dialogs ---------------------------------
 
-    async def list_dialogs(self, *, limit: int = 20) -> list[dict[str, Any]]:
+    async def list_dialogs(
+        self,
+        *,
+        limit: int = 20,
+        offset_date: int = (1 << 63) - 1,
+    ) -> list[dict[str, Any]]:
         """Recent conversation list with peer ids and last-message previews."""
         self._require_ws()
-        payload = _build_load_dialogs(limit=limit)
+        payload = _build_load_dialogs(limit=limit, offset_date=offset_date)
         response = await self._rpc("messaging", "LoadDialogs", payload)
         return [s.to_dict() for s in decode_dialog_summaries(response)]
+
 
     # ------------------------------ messaging --------------------------------
 
@@ -599,10 +605,11 @@ def _build_contact_user(user_id: int, contact_type: int) -> bytes:
     return build_contact_user(user_id, contact_type)
 
 
-def _build_load_dialogs(*, limit: int) -> bytes:
+def _build_load_dialogs(*, limit: int = 20, offset_date: int = (1 << 63) - 1) -> bytes:
     from .codecs import build_load_dialogs
 
-    return build_load_dialogs(limit=limit)
+    return build_load_dialogs(limit=limit, offset_date=offset_date)
+
 
 
 def _build_send_text(peer: Peer, random_id: int, text: str, *, silent: bool) -> bytes:

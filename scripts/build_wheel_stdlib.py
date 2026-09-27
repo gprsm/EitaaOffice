@@ -15,11 +15,6 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 FIXED_ZIP_TIME = (2026, 8, 26, 0, 0, 0)
 PACKAGE_SUFFIXES = frozenset({".py", ".pyi", ".typed"})
-QUARANTINED_PACKAGE_PREFIXES = (
-    "eitaa_bridge/application/bale_client/",
-)
-
-
 class WheelBuildError(RuntimeError):
     pass
 
@@ -112,8 +107,6 @@ def build_wheel(root: Path, output_dir: Path, *, force: bool = False) -> Path:
         if path.suffix.lower() not in PACKAGE_SUFFIXES:
             continue
         archive_name = path.relative_to(selected_root / "src").as_posix()
-        if archive_name.startswith(QUARANTINED_PACKAGE_PREFIXES):
-            continue
         files[archive_name] = path.read_bytes()
     if not files:
         raise WheelBuildError("Bridge package source is empty.")

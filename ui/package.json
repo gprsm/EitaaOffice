@@ -16,6 +16,7 @@
     "test:phase9-acceptance": "node scripts/run-phase9-acceptance-tests.mjs",
     "test:phase10-local-activation": "node scripts/run-phase10-local-activation-tests.mjs",
     "test:observability": "node scripts/run-observability-tests.mjs",
+    "test:auth-startup": "node scripts/run-auth-startup-recovery-tests.mjs",
     "test:phase11-onboarding": "node scripts/run-phase11-onboarding-tests.mjs",
     "test:phase11b2": "node scripts/run-phase11b2-orchestration-tests.mjs",
     "test:mobile-auth-live": "node scripts/run-mobile-auth-live-tests.mjs",

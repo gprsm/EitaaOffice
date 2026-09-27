@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import secrets
 import sqlite3
+import sys
 from typing import Callable, Iterator
 import unicodedata
 from uuid import UUID, uuid4
@@ -23,7 +24,12 @@ from ...errors import (
     CoordinatorAuthRateLimitError,
     CoordinatorSchemaError,
 )
-from .identity import PhoneProtector, WindowsDpapiPhoneProtector
+from .identity import (
+    FileKeyPhoneProtector,
+    PhoneProtector,
+    WindowsDpapiPhoneProtector,
+    default_phone_protector,
+)
 from .store import CoordinatorDatabase, MessengerAccountOnboardingResult
 
 _PASSWORD_SCHEME = "pbkdf2_sha256"
@@ -231,6 +237,21 @@ class WindowsDpapiSubjectFingerprinter:
         ).hexdigest()
 
 
+class FileKeySubjectFingerprinter:
+    """HMAC normalized usernames with the restricted POSIX service key."""
+
+    def __init__(self, key_file: str | Path) -> None:
+        self._key_store = FileKeyPhoneProtector(key_file)
+
+    def fingerprint(self, normalized_username: str) -> str:
+        secret = self._key_store._load_or_create_secret()
+        return hmac.new(
+            secret,
+            b"app-user-subject-v1\x00" + normalized_username.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+
 class StaticSubjectFingerprinter:
     """Deterministic injected fingerprinter for isolated tests."""
 
@@ -302,6 +323,7 @@ class CoordinatorAppAuth:
         *,
         policy: AppAuthPolicy | None = None,
         fingerprinter: WindowsDpapiSubjectFingerprinter
+        | FileKeySubjectFingerprinter
         | StaticSubjectFingerprinter
         | None = None,
         phone_protector: PhoneProtector | None = None,
@@ -312,11 +334,18 @@ class CoordinatorAppAuth:
         self.database = CoordinatorDatabase(self.path)
         self.policy = policy or AppAuthPolicy()
         self.policy.validate()
-        self.fingerprinter = fingerprinter or WindowsDpapiSubjectFingerprinter(
-            self.path.parent / "app-auth-subject.key.dpapi"
-        )
-        self.phone_protector = phone_protector or WindowsDpapiPhoneProtector(
-            self.path.parent / "identity.key.dpapi"
+        if fingerprinter is not None:
+            self.fingerprinter = fingerprinter
+        elif sys.platform == "win32":
+            self.fingerprinter = WindowsDpapiSubjectFingerprinter(
+                self.path.parent / "app-auth-subject.key.dpapi"
+            )
+        else:
+            self.fingerprinter = FileKeySubjectFingerprinter(
+                self.path.parent / "app-auth-subject.key"
+            )
+        self.phone_protector = phone_protector or default_phone_protector(
+            self.path.parent
         )
         self.password_hasher = password_hasher or PasswordHasher()
         self.clock = clock

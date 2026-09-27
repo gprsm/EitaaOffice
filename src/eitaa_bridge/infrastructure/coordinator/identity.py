@@ -10,8 +10,12 @@ import hmac
 import os
 from pathlib import Path
 import re
+import stat
 import sys
 from typing import Protocol
+
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ...errors import CoordinatorIdentityError
 
@@ -20,6 +24,8 @@ _KEY_BYTES = 32
 _KEY_VERSION = 1
 _CRYPTPROTECT_UI_FORBIDDEN = 0x1
 _CRYPTPROTECT_LOCAL_MACHINE = 0x4
+_FILE_KEY_AAD = b"eitaa-bridge-phone-identity-v1"
+_AES_GCM_NONCE_BYTES = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,3 +349,110 @@ class WindowsDpapiPhoneProtector:
                 code="identity_key_invalid",
             )
         return secret
+
+
+class FileKeyPhoneProtector:
+    """Protect phone identities with a service-owned key on non-Windows hosts.
+
+    The key file must be a regular, non-symlink file and is created with mode
+    0600.  Its parent directory is restricted to 0700 on POSIX.  This keeps the
+    Linux service deployable without weakening the existing Windows DPAPI path.
+    """
+
+    def __init__(self, key_file: str | Path) -> None:
+        self.key_file = Path(key_file).expanduser().resolve()
+
+    def protect(self, canonical_e164: str) -> ProtectedPhone:
+        phone = validate_canonical_e164(canonical_e164)
+        secret = self._load_or_create_secret()
+        nonce = os.urandom(_AES_GCM_NONCE_BYTES)
+        ciphertext = nonce + AESGCM(secret).encrypt(
+            nonce,
+            phone.encode("ascii"),
+            _FILE_KEY_AAD,
+        )
+        return ProtectedPhone(
+            ciphertext=ciphertext,
+            key_version=_KEY_VERSION,
+            fingerprint=hmac.new(
+                secret,
+                phone.encode("ascii"),
+                hashlib.sha256,
+            ).hexdigest(),
+            display_hint=masked_phone(phone),
+        )
+
+    def reveal(self, protected: ProtectedPhone) -> str:
+        if protected.key_version != _KEY_VERSION:
+            raise CoordinatorIdentityError(
+                "The protected phone uses an unsupported key version.",
+                safe_context={"key_version": protected.key_version},
+                code="phone_key_version_unsupported",
+            )
+        if len(protected.ciphertext) <= _AES_GCM_NONCE_BYTES:
+            raise CoordinatorIdentityError(
+                "The protected phone payload is invalid.",
+                code="protected_phone_payload_invalid",
+            )
+        secret = self._load_secret()
+        nonce = protected.ciphertext[:_AES_GCM_NONCE_BYTES]
+        payload = protected.ciphertext[_AES_GCM_NONCE_BYTES:]
+        try:
+            selected = AESGCM(secret).decrypt(nonce, payload, _FILE_KEY_AAD).decode("ascii")
+        except (InvalidTag, UnicodeDecodeError) as exc:
+            raise CoordinatorIdentityError(
+                "The protected phone payload is invalid.",
+                code="protected_phone_payload_invalid",
+            ) from exc
+        return validate_canonical_e164(selected)
+
+    def _load_or_create_secret(self) -> bytes:
+        if self.key_file.exists() or self.key_file.is_symlink():
+            return self._load_secret()
+        self.key_file.parent.mkdir(parents=True, exist_ok=True)
+        if os.name != "nt":
+            os.chmod(self.key_file.parent, 0o700)
+        secret = os.urandom(_KEY_BYTES)
+        try:
+            WindowsDpapiPhoneProtector._write_exclusive(self.key_file, secret)
+        except FileExistsError:
+            return self._load_secret()
+        return self._load_secret()
+
+    def _load_secret(self) -> bytes:
+        try:
+            metadata = self.key_file.lstat()
+            if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+                raise CoordinatorIdentityError(
+                    "The identity key path is not a regular file.",
+                    code="identity_key_invalid",
+                )
+            if os.name != "nt" and stat.S_IMODE(metadata.st_mode) & 0o077:
+                raise CoordinatorIdentityError(
+                    "The identity key permissions are too broad.",
+                    code="identity_key_permissions_invalid",
+                )
+            secret = self.key_file.read_bytes()
+        except CoordinatorIdentityError:
+            raise
+        except OSError as exc:
+            raise CoordinatorIdentityError(
+                "The protected identity key could not be read.",
+                safe_context={"error_type": type(exc).__name__},
+                code="identity_key_read_failed",
+            ) from exc
+        if len(secret) != _KEY_BYTES:
+            raise CoordinatorIdentityError(
+                "The protected identity key has an invalid length.",
+                code="identity_key_invalid",
+            )
+        return secret
+
+
+def default_phone_protector(key_directory: str | Path) -> PhoneProtector:
+    """Select the native at-rest protection mechanism for this host."""
+
+    directory = Path(key_directory).expanduser().resolve()
+    if sys.platform == "win32":
+        return WindowsDpapiPhoneProtector(directory / "identity.key.dpapi")
+    return FileKeyPhoneProtector(directory / "identity.key")

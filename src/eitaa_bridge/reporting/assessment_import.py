@@ -1,4 +1,4 @@
-"""Import of the 1405 وضعیت‌سنجی workbook into the shell (F-075 / design doc §8).
+"""Import of the 1405 وضعیت‌سنجی workbook into the shell (F-088 / design doc §8).
 
 The source file is one row per judicial domain and 27 columns (A..AA). The
 importer never writes final values on its own: deterministic wordings map to

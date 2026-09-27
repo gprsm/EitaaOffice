@@ -43,6 +43,7 @@ class ProviderOperationActor:
 
     app_user_id: str
     global_role: str
+    service_credential_id: str | None = None
 
     def __post_init__(self) -> None:
         if not str(self.app_user_id or "").strip():
@@ -53,6 +54,11 @@ class ProviderOperationActor:
         if str(self.global_role or "").strip().lower() not in {"admin", "user"}:
             raise ProviderExtensionError(
                 "The provider operation actor role is invalid.",
+                code="provider_operation_actor_invalid",
+            )
+        if self.service_credential_id is not None and not str(self.service_credential_id).strip():
+            raise ProviderExtensionError(
+                "The provider operation actor service binding is invalid.",
                 code="provider_operation_actor_invalid",
             )
 
@@ -130,6 +136,7 @@ class _CachedMutationReceipt:
     actor_app_user_id: str
     request_fingerprint: str
     receipt: ProviderSendReceipt | ProviderContactMutationReceipt
+    service_credential_id: str | None = None
 
 
 def _request_fingerprint(*parts: bytes) -> str:
@@ -255,6 +262,7 @@ class ProviderApplicationOrchestrator:
         stored_fingerprint: str,
         actor: ProviderOperationActor,
         request_fingerprint: str,
+        stored_service_credential_id: str | None = None,
     ) -> None:
         if stored_actor != actor.app_user_id:
             raise ProviderExtensionError(
@@ -265,6 +273,13 @@ class ProviderApplicationOrchestrator:
             raise ProviderExtensionError(
                 "The provider idempotency key belongs to another request.",
                 code="provider_idempotency_payload_mismatch",
+            )
+        if (stored_service_credential_id or None) != (actor.service_credential_id or None):
+            # Another service (or a legacy owner-less receipt) must never be
+            # replayed or completed under this service's credential.
+            raise ProviderExtensionError(
+                "The provider idempotency key belongs to another service.",
+                code="provider_idempotency_owner_mismatch",
             )
 
     @staticmethod
@@ -372,6 +387,7 @@ class ProviderApplicationOrchestrator:
                     self._require_idempotency_match(
                         stored_actor=completed.actor_app_user_id,
                         stored_fingerprint=completed.request_fingerprint,
+                        stored_service_credential_id=completed.service_credential_id,
                         actor=actor,
                         request_fingerprint=request_fingerprint,
                     )
@@ -392,6 +408,7 @@ class ProviderApplicationOrchestrator:
                     self._require_idempotency_match(
                         stored_actor=in_progress[0],
                         stored_fingerprint=in_progress[1],
+                        stored_service_credential_id=in_progress[2],
                         actor=actor,
                         request_fingerprint=request_fingerprint,
                     )
@@ -407,6 +424,7 @@ class ProviderApplicationOrchestrator:
                         messenger_account_id=str(messenger_account_id),
                         actor_app_user_id=actor.app_user_id,
                         actor_global_role=actor.global_role,
+                        service_credential_id=actor.service_credential_id,
                         operation="messages.send_text",
                         idempotency_key=request.idempotency_key,
                         request_fingerprint=request_fingerprint,
@@ -417,6 +435,7 @@ class ProviderApplicationOrchestrator:
                         self._require_idempotency_match(
                             stored_actor=record.actor_app_user_id,
                             stored_fingerprint=record.request_fingerprint,
+                            stored_service_credential_id=record.service_credential_id,
                             actor=actor,
                             request_fingerprint=request_fingerprint,
                         )
@@ -432,6 +451,7 @@ class ProviderApplicationOrchestrator:
                                 operation="messages.send_text",
                                 idempotency_key=request.idempotency_key,
                                 request_fingerprint=request_fingerprint,
+                                service_credential_id=actor.service_credential_id,
                                 outcome="uncertain",
                                 result_reference=None,
                                 contact_created=None,
@@ -457,11 +477,13 @@ class ProviderApplicationOrchestrator:
                             actor.app_user_id,
                             request_fingerprint,
                             replay,
+                            service_credential_id=actor.service_credential_id,
                         )
                         return replay
                 self._send_in_progress[key] = (
                     actor.app_user_id,
                     request_fingerprint,
+                    actor.service_credential_id,
                 )
             try:
                 receipt = await adapter.send_text(context, request)
@@ -474,6 +496,7 @@ class ProviderApplicationOrchestrator:
                         operation="messages.send_text",
                         idempotency_key=request.idempotency_key,
                         request_fingerprint=request_fingerprint,
+                                service_credential_id=actor.service_credential_id,
                         outcome=receipt.status.value,
                         result_reference=receipt.message_reference,
                         contact_created=None,
@@ -484,6 +507,7 @@ class ProviderApplicationOrchestrator:
                         actor.app_user_id,
                         request_fingerprint,
                         receipt,
+                        service_credential_id=actor.service_credential_id,
                     )
                     if len(self._send_receipts) > 2048:
                         self._send_receipts.pop(next(iter(self._send_receipts)))
@@ -627,6 +651,7 @@ class ProviderApplicationOrchestrator:
                     self._require_idempotency_match(
                         stored_actor=completed.actor_app_user_id,
                         stored_fingerprint=completed.request_fingerprint,
+                        stored_service_credential_id=completed.service_credential_id,
                         actor=actor,
                         request_fingerprint=request_fingerprint,
                     )
@@ -650,6 +675,7 @@ class ProviderApplicationOrchestrator:
                     self._require_idempotency_match(
                         stored_actor=in_progress[0],
                         stored_fingerprint=in_progress[1],
+                        stored_service_credential_id=in_progress[2],
                         actor=actor,
                         request_fingerprint=request_fingerprint,
                     )
@@ -665,6 +691,7 @@ class ProviderApplicationOrchestrator:
                         messenger_account_id=str(messenger_account_id),
                         actor_app_user_id=actor.app_user_id,
                         actor_global_role=actor.global_role,
+                        service_credential_id=actor.service_credential_id,
                         operation="contacts.upsert",
                         idempotency_key=request.idempotency_key,
                         request_fingerprint=request_fingerprint,
@@ -675,6 +702,7 @@ class ProviderApplicationOrchestrator:
                         self._require_idempotency_match(
                             stored_actor=record.actor_app_user_id,
                             stored_fingerprint=record.request_fingerprint,
+                            stored_service_credential_id=record.service_credential_id,
                             actor=actor,
                             request_fingerprint=request_fingerprint,
                         )
@@ -690,6 +718,7 @@ class ProviderApplicationOrchestrator:
                                 operation="contacts.upsert",
                                 idempotency_key=request.idempotency_key,
                                 request_fingerprint=request_fingerprint,
+                                service_credential_id=actor.service_credential_id,
                                 outcome="uncertain",
                                 result_reference=None,
                                 contact_created=None,
@@ -717,11 +746,13 @@ class ProviderApplicationOrchestrator:
                             actor.app_user_id,
                             request_fingerprint,
                             replay,
+                            service_credential_id=actor.service_credential_id,
                         )
                         return replay
                 self._contact_in_progress[key] = (
                     actor.app_user_id,
                     request_fingerprint,
+                    actor.service_credential_id,
                 )
             try:
                 receipt = await adapter.upsert_contact(context, request)
@@ -732,6 +763,7 @@ class ProviderApplicationOrchestrator:
                         operation="contacts.upsert",
                         idempotency_key=request.idempotency_key,
                         request_fingerprint=request_fingerprint,
+                                service_credential_id=actor.service_credential_id,
                         outcome="succeeded",
                         result_reference=receipt.contact_reference,
                         contact_created=receipt.created,
@@ -742,6 +774,7 @@ class ProviderApplicationOrchestrator:
                         actor.app_user_id,
                         request_fingerprint,
                         receipt,
+                        service_credential_id=actor.service_credential_id,
                     )
                     if len(self._contact_receipts) > 2048:
                         self._contact_receipts.pop(next(iter(self._contact_receipts)))

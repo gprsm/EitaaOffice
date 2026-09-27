@@ -1,9 +1,29 @@
 # وضعیت پایهٔ فعلی پروژه
 
 تاریخ مبنا: ۲۰۲۶-۰۸-۲۷
-آخرین همسان‌سازی: MULTI-ACCOUNT-CLEAN-INSTALL-RC5 در ۲۰۲۶-۰۸-۲۹
-وضعیت: `STABILIZATION_COMPLETE / USER_ACCEPTED / OFFLINE_RELEASE_CANDIDATE / NOT_PRODUCTION_RELEASE_AUTHORIZED`  
-منابع شاهد جاری: V-103، V-108 تا V-189، F-039 تا F-067 و گزارش‌های تثبیت/ویژگی؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+آخرین همسان‌سازی: SERVER-FULL-RESET در ۲۰۲۶-۰۹-۲۶
+وضعیت: `PRODUCTION_DEPLOYED / SERVER_CLEAN_ONBOARDING / LIVE_EITAA_DIALOG_ACCEPTANCE_PENDING`
+منابع شاهد جاری: V-103، V-108 تا V-212، F-039 تا F-082 و گزارش‌های تثبیت/ویژگی؛ شواهد Phase 7 تا 11 پیش از V-103 تاریخی و وابسته به Trigger خود هستند.
+
+Milestone EDUCATION-M2M-R02: زیرساخت اتصال سامانهٔ آموزش/آزمون پس از اعتبارسنجی مستقل اصلاح و تکمیل شد (F-083 → F-084، V-213 → V-214، ADR-59). احراز هویت ماشین‌به‌ماشین با اعتبارنامهٔ `eb_svc_` جدای نشست AppUser، resolve فقط‌خواندنیِ گیرنده از دایرکتوری مخاطبین + کاتالوگ گفتگوی حساب، منع استفاده از شمارهٔ خام به‌عنوان peer_reference، وضعیت‌های رسید accepted/provider_succeeded/uncertain/not_found، داربست fail-closed بله بات (ADR-59) و درگاه عامل هوشمند با پاسخ‌های علامت‌دار آزمایشی پیاده شد. پنل UI مدیریت اعتبارنامه‌ها اکنون به endpointهای واقعی متصل است. مجموعهٔ کامل Backend، بررسی‌های UI و کنترل‌های اسناد سبزند؛ هیچ عملیات زندهٔ ایتا/بله انجام نشده و پذیرش زنده به دروازه‌های اختصاصی نیاز دارد. مرجع F-084/V-214 و قرارداد `docs/contracts/EDUCATION_SYSTEM_API_CONTRACT_v1.md` نسخهٔ 1.1.0.
+
+بازبینی مستقل بعدی در ۲۰۲۶-۰۹-۲۷ (F-085/V-215) چهار شکاف مرز مجوز/چت را آشکار کرد که همان روز با آزمون RED بازتولید و اصلاح شدند (V-217): چرخهٔ عمر زمینهٔ سرویس، حصار صریح حساب/Provider در صدور و استفاده، scope و مالکیت سرویس در استعلام رسید (Coordinator schema v9) و قرارداد کامل چت با message_id/replay/تاریخچهٔ واقعی/پیکربندی صریح آداپتور. هیچ‌یک از سه مرز هنوز پذیرش زنده ندارد.
+
+Milestone BALE-PERSONAL-AUTHORIZED: به دستور صریح مالک، تفسیر fail-closed دائمی از F-046/G-02 منسوخ شد و مسیر حساب شخصی بله به‌عنوان مسیر درجه‌یک محصول در کنار scaffold بات بله بازگشت (F-086/ADR-60/V-216). ثبت بله با مانیفست مجاز و capabilities واقعی، آداپتور واقعی متصل به `bale_client` با backend تزریقی و probe قرارداد آفلاین، رفع قرنطینهٔ بسته‌بندی + وابستگی `websockets`، و بازنویسی آزمون‌های نگهبان به قرارداد جدید انجام شد. `runtime/onboarding` چندProvider تا فاز اتصال onboarding/worker صادقانه False است؛ پذیرش زندهٔ نشست روی شاخهٔ Bale (V-194) معتبر و ارسال از مسیر orchestrator همچنان Live-نیست.
+
+Milestone SERVER-FULL-RESET: به درخواست صریح مالک، سرویس Eitaa Bridge روی سرور متوقف شد و همهٔ ۱۳۵ فایل قدیمی فضای دادهٔ مشترک آن، از جمله نشست، پایگاه داده، پشتیبان، log، Config و `.env`، حذف شدند. بستهٔ پاک نسخهٔ محلی شاخهٔ Bale منتشر شد؛ تنها release فعال باقی ماند. Config تازهٔ HTTPS Reverse Proxy، AppUser Auth و Multi-session را روشن و Worker Process را طبق شاهد رفع خالی‌ماندن فهرست محلی خاموش دارد. یک مدیر تازه با رمز تازه ساخته شد؛ نشست‌های آزمون حذف شدند و حساب پیام‌رسان صفر است. UI، readiness، ورود مدیر و فهرست حساب‌ها روی دامنهٔ عمومی پذیرفته شدند. توکن اتصال ایتا که در پروژهٔ هم‌میزبان `onlineexam` دوباره ساخته شده بود نیز از فایل و کانتینر آن پاک شد؛ شرط اجباری قدیمیِ توکن در source سرور همان پروژه اصلاح و backend آن سالم شد. نمایش گفت‌وگوهای واقعی پس از ورود تازهٔ کاربر به ایتا هنوز شاهد Live ندارد. مرجع F-080/F-082، V-212 و گزارش بازنشانی سرور.
+
+Milestone LOCAL-SECOND-RESET: پس از آزمون ورود و بازیابی ۲۰۶ گفت‌وگو، مالک بازنشانی دوبارهٔ همین نصب را درخواست کرد. برنامه مالکیت‌دار متوقف شد، داده/نشست/پروفایل مرورگر/لاگ/Config عملیاتی این نوبت به آرشیو دوم بیرون پروژه منتقل شد و تنها مدیر تازه در Coordinator جدید باقی ماند؛ حساب پیام‌رسان و نشست صفر است. Config تازه AppUser Auth و Multi-session را روشن و Worker Process را برای UI v1 محلی خاموش دارد. نقص آغاز برنامه با مدیر ولی بدون حساب در این حالت رفع شد؛ HTTP status محلی، آزمون هدفمند و full Backend و کنترل‌های UI سبز شدند. الگوی ثابت workbook گزارش‌سازی، که دادهٔ استفادهٔ قبلی نیست و قابلیت گزارش به آن وابسته است، به پروژه برگشت. مرجع F-081/V-211.
+
+Milestone LOCAL-CLEAN-RESET: بنا به درخواست صریح مالک، داده‌های عملیاتی محلی این درخت پس از تأیید سلامت پشتیبان مستقل به آرشیو بازگشت‌پذیر بیرون پروژه منتقل شدند. Config واقعی با نمونهٔ نصب تازه جایگزین شد و `.env` واقعی، نشست‌های Eitaa/Bale، دیتابیس‌ها، رسانه، log، diagnostics، backup، catalog، screenshot و خروجی probe از درخت جاری بیرون رفتند. Coordinator تازه فقط یک AppUser مدیر و یک credential دارد؛ PhoneAccount، MessengerAccount و AppUser session صفرند. راه‌اندازی محلی API و وضعیت ورود HTTP 200 پذیرفته شد. ۱۴ پوشهٔ کش آزمون با ACL غیرقابل‌دسترسی در ریشه مانده‌اند؛ در پشتیبان هیچ فایل زیر آن‌ها ثبت نشده است. این اقدام هیچ نشست سمت Provider یا سرور بیرونی را ابطال نکرد. مرجع V-209.
+
+Milestone LOCAL-DIALOG-RECOVERY: ورود تازهٔ ایتا در همین نصب انجام شد، اما Config نمونه `worker_process=true` مسیر v1 فهرست سایت را با `eitaa_process_operation_ipc_required` بست و UI به مرحلهٔ sync نرسید. تنظیم عملیاتی محلی به flag قبلی `worker_process=false` برگشت؛ AppUser Auth و Multi-session روشن ماندند. پس از restart مالکیت‌دار، درخواست‌های sites، dialog sync و message list موفق و ۲۰۶ گفت‌وگو در DB محلی ثبت شد. سازگاری UI با پروفایل Worker Process روشن همچنان F-080 باز است. مرجع V-210.
+
+Milestone AUTH-CHILD-IPC-R01: در نسخهٔ محلی `AntiGravity2` پاسخ‌های ورود با کد و رمز دوم کلید ممنوع `session` را به IPC می‌دادند. سه حالت با Core واقعی و نشست مصنوعی پیش از اصلاح شکست خوردند؛ پاسخ Child اکنون خلاصهٔ غیرمحرمانه را با `session_snapshot` می‌فرستد و آزمون‌های مرتبط `19/19` سبزند. پذیرش ورود واقعی و وضعیت سرور هنوز باز است؛ مرجع F-079/V-205.
+
+Milestone LINUX-PRODUCTION-DEPLOYMENT-R01: سرویس روی `eitaa.farhangimaz.ir` پشت Nginx و systemd مستقر شد؛ Backend و gateway برنامهٔ دوم فقط Loopback هستند. محافظ هویت غیرWindows با AES-GCM/HMAC و کلیدهای `0600` اضافه شد و Windows DPAPI دست‌نخورده ماند. انتشار اتمیک/rollback با `publish-site deploy eitaa-bridge` پذیرفته شد. Backend=`809 passed + 1 skipped / 810`، TypeScript/Observability/Build، package privacy و Live redirect/UI/login/cookie/session سبزند. TLS عمومی Edge باید توسط کاربر در CDN فعال شود؛ origin TLS حاضر است. مرجع=F-074/ADR-55/V-196/report feature.
+
+Milestone EITAA-AUTH-ACCOUNT-UX-R01: پس از اصلاح Linux Child، audit امن سه ورود کامل ایتا و چند خروج موفق را در اقدام خود کاربر ثبت کرد. ردهای بعدی `account_phone_mismatch` مربوط به تلاش با شماره‌ای متفاوت از هویت حساب پیام‌رسان انتخاب‌شده‌اند، نه خرابی Child. فرم ورود اکنون انتخاب و افزودن حساب، راهنمای شمارهٔ ماسک‌شده و پیام مشخص عدم تطابق را نشان می‌دهد؛ guard سمت سرور تغییر نکرد. مرجع=F-076/F-077/V-198/V-199.
 
 Milestone MULTI-ACCOUNT-CLEAN-INSTALL-RC5: پروفایل نصب تازه اکنون AppUser Auth، Multi-session و Worker Process را هم‌زمان روشن دارد. startup بدون حساب در runtime ایزوله crash نمی‌کند؛ UI ابتدا فعال‌سازی دستگاه، سپس ساخت مدیر اولیه و بعد افزودن نخستین حساب Eitaa متعلق به همان مدیر را نشان می‌دهد. ساخت حساب اتصال/OTP/Worker را خودکار آغاز نمی‌کند. rehearsal مالکیت=`admin/owner/active`، Backend=`691/691`، UI onboarding=`8/8`، TypeScript/Observability و payload privacy سبزند. RC5 Setup=`31,295,296 / SHA 2BC28046...20CC / signer, verify-only, tamper PASS`، Portable SHA=`175D8011...E925` و Delivery ZIP=`61,883,250 / SHA 66AF0894...2D26 / 15 entries` است. پذیرش واقعی حساب دوم و مشاهدهٔ مقصد باز است. مرجع=F-067/ADR-52/V-189/report feature.
 
@@ -21,7 +41,7 @@ Milestone UX-MESSAGE-AVATAR-R01: پیام‌ها و آلبوم‌های مجاو
 
 Milestone IR-Roadmap: کاربر در 2026-08-27 آغاز فاز صفر هوشمندسازی ایندکس و گزارش‌سازی را مجاز کرد. نقشه‌راه canonical با F-051/V-163 ثبت شده و اقدام بعدی `IR-0-A` برای inventory منابع، provenance و تعارض‌هاست. این milestone هیچ schema، migration، UI/API محصول، الگوریتم، اتصال مدل زبانی یا scheduler خودکاری را پیاده نکرده است؛ فهرست برنامه‌ها، معنای کدهای ابلاغی و قواعد شمارش تا بررسی مستندات رسمی قطعی نیستند.
 
-Milestone IR-Shell-Phase1: فاز اول پوستهٔ بخش گزارش نماز در لایهٔ داده پیاده شد (F-075/F-076، ADR-55، V-198، `../project-memory/INDEX_SECTION_SHELL_DESIGN.md`): فرهنگ دادهٔ نسخه‌دار و ابزار وضعیت‌سنجی ۱۴۰۵ در `reporting/metrics.py`، رجیستری نومکلف دومنته/امام جماعت/نمازخانه/واحد و فکت رجیستری در `reporting/registry.py`، ابلاغ و ۱۲ ریزبرنامهٔ مصوب با هدف کمی و محاسبهٔ تحقق در `reporting/plans.py`، واردسازی کاربرگ وضعیت‌سنجی با صف کاندید در `reporting/assessment_import.py` و دو پروجکشن (کاربرگ بازدید و پروندهٔ بازدید) در `reporting/projections.py`. `ReportingStore` به schema v2 ارتقا یافت (۸ جدول تازه + ستون campaign با مهاجرت) و صفحه‌های خروجی فقط شمارش تجمیعی دارند (بدون PII). اتصال API/UI و واردسازی واقعی فایل کاربر هنوز pending است؛ کد مرجع، کاربرگ بازدید استانی و مرجع شاخصهٔ برنامهٔ نماز، فرم بومی ستاد اقامه نماز است (تصریح کاربر 2026-09-27).
+Milestone IR-Shell-Phase1: فاز اول پوستهٔ بخش گزارش نماز در لایهٔ داده پیاده شد (F-088/F-089، ADR-61، V-220، `../project-memory/INDEX_SECTION_SHELL_DESIGN.md`): فرهنگ دادهٔ نسخه‌دار و ابزار وضعیت‌سنجی ۱۴۰۵ در `reporting/metrics.py`، رجیستری نومکلف دومنته/امام جماعت/نمازخانه/واحد و فکت رجیستری در `reporting/registry.py`، ابلاغ و ۱۲ ریزبرنامهٔ مصوب با هدف کمی و محاسبهٔ تحقق در `reporting/plans.py`، واردسازی کاربرگ وضعیت‌سنجی با صف کاندید در `reporting/assessment_import.py` و دو پروجکشن (کاربرگ بازدید و پروندهٔ بازدید) در `reporting/projections.py`. `ReportingStore` به schema v2 ارتقا یافت (۸ جدول تازه + ستون campaign با مهاجرت) و صفحه‌های خروجی فقط شمارش تجمیعی دارند (بدون PII). اتصال API/UI و واردسازی واقعی فایل کاربر هنوز pending است؛ کد مرجع، کاربرگ بازدید استانی و مرجع شاخصهٔ برنامهٔ نماز، فرم بومی ستاد اقامه نماز است (تصریح کاربر 2026-09-27).
 
 Milestone IR-0-A/SRC-IR-001: کاربر workbook برنامه‌های متناظر ۱۴۰۵ را تنها سند موجود معرفی و ثبت آن به‌عنوان مرجع را درخواست کرد. فایل با SHA-256=`B7A8A79...FB9296` فقط‌خواندنی بررسی شد: هفت sheet/ناحیهٔ جدولی و formula صفر. transcription برنامه‌ها و قواعد مستقیم ثبت شده، اما تعارض کد `80402`، معنای ستاره، grain ردیف، projection زیارت عاشورا و سایر برداشت‌ها تا پاسخ‌های شماره‌دار کاربر باز هستند. فایل اصلی untracked و خارج از Git باقی است؛ محصول/runtime/schema تغییر نکرد.
 
@@ -114,7 +134,7 @@ AppUser -> Membership -> PhoneAccount -> MessengerAccount -> Provider Runtime
 | Provider | مدل/Registry | Adapter واقعی | ورود واقعی | اولویت |
 |---|---:|---:|---:|---:|
 | Eitaa | موجود | موجود | پذیرفته شده | اول |
-| Bale Personal | `implemented` + مرجع F-046؛ configured/runtime/onboarding=false | factory ندارد؛ compatibility class پیش از client/session/network رد می‌شود | انجام نشده | G-02 آفلاین `599/599` |
+| Bale Personal | `implemented` + مجاز به تصمیم مالک F-086/ADR-60؛ configured=true، runtime/onboarding=false تا اتصال فاز بعدی | آداپتور واقعی متصل به `bale_client` (پذیرش زندهٔ نشست V-194)؛ probe قرارداد آفلاین سبز | عملیات نشست روی شاخهٔ Bale پذیرش زنده شده (V-194)؛ ارسال از مسیر orchestrator هنوز Live نیست | V-215 آفلاین |
 | Bale Bot/Arm | تصمیم تاریخی بازیابی‌شده؛ مرجع جاری F-046 | مسیر رسمی در حافظه ثبت شده، اما قابلیت تازه در دامنهٔ تثبیت نیست | انجام نشده | خارج از توسعهٔ جاری |
 | Rubika | تصمیم معماری | موجود نیست | انجام نشده | آینده |
 | SoroushPlus | تصمیم معماری | موجود نیست | انجام نشده | آینده |
@@ -138,7 +158,7 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 - دکمه و Dialog «افزودن حساب پیام‌رسان» Provider فعال را از catalog می‌گیرد، شمارهٔ E.164 و label اختیاری را می‌پذیرد و مقدار خصوصی را پس از submit/cancel پاک می‌کند.
 - `POST /api/v2/messenger-accounts` فقط فیلدهای `provider/phone/label` را می‌پذیرد؛ `token` در این مرز مردود است و فقط descriptor دارای identity kind برابر `phone_e164` وارد PhoneAccount می‌شود. شناسه‌ها، Membership و مسیرها سمت سرور ساخته می‌شوند.
 - ساخت حساب تازه Worker یا اتصال شبکه را خودکار آغاز نمی‌کند. کاربر حساب را صریح Start می‌کند و سپس Auth flow مرحله‌ای موجود در scope همان MessengerAccount اجرا می‌شود.
-- Eitaa onboardable است. Bale با `onboarding_enabled=false` و `provider_adapter_not_configured` صادقانه غیرفعال است؛ fixture محلی نیز همین descriptor را نشان می‌دهد. هیچ Login/OTP/Send بله در تثبیت اجرا نشد.
+- Eitaa onboardable است. Bale با تصمیم مالک F-086/ADR-60 مجاز شده؛ descriptor با `configured=true` و reason صادقانهٔ `provider_onboarding_wiring_pending` نمایش داده می‌شود (onboarding چندProvider هنوز وصل نشده؛ استفادهٔ عملیاتی از سطح v1 شاخهٔ Bale انجام می‌شود).
 - تکرار/restart/race همان مالک idempotent است و مالک دیگر نمی‌تواند هویت ثبت‌شده را claim یا از پاسخ وجود آن را استنتاج کند.
 - نصب فعلی فقط یک حساب واقعی ایتا در انتخاب‌گر دارد؛ بنابراین تعویض واقعی میان دو حساب هنوز پذیرش نشده است.
 - صفحهٔ ورود اکنون دکمهٔ «کاربر جدید هستم» دارد و ثبت‌نام خودخدمت در شبکهٔ خصوصی، بدون امکان انتخاب نقش مدیر، انجام می‌شود.
@@ -171,6 +191,8 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 ## فصل ۵ — وضعیت استقرار و عملیات
 
 - پروفایل‌های `desktop_loopback`، `trusted_lan_http` و `web_reverse_proxy` از یکدیگر جدا هستند.
+- احراز هویت پیام‌رسان از مرورگر راه دور فقط با flag صریح در `web_reverse_proxy` معتبر است؛ پروفایل تولید Linux آن را فعال دارد و `trusted_lan_http` همچنان درخواست‌های OTP/2FA راه دور را fail-closed رد می‌کند.
+- هویت شمارهٔ حساب در AppAuth، Registry و Child بر اساس سیستم‌عامل با یک انتخاب‌گر مشترک باز می‌شود؛ Linux از کلید سرویس و Windows از DPAPI استفاده می‌کند.
 - Port/Host/IP سیستم توسعه قرارداد ثابت محصول نیست.
 - Port 443 به TLS termination/Reverse Proxy نیاز دارد و HTTP ساده محسوب نمی‌شود.
 - پورت داخلی Backend اکنون فقط از بخش Material UI «تنظیمات ← شبکه و وب» تغییر می‌کند. سرویس پیش از write قرارداد deployment را اعتبارسنجی و Host/Origin داخلی را هماهنگ می‌کند؛ mutation فقط برای مدیر، با CSRF و تأیید صریح است و پس از ذخیره restart لازم است.
@@ -246,6 +268,29 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 - retention/disk health محلی در دامنهٔ مصنوعی G-08 بسته است؛ Web metrics همچنان deployment-dependent و deferred است.
 
 Trigger ابطال: تغییر فایل‌های diagnostics، API dispatch/HTTP header، Electron main/preload/observability یا React root/error boundary.
+
+## وضعیت ورود وب و بازیابی آغاز نرم‌افزار (2026-09-24)
+
+- در AppUser Auth، مرورگر برای وضعیت ورود، login و APIهای دارای نشست به Bearer
+  محلی نیاز ندارد؛ نشست AppUser، کنترل حساب و CSRF مرز دسترسی کاربر هستند.
+  Bearer به‌تنهایی مجوز مسیر ارسال پیام یا سایر APIهای محافظت‌شده نمی‌دهد.
+- خطای آغاز ورود به پیام قابل اقدام و کد امن تبدیل می‌شود. خطای گذرا فقط یک بار
+  به‌طور خودکار تکرار می‌شود؛ درخواست وضعیت ورود رویداد refresh دوباره تولید
+  نمی‌کند و تلاش دستی در صفحه باقی می‌ماند.
+- gate انتشار Linux باید readiness و وضعیت ورود بدون credential را از gateway
+  هم‌میزبان تأیید کند و در شکست هرکدام نسخهٔ قبلی را با مسیر رسمی بازگرداند.
+- سطح شاهد: آزمون کامل محلی و پذیرش زندهٔ بدون credential در V-201؛ ورود
+  واقعی مدیر از HTTPS در V-202 تأیید شد. در V-203 توکن‌ها و نشست‌های فعال
+  باطل شدند و کپی توکن `onlineexam` نیز حذف شد. وضعیت جاری پس از V-204:
+  داده‌های عملیاتی ایتا بنا به درخواست صریح مالک کاملاً بازنشانی شدند؛ تنها
+  یک AppUser با نام کاربری `آخوندیان` و نقش مدیر کل وجود دارد و هیچ حساب
+  پیام‌رسان، مخاطب، فایل نشست یا ردیف نشست باقی نمانده است. سرویس و readiness
+  سالم‌اند و ورود HTTPS مدیر تازه تأیید شد. backend `onlineexam` بدون توکن
+  سالم است؛ اتصال ایتا و ارسال OTP آن تا پیکربندی مجاز تازه ممکن نیست.
+- در V-207، نسخهٔ محلی با اصلاح پاسخ Child در release
+  `20260925T194540Z-52d1b93b938b` منتشر شد. ماژول نصب‌شدهٔ سرور اصلاح را
+  دارد، آزمون مصنوعی IPC را گذرانده، سرویس فعال و UI/وضعیت ورود HTTP 200
+  هستند. پذیرش واقعی OTP و نمایش پس از refresh هنوز در انتظار آزمون کاربر است.
 
 ## فصل ۸ — مرجع ساختار و مستندات
 

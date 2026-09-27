@@ -64,6 +64,14 @@ check('account switching and runnable state use provider capabilities', () => {
   assert.match(gate, /adapters\[account\.provider\]\?\.runtime_enabled/)
 })
 
+check('login keeps account identity explicit and offers a different account path', () => {
+  assert.match(gate, /export function AddMessengerAccountButton\(\)/)
+  assert.match(app, /messengerAccounts\.featureEnabled && <>[\s\S]*<MessengerAccountMenuControl \/>[\s\S]*<AddMessengerAccountButton \/>/)
+  assert.match(app, /e\.code === 'eitaa_account_phone_mismatch'/)
+  assert.match(app, /messengerAccounts\.selected\.phone_hint/)
+  assert.match(app, /اصلاح شمارهٔ همین حساب/)
+})
+
 check('dialog has bounded responsive width and an explicit privacy notice', () => {
   assert.match(gate, /<Dialog open=\{open\}[\s\S]*fullWidth maxWidth="sm"/)
   assert.match(gate, /شماره فقط برای ساخت هویت رمزگذاری‌شده/)

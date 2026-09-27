@@ -1,4 +1,4 @@
-"""Registry layer of the reporting section shell (F-075 / ADR-55).
+"""Registry layer of the reporting section shell (F-088 / ADR-61).
 
 The بانک اطلاعات is a registry of real records, not a set of counts. Records
 carry provenance, a version, evidence references and (for persons) optional
@@ -151,7 +151,7 @@ class NomokalafRecord:
 
 @dataclass(slots=True)
 class EntityFact:
-    """A quantified claim about a registry entity for a period (ADR-55).
+    """A quantified claim about a registry entity for a period (ADR-61).
 
     Mirrors ``model.Fact`` but scoped to an entity instead of an event.
     Numeric metrics populate ``value``; choice and text metrics keep their

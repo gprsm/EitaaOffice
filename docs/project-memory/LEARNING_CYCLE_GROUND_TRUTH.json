@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "description": "Continuous Learning Ground Truth Repository for Eitaa Cultural Indexer. Stores human decisions, rule overrides, and verified event classifications.",
+  "last_updated": "2026-09-25",
+  "records": [
+    {
+      "record_id": "GT-WP-0938",
+      "post_id": 938,
+      "event_key": "event-14394054-11994",
+      "source_message_ids": [11994, 11995, 11996, 11997, 11998, 11999, 12000, 12001, 12002, 12003, 12004, 12005, 12006, 12007, 12008, 12009, 12010],
+      "title": "آیین تجلیل از رئیس‌کل دادگستری مازندران و خادمان نماز با حضور مدیر ستاد اقامه نماز استان",
+      "verified_primary_code": "80406",
+      "program_name": "تکریم و تجلیل از همکاران",
+      "secondary_codes": ["80402", "80501"],
+      "rule_precedence": "VERB_OVER_NOUN",
+      "rationale": "با وجود به کار رفتن واژه نماز، فعل غالب رویداد تجلیل و اهدای لوح است. طبق ردیف ۱۲ شیت تکریم و تجلیل (۸۰۴۰۶) کاربرگ ۱۴۰۵، تجلیل از خادمان نماز با حضور رئیس کل دادگستری صراحتاً مصداق شیت تکریم است. در وردپرس دارای دو دسته مراسم و تکریم است.",
+      "photo_count": 17,
+      "innovation": {
+        "detected": true,
+        "reasons": [
+          "مشارکت و همکاری با نهاد بیرونی (ستاد اقامه نماز استان)",
+          "حضور بالاترین مقام اجرایی نهاد تخصصی (مدیر ستاد اقامه نماز استان)"
+        ]
+      },
+      "feedback_source": "USER_INTERACTIVE_DIALOGUE",
+      "verified_at": "2026-09-25"
+    },
+    {
+      "record_id": "GT-WP-0945",
+      "post_id": 945,
+      "event_key": "event-14394054-12099",
+      "source_message_ids": [12099, 30270, 65419],
+      "title": "ابلاغ و اجرای دوره آموزشی توانمندسازی اخلاق حرفه‌ای و اداری در راستای منشور اخلاقی",
+      "verified_primary_code": "80202",
+      "program_name": "اجرای منشور اخلاقی و ارتقای سلامت اداری",
+      "secondary_codes": ["training"],
+      "rule_precedence": "CHARTER_VIA_TRAINING",
+      "rationale": "طبق ردیف ۸ شیت منشور اخلاقی (۸۰۲۰۲) کاربرگ ۱۴۰۵، برگزاری دوره‌های آموزشی اخلاق حرفه‌ای، اداری و سازمانی مصداق تحقق منشور اخلاقی و ارتقای سلامت نظام اداری است و کد برنامه نباید بلااستفاده بماند.",
+      "photo_count": 9,
+      "innovation": {
+        "detected": false,
+        "reasons": []
+      },
+      "feedback_source": "USER_INTERACTIVE_DIALOGUE",
+      "verified_at": "2026-09-25"
+    }
+  ]
+}

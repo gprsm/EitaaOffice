@@ -281,7 +281,12 @@ class BaleApiService:
 
     def dialogs_list(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         api = self._connected_api()
-        return self.run_coro(api.list_dialogs(limit=int(payload.get("limit", 20))))
+        limit = int(payload.get("limit", 20))
+        kwargs: dict[str, Any] = {"limit": limit}
+        if payload.get("offset_date") is not None:
+            kwargs["offset_date"] = int(payload["offset_date"])
+        return self.run_coro(api.list_dialogs(**kwargs))
+
 
     def send_text(self, payload: dict[str, Any]) -> dict[str, Any]:
         api = self._connected_api()

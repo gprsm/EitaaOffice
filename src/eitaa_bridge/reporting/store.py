@@ -259,7 +259,7 @@ class ReportingStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_nomokalaf_unit_year ON registry_nomokalaf(unit_id, year);
                 -- PII notice: person columns above stay inside the local store;
-                -- projections aggregate to counts only (F-075 privacy rule).
+                -- projections aggregate to counts only (F-088 privacy rule).
 
                 CREATE TABLE IF NOT EXISTS entity_facts (
                     fact_id TEXT PRIMARY KEY,
@@ -1025,7 +1025,7 @@ class ReportingStore:
                 )
 
     # ----------------------------------------------------------------------
-    # Registry: Units (shell phase 1, F-075)
+    # Registry: Units (shell phase 1, F-088)
     # ----------------------------------------------------------------------
     def find_unit_by_name(self, name: str) -> UnitRecord | None:
         with self._connect() as conn:

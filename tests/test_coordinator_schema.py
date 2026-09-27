@@ -77,18 +77,25 @@ def test_schema6_upgrades_atomically_to_persistent_provider_receipts(tmp_path):
             "DROP TRIGGER provider_operation_receipts_provider_scope_insert"
         )
         connection.execute("DROP TABLE provider_operation_receipts")
-        connection.execute("DELETE FROM schema_migrations WHERE version=7")
+        connection.execute("DROP TABLE service_credentials")
+        connection.execute("DELETE FROM schema_migrations WHERE version>=7")
         connection.execute("PRAGMA user_version=6")
         connection.commit()
 
     database.initialize()
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION
         assert connection.execute(
             """
             SELECT COUNT(*) FROM sqlite_master
             WHERE type='table' AND name='provider_operation_receipts'
+            """
+        ).fetchone()[0] == 1
+        assert connection.execute(
+            """
+            SELECT COUNT(*) FROM sqlite_master
+            WHERE type='table' AND name='service_credentials'
             """
         ).fetchone()[0] == 1
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -235,3 +242,131 @@ def test_product_phone_display_preserves_full_canonical_e164():
             pytrace=False,
         )
 
+
+
+def test_schema9_binds_service_receipts_and_keeps_legacy_conservative(tmp_path):
+    """F-085 gap #3: v9 adds per-service receipt ownership; a legacy v8 store
+    upgrades in place, and owner-less receipts are never attributed to a
+    service (no guessing)."""
+    from eitaa_bridge.infrastructure.coordinator.receipts import (
+        ProviderOperationReceiptStore,
+    )
+    from eitaa_bridge.infrastructure.coordinator.schema import (
+        SCHEMA_CHECKSUMS,
+        SCHEMA_V2_SQL,
+        SCHEMA_V3_SQL,
+        SCHEMA_V4_SQL,
+        SCHEMA_V5_SQL,
+        SCHEMA_V6_SQL,
+        SCHEMA_V7_SQL,
+        SCHEMA_V8_SQL,
+    )
+
+    path = tmp_path / "coordinator-v8.sqlite3"
+    with sqlite3.connect(path) as connection:
+        script = "BEGIN;\n" + SCHEMA_V1_SQL
+        script += f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(1,'{SCHEMA_V1_CHECKSUM}','now');\n"
+        for version, sql in (
+            (2, SCHEMA_V2_SQL),
+            (3, SCHEMA_V3_SQL),
+            (4, SCHEMA_V4_SQL),
+            (5, SCHEMA_V5_SQL),
+            (6, SCHEMA_V6_SQL),
+            (7, SCHEMA_V7_SQL),
+            (8, SCHEMA_V8_SQL),
+        ):
+            script += sql
+            script += f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES({version},'{SCHEMA_CHECKSUMS[version]}','now');\n"
+        script += "PRAGMA user_version=8;\nCOMMIT;\n"
+        connection.executescript(script)
+
+    database = CoordinatorDatabase(path)
+    database.initialize()
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(provider_operation_receipts)")
+        }
+        assert "service_credential_id" in columns
+
+    summary = database.bootstrap_legacy_account(
+        protected_phone=protected_phone(),
+        display_name="Initial administrator",
+        backup_name="verified.zip",
+        source_manifest_sha256="a" * 64,
+        source_file_count=1,
+        source_total_bytes=1,
+    )
+    admin_id = summary.app_user_id
+    account_id = summary.messenger_account_id
+
+    store = ProviderOperationReceiptStore(database)
+    fingerprint = hashlib.sha256(b"synthetic-payload").hexdigest()
+    deadline = 4_000_000_000_000
+
+    legacy_claim = store.claim(
+        messenger_account_id=account_id,
+        actor_app_user_id=admin_id,
+        actor_global_role="admin",
+        operation="messages.send_text",
+        idempotency_key="legacy-key-0000001",
+        request_fingerprint=fingerprint,
+        claim_deadline_unix_ms=deadline,
+    )
+    assert legacy_claim.claimed is True
+    assert legacy_claim.receipt.service_credential_id is None
+    store.complete(
+        messenger_account_id=account_id,
+        actor_app_user_id=admin_id,
+        operation="messages.send_text",
+        idempotency_key="legacy-key-0000001",
+        request_fingerprint=fingerprint,
+        outcome="succeeded",
+        result_reference="message:1",
+        contact_created=None,
+        safe_reason_code=None,
+    )
+
+    # A service credential replaying a legacy key must be refused: the owner
+    # of the legacy receipt is unknown and is never guessed.
+    with pytest.raises(CoordinatorSchemaError) as conservative:
+        store.claim(
+            messenger_account_id=account_id,
+            actor_app_user_id=admin_id,
+            actor_global_role="user",
+            operation="messages.send_text",
+            idempotency_key="legacy-key-0000001",
+            request_fingerprint=fingerprint,
+            claim_deadline_unix_ms=deadline,
+            service_credential_id="00000000-0000-4000-8000-0000000000c1",
+        )
+    assert conservative.value.code == "provider_idempotency_owner_mismatch"
+
+    # A service-bound claim stores its owner and replays only for the owner.
+    service_claim = store.claim(
+        messenger_account_id=account_id,
+        actor_app_user_id=admin_id,
+        actor_global_role="user",
+        operation="messages.send_text",
+        idempotency_key="service-key-00000001",
+        request_fingerprint=fingerprint,
+        claim_deadline_unix_ms=deadline,
+        service_credential_id="00000000-0000-4000-8000-0000000000c1",
+    )
+    assert service_claim.claimed is True
+    assert service_claim.receipt.service_credential_id == "00000000-0000-4000-8000-0000000000c1"
+
+    with pytest.raises(CoordinatorSchemaError) as other_service:
+        store.claim(
+            messenger_account_id=account_id,
+            actor_app_user_id=admin_id,
+            actor_global_role="user",
+            operation="messages.send_text",
+            idempotency_key="service-key-00000001",
+            request_fingerprint=fingerprint,
+            claim_deadline_unix_ms=deadline,
+            service_credential_id="00000000-0000-4000-8000-0000000000c2",
+        )
+    assert other_service.value.code == "provider_idempotency_owner_mismatch"

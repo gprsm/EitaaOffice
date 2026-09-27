@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import {
@@ -18,6 +19,7 @@ import {
   Typography,
 } from '@mui/material'
 import { api, APP_AUTH_SESSION_INVALID_EVENT, setAppUserStorageScope } from './lib/api'
+import { authStartupFailure, authStartupRetryDelay, type AuthStartupFailure } from './lib/authStartupRecovery.mjs'
 import { LoginSurface } from './LoginExperience'
 import { AuthBrandMark, AuthBrandPill } from './AuthBrand'
 
@@ -98,15 +100,34 @@ export function AppUserLogoutButton({ disabled = false }: { disabled?: boolean }
 
 export function AppUserGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AppAuthStatus | null>(null)
-  const [fatal, setFatal] = useState('')
+  const [fatal, setFatal] = useState<AuthStartupFailure | null>(null)
+  const refreshInFlight = useRef<Promise<void> | null>(null)
 
-  const refresh = useCallback(async () => {
-    setFatal('')
-    try {
-      setStatus(await api<AppAuthStatus>('GET', '/api/v2/app-auth/status'))
-    } catch (error) {
-      setFatal(error instanceof Error ? error.message : 'بررسی ورود نرم‌افزار انجام نشد.')
+  const refresh = useCallback((): Promise<void> => {
+    if (refreshInFlight.current) return refreshInFlight.current
+    const run = async () => {
+      setFatal(null)
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          setStatus(await api<AppAuthStatus>('GET', '/api/v2/app-auth/status'))
+          return
+        } catch (error) {
+          const delay = authStartupRetryDelay(error, attempt)
+          if (delay !== null) {
+            await new Promise(resolve => window.setTimeout(resolve, delay))
+            continue
+          }
+          setFatal(authStartupFailure(error))
+          return
+        }
+      }
     }
+    const pending = run()
+    refreshInFlight.current = pending
+    void pending.finally(() => {
+      if (refreshInFlight.current === pending) refreshInFlight.current = null
+    })
+    return pending
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
@@ -131,7 +152,8 @@ export function AppUserGate({ children }: { children: ReactNode }) {
   if (fatal) {
     return <LoginSurface><Stack spacing={2}>
       <Typography variant="h5" textAlign="center">راه‌اندازی ورود نرم‌افزار انجام نشد</Typography>
-      <Alert severity="error">{fatal}</Alert>
+      <Alert severity="error">{fatal.message}</Alert>
+      {fatal.code && <Typography variant="body2" textAlign="center">کد خطا: {fatal.code}</Typography>}
       <Button variant="contained" onClick={() => void refresh()}>تلاش دوباره</Button>
     </Stack></LoginSurface>
   }

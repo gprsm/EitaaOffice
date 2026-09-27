@@ -446,7 +446,7 @@ function AccountCard(props: {
   </Paper>
 }
 
-function AddMessengerAccountButton() {
+export function AddMessengerAccountButton() {
   const state = useMessengerAccounts()
   const [open, setOpen] = useState(false)
   const [provider, setProvider] = useState('')

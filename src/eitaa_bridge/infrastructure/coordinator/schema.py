@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-COORDINATOR_SCHEMA_VERSION = 7
+COORDINATOR_SCHEMA_VERSION = 9
 
 SCHEMA_V1_SQL = """
 CREATE TABLE schema_migrations (
@@ -759,6 +759,23 @@ END;
 
 """
 
+SCHEMA_V8_SQL = """
+CREATE TABLE service_credentials (
+    id TEXT PRIMARY KEY CHECK(length(id) = 36),
+    service_name TEXT NOT NULL UNIQUE CHECK(length(service_name) BETWEEN 3 AND 64),
+    token_hash TEXT NOT NULL,
+    salt BLOB NOT NULL,
+    allowed_providers TEXT NOT NULL,
+    allowed_messenger_account_ids TEXT,
+    scopes TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    revoked_at TEXT,
+    created_by_app_user_id TEXT NOT NULL REFERENCES app_users(id),
+    description TEXT NOT NULL
+);
+"""
+
 SCHEMA_V1_CHECKSUM = hashlib.sha256(SCHEMA_V1_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V2_CHECKSUM = hashlib.sha256(SCHEMA_V2_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V3_CHECKSUM = hashlib.sha256(SCHEMA_V3_SQL.encode("utf-8")).hexdigest()
@@ -766,6 +783,13 @@ SCHEMA_V4_CHECKSUM = hashlib.sha256(SCHEMA_V4_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V5_CHECKSUM = hashlib.sha256(SCHEMA_V5_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V6_CHECKSUM = hashlib.sha256(SCHEMA_V6_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V7_CHECKSUM = hashlib.sha256(SCHEMA_V7_SQL.encode("utf-8")).hexdigest()
+SCHEMA_V8_CHECKSUM = hashlib.sha256(SCHEMA_V8_SQL.encode("utf-8")).hexdigest()
+
+SCHEMA_V9_SQL = """
+ALTER TABLE provider_operation_receipts ADD COLUMN service_credential_id TEXT;
+"""
+
+SCHEMA_V9_CHECKSUM = hashlib.sha256(SCHEMA_V9_SQL.encode("utf-8")).hexdigest()
 SCHEMA_CHECKSUMS = {
     1: SCHEMA_V1_CHECKSUM,
     2: SCHEMA_V2_CHECKSUM,
@@ -774,8 +798,10 @@ SCHEMA_CHECKSUMS = {
     5: SCHEMA_V5_CHECKSUM,
     6: SCHEMA_V6_CHECKSUM,
     7: SCHEMA_V7_CHECKSUM,
+    8: SCHEMA_V8_CHECKSUM,
+    9: SCHEMA_V9_CHECKSUM,
 }
-SCHEMA_CHECKSUM = SCHEMA_V7_CHECKSUM
+SCHEMA_CHECKSUM = SCHEMA_V9_CHECKSUM
 
 
 def initial_schema_script() -> str:
@@ -809,13 +835,21 @@ def initial_schema_script() -> str:
         + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
         + f"7,'{SCHEMA_V7_CHECKSUM}',"
         + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+        + SCHEMA_V8_SQL
+        + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
+        + f"8,'{SCHEMA_V8_CHECKSUM}',"
+        + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+        + SCHEMA_V9_SQL
+        + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
+        + f"9,'{SCHEMA_V9_CHECKSUM}',"
+        + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
         + f"PRAGMA user_version={COORDINATOR_SCHEMA_VERSION};\n"
         + "COMMIT;\nPRAGMA foreign_keys=ON;\n"
     )
 
 
 def upgrade_schema_script(from_version: int) -> str:
-    if from_version not in {1, 2, 3, 4, 5, 6}:
+    if from_version not in {1, 2, 3, 4, 5, 6, 7, 8}:
         raise ValueError("unsupported coordinator schema upgrade")
     parts = ["PRAGMA foreign_keys=OFF;\nBEGIN IMMEDIATE;\n"]
     if from_version == 1:
@@ -863,13 +897,31 @@ def upgrade_schema_script(from_version: int) -> str:
                 "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
             ]
         )
+    if from_version <= 6:
+        parts.extend(
+            [
+                SCHEMA_V7_SQL,
+                "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(",
+                f"7,'{SCHEMA_V7_CHECKSUM}',",
+                "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
+            ]
+        )
+    if from_version <= 7:
+        parts.extend(
+            [
+                SCHEMA_V8_SQL,
+                "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(",
+                f"8,'{SCHEMA_V8_CHECKSUM}',",
+                "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
+            ]
+        )
     parts.extend(
         [
-            SCHEMA_V7_SQL,
+            SCHEMA_V9_SQL,
             "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(",
-            f"7,'{SCHEMA_V7_CHECKSUM}',",
+            f"9,'{SCHEMA_V9_CHECKSUM}',",
             "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
-            "PRAGMA user_version=7;\n",
+            "PRAGMA user_version=9;\n",
             "COMMIT;\n",
             "PRAGMA foreign_keys=ON;\n",
         ]
@@ -917,6 +969,6 @@ REQUIRED_TABLES_V5 = REQUIRED_TABLES_V4 | frozenset({"job_leases"})
 
 REQUIRED_TABLES_V6 = REQUIRED_TABLES_V5 | frozenset({"provider_registrations"})
 
-REQUIRED_TABLES = REQUIRED_TABLES_V6 | frozenset(
-    {"provider_operation_receipts"}
-)
+REQUIRED_TABLES_V7 = REQUIRED_TABLES_V6 | frozenset({"provider_operation_receipts"})
+
+REQUIRED_TABLES = REQUIRED_TABLES_V7 | frozenset({"service_credentials"})

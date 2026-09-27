@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+domain=eitaa.farhangimaz.ir
+credential_file=/home/akhoondian/deploy/.eitaa-initial-admin
+[[ -r "$credential_file" ]] || {
+    echo "validate-live: protected initial credential file is unavailable" >&2
+    exit 1
+}
+
+umask 077
+temporary=$(mktemp -d)
+trap 'rm -rf -- "$temporary"' EXIT
+password=$(sed -n 's/^password=//p' "$credential_file")
+[[ -n "$password" ]] || {
+    echo "validate-live: initial password is unavailable" >&2
+    exit 1
+}
+python3 - "$password" "$temporary/login.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+Path(sys.argv[2]).write_text(json.dumps({
+    "username": "admin",
+    "password": sys.argv[1],
+}), encoding="utf-8")
+PY
+
+redirect=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    --header "Host: $domain" http://127.0.0.1/)
+echo "redirect_status=$redirect"
+[[ "$redirect" == "308" ]]
+
+index_status=$(curl --insecure --silent --output "$temporary/index.html" \
+    --write-out '%{http_code}' --resolve "$domain:443:127.0.0.1" \
+    "https://$domain/")
+echo "index_status=$index_status"
+[[ "$index_status" == "200" ]]
+grep -q '<div id="root"></div>' "$temporary/index.html"
+
+login_status=$(curl --insecure --silent --show-error \
+    --output "$temporary/login-response.json" \
+    --dump-header "$temporary/login-headers.txt" \
+    --cookie-jar "$temporary/cookies.txt" \
+    --write-out '%{http_code}' \
+    --resolve "$domain:443:127.0.0.1" \
+    --header 'Content-Type: application/json' \
+    --header "Origin: https://$domain" \
+    --data-binary "@$temporary/login.json" \
+    "https://$domain/api/v2/app-auth/login")
+echo "login_status=$login_status"
+if [[ "$login_status" != "200" ]]; then
+    python3 - "$temporary/login-response.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+error = payload.get("error") if isinstance(payload, dict) else None
+code = (
+    error.get("error_code") or error.get("code")
+    if isinstance(error, dict)
+    else "unknown"
+)
+print(f"login_error_code={code}")
+PY
+    exit 1
+fi
+python3 - "$temporary/login-response.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("authenticated") is not True:
+    raise SystemExit("validate-live: login was not authenticated")
+PY
+grep -qi 'set-cookie:.*Secure' "$temporary/login-headers.txt"
+grep -qi 'set-cookie:.*HttpOnly' "$temporary/login-headers.txt"
+grep -qi 'set-cookie:.*SameSite=Strict' "$temporary/login-headers.txt"
+
+me_status=$(curl --insecure --silent --output "$temporary/me.json" \
+    --write-out '%{http_code}' --resolve "$domain:443:127.0.0.1" \
+    --cookie "$temporary/cookies.txt" \
+    "https://$domain/api/v2/app-auth/me")
+echo "me_status=$me_status"
+[[ "$me_status" == "200" ]]
+
+echo "validate-live: redirect, UI, login, secure cookie, and session checks passed"

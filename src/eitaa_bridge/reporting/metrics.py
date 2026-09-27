@@ -1,4 +1,4 @@
-"""Versioned metric dictionary for the reporting section shell (F-075).
+"""Versioned metric dictionary for the reporting section shell (F-088).
 
 Every quantitative claim in the shell must resolve to a metric defined here.
 A metric carries its unit, optional ordered choices, the entity kinds it can
@@ -18,7 +18,7 @@ METRIC_DICTIONARY_VERSION = "prayer-metrics-v1"
 
 UNITS = frozenset({"count", "currency", "percent", "text", "choice"})
 
-# Entity kinds a fact may attach to (ADR-55: facts attach to events AND to
+# Entity kinds a fact may attach to (ADR-61: facts attach to events AND to
 # registry entities such as units, venues and imams).
 ENTITY_KINDS = frozenset({"event", "unit", "venue", "imam", "nomokalaf"})
 

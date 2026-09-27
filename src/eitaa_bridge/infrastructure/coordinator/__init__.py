@@ -5,6 +5,7 @@ from .app_auth import (
     AppPrincipal,
     AuthorizedAppSession,
     CoordinatorAppAuth,
+    FileKeySubjectFingerprinter,
     IssuedAppSession,
     PasswordHasher,
     StaticSubjectFingerprinter,
@@ -20,9 +21,11 @@ from .audit import (
     SafeCoordinatorAuditService,
 )
 from .identity import (
+    FileKeyPhoneProtector,
     PhoneProtector,
     ProtectedPhone,
     WindowsDpapiPhoneProtector,
+    default_phone_protector,
     masked_phone,
     validate_canonical_e164,
 )
@@ -83,6 +86,8 @@ __all__ = [
     "ExecutionErrorClass",
     "ExecutionPermit",
     "FailureDecision",
+    "FileKeyPhoneProtector",
+    "FileKeySubjectFingerprinter",
     "IssuedAppSession",
     "JobAttemptRecord",
     "JobLeaseRecord",
@@ -111,6 +116,7 @@ __all__ = [
     "StaticSubjectFingerprinter",
     "WindowsDpapiPhoneProtector",
     "WindowsDpapiSubjectFingerprinter",
+    "default_phone_protector",
     "masked_phone",
     "normalize_username",
     "validate_display_name",

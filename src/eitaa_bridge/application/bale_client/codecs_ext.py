@@ -90,6 +90,10 @@ class DialogSummary:
     unread_mentions: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        doc_dict = None
+        if self.last_document:
+            doc_dict = self.last_document.to_dict()
+            doc_dict["media_kind"] = classify_media(self.last_document)
         return {
             "peer": {"id": self.peer.id, "type": int(self.peer.type)},
             "unread_count": self.unread_count,
@@ -98,9 +102,10 @@ class DialogSummary:
             "last_message_id": self.last_message_id,
             "last_message_date": self.last_message_date,
             "last_text": self.last_text,
-            "last_document": self.last_document.to_dict() if self.last_document else None,
+            "last_document": doc_dict,
             "unread_mentions": self.unread_mentions,
         }
+
 
 
 def build_import_contacts(entries: list[tuple[int, str]]) -> bytes:
@@ -350,10 +355,10 @@ def decode_dialog_summaries(data: bytes) -> list[DialogSummary]:
             DialogSummary(
                 peer=peer,
                 unread_count=int(get_first(fields, 2, 0) or 0),
-                sort_date=_int_or_none(get_first(fields, 3)),
+                sort_date=_signed_int_or_none(get_first(fields, 3)),
                 sender_id=_int_or_none(get_first(fields, 4)),
                 last_message_id=_int_or_none(get_first(fields, 5)),
-                last_message_date=_int_or_none(get_first(fields, 6)),
+                last_message_date=_signed_int_or_none(get_first(fields, 6)),
                 last_text=text,
                 last_document=document,
                 unread_mentions=_int_or_none(unread_mentions),
@@ -364,6 +369,13 @@ def decode_dialog_summaries(data: bytes) -> list[DialogSummary]:
 
 def _int_or_none(value: Any) -> int | None:
     return value if isinstance(value, int) else None
+
+
+def _signed_int_or_none(value: Any) -> int | None:
+    if not isinstance(value, int):
+        return None
+    return value - (1 << 64) if value >= (1 << 63) else value
+
 
 
 def classify_media(file_details: FileDetails) -> str:

@@ -1,4 +1,4 @@
-"""Tests for the section-shell phase 1 (F-075): metrics, registry, plans,
+"""Tests for the section-shell phase 1 (F-088): metrics, registry, plans,
 assessment import, normalization queue and projections."""
 
 from __future__ import annotations

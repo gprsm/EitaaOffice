@@ -1,4 +1,4 @@
-0.7.0-ui-mvp6.1.1-gmi4.2
+0.7.0-ui-mvp6.1.1-bale1
 package=0.7.0.dev31
 core=0.6.0-core7.4.5-gmi1
 core_package=0.6.0.dev19
@@ -6,4 +6,4 @@ schema=9
 content_index_schema=2
 contact_schema=1
 ui=0.7.29
-stage=gmi4.2-rtl-eitaa-contacts-quick-send
+stage=bale-branch-production

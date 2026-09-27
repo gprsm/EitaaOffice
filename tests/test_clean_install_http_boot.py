@@ -139,3 +139,40 @@ def test_clean_install_upload_returns_safe_error_not_crash(config_file: Path) ->
         server.shutdown()
         server.server_close()
         api.close()
+
+
+def test_in_process_install_restarts_with_admin_but_no_messenger_account(
+    config_file: Path,
+) -> None:
+    _write_clean_install_config(config_file)
+    payload = json.loads(config_file.read_text(encoding="utf-8"))
+    payload["features"]["worker_process"]["enabled"] = False
+    config_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    first = BridgeApplicationApi(config_file)
+    try:
+        setup = first.dispatch(
+            "POST",
+            "/api/v2/app-auth/setup",
+            body={
+                "username": "admin",
+                "password": "SyntheticTestPassword123!",
+                "display_name": "Test admin",
+            },
+            client_kind="test",
+            client_address="127.0.0.1",
+        )
+        assert setup.status in (200, 201), setup.payload
+    finally:
+        first.close()
+
+    restarted = BridgeApplicationApi(config_file)
+    try:
+        status = restarted.dispatch(
+            "GET", "/api/v2/app-auth/status", client_address="127.0.0.1"
+        )
+        assert status.status == 200
+        assert status.payload["setup_required"] is False
+        assert status.payload["authenticated"] is False
+    finally:
+        restarted.close()
