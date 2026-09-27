@@ -519,6 +519,20 @@ class BridgeApplicationApi:
             logger=self._application_logger,
             receipt_store=self._provider_receipt_store,
         )
+        # Chat gateway wiring: the agent adapter is selected only from an
+        # explicit bridge.json "agent_gateway" section; without it the marked
+        # test adapter answers. An invalid section fails startup (no guesses).
+        from .agent_gateway import configure_default_adapter
+        try:
+            raw_config = json.loads(Path(config_path).read_text(encoding="utf-8"))
+            agent_section = (
+                raw_config.get("agent_gateway")
+                if isinstance(raw_config, dict)
+                else None
+            )
+        except (OSError, ValueError):
+            agent_section = None
+        configure_default_adapter(agent_section)
         self._client_diagnostic_lock = threading.RLock()
         self._client_diagnostic_windows: dict[str, list[float]] = {}
         self._bind_runtime(selected_runtime)
@@ -1384,21 +1398,24 @@ class BridgeApplicationApi:
                 ))
 
                 from .m2m_api import dispatch_m2m
-                m2m_response = asyncio.run(dispatch_m2m(
-                    selected_method,
-                    path,
-                    body=payload,
-                    service_auth_context=m2m_credential,
-                    request_id=request_id,
-                    orchestrator=self._provider_orchestrator,
-                    coordinator=self._coordinator,
-                    resolve_handler=self._m2m_resolve_recipients,
-                ))
-                # Immediate cleanup: the service identity must not outlive its
-                # request on this execution context (F-085 gap #1).
-                self._request_actor_app_user_id.set(None)
-                self._request_actor_global_role.set(None)
-                self._request_service_auth_context.set(None)
+                try:
+                    m2m_response = asyncio.run(dispatch_m2m(
+                        selected_method,
+                        path,
+                        body=payload,
+                        service_auth_context=m2m_credential,
+                        request_id=request_id,
+                        orchestrator=self._provider_orchestrator,
+                        coordinator=self._coordinator,
+                        resolve_handler=self._m2m_resolve_recipients,
+                    ))
+                finally:
+                    # Immediate cleanup, even on error: the service identity
+                    # must not outlive its request on this execution context
+                    # (F-085 gap #1).
+                    self._request_actor_app_user_id.set(None)
+                    self._request_actor_global_role.set(None)
+                    self._request_service_auth_context.set(None)
                 return m2m_response
             elif self.app_user_auth_enabled:
                 app_auth = self._require_app_auth_service()
@@ -1450,11 +1467,12 @@ class BridgeApplicationApi:
                 svc = self._require_service_credential_service()
                 if not payload:
                     raise CompositionValidationError("Missing body")
+                allowed_providers, allowed_accounts, scopes = self._validate_service_credential_fences(payload)
                 cred, token = svc.create_credential(
                     service_name=payload["service_name"],
-                    allowed_providers=payload["allowed_providers"],
-                    allowed_messenger_account_ids=payload.get("allowed_messenger_account_ids"),
-                    scopes=payload["scopes"],
+                    allowed_providers=allowed_providers,
+                    allowed_messenger_account_ids=allowed_accounts,
+                    scopes=scopes,
                     description=payload.get("description", ""),
                     created_by_app_user_id=session.principal.app_user_id,
                 )
@@ -2094,6 +2112,69 @@ class BridgeApplicationApi:
         from ..infrastructure.coordinator.service_credentials import ServiceCredentialService
         return ServiceCredentialService(self._coordinator)
 
+    _M2M_CREDENTIAL_SCOPES = frozenset(
+        {"messages.send", "messages.status", "contacts.resolve", "agent.chat"}
+    )
+
+    def _validate_service_credential_fences(
+        self,
+        payload: Mapping[str, Any],
+    ) -> tuple[list[str], list[str], list[str]]:
+        """An issued credential must carry explicit, valid fences.
+
+        Missing, empty or unknown providers/accounts/scopes are rejected;
+        a credential is never granted unlimited access by omission, and it
+        can only reference accounts that already exist.
+        """
+        def _string_list(value: Any) -> list[str]:
+            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+                return []
+            return [item.strip() for item in value if item.strip()]
+
+        providers = _string_list(payload.get("allowed_providers"))
+        accounts = _string_list(payload.get("allowed_messenger_account_ids"))
+        scopes = _string_list(payload.get("scopes"))
+
+        if not providers:
+            raise CompositionValidationError(
+                "allowed_providers must be a non-empty list.",
+                code="m2m_credential_providers_required",
+            )
+        from .provider_adapter import provider_adapter_catalog
+        known_providers = set(provider_adapter_catalog().keys())
+        unknown_providers = [item for item in providers if item not in known_providers]
+        if unknown_providers:
+            raise CompositionValidationError(
+                "allowed_providers contains an unknown provider.",
+                code="m2m_credential_provider_unknown",
+            )
+        if not accounts:
+            raise CompositionValidationError(
+                "allowed_messenger_account_ids must be a non-empty list.",
+                code="m2m_credential_accounts_required",
+            )
+        coordinator = self._require_coordinator()
+        for account_id in accounts:
+            try:
+                coordinator.messenger_account_runtime(account_id)
+            except Exception as exc:
+                raise CompositionValidationError(
+                    "allowed_messenger_account_ids contains an unknown account.",
+                    code="m2m_credential_account_unknown",
+                ) from exc
+        if not scopes:
+            raise CompositionValidationError(
+                "scopes must be a non-empty list.",
+                code="m2m_credential_scopes_required",
+            )
+        unknown_scopes = [item for item in scopes if item not in self._M2M_CREDENTIAL_SCOPES]
+        if unknown_scopes:
+            raise CompositionValidationError(
+                "scopes contains an unknown scope.",
+                code="m2m_credential_scope_unknown",
+            )
+        return providers, accounts, scopes
+
     def _check_m2m_rate_limit(self, service_id: str, max_requests: int = 60, window_seconds: float = 60.0) -> bool:
         now = time.time()
         cutoff = now - window_seconds
@@ -2250,9 +2331,9 @@ class BridgeApplicationApi:
     ) -> None:
         service_ctx = self._request_service_auth_context.get()
         if service_ctx is not None:
-            if (
-                service_ctx.allowed_messenger_account_ids is not None
-                and messenger_account_id not in service_ctx.allowed_messenger_account_ids
+            # Service fence: explicit account list first…
+            if not service_ctx.allowed_messenger_account_ids or (
+                messenger_account_id not in service_ctx.allowed_messenger_account_ids
             ):
                 raise CoordinatorAuthorizationError(
                     "Service credential is not authorized for this messenger account.",
@@ -2260,7 +2341,18 @@ class BridgeApplicationApi:
                     code="messenger_account_access_denied",
                 )
             coordinator = self._require_coordinator()
-            coordinator.messenger_account_runtime(messenger_account_id)
+            runtime = coordinator.messenger_account_runtime(messenger_account_id)
+            # …then the provider allowlist, so a credential limited to one
+            # provider can never drive an account of another provider.
+            account_provider = str(getattr(runtime, "provider", ""))
+            if not service_ctx.allowed_providers or (
+                account_provider not in service_ctx.allowed_providers
+            ):
+                raise CoordinatorAuthorizationError(
+                    "Service credential is not authorized for this provider.",
+                    safe_context={"messenger_account_id": str(messenger_account_id)},
+                    code="m2m_provider_not_allowed",
+                )
             return
 
         coordinator = self._require_coordinator()

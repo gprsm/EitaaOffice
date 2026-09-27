@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-COORDINATOR_SCHEMA_VERSION = 8
+COORDINATOR_SCHEMA_VERSION = 9
 
 SCHEMA_V1_SQL = """
 CREATE TABLE schema_migrations (
@@ -784,6 +784,12 @@ SCHEMA_V5_CHECKSUM = hashlib.sha256(SCHEMA_V5_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V6_CHECKSUM = hashlib.sha256(SCHEMA_V6_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V7_CHECKSUM = hashlib.sha256(SCHEMA_V7_SQL.encode("utf-8")).hexdigest()
 SCHEMA_V8_CHECKSUM = hashlib.sha256(SCHEMA_V8_SQL.encode("utf-8")).hexdigest()
+
+SCHEMA_V9_SQL = """
+ALTER TABLE provider_operation_receipts ADD COLUMN service_credential_id TEXT;
+"""
+
+SCHEMA_V9_CHECKSUM = hashlib.sha256(SCHEMA_V9_SQL.encode("utf-8")).hexdigest()
 SCHEMA_CHECKSUMS = {
     1: SCHEMA_V1_CHECKSUM,
     2: SCHEMA_V2_CHECKSUM,
@@ -793,8 +799,9 @@ SCHEMA_CHECKSUMS = {
     6: SCHEMA_V6_CHECKSUM,
     7: SCHEMA_V7_CHECKSUM,
     8: SCHEMA_V8_CHECKSUM,
+    9: SCHEMA_V9_CHECKSUM,
 }
-SCHEMA_CHECKSUM = SCHEMA_V8_CHECKSUM
+SCHEMA_CHECKSUM = SCHEMA_V9_CHECKSUM
 
 
 def initial_schema_script() -> str:
@@ -832,13 +839,17 @@ def initial_schema_script() -> str:
         + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
         + f"8,'{SCHEMA_V8_CHECKSUM}',"
         + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+        + SCHEMA_V9_SQL
+        + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
+        + f"9,'{SCHEMA_V9_CHECKSUM}',"
+        + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
         + f"PRAGMA user_version={COORDINATOR_SCHEMA_VERSION};\n"
         + "COMMIT;\nPRAGMA foreign_keys=ON;\n"
     )
 
 
 def upgrade_schema_script(from_version: int) -> str:
-    if from_version not in {1, 2, 3, 4, 5, 6, 7}:
+    if from_version not in {1, 2, 3, 4, 5, 6, 7, 8}:
         raise ValueError("unsupported coordinator schema upgrade")
     parts = ["PRAGMA foreign_keys=OFF;\nBEGIN IMMEDIATE;\n"]
     if from_version == 1:
@@ -895,13 +906,22 @@ def upgrade_schema_script(from_version: int) -> str:
                 "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
             ]
         )
+    if from_version <= 7:
+        parts.extend(
+            [
+                SCHEMA_V8_SQL,
+                "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(",
+                f"8,'{SCHEMA_V8_CHECKSUM}',",
+                "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
+            ]
+        )
     parts.extend(
         [
-            SCHEMA_V8_SQL,
+            SCHEMA_V9_SQL,
             "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(",
-            f"8,'{SCHEMA_V8_CHECKSUM}',",
+            f"9,'{SCHEMA_V9_CHECKSUM}',",
             "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
-            "PRAGMA user_version=8;\n",
+            "PRAGMA user_version=9;\n",
             "COMMIT;\n",
             "PRAGMA foreign_keys=ON;\n",
         ]

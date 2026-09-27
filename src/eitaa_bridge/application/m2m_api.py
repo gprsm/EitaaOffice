@@ -15,6 +15,7 @@ Rules enforced here (do not weaken):
 from typing import Any, Callable, Mapping
 
 from .api import ApiResponse
+from . import agent_gateway as agent_gateway_module
 from .agent_gateway import AgentChatContext, TestAgentAdapter, session_store
 from ..errors import BridgeError
 
@@ -28,13 +29,10 @@ from ..errors import ProviderExtensionError
 
 _AGENT_MAX_MESSAGE_CHARS = 4096
 _AGENT_MAX_ID_CHARS = 128
+_AGENT_MESSAGE_ID = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 _DIALOG_REFERENCE = re.compile(r"^(?P<peer_type>user|chat|channel):(?P<peer_id>[0-9]{1,20})$")
 _PEER_KIND_BY_TYPE = {"user": "private", "chat": "group", "channel": "channel"}
-
-# For development/testing only until a real agent adapter is configured;
-# responses are always marked with is_test_response=true.
-default_agent_adapter = TestAgentAdapter()
 
 ResolveHandler = Callable[[list[Mapping[str, Any]], str], list[dict[str, Any]]]
 
@@ -50,9 +48,12 @@ async def handle_agent_chat(body: Mapping[str, Any], service_auth_context: Any) 
     web_user_id = body.get("web_user_id")
     session_id = body.get("session_id")
     message = body.get("message")
+    message_id = body.get("message_id")
 
     if not web_user_id or not session_id or not message:
         return ApiResponse(400, {"ok": False, "error": "missing_parameters"})
+    if not message_id or not _AGENT_MESSAGE_ID.fullmatch(str(message_id)):
+        return ApiResponse(400, {"ok": False, "error": "agent_message_id_required"})
     if len(str(session_id)) > _AGENT_MAX_ID_CHARS or len(str(web_user_id)) > _AGENT_MAX_ID_CHARS:
         return ApiResponse(400, {"ok": False, "error": "validation_error", "reason": "identifier too long"})
     if len(str(message)) > _AGENT_MAX_MESSAGE_CHARS:
@@ -65,24 +66,59 @@ async def handle_agent_chat(body: Mapping[str, Any], service_auth_context: Any) 
     )
 
     try:
+        # Idempotent chat: a retried message id returns the stored reply and
+        # never reaches the adapter twice.
+        replayed_reply = session_store.get_reply(context, str(message_id))
+        if replayed_reply is not None:
+            current_adapter = agent_gateway_module.default_agent_adapter
+            return ApiResponse(200, {
+                "ok": True,
+                "response": replayed_reply,
+                "session_id": context.session_id,
+                "is_test_response": bool(getattr(current_adapter, "is_test_adapter", False)),
+                "replayed": True,
+            })
+
+        # The adapter sees the bounded prior conversation; storing history
+        # without using it would not be a continuation.
+        current_adapter = agent_gateway_module.default_agent_adapter
+        history = session_store.get_history(context)
+        try:
+            response = await current_adapter.chat(
+                str(message), context.session_id, context, history=history
+            )
+        except BridgeError as e:
+            code = getattr(e, "code", "agent_communication_failed")
+            if code == "agent_communication_failed":
+                return ApiResponse(502, {"ok": False, "error": "agent_communication_failed"})
+            return ApiResponse(400, {"ok": False, "error": code})
+        except Exception:
+            # Any adapter-side failure is an upstream agent outage, not a
+            # client error; fail honestly with 502.
+            return ApiResponse(502, {"ok": False, "error": "agent_communication_failed"})
         session_store.add_message(context, "user", str(message))
-        response = await default_agent_adapter.chat(str(message), context.session_id, context)
         session_store.add_message(context, "agent", response.response)
+        session_store.store_reply(context, str(message_id), response.response)
 
         return ApiResponse(200, {
             "ok": True,
             "response": response.response,
             "session_id": response.session_id,
             "is_test_response": response.is_test_response,
+            "replayed": False,
         })
     except BridgeError as e:
-        return ApiResponse(400, {"ok": False, "error": getattr(e, "code", "agent_error")})
+        code = getattr(e, "code", "agent_error")
+        if code == "agent_communication_failed":
+            return ApiResponse(502, {"ok": False, "error": "agent_communication_failed"})
+        return ApiResponse(400, {"ok": False, "error": code})
     except Exception:
         return ApiResponse(500, {"ok": False, "error": "internal_error"})
 
 async def handle_agent_health() -> ApiResponse:
-    is_health = await default_agent_adapter.health()
-    adapter_type = "test" if isinstance(default_agent_adapter, TestAgentAdapter) else "configurable"
+    current_adapter = agent_gateway_module.default_agent_adapter
+    is_health = await current_adapter.health()
+    adapter_type = "test" if isinstance(current_adapter, TestAgentAdapter) else "configurable"
     return ApiResponse(200, {
         "ok": True,
         "agent_available": is_health,
@@ -98,7 +134,11 @@ def _get_actor(service_auth_context: Any) -> ProviderOperationActor:
         actor_id = getattr(service_auth_context, "credential_id", None)
     if not actor_id:
         actor_id = getattr(service_auth_context, "id", "00000000-0000-4000-8000-000000000000")
-    return ProviderOperationActor(app_user_id=str(actor_id), global_role="user")
+    return ProviderOperationActor(
+        app_user_id=str(actor_id),
+        global_role="user",
+        service_credential_id=str(getattr(service_auth_context, "id", "")) or None,
+    )
 
 def _check_scope(service_auth_context: Any, required_scope: str) -> None:
     scopes = getattr(service_auth_context, "scopes", [])
@@ -106,8 +146,15 @@ def _check_scope(service_auth_context: Any, required_scope: str) -> None:
         raise ProviderExtensionError("Insufficient scope.", code="m2m_scope_insufficient")
 
 def _check_account_allowed(service_auth_context: Any, messenger_account_id: str) -> None:
+    # Fail-closed: a credential without an explicit, non-empty account list
+    # (legacy or malformed row) is allowed nothing.
     allowed = getattr(service_auth_context, "allowed_messenger_account_ids", None)
-    if allowed is not None and messenger_account_id not in allowed:
+    if not allowed:
+        raise ProviderExtensionError(
+            "Service credential has no authorized messenger accounts.",
+            code="m2m_account_not_allowed",
+        )
+    if messenger_account_id not in allowed:
         raise ProviderExtensionError("Account not allowed.", code="m2m_account_not_allowed")
 
 def _validate_provider(service_auth_context: Any, coordinator: CoordinatorDatabase | None, messenger_account_id: str, requested_provider: str | None) -> str:
@@ -123,13 +170,19 @@ def _validate_provider(service_auth_context: Any, coordinator: CoordinatorDataba
     except Exception as exc:
         raise ProviderExtensionError("Account not found.", code="m2m_account_not_found") from exc
     account_provider = str(getattr(runtime, "provider", ""))
+    if not account_provider:
+        raise ProviderExtensionError("Account not found.", code="m2m_account_not_found")
+    # Fail-closed: an empty or missing provider allowlist authorizes nothing.
     allowed_providers = getattr(service_auth_context, "allowed_providers", None)
-    if allowed_providers and account_provider not in allowed_providers:
+    if not allowed_providers:
+        raise ProviderExtensionError(
+            "Service credential has no authorized providers.",
+            code="m2m_provider_not_allowed",
+        )
+    if account_provider not in allowed_providers:
         raise ProviderExtensionError("Provider not allowed for this service.", code="m2m_provider_not_allowed")
     if requested_provider and runtime.provider != requested_provider:
         raise ProviderExtensionError("Provider mismatch.", code="m2m_provider_mismatch")
-    if not account_provider:
-        raise ProviderExtensionError("Account not found.", code="m2m_account_not_found")
     return account_provider
 
 def _error_response(exc: ProviderExtensionError, default_status: int = 400) -> ApiResponse:
@@ -297,11 +350,24 @@ def handle_message_status(
     if coordinator is None:
         return ApiResponse(200, {"ok": True, "delivery_status": "not_found", "message_reference": None, "timestamp": None})
     try:
+        _check_scope(service_auth_context, "messages.status")
+    except ProviderExtensionError as exc:
+        return _error_response(exc, default_status=403)
+    try:
+        service_id = str(
+            getattr(service_auth_context, "id", "")
+            or getattr(service_auth_context, "credential_id", "")
+            or ""
+        )
         statement = (
             "SELECT outcome, result_reference, updated_at, messenger_account_id "
-            "FROM provider_operation_receipts WHERE idempotency_key=?"
+            "FROM provider_operation_receipts "
+            "WHERE idempotency_key=? AND service_credential_id=?"
         )
-        params: list[Any] = [idempotency_key]
+        params: list[Any] = [
+            idempotency_key,
+            service_id,
+        ]
         allowed = getattr(service_auth_context, "allowed_messenger_account_ids", None) if service_auth_context else None
         if allowed is not None:
             if not allowed:
@@ -311,6 +377,8 @@ def handle_message_status(
         with coordinator._connect() as connection:
             row = connection.execute(statement, params).fetchone()
         if not row:
+            # Not found covers unknown keys, other services' receipts and
+            # legacy owner-less receipts alike; ownership is never guessed.
             return ApiResponse(200, {"ok": True, "delivery_status": "not_found", "message_reference": None, "timestamp": None})
         outcome = row["outcome"]
         delivery_status = "uncertain"

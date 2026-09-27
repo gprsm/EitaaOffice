@@ -158,7 +158,7 @@ def test_service_token_wrong_account(config_file, monkeypatch):
             "service_name": "restricted-service",
             "description": "Wrong account test",
             "allowed_providers": ["eitaa"],
-            "allowed_messenger_account_ids": ["00000000-0000-0000-0000-000000000001"],
+            "allowed_messenger_account_ids": [messenger_account_id],
             "scopes": ["messages.send"],
         },
         app_session_token=token,
@@ -170,7 +170,7 @@ def test_service_token_wrong_account(config_file, monkeypatch):
         "POST",
         "/api/v2/m2m/messages/send-text",
         body={
-            "messenger_account_id": messenger_account_id,
+            "messenger_account_id": "00000000-0000-4000-8000-000000000001",
             "message_type": "notice",
             "peer_reference": {"kind": "phone", "value": "+989000000000"},
             "text": "Hello",
@@ -418,3 +418,163 @@ def test_admin_api_rejects_non_admin_and_service_tokens(config_file, monkeypatch
         correlation_id="req-12345678-1234-1234-1234-123456789012",
     )
     assert svc_forbidden.status == 401
+
+
+def _issue_service_credential(api, token, csrf, *, account_ids, providers=("eitaa",), scopes=("messages.send",), name="fence-service"):
+    return api.dispatch(
+        "POST",
+        "/api/v2/service-credentials",
+        body={
+            "service_name": name,
+            "description": "fence test",
+            "allowed_providers": list(providers),
+            "allowed_messenger_account_ids": list(account_ids) if account_ids is not None else None,
+            "scopes": list(scopes),
+        },
+        app_session_token=token,
+        csrf_token=csrf,
+    )
+
+
+def test_m2m_error_path_does_not_leak_service_context(config_file, monkeypatch):
+    """F-085 gap #1 reproducer: a failing M2M dispatch must still reset the
+    service authorization context before the next request runs."""
+    import eitaa_bridge.application.m2m_api as m2m_module
+
+    api, messenger_account_id = _prepared_api(config_file, monkeypatch)
+    token, csrf = _setup_admin(api)
+    issued = _issue_service_credential(api, token, csrf, account_ids=[messenger_account_id])
+    assert issued.status == 200
+    svc_token = issued.payload["token"]
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("synthetic dispatch failure")
+
+    monkeypatch.setattr(m2m_module, "dispatch_m2m", _boom)
+    failed = api.dispatch(
+        "POST",
+        "/api/v2/m2m/messages/send-text",
+        body={
+            "messenger_account_id": messenger_account_id,
+            "message_type": "notice",
+            "peer_reference": {"kind": "dialog", "value": "user:1"},
+            "text": "hello",
+            "idempotency_key": "1234567890123456",
+            "confirm": True,
+        },
+        authorization=f"Bearer {svc_token}",
+        correlation_id="req-12345678-1234-1234-1234-123456789012",
+    )
+    assert failed.status == 500
+    assert api._request_service_auth_context.get() is None
+    assert api._request_actor_global_role.get() is None
+    assert api._request_actor_app_user_id.get() is None
+
+
+def test_service_context_never_shadows_appuser_account_access(config_file, monkeypatch):
+    """After M2M traffic, the AppUser path must authorize by membership, not
+    by the service credential's account fence."""
+    api, messenger_account_id = _prepared_api(config_file, monkeypatch)
+    token, csrf = _setup_admin(api)
+    issued = _issue_service_credential(api, token, csrf, account_ids=[messenger_account_id])
+    assert issued.status == 200
+    svc_token = issued.payload["token"]
+
+    warmup = api.dispatch(
+        "POST",
+        "/api/v2/m2m/messages/send-text",
+        body={
+            "messenger_account_id": messenger_account_id,
+            "message_type": "notice",
+            "peer_reference": {"kind": "dialog", "value": "user:1"},
+            "text": "hi",
+            "idempotency_key": "1234567890123456",
+            "confirm": True,
+        },
+        authorization=f"Bearer {svc_token}",
+        correlation_id="req-12345678-1234-1234-1234-123456789012",
+    )
+    assert warmup.status in (200, 400, 403, 409)
+
+    admin_me = api.dispatch(
+        "GET",
+        "/api/v2/app-auth/me",
+        app_session_token=token,
+    )
+    assert admin_me.status == 200
+    admin_id = admin_me.payload["principal"]["app_user_id"]
+    # Membership-based authorization must succeed for the admin's own account
+    # even though the M2M credential above has a different account fence.
+    api._authorize_provider_operation_account(
+        type("ActorStub", (), {"app_user_id": admin_id, "global_role": "admin"}),
+        messenger_account_id,
+        operation="operate",
+    )
+
+
+def test_credential_issuance_requires_explicit_valid_fences(config_file, monkeypatch):
+    """F-085 gap #2 reproducer: unbounded or unknown fences must be rejected."""
+    api, messenger_account_id = _prepared_api(config_file, monkeypatch)
+    token, csrf = _setup_admin(api)
+
+    cases = [
+        ({"allowed_messenger_account_ids": None}, "m2m_credential_accounts_required"),
+        ({"allowed_messenger_account_ids": []}, "m2m_credential_accounts_required"),
+        ({"allowed_providers": []}, "m2m_credential_providers_required"),
+        ({"allowed_providers": ["telegram"]}, "m2m_credential_provider_unknown"),
+        ({"allowed_messenger_account_ids": ["00000000-dead-4000-8000-00000000dead"]}, "m2m_credential_account_unknown"),
+        ({"scopes": []}, "m2m_credential_scopes_required"),
+        ({"scopes": ["admin.read"]}, "m2m_credential_scope_unknown"),
+    ]
+    for index, (overrides, expected_code) in enumerate(cases):
+        body = {
+            "service_name": f"fence-case-{index}",
+            "description": "",
+            "allowed_providers": ["eitaa"],
+            "allowed_messenger_account_ids": [messenger_account_id],
+            "scopes": ["messages.send"],
+        }
+        body.update(overrides)
+        rejected = api.dispatch(
+            "POST",
+            "/api/v2/service-credentials",
+            body=body,
+            app_session_token=token,
+            csrf_token=csrf,
+        )
+        assert rejected.status == 400, (overrides, rejected.payload)
+        assert rejected.payload["error"]["error_code"] == expected_code, overrides
+
+
+def test_legacy_unbounded_credential_row_is_denied_at_use(config_file, monkeypatch):
+    """F-085 gap #2: a stored credential without an explicit account list
+    (legacy shape) must fail closed at use time."""
+    import sqlite3
+
+    api, messenger_account_id = _prepared_api(config_file, monkeypatch)
+    token, csrf = _setup_admin(api)
+    issued = _issue_service_credential(api, token, csrf, account_ids=[messenger_account_id])
+    assert issued.status == 200
+    svc_token = issued.payload["token"]
+
+    database_path = config_file.parent / "data" / "coordinator" / "coordinator.sqlite3"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("UPDATE service_credentials SET allowed_messenger_account_ids=NULL")
+        connection.commit()
+
+    denied = api.dispatch(
+        "POST",
+        "/api/v2/m2m/messages/send-text",
+        body={
+            "messenger_account_id": messenger_account_id,
+            "message_type": "notice",
+            "peer_reference": {"kind": "dialog", "value": "user:1"},
+            "text": "hello",
+            "idempotency_key": "1234567890123456",
+            "confirm": True,
+        },
+        authorization=f"Bearer {svc_token}",
+        correlation_id="req-12345678-1234-1234-1234-123456789012",
+    )
+    assert denied.status == 403
+    assert denied.payload["code"] == "m2m_account_not_allowed"

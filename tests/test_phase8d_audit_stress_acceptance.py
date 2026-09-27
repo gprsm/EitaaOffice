@@ -144,7 +144,7 @@ def test_schema4_upgrades_through_correlated_leases_to_current_schema(tmp_path):
         )
     CoordinatorDatabase(path).initialize()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION == 8
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION == 9
         assert connection.execute(
             "SELECT checksum FROM schema_migrations WHERE version=5"
         ).fetchone()[0] == SCHEMA_CHECKSUMS[5]
@@ -157,6 +157,9 @@ def test_schema4_upgrades_through_correlated_leases_to_current_schema(tmp_path):
         assert connection.execute(
             "SELECT checksum FROM schema_migrations WHERE version=8"
         ).fetchone()[0] == SCHEMA_CHECKSUMS[8]
+        assert connection.execute(
+            "SELECT checksum FROM schema_migrations WHERE version=9"
+        ).fetchone()[0] == SCHEMA_CHECKSUMS[9]
         attempt_columns = {row[1] for row in connection.execute("PRAGMA table_info(job_attempts)")}
         assert {"lease_id", "correlation_id"} <= attempt_columns
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []

@@ -89,8 +89,8 @@ class FakeAuthContext:
     def __init__(self, scopes, allowed_accounts=None, allowed_providers=None):
         self.scopes = scopes
         self.allowed_messenger_account_ids = allowed_accounts
-        self.allowed_providers = allowed_providers
-        self.credential_id = "test-credential"
+        self.allowed_providers = allowed_providers if allowed_providers is not None else ["eitaa"]
+        self.credential_id = "cred-a"
         self.service_name = "exam-service"
 
 
@@ -300,25 +300,95 @@ def test_resolve_scope_insufficient():
 
 
 def test_delivery_status_query_succeeded():
-    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-succeeded/status", None, FakeAuthContext([]))
+    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-succeeded/status", None, FakeAuthContext(["messages.status"]))
     assert res.status == 200
     assert res.payload["delivery_status"] == "provider_succeeded"
 
 
 def test_delivery_status_query_in_progress():
-    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-in-progress/status", None, FakeAuthContext([]))
+    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-in-progress/status", None, FakeAuthContext(["messages.status"]))
     assert res.status == 200
     assert res.payload["delivery_status"] == "accepted"
 
 
 def test_delivery_status_query_not_found():
-    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-not-found/status", None, FakeAuthContext([]))
+    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-not-found/status", None, FakeAuthContext(["messages.status"]))
     assert res.status == 200
     assert res.payload["delivery_status"] == "not_found"
 
 
 def test_delivery_status_query_respects_account_fence():
-    restricted = FakeAuthContext([], allowed_accounts=["acc2"])
+    restricted = FakeAuthContext(["messages.status"], allowed_accounts=["acc2"])
     res = _dispatch("GET", "/api/v2/m2m/messages/test-key-succeeded/status", None, restricted)
     assert res.status == 200
     assert res.payload["delivery_status"] == "not_found"
+
+
+def test_delivery_status_requires_dedicated_scope():
+    """F-085 gap #3 reproducer: the status endpoint must demand its own scope."""
+    res = _dispatch("GET", "/api/v2/m2m/messages/test-key-succeeded/status", None, FakeAuthContext(scopes=[]))
+    assert res.status == 403
+    assert res.payload["code"] == "m2m_scope_insufficient"
+
+
+def test_delivery_status_is_bound_to_the_issuing_service():
+    """F-085 gap #3: a receipt is only visible to the service that produced it."""
+    scoped_rows = {
+        "cred-a-key-000001": {
+            "outcome": "succeeded",
+            "result_reference": "ref",
+            "updated_at": "2026",
+            "messenger_account_id": "acc1",
+            "service_credential_id": "cred-a",
+        },
+    }
+    legacy_rows = {
+        "legacy-key-0000001": {
+            "outcome": "succeeded",
+            "result_reference": "ref",
+            "updated_at": "2026",
+            "messenger_account_id": "acc1",
+            "service_credential_id": None,
+        },
+    }
+
+    class ScopedCoordinator(FakeCoordinator):
+        def __init__(self, rows):
+            super().__init__()
+            self._rows = rows
+
+        def _connect(self):
+            return ScopedConnection(self._rows)
+
+    class ScopedConnection(FakeConnection):
+        def __init__(self, rows):
+            self._rows = rows
+
+        def execute(self, query, params):
+            key = params[0]
+            row = self._rows.get(key)
+            if row is not None and "service_credential_id=?" in query:
+                if row.get("service_credential_id") != params[1]:
+                    row = None
+            return FakeCursor([row] if row else [])
+
+    owner = FakeAuthContext(["messages.status"], ["acc1"])
+    owner.credential_id = "cred-a"
+    other = FakeAuthContext(["messages.status"], ["acc1"])
+    other.credential_id = "cred-b"
+
+    seen = _dispatch("GET", "/api/v2/m2m/messages/cred-a-key-000001/status", None, owner,
+                     coordinator=ScopedCoordinator(scoped_rows))
+    assert seen.status == 200
+    assert seen.payload["delivery_status"] == "provider_succeeded"
+
+    hidden = _dispatch("GET", "/api/v2/m2m/messages/cred-a-key-000001/status", None, other,
+                       coordinator=ScopedCoordinator(scoped_rows))
+    assert hidden.status == 200
+    assert hidden.payload["delivery_status"] == "not_found"
+
+    # Legacy receipts (no recorded owner) are not attributable to any service.
+    conservative = _dispatch("GET", "/api/v2/m2m/messages/legacy-key-0000001/status", None, owner,
+                             coordinator=ScopedCoordinator(legacy_rows))
+    assert conservative.status == 200
+    assert conservative.payload["delivery_status"] == "not_found"

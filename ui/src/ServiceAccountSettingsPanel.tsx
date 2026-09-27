@@ -62,6 +62,7 @@ export const ServiceAccountSettingsPanel = () => {
   const [serviceName, setServiceName] = useState('')
   const [selectedScopes, setSelectedScopes] = useState<string[]>([])
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([])
   const [newToken, setNewToken] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -92,6 +93,7 @@ export const ServiceAccountSettingsPanel = () => {
     setServiceName('')
     setSelectedScopes([])
     setSelectedAccounts([])
+    setSelectedProviders([])
     setNewToken(null)
     setActionError(null)
   }
@@ -102,8 +104,8 @@ export const ServiceAccountSettingsPanel = () => {
       const created = await api<TokenResponse>('POST', '/api/v2/service-credentials', {
         service_name: serviceName.trim(),
         description: '',
-        allowed_providers: ['eitaa', 'bale'],
-        allowed_messenger_account_ids: selectedAccounts.length > 0 ? selectedAccounts : null,
+        allowed_providers: selectedProviders,
+        allowed_messenger_account_ids: selectedAccounts,
         scopes: selectedScopes
       })
       setNewToken(created.token)
@@ -242,6 +244,23 @@ export const ServiceAccountSettingsPanel = () => {
                   />
                 ))}
               </Stack>
+              <Typography variant="subtitle1" gutterBottom>سرویس‌دهنده‌های مجاز</Typography>
+              <Stack direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
+                {(Object.keys(providerAdapters).length > 0
+                  ? Object.keys(providerAdapters)
+                  : ['eitaa', 'bale']
+                ).map(provider => (
+                  <Chip
+                    key={provider}
+                    label={provider}
+                    clickable
+                    color={selectedProviders.includes(provider) ? 'primary' : 'default'}
+                    onClick={() => setSelectedProviders(current =>
+                      current.includes(provider) ? current.filter(item => item !== provider) : [...current, provider]
+                    )}
+                  />
+                ))}
+              </Stack>
               <Typography variant="subtitle1" gutterBottom>حساب‌های مجاز</Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {accounts.map(account => {
@@ -262,7 +281,7 @@ export const ServiceAccountSettingsPanel = () => {
                 })}
                 {accounts.length === 0 && (
                   <Typography variant="body2" color="text.secondary">
-                    حسابی برای انتساب نیست؛ بدون انتخاب، سرویس به همهٔ حساب‌های مجاز آینده محدود نمی‌شود.
+                    حسابی برای انتساب نیست؛ ابتدا از بخش حساب‌های پیام‌رسان یک حساب فعال کنید.
                   </Typography>
                 )}
               </Stack>
@@ -291,7 +310,12 @@ export const ServiceAccountSettingsPanel = () => {
           {!newToken && (
             <Button
               variant="contained"
-              disabled={serviceName.trim().length < 3 || selectedScopes.length === 0}
+              disabled={
+                serviceName.trim().length < 3 ||
+                selectedScopes.length === 0 ||
+                selectedAccounts.length === 0 ||
+                selectedProviders.length === 0
+              }
               onClick={() => { void handleCreate() }}
             >
               ایجاد توکن

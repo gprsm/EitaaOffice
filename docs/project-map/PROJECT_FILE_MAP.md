@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 369
-- اثرانگشت منبع: `98e85c0abe9322fd`
+- اثرانگشت منبع: `ece5aed8ed307f6c`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -105,8 +105,8 @@
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 49 | Account-scoped Eitaa runtime and fail-closed registry. |
-| `src/eitaa_bridge/application/agent_gateway.py` | Application | 19 | AI Agent Chat Gateway. |
-| `src/eitaa_bridge/application/api.py` | Application | 278 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/agent_gateway.py` | Application | 23 | AI Agent Chat Gateway (chat-only surface). |
+| `src/eitaa_bridge/application/api.py` | Application | 279 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
@@ -232,7 +232,7 @@
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
 | `tests/test_account_runtime.py` | Python test | 12 | — |
-| `tests/test_agent_gateway.py` | Python test | 10 | — |
+| `tests/test_agent_gateway.py` | Python test | 18 | — |
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |
@@ -250,7 +250,7 @@
 | `tests/test_contact_sources_handoff.py` | Python test | 3 | — |
 | `tests/test_content_index.py` | Python test | 13 | — |
 | `tests/test_coordinator_migration.py` | Python test | 9 | — |
-| `tests/test_coordinator_schema.py` | Python test | 12 | — |
+| `tests/test_coordinator_schema.py` | Python test | 13 | — |
 | `tests/test_core_binding.py` | Python test | 4 | — |
 | `tests/test_deployment_port_settings.py` | Python test | 4 | — |
 | `tests/test_diagnostics.py` | Python test | 4 | — |
@@ -269,7 +269,7 @@
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
 | `tests/test_linux_identity_protection.py` | Python test | 4 | — |
-| `tests/test_m2m_endpoints.py` | Python test | 40 | Tests for the M2M API endpoints (honest contract). |
+| `tests/test_m2m_endpoints.py` | Python test | 42 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
 | `tests/test_multi_account_lab.py` | Python test | 3 | — |
 | `tests/test_mvp6_operations.py` | Python test | 23 | — |
@@ -308,7 +308,7 @@
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_ownership.py` | Python test | 34 | — |
 | `tests/test_sender_directory.py` | Python test | 1 | — |
-| `tests/test_service_auth.py` | Python test | 11 | Tests for M2M service authentication and authorization boundaries. |
+| `tests/test_service_auth.py` | Python test | 16 | Tests for M2M service authentication and authorization boundaries. |
 | `tests/test_session_ownership.py` | Python test | 8 | — |
 | `tests/test_stabilization_baseline.py` | Python test | 3 | — |
 | `tests/test_ui2_scroll_repair.py` | Python test | 8 | — |

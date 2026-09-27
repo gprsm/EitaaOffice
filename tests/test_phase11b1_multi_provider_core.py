@@ -125,7 +125,7 @@ def test_schema5_migrates_to_registry_schema_without_manual_rewrite(tmp_path):
     CoordinatorDatabase(path).initialize()
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION == 8
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION == 9
         assert {row[0] for row in connection.execute("SELECT provider FROM provider_registrations")} == {"eitaa", "bale"}
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("PRAGMA quick_check").fetchone()[0] == "ok"

@@ -1,12 +1,11 @@
 # Education System API Contract
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Date:** 2026-09-27
-**Status:** Design/Implementation under security review (offline-tested; NOT live-accepted)
+**Status:** Design/Implementation (offline-tested; NOT live-accepted)
 
-**Open review finding:** F-085. Do not treat this version as a production
-authorization or chat-continuity contract until its account, receipt and chat
-ownership issues are resolved.
+F-085 security review items are implemented and offline-tested (see
+`VALIDATION_LEDGER.md` V-217); live acceptance remains a separate gate.
 
 ## Data Ownership Boundaries
 
@@ -31,10 +30,15 @@ ownership issues are resolved.
 - Every request must carry `X-Request-Id`. Bodies are limited to 64 KB.
 - Per-credential rate limit: 60 requests/minute. Repeated invalid tokens are
   throttled globally (fail-closed anti-DoS guard).
-- A credential is scoped to `allowed_providers`,
-  `allowed_messenger_account_ids` (nullable = unrestricted) and `scopes`
-  (`messages.send`, `contacts.resolve`, `agent.chat`). Revocation and rotation
-  take effect immediately; the acting role is the least-privileged `user`.
+- A credential carries explicit fences only: `allowed_providers` (non-empty
+  subset of the registered provider catalog), `allowed_messenger_account_ids`
+  (non-empty list of accounts that exist at issuance) and `scopes`
+  (`messages.send`, `messages.status`, `contacts.resolve`, `agent.chat`).
+  Missing, empty or unknown fence values are rejected at issuance — omitting
+  a fence never grants unlimited access, and accounts created later stay
+  inaccessible unless re-issued. Legacy credential rows without an explicit
+  account list fail closed at use. Revocation and rotation take effect
+  immediately; the acting role is the least-privileged `user`.
 
 ## Operations
 
@@ -107,6 +111,10 @@ ownership issues are resolved.
 ```
 
 ### 3. `GET /api/v2/m2m/messages/{idempotency_key}/status`
+Requires the dedicated `messages.status` scope. A receipt is visible only to
+the service credential that produced it; unknown keys, other services'
+receipts and legacy owner-less receipts (created before service binding)
+all answer `not_found` — ownership is never guessed.
 **Response (Success):**
 ```json
 {
@@ -117,8 +125,8 @@ ownership issues are resolved.
 }
 ```
 - When the credential restricts messenger accounts, lookups are fenced to
-  those accounts. Known limitation: the receipt store keys by
-  `idempotency_key` only; keep keys service-unique.
+  those accounts. Keep idempotency keys service-unique; cross-service reuse
+  of a key is rejected as an owner mismatch instead of replayed.
 
 ### 4. `POST /api/v2/m2m/agent/chat`
 **Request Body:**
@@ -126,7 +134,8 @@ ownership issues are resolved.
 {
   "web_user_id": "<site user id>",
   "session_id": "<chat session id>",
-  "message": "Ping"
+  "message": "Ping",
+  "message_id": "msg-00000001"
 }
 ```
 **Response (Success):**
@@ -135,16 +144,31 @@ ownership issues are resolved.
   "ok": true,
   "response": "Pong",
   "session_id": "…",
-  "is_test_response": true
+  "is_test_response": true,
+  "replayed": false
 }
 ```
 - Requires the `agent.chat` scope. The web user identity, the chat session,
   the AppUser session and the provider session are distinct concepts and are
   never merged into one identifier.
-- Until a real agent adapter is configured, the test adapter answers and every
-  response carries `is_test_response: true`; consumers must not present it as
-  a real agent answer. Message size (≤ 4096 chars), per-service session cap
-  (100), session TTL (1 hour) and context window (20 messages) are enforced.
+- `message_id` (8–128 chars of `[A-Za-z0-9._:-]`) is required. Retrying the
+  same id inside the session window returns the stored reply with
+  `replayed: true` and never calls the adapter twice; a different id is a new
+  message.
+- Conversation continuation is real: the adapter receives the bounded prior
+  conversation (last 20 turns) of exactly this (service, web user, session);
+  other services and users never see it.
+- Adapter failures surface as `502 agent_communication_failed`; timeouts and
+  outages are upstream failures, not client errors.
+- The adapter is wired only from an explicit `bridge.json` `agent_gateway`
+  section (`enabled`, `url`, `model`, `api_key_env` naming a set environment
+  variable). Nothing is guessed; an invalid section fails startup. Until a
+  real adapter is configured and live-accepted, the test adapter answers and
+  every response carries `is_test_response: true`; consumers must not present
+  it as a real agent answer. Message size (≤ 4096 chars), per-service session
+  cap (100), session TTL (1 hour) and context window (20 messages) are
+  enforced. The agent surface is chat-only: it cannot send messenger
+  messages, execute commands or read user data.
 
 ### 5. `GET /api/v2/m2m/agent/health`
 **Response (Success):**

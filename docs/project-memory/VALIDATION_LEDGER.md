@@ -2059,3 +2059,17 @@
   4. `npm run check` و `npm run test:observability` پس از به‌روزرسانی descriptor و پنل سبز شدند؛ `refresh_project_docs.py --check --check-links` و integrity پس از بازتولید نقشه‌ها سبز شدند.
 - حدود: هیچ ورود، ارسال یا اتصال واقعی به بله انجام نشد؛ پذیرش زندهٔ ارسال از مسیر orchestrator و اتصال onboarding/worker حساب‌های بله دروازه‌های بعدی خودش را دارد (فاز بعدیِ مجاز طبق ADR-60). عملیات Live همچنان نیازمند تأیید همان‌لحظهٔ مالک است.
 - مرجع: F-086، ADR-60.
+
+### V-217 — بستن شکاف‌های F-085: چرخهٔ عمر مجوز، حصار اعتبارنامه، مالکیت رسید و قرارداد چت
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `RED REPRODUCERS FIRST / OFFLINE CONTRACT TESTS / SCHEMA V9 MIGRATION / FULL BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / WHEEL PARITY`.
+- Trigger: دستور مالک برای بستن شکاف‌های ثبت‌شده در F-085/V-215 از وضعیت فعلی مخزن؛ تأکید مالک بر اینکه رهایی مسیر بله شخصی (F-086/ADR-60) پابرجاست و نباید در این اصلاحات بازگردانده شود.
+- روش: ابتدا برای هر شکاف آزمون بازتولیدکننده ثبت و RED بودن آن مشاهده شد، سپس اصلاح انجام و GREEN شد.
+- شواهد هر شکاف:
+  1. `test_m2m_error_path_does_not_leak_service_context` (RED: زمینهٔ سرویس پس از 500 باقی می‌ماند) → بازنشانی در بلوک finally حتی در خطا؛ `test_service_context_never_shadows_appuser_account_access` مسیر AppUser پس از ترافیک M2M را با احراز عضویت سبز نگه می‌دارد. حصار Provider به `_authorize_provider_operation_account` افزوده شد.
+  2. `test_credential_issuance_requires_explicit_valid_fences` (RED: null پذیرفته می‌شد) → صدور فقط با فهرست‌های صریح معتبر؛ `test_legacy_unbounded_credential_row_is_denied_at_use` (RED) → rows بی‌حصار در زمان استفاده fail-closed رد می‌شوند.
+  3. مهاجرت Coordinator schema v8→v9 (ستون `service_credential_id`) در `test_schema9_binds_service_receipts_and_keeps_legacy_conservative` آزموده شد: ارتقای درجا، bind سرویس به رسید، منع پخش کلید میان سرویس‌ها و عدم انتساب رسید بی‌مالک قدیمی به هیچ سرویسی. استعلام وضعیت اکنون scope اختصاصی `messages.status` + فیلتر مالکیت سرویس دارد (`test_delivery_status_requires_dedicated_scope`, `test_delivery_status_is_bound_to_the_issuing_service`).
+  4. چت: `message_id` الزامی (8–128 کاراکتر)، replay همان پاسخ بدون فراخوانی دوباره adapter، ادامهٔ گفت‌وگو با تاریخچهٔ محدود واقعی، جداسازی نشست میان سرویس‌ها با کلید (service, user, session)، قطع عامل → 502 `agent_communication_failed`، و اتصال آداپتور واقعی فقط از section صریح `agent_gateway` با credential از متغیر محیطی و شکست startup در پیکربندی نامعتبر (`test_agent_adapter_configuration_is_explicit_and_fail_closed`)؛ مرز chat-only با `test_agent_gateway_has_no_messaging_or_data_powers` نگه داشته می‌شود.
+- دروازه‌های نهایی: مجموعهٔ کامل Backend پس از بازسازی wheel سبز (EXIT=0)؛ `npm run check` و `npm run test:observability` خروجی صفر؛ `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` سبز.
+- حدود: تمام آزمون‌ها آفلاین و با Fake هستند؛ هیچ ارسال/ورود/import واقعی و هیچ حساب یا credential واقعی استفاده نشد؛ پذیرش زندهٔ سه مرز (ارسال ایتا، ارسال بله، گفت‌وگوی عامل) همچنان به دروازه‌های خودش نیاز دارد و سبزی Fake پذیرش زنده نیست.
+- مرجع: F-085 (بسته)، F-086، قرارداد نسخهٔ 1.2.0.
