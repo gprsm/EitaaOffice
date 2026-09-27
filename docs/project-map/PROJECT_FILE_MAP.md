@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 360
-- اثرانگشت منبع: `2cd12a4b8bd7fb6e`
+- تعداد فایل‌های نقشه: 366
+- اثرانگشت منبع: `f718d676fbf98c55`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -213,16 +213,21 @@
 | `src/eitaa_bridge/providers/testing.py` | Project | 9 | Offline-only contract harness for provider-extension authors. |
 | `src/eitaa_bridge/reporting/__init__.py` | Project | 0 | Local reporting core for the 1405 provincial cultural programs. |
 | `src/eitaa_bridge/reporting/aggregate.py` | Project | 8 | Provincial aggregation: events + facts -> one workbook row per program. |
+| `src/eitaa_bridge/reporting/assessment_import.py` | Project | 9 | Import of the 1405 وضعیت‌سنجی workbook into the shell (F-075 / design doc §8). |
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
 | `src/eitaa_bridge/reporting/excel_export.py` | Project | 9 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
 | `src/eitaa_bridge/reporting/forms.py` | Project | 15 | Versioned questionnaire definitions for the seven workbook programs. |
 | `src/eitaa_bridge/reporting/indexer.py` | Project | 12 | Multi-criteria Eitaa message indexer for the 1405 reporting core. |
+| `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-075). |
 | `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
 | `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
+| `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-075 / design doc §3, §10). |
+| `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-075). |
+| `src/eitaa_bridge/reporting/registry.py` | Project | 15 | Registry layer of the reporting section shell (F-075 / ADR-55). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/service.py` | Project | 23 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 27 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 47 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/version.py` | Project | 0 | — |
 | `tests/conftest.py` | Python test | 8 | — |
@@ -296,6 +301,7 @@
 | `tests/test_reporting_api.py` | Python test | 10 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
+| `tests/test_reporting_shell.py` | Python test | 33 | Tests for the section-shell phase 1 (F-075): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 17 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |

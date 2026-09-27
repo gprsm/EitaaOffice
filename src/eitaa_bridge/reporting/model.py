@@ -197,6 +197,7 @@ class ReportedEvent:
     had_reception: bool = False
     is_ashura_pilgrimage: bool = False
     contains_inner_contest: bool = False
+    campaign: str = ""  # "|" separated campaign (طرح) tags, e.g. "رویش جوانه ها"
     notes: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = ""

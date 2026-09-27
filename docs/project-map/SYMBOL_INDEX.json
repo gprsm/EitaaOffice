@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "2cd12a4b8bd7fb6e",
+  "source_fingerprint": "f718d676fbf98c55",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -12367,6 +12367,58 @@
       ]
     },
     {
+      "path": "src/eitaa_bridge/reporting/assessment_import.py",
+      "role": "Project",
+      "summary": "Import of the 1405 وضعیت‌سنجی workbook into the shell (F-075 / design doc §8).",
+      "symbols": [
+        {
+          "name": "NormalizationCandidate",
+          "kind": "class",
+          "line": 40
+        },
+        {
+          "name": "ImamCandidate",
+          "kind": "class",
+          "line": 55
+        },
+        {
+          "name": "AssessmentImportResult",
+          "kind": "class",
+          "line": 67
+        },
+        {
+          "name": "AssessmentImportResult.coded_fact_count",
+          "kind": "method",
+          "line": 77
+        },
+        {
+          "name": "AssessmentImportResult.candidate_count",
+          "kind": "method",
+          "line": 81
+        },
+        {
+          "name": "load_assessment_rows",
+          "kind": "function",
+          "line": 85
+        },
+        {
+          "name": "parse_assessment_rows",
+          "kind": "function",
+          "line": 105
+        },
+        {
+          "name": "_parse_count",
+          "kind": "function",
+          "line": 264
+        },
+        {
+          "name": "import_into_store",
+          "kind": "function",
+          "line": 272
+        }
+      ]
+    },
+    {
       "path": "src/eitaa_bridge/reporting/bale_messaging.py",
       "role": "Project",
       "summary": "Bale messaging integration for the reporting office (send/receive focus).",
@@ -12692,6 +12744,103 @@
       ]
     },
     {
+      "path": "src/eitaa_bridge/reporting/metrics.py",
+      "role": "Project",
+      "summary": "Versioned metric dictionary for the reporting section shell (F-075).",
+      "symbols": [
+        {
+          "name": "MetricDefinition",
+          "kind": "class",
+          "line": 29
+        },
+        {
+          "name": "MetricDefinition.validate",
+          "kind": "method",
+          "line": 38
+        },
+        {
+          "name": "MetricDefinition.choice_rank",
+          "kind": "method",
+          "line": 52
+        },
+        {
+          "name": "MetricDefinition.accepts",
+          "kind": "method",
+          "line": 58
+        },
+        {
+          "name": "MetricDictionary",
+          "kind": "class",
+          "line": 68
+        },
+        {
+          "name": "MetricDictionary.__init__",
+          "kind": "method",
+          "line": 73
+        },
+        {
+          "name": "MetricDictionary.register",
+          "kind": "method",
+          "line": 78
+        },
+        {
+          "name": "MetricDictionary.get",
+          "kind": "method",
+          "line": 84
+        },
+        {
+          "name": "MetricDictionary.__contains__",
+          "kind": "method",
+          "line": 90
+        },
+        {
+          "name": "MetricDictionary.__len__",
+          "kind": "method",
+          "line": 93
+        },
+        {
+          "name": "MetricDictionary.all",
+          "kind": "method",
+          "line": 96
+        },
+        {
+          "name": "MetricDictionary.validate_value",
+          "kind": "method",
+          "line": 99
+        },
+        {
+          "name": "InstrumentField",
+          "kind": "class",
+          "line": 144
+        },
+        {
+          "name": "AssessmentInstrument",
+          "kind": "class",
+          "line": 369
+        },
+        {
+          "name": "AssessmentInstrument.validate",
+          "kind": "method",
+          "line": 377
+        },
+        {
+          "name": "AssessmentInstrument.field_by_metric",
+          "kind": "method",
+          "line": 386
+        },
+        {
+          "name": "AssessmentInstrument.field_by_column",
+          "kind": "method",
+          "line": 389
+        },
+        {
+          "name": "normalize_coded_value",
+          "kind": "function",
+          "line": 441
+        }
+      ]
+    },
+    {
       "path": "src/eitaa_bridge/reporting/model.py",
       "role": "Project",
       "summary": "Domain model for the 1405 provincial reporting core.",
@@ -12764,22 +12913,22 @@
         {
           "name": "ReportedEvent.add_fact",
           "kind": "method",
-          "line": 204
+          "line": 205
         },
         {
           "name": "ReportedEvent.validate",
           "kind": "method",
-          "line": 208
+          "line": 209
         },
         {
           "name": "facts_by_metric",
           "kind": "function",
-          "line": 217
+          "line": 218
         },
         {
           "name": "verified_or_observed",
           "kind": "function",
-          "line": 226
+          "line": 227
         }
       ]
     },
@@ -12842,6 +12991,197 @@
           "name": "EitaaReportMonitor.scan_texts",
           "kind": "method",
           "line": 146
+        }
+      ]
+    },
+    {
+      "path": "src/eitaa_bridge/reporting/plans.py",
+      "role": "Project",
+      "summary": "Mandate layer and approved program plans (F-075 / design doc §3, §10).",
+      "symbols": [
+        {
+          "name": "Mandate",
+          "kind": "class",
+          "line": 30
+        },
+        {
+          "name": "Mandate.validate",
+          "kind": "method",
+          "line": 39
+        },
+        {
+          "name": "PlanItem",
+          "kind": "class",
+          "line": 47
+        },
+        {
+          "name": "PlanItem.validate",
+          "kind": "method",
+          "line": 62
+        },
+        {
+          "name": "PlanItem.target_for",
+          "kind": "method",
+          "line": 73
+        },
+        {
+          "name": "campaign_events",
+          "kind": "function",
+          "line": 210
+        },
+        {
+          "name": "_campaign_tags",
+          "kind": "function",
+          "line": 219
+        },
+        {
+          "name": "realization_ratio",
+          "kind": "function",
+          "line": 225
+        },
+        {
+          "name": "realization_report",
+          "kind": "function",
+          "line": 239
+        }
+      ]
+    },
+    {
+      "path": "src/eitaa_bridge/reporting/projections.py",
+      "role": "Project",
+      "summary": "Projection layer: official documents rendered from the shell (F-075).",
+      "symbols": [
+        {
+          "name": "ProjectionCell",
+          "kind": "class",
+          "line": 32
+        },
+        {
+          "name": "ProjectionCell.as_dict",
+          "kind": "method",
+          "line": 38
+        },
+        {
+          "name": "VisitWorksheetPrayerRow",
+          "kind": "class",
+          "line": 43
+        },
+        {
+          "name": "VisitWorksheetPrayerRow.as_dict",
+          "kind": "method",
+          "line": 50
+        },
+        {
+          "name": "_unit_facts_for",
+          "kind": "function",
+          "line": 59
+        },
+        {
+          "name": "council_compliance",
+          "kind": "function",
+          "line": 72
+        },
+        {
+          "name": "rooyesh_javaneh_stats",
+          "kind": "function",
+          "line": 105
+        },
+        {
+          "name": "build_visit_worksheet_prayer_row",
+          "kind": "function",
+          "line": 130
+        },
+        {
+          "name": "_venues_without_active_imam",
+          "kind": "function",
+          "line": 183
+        },
+        {
+          "name": "build_prayer_dossier",
+          "kind": "function",
+          "line": 209
+        }
+      ]
+    },
+    {
+      "path": "src/eitaa_bridge/reporting/registry.py",
+      "role": "Project",
+      "summary": "Registry layer of the reporting section shell (F-075 / ADR-55).",
+      "symbols": [
+        {
+          "name": "_utc_now",
+          "kind": "function",
+          "line": 32
+        },
+        {
+          "name": "UnitRecord",
+          "kind": "class",
+          "line": 37
+        },
+        {
+          "name": "UnitRecord.validate",
+          "kind": "method",
+          "line": 47
+        },
+        {
+          "name": "ImamRecord",
+          "kind": "class",
+          "line": 55
+        },
+        {
+          "name": "ImamRecord.validate",
+          "kind": "method",
+          "line": 80
+        },
+        {
+          "name": "VenueRecord",
+          "kind": "class",
+          "line": 90
+        },
+        {
+          "name": "VenueRecord.validate",
+          "kind": "method",
+          "line": 103
+        },
+        {
+          "name": "NomokalafRecord",
+          "kind": "class",
+          "line": 109
+        },
+        {
+          "name": "NomokalafRecord.validate",
+          "kind": "method",
+          "line": 140
+        },
+        {
+          "name": "EntityFact",
+          "kind": "class",
+          "line": 153
+        },
+        {
+          "name": "EntityFact.validate",
+          "kind": "method",
+          "line": 178
+        },
+        {
+          "name": "EntityFact.export_ready",
+          "kind": "method",
+          "line": 198
+        },
+        {
+          "name": "entity_facts_for_period",
+          "kind": "function",
+          "line": 202
+        },
+        {
+          "name": "latest_choice_fact",
+          "kind": "function",
+          "line": 218
+        },
+        {
+          "name": "nomokalaf_coverage",
+          "kind": "function",
+          "line": 226
         }
       ]
     },
@@ -13032,137 +13372,237 @@
         {
           "name": "_utc_now",
           "kind": "function",
-          "line": 39
+          "line": 42
         },
         {
           "name": "ReportingStoreError",
           "kind": "class",
-          "line": 43
+          "line": 46
         },
         {
           "name": "ReportingStore",
           "kind": "class",
-          "line": 47
+          "line": 50
         },
         {
           "name": "ReportingStore.__init__",
           "kind": "method",
-          "line": 50
+          "line": 53
         },
         {
           "name": "ReportingStore._connect",
           "kind": "method",
-          "line": 56
+          "line": 59
         },
         {
           "name": "ReportingStore.initialize",
           "kind": "method",
-          "line": 74
+          "line": 77
         },
         {
           "name": "ReportingStore.list_targets",
           "kind": "method",
-          "line": 238
+          "line": 378
         },
         {
           "name": "ReportingStore.save_target",
           "kind": "method",
-          "line": 252
+          "line": 392
         },
         {
           "name": "ReportingStore.delete_target",
           "kind": "method",
-          "line": 274
+          "line": 414
         },
         {
           "name": "ReportingStore.record_decision",
           "kind": "method",
-          "line": 282
+          "line": 422
         },
         {
           "name": "ReportingStore.list_decisions",
           "kind": "method",
-          "line": 323
+          "line": 463
         },
         {
           "name": "ReportingStore.save_candidate",
           "kind": "method",
-          "line": 372
+          "line": 512
         },
         {
           "name": "ReportingStore.list_candidates",
           "kind": "method",
-          "line": 412
+          "line": 552
         },
         {
           "name": "ReportingStore.get_candidate",
           "kind": "method",
-          "line": 462
+          "line": 602
         },
         {
           "name": "ReportingStore.approve_candidate",
           "kind": "method",
-          "line": 489
+          "line": 629
         },
         {
           "name": "ReportingStore.reject_candidate",
           "kind": "method",
-          "line": 504
+          "line": 644
         },
         {
           "name": "ReportingStore.save_event",
           "kind": "method",
-          "line": 522
+          "line": 662
         },
         {
           "name": "ReportingStore.list_events",
           "kind": "method",
-          "line": 601
+          "line": 743
         },
         {
           "name": "ReportingStore.get_event",
           "kind": "method",
-          "line": 666
+          "line": 809
         },
         {
           "name": "ReportingStore.delete_event",
           "kind": "method",
-          "line": 720
+          "line": 864
         },
         {
           "name": "ReportingStore.save_filled_form",
           "kind": "method",
-          "line": 728
+          "line": 872
         },
         {
           "name": "ReportingStore.get_filled_form",
           "kind": "method",
-          "line": 769
+          "line": 913
         },
         {
           "name": "ReportingStore.list_filled_forms",
           "kind": "method",
-          "line": 807
+          "line": 951
         },
         {
           "name": "ReportingStore.record_export",
           "kind": "method",
-          "line": 820
+          "line": 964
         },
         {
           "name": "ReportingStore.list_exports",
           "kind": "method",
-          "line": 853
+          "line": 997
         },
         {
           "name": "ReportingStore.get_config",
           "kind": "method",
-          "line": 863
+          "line": 1007
         },
         {
           "name": "ReportingStore.set_config",
           "kind": "method",
-          "line": 868
+          "line": 1012
+        },
+        {
+          "name": "ReportingStore.find_unit_by_name",
+          "kind": "method",
+          "line": 1030
+        },
+        {
+          "name": "ReportingStore.save_unit",
+          "kind": "method",
+          "line": 1044
+        },
+        {
+          "name": "ReportingStore.list_units",
+          "kind": "method",
+          "line": 1070
+        },
+        {
+          "name": "ReportingStore.save_imam",
+          "kind": "method",
+          "line": 1088
+        },
+        {
+          "name": "ReportingStore.list_imams",
+          "kind": "method",
+          "line": 1130
+        },
+        {
+          "name": "ReportingStore.save_venue",
+          "kind": "method",
+          "line": 1156
+        },
+        {
+          "name": "ReportingStore.list_venues",
+          "kind": "method",
+          "line": 1187
+        },
+        {
+          "name": "ReportingStore.save_nomokalaf",
+          "kind": "method",
+          "line": 1208
+        },
+        {
+          "name": "ReportingStore.list_nomokalaf",
+          "kind": "method",
+          "line": 1261
+        },
+        {
+          "name": "ReportingStore.save_entity_fact",
+          "kind": "method",
+          "line": 1304
+        },
+        {
+          "name": "ReportingStore.list_entity_facts",
+          "kind": "method",
+          "line": 1350
+        },
+        {
+          "name": "ReportingStore.save_normalization_candidate",
+          "kind": "method",
+          "line": 1401
+        },
+        {
+          "name": "ReportingStore.list_normalization_candidates",
+          "kind": "method",
+          "line": 1449
+        },
+        {
+          "name": "ReportingStore.approve_normalization_candidate",
+          "kind": "method",
+          "line": 1460
+        },
+        {
+          "name": "ReportingStore.reject_normalization_candidate",
+          "kind": "method",
+          "line": 1533
+        },
+        {
+          "name": "ReportingStore.approve_imam_candidate",
+          "kind": "method",
+          "line": 1545
+        },
+        {
+          "name": "ReportingStore.save_plan_item",
+          "kind": "method",
+          "line": 1574
+        },
+        {
+          "name": "ReportingStore.list_plan_items",
+          "kind": "method",
+          "line": 1613
+        },
+        {
+          "name": "ReportingStore.save_mandate",
+          "kind": "method",
+          "line": 1636
+        },
+        {
+          "name": "ReportingStore.list_mandates",
+          "kind": "method",
+          "line": 1660
         }
       ]
     },
@@ -18437,6 +18877,178 @@
           "name": "TestBaleMessaging.test_index_records_reuses_eitaa_pipeline",
           "kind": "method",
           "line": 337
+        }
+      ]
+    },
+    {
+      "path": "tests/test_reporting_shell.py",
+      "role": "Python test",
+      "summary": "Tests for the section-shell phase 1 (F-075): metrics, registry, plans,",
+      "symbols": [
+        {
+          "name": "store",
+          "kind": "function",
+          "line": 42
+        },
+        {
+          "name": "TestMetricDictionary",
+          "kind": "class",
+          "line": 50
+        },
+        {
+          "name": "TestMetricDictionary.test_assessment_instrument_is_registered",
+          "kind": "method",
+          "line": 51
+        },
+        {
+          "name": "TestMetricDictionary.test_duplicate_metric_key_rejected",
+          "kind": "method",
+          "line": 57
+        },
+        {
+          "name": "TestMetricDictionary.test_choice_validation_and_ordinal_rank",
+          "kind": "method",
+          "line": 64
+        },
+        {
+          "name": "TestMetricDictionary.test_deterministic_normalizers",
+          "kind": "method",
+          "line": 71
+        },
+        {
+          "name": "TestRegistry",
+          "kind": "class",
+          "line": 82
+        },
+        {
+          "name": "TestRegistry.test_nomokalaf_dual_grain_validation",
+          "kind": "method",
+          "line": 83
+        },
+        {
+          "name": "TestRegistry.test_person_record_fields_all_optional",
+          "kind": "method",
+          "line": 89
+        },
+        {
+          "name": "TestRegistry.test_entity_fact_validates_against_dictionary",
+          "kind": "method",
+          "line": 94
+        },
+        {
+          "name": "TestRegistry.test_nomokalaf_coverage_both_grains",
+          "kind": "method",
+          "line": 106
+        },
+        {
+          "name": "TestPlans",
+          "kind": "class",
+          "line": 125
+        },
+        {
+          "name": "TestPlans.test_prayer_plan_items_valid",
+          "kind": "method",
+          "line": 126
+        },
+        {
+          "name": "TestPlans.test_realization_from_campaign_events",
+          "kind": "method",
+          "line": 133
+        },
+        {
+          "name": "TestStoreShell",
+          "kind": "class",
+          "line": 162
+        },
+        {
+          "name": "TestStoreShell.test_campaign_column_roundtrip",
+          "kind": "method",
+          "line": 163
+        },
+        {
+          "name": "TestStoreShell.test_v1_database_migrates_campaign_column",
+          "kind": "method",
+          "line": 173
+        },
+        {
+          "name": "TestStoreShell.test_unit_upsert_by_name",
+          "kind": "method",
+          "line": 214
+        },
+        {
+          "name": "TestStoreShell.test_imam_version_bump_on_update",
+          "kind": "method",
+          "line": 220
+        },
+        {
+          "name": "TestStoreShell.test_venue_and_nomokalaf_roundtrip",
+          "kind": "method",
+          "line": 230
+        },
+        {
+          "name": "TestStoreShell.test_entity_fact_roundtrip_and_validation",
+          "kind": "method",
+          "line": 240
+        },
+        {
+          "name": "TestStoreShell.test_normalization_candidate_approval_flow",
+          "kind": "method",
+          "line": 258
+        },
+        {
+          "name": "TestStoreShell.test_imam_candidate_approval_creates_record",
+          "kind": "method",
+          "line": 291
+        },
+        {
+          "name": "TestStoreShell.test_plan_and_mandate_roundtrip",
+          "kind": "method",
+          "line": 306
+        },
+        {
+          "name": "_write_assessment_workbook",
+          "kind": "function",
+          "line": 321
+        },
+        {
+          "name": "TestAssessmentImport",
+          "kind": "class",
+          "line": 342
+        },
+        {
+          "name": "TestAssessmentImport.test_parse_produces_coded_facts_and_candidates",
+          "kind": "method",
+          "line": 343
+        },
+        {
+          "name": "TestAssessmentImport.test_coded_facts_keep_raw_text_note",
+          "kind": "method",
+          "line": 381
+        },
+        {
+          "name": "TestAssessmentImport.test_reimport_is_idempotent",
+          "kind": "method",
+          "line": 394
+        },
+        {
+          "name": "TestProjections",
+          "kind": "class",
+          "line": 410
+        },
+        {
+          "name": "TestProjections._setup",
+          "kind": "method",
+          "line": 411
+        },
+        {
+          "name": "TestProjections.test_visit_row_counts_and_gaps",
+          "kind": "method",
+          "line": 436
+        },
+        {
+          "name": "TestProjections.test_dossier_contains_no_person_data",
+          "kind": "method",
+          "line": 451
         }
       ]
     },
