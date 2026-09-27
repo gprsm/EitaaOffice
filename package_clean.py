@@ -201,15 +201,15 @@ RECURSIVE_RELEASE_SCOPES = {
     "ui/public": frozenset({".ico", ".jpg", ".jpeg", ".png", ".svg", ".woff", ".woff2"}),
     "ui/fonts": frozenset({".txt", ".woff", ".woff2"}),
 }
-QUARANTINED_RELEASE_PREFIXES = (
-    "src/eitaa_bridge/application/bale_client/",
-)
+# The bale_client quarantine was lifted by the owner decision F-085/ADR-60
+# (2026-09-27): the Bale personal client ships with the product again.
+QUARANTINED_RELEASE_PREFIXES: tuple[str, ...] = ()
 
 EXCLUDED_SCOPE_LABELS = (
     "live .env and bridge configuration",
     "session and credential state",
     "data/runtime/diagnostics/backups/catalog",
-    "Bale implementation and operational artifacts",
+    "operational artifacts (vaults, sessions, logs)"
     "test suites, caches and scratch/fix/probe files",
     "virtual environments and dependency trees",
     "generated UI/build/release output except exact offline wheels",

@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 369
-- اثرانگشت منبع: `a6b8f244f369fc2a`
+- اثرانگشت منبع: `98e85c0abe9322fd`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -124,7 +124,7 @@
 | `src/eitaa_bridge/application/bale_client/vault.py` | Application | 7 | — |
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
-| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 2 | Quarantine boundary for the incomplete Bale application adapter. |
+| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 18 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
@@ -204,7 +204,7 @@
 | `src/eitaa_bridge/licensing.py` | Project | 40 | Offline, device-bound activation for packaged Eitaa Bridge installations. |
 | `src/eitaa_bridge/providers/__init__.py` | Project | 0 | Public, provider-neutral extension contracts and the built-in registry. |
 | `src/eitaa_bridge/providers/bale/__init__.py` | Project | 0 | Disabled Bale extension slot; contains no endpoint or protocol implementation. |
-| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Fail-closed Bale registration for the stabilization baseline. |
+| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Bale personal provider registration (owner-authorized path). |
 | `src/eitaa_bridge/providers/bale_bot/__init__.py` | Project | 0 | — |
 | `src/eitaa_bridge/providers/bale_bot/adapter.py` | Project | 13 | Bale Bot Provider Adapter (official Bot API, scaffold). |
 | `src/eitaa_bridge/providers/bale_bot/errors.py` | Project | 1 | Error mapping for Bale Bot API. |
@@ -240,7 +240,7 @@
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
 | `tests/test_bale_bot_adapter.py` | Python test | 13 | Offline tests for the Bale Bot scaffold adapter and its fail-closed status. |
 | `tests/test_bale_branch_api.py` | Python test | 60 | Offline tests for the Bale branch modular API (Phase 1). |
-| `tests/test_bale_stabilization_fail_closed.py` | Python test | 6 | — |
+| `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
 | `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |

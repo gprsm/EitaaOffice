@@ -540,3 +540,11 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - `bale_bot` در `default_provider_registry` و `provider_adapter_catalog` ثبت نمی‌شود؛ `configured/runtime_enabled/onboarding_enabled` همگی false است و factory ندارد. فعال‌سازی عملیاتی فقط پس از دروازه‌های پذیرش زنده (توکن بات مالک‌تأییدشده و پذیرش محدود عملیات نشست) مجاز است.
 - محدودیت ذاتی Bot API مستند می‌ماند: حل شمارهٔ تلفن به chat_id ممکن نیست و ارسال فقط به کاربرانی که گفت‌وگو را با بات آغاز کرده‌اند ممکن است؛ این محدودیت باید به سرویس‌های مصرف‌کننده اعلام شود، نه دور زده شود.
 - منبع تصمیم: F-046، F-083، F-084، V-213، V-214 و مأموریت اتصال سامانهٔ آموزش/آزمون 2026-09-27.
+
+## ۶۰. حساب شخصی بله مسیر درجه‌یک محصول است و در کنار بات بله هم‌زیستی دارد (تصمیم مالک، F-086)
+
+- مالک در 2026-09-27 صریحاً اعلام کرد تفسیر fail-closed دائمی از F-046/G-02 برخلاف قرارداد متأخر او (فصل ۷ سند Discovery) بوده و مسیر حساب شخصی بله — که خود زمان زیادی برای آن صرف کرده و عملیات نشست آن روی شاخهٔ Bale پذیرش زنده شده (V-194/F-072) — باید قابل استفاده باشد؛ هم‌زمان زیرساخت بات بله حفظ می‌شود.
+- معماری: کلاینت شخصی در `application/bale_client` (با vault رمزشده و مالکیت حساب) می‌ماند؛ `providers/bale/slot.py` فقط ثبت/مانیفست است و آداپتور واقعی در لایه application با backend تزریقی، probe قرارداد آفلاین را می‌گذراند. قاعدهٔ layering «providers بدون transport» با استثناهای مستند (بله شخصی در application، بات بله در providers/bale_bot) حفظ می‌شود.
+- حریم خصوصی تغییر نمی‌کند: passphrase/OTP/رمز دوم/شمارهٔ کامل/متن خصوصی هرگز به لاگ، خطا، receipt یا گزارش نمی‌روند و کلاینت فقط کدهای امن `bale_*` بیرون می‌دهد.
+- staging صادقانه: `configured=True` با capabilities واقعی؛ `runtime_enabled` و `onboarding_enabled` تا اتصال onboarding/worker حساب‌های بله در فاز بعدیِ همین مسیر مجاز False می‌ماند (`provider_onboarding_wiring_pending`)؛ هیچ ادعای Live برای ارسال از مسیر orchestrator وجود ندارد و عملیات Live تأیید همان‌لحظه می‌خواهد.
+- منبع تصمیم: F-086، V-216، فصل ۷/۸ `BALE_PROVIDER_DISCOVERY.md` و دستور مالک 2026-09-27.

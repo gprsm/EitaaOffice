@@ -2,7 +2,11 @@
 
 **Version:** 1.1.0
 **Date:** 2026-09-27
-**Status:** Design/Implementation (offline-tested; NOT live-accepted)
+**Status:** Design/Implementation under security review (offline-tested; NOT live-accepted)
+
+**Open review finding:** F-085. Do not treat this version as a production
+authorization or chat-continuity contract until its account, receipt and chat
+ownership issues are resolved.
 
 ## Data Ownership Boundaries
 
@@ -170,11 +174,18 @@
   shared contact directory; a contact without an active dialog stays
   `unresolved`. Contact import is a separate operation, not part of M2M.
 - **Bale Bot** (`providers/bale_bot`, official Bot API only): scaffold,
-  not registered in the provider registry, `runtime_enabled=false`,
-  `onboarding_enabled=false` — fail-closed until live acceptance gates pass.
+  not registered in the provider registry — fail-closed until the owner
+  supplies the official bot documentation/token and live gates pass.
   The Bot API cannot resolve phone numbers; it can only message users who
-  already started a conversation with the bot. Bale personal accounts remain
-  fail-closed per F-046.
+  already started a conversation with the bot.
+- **Bale Personal** (owner decision F-086/ADR-60, 2026-09-27): authorized as
+  a first-class product path alongside the bot. The client
+  (`application/bale_client`) ships with the product and its adapter is
+  offline contract-verified; provider-side send over the orchestrator is not
+  live-accepted yet and multi-provider onboarding/worker wiring is the next
+  authorized phase (`provider_onboarding_wiring_pending`). Personal Bale
+  delivery today runs through the Bale-branch v1 surface (session ops
+  live-accepted, V-194).
 - **Agent**: the test adapter returns a fixed marked response; a real adapter
   requires explicit configuration (vendor, URL, credential) that must not be
   guessed.
@@ -187,3 +198,18 @@
 4. **Revoke**: disables the credential immediately.
 5. **Agent config**: a real agent adapter requires explicit configuration;
    until then every chat response is marked `is_test_response: true`.
+
+## Open Implementation Gaps (F-085)
+
+- A credential created with no selected messenger accounts currently has an
+  unrestricted account list. The service authorization path does not perform
+  an AppUser membership check. Issue only explicitly account-bound credentials
+  while this boundary is being corrected.
+- Receipt status is not bound to a service identity and currently lacks a
+  scope check. Do not share status keys across services or rely on this route
+  for service-isolated receipt access.
+- Chat has no `message_id` or replay protection. Stored message history is not
+  passed to the agent adapter, and the configurable adapter is not wired into
+  runtime configuration. Chat continuity and live agent connection are pending.
+- The per-request service authorization context requires explicit reset;
+  a same-context request sequence has not been regression tested.

@@ -135,9 +135,16 @@ export const ServiceAccountSettingsPanel = () => {
     }
   }
 
-  const chipFor = (provider: string, fallbackLabel: string, readyLabel: string) => {
+  const chipFor = (provider: string, fallbackLabel: string, readyLabel: string, pendingLabel: string) => {
     const descriptor = providerAdapters[provider]
     if (!descriptor || !descriptor.configured || !descriptor.runtime_enabled) {
+      if (
+        descriptor &&
+        descriptor.configured &&
+        descriptor.implementation_state === 'implemented'
+      ) {
+        return <Chip label={pendingLabel} color="info" size="small" />
+      }
       return <Chip label={fallbackLabel} color="warning" size="small" />
     }
     return <Chip label={readyLabel} color="success" size="small" />
@@ -154,8 +161,8 @@ export const ServiceAccountSettingsPanel = () => {
           <CardContent>
             <Typography variant="h6" gutterBottom>وضعیت سیستم</Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {chipFor('eitaa', 'ارسال ایتا: حساب فعال ندارد', 'ارسال ایتا: فعال')}
-              {chipFor('bale', 'ارسال بله: پیکربندی نشده', 'ارسال بله: فعال')}
+              {chipFor('eitaa', 'ارسال ایتا: حساب فعال ندارد', 'ارسال ایتا: فعال', 'ارسال ایتا: در حال اتصال')}
+              {chipFor('bale', 'ارسال بله: پیکربندی نشده', 'ارسال بله (شخصی): فعال', 'بله شخصی: مجاز — اتصال خودکار در فاز بعد')}
               <Chip label="نماینده هوشمند: حالت آزمایشی" color="info" size="small" />
             </Box>
           </CardContent>

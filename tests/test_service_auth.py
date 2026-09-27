@@ -141,6 +141,11 @@ def test_service_token_happy_path(config_file, monkeypatch):
     assert m2m_resp.status == 409
     assert m2m_resp.payload["code"] == "m2m_recipient_unresolved"
 
+    # The service authorization context must not leak into later requests on
+    # the same execution context (F-085 gap #1 regression guard).
+    assert api._request_service_auth_context.get() is None
+    assert api._request_actor_global_role.get() is None
+
 
 def test_service_token_wrong_account(config_file, monkeypatch):
     api, messenger_account_id = _prepared_api(config_file, monkeypatch)

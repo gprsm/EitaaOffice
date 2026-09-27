@@ -113,7 +113,7 @@ second_factor_pending? -> authenticated -> expired/revoked/invalid
 
 خروجی این مرحله فقط Discovery report و قرارداد پذیرفته‌شده است؛ ورود واقعی انجام نمی‌شود.
 
-وضعیت ۲۰۲۶-۰۸-۱۳: `COMPLETE / BLOCKED FOR PERSONAL CLIENT`. دو ZIP محلی و Aiobale به‌صورت ایستا بررسی شدند. شرایط رسمی بله APIهای غیررسمی/مهندسی معکوس را ممنوع کرده است؛ بنابراین هیچ transport شخصی پیاده‌سازی نشد. API رسمی Bot/Arm موجود است، اما account kind و capability متفاوت دارد و فقط با تصمیم محصولی مستقل ادامه می‌یابد. مرجع: `BALE_PROVIDER_DISCOVERY.md` و گزارش Phase 11-A.
+وضعیت ۲۰۲۶-۰۸-۱۳: `COMPLETE / BLOCKED FOR PERSONAL CLIENT`. دو ZIP محلی و Aiobale به‌صورت ایستا بررسی شدند. شرایط رسمی بله APIهای غیررسمی/مهندسی معکوس را ممنوع کرده است؛ بنابراین هیچ transport شخصی پیاده‌سازی نشد. به‌روزرسانی 2026-09-27: این blockage با قرارداد متأخر مالک (فصل ۷ Discovery) و سپس تصمیم صریح F-085/ADR-60 منتفی شد؛ مسیر شخصی بله مجاز و در محصول فعال (کلاینت در شاخهٔ Bale با پذیرش زندهٔ V-194) است و بات بله به‌عنوان مسیر رسمی جداگانه در کنار آن scaffold شده است. مرجع: `BALE_PROVIDER_DISCOVERY.md`، F-086 و ADR-60.
 
 ## فصل ۶ — مرحلهٔ 11-B: Bale Adapter و Fake Contract
 

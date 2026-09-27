@@ -2035,3 +2035,27 @@
   5. `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` اجرا شد؛ نتایج در گزارش نهایی ثبت است.
 - حدود: هیچ ارسال واقعی، ورود واقعی، import مخاطب واقعی یا فعال‌سازی بله انجام نشد. `recipients/resolve` و استعلام وضعیت فقط با Fake/Contract آزموده شده‌اند؛ پذیرش زنده دروازه‌های خودش را دارد.
 - مرجع: F-084، ADR-59 و قرارداد نسخهٔ 1.1.0.
+
+### V-215 — راستی‌آزمایی مستقل پاسخ نهایی اتصال سامانهٔ آموزش/آزمون
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC CHECKS / REMOTE GIT REF`.
+- Trigger بررسی مجدد: درخواست صریح مالک برای تأیید دستور اولیه و پاسخ عامل، و تضاد ادعای تکمیل F-084/V-214 با احتمال ریسک مجوز M2M. هیچ حساب، Provider یا دادهٔ عملیاتی زنده خوانده یا تغییر داده نشد.
+- Git: شاخهٔ محلی `Bale` تمیز و روی `4a38f6ae` بود؛ `4cee8d9a` نیز در تاریخچه وجود داشت. استعلام فقط‌خواندنی `origin/Bale` همان `4a38f6ae` را نشان داد؛ پس ادعای وجود دو کامیت و push تأیید شد. این شاهد، استقرار همان کد روی سرور را اثبات نمی‌کند.
+- اجرای مستقل پیش از ثبت مستندات: `python -m pytest -q` با exit=0 (یک skip و یک هشدار deprecation وابستگی `websockets`)؛ `npm.cmd --prefix ui run check` و `npm.cmd --prefix ui run test:observability` هر دو exit=0؛ `check_project_memory_integrity.py`، `refresh_project_docs.py --check` و `refresh_project_docs.py --check --check-links` هر سه exit=0.
+- پس از ثبت F-085 و اصلاح سند قرارداد، `refresh_project_docs.py` اجرا شد؛ integrity، freshness، link check و `git diff --check` دوباره exit=0 داشتند. چهار فایل Markdown بازبینی در worktree تغییرکرده‌اند؛ هیچ کد محصولی، فایل عملیاتی یا Git stage/commit/push در این ممیزی انجام نشد.
+- بازبینی ایستا: F-085 چهار شکاف پوشش‌داده‌نشده را ثبت می‌کند: باقی‌ماندن `ContextVar` مجوز سرویس بین درخواست‌های هم‌زمینه؛ اعتبارنامهٔ بی‌حصار حساب از پنل؛ استعلام رسید بدون scope و بدون مالک سرویس؛ و چت بدون `message_id`/replay protection، بدون استفاده از تاریخچه و بدون اتصال runtime آداپتور قابل‌پیکربندی. آزمون مثبت/منفی اختصاصی برای این شکاف‌ها در این ممیزی اجرا یا اضافه نشد؛ ادعای exploit زنده مطرح نیست.
+- سطح پذیرش: صحت ادعای سبز بودن مجموعهٔ موجود و انتشار Git تأیید شد؛ کامل‌بودن قرارداد امنیتی یا آمادگی عملیاتی سه مرز رد شد. ارسال ایتا، ارسال بله و گفت‌وگوی عامل همچنان پذیرش واقعی ندارند.
+- Trigger تکرار: اصلاح کد مجوز/رسید/چت یا تغییر پیکربندی مربوط؛ سپس آزمون‌های منفی request-sequence و جداسازی سرویس، مجموعهٔ کامل و دروازه‌های پذیرش زندهٔ مجاز.
+- مرجع: F-085 و `docs/contracts/EDUCATION_SYSTEM_API_CONTRACT_v1.md`.
+
+### V-216 — اعتبارسنجی فعال‌سازی مسیر مجاز بله شخصی (F-086/ADR-60)
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `OFFLINE CONTRACT TESTS / ADAPTER CONTRACT PROBE / PACKAGING AUDIT / WHEEL PARITY / UI TYPECHECK / DOC INTEGRITY`.
+- Trigger: دستور صریح مالک برای رفع محدودیت استفاده از حساب شخصی بله و حفظ هم‌زمان بات بله (F-086). شناسهٔ این رکورد به‌دلیل تداخل هم‌زمان با V-215 (ممیزی M2M) به V-216 تغییر یافت.
+- نتایج (همه آفلاین، بدون شبکه یا vault واقعی):
+  1. `tests/test_bale_personal_authorization.py`: مانیفست مجاز (`document:F-085`)، capabilities واقعی، `configured=True` و staging صادقانه (`runtime/onboarding=False` با reason `provider_onboarding_wiring_pending`)؛ رد `create_adapter` با کد صادقانهٔ جدید؛ نگهبان `create_worker` پابرجا؛ هم‌زیستی بله شخصی (registered) و بله بات (scaffold ثبت‌نشده)؛ پاس probe قرارداد آداپتور؛ نگاشت ارسال موفق/نامعلوم/خطای دائم، جریان auth با رمز دوم، validate_session (قفل vault → EXPIRED)؛ اثبات عدم افشای passphrase/OTP/رمز در repr خروجی‌ها؛ نقشهٔ dialogs/history؛ حضور `bale_client` در scope انتشار.
+  2. `tests/test_g07_release_packaging.py` و `tests/test_phase4d_account_management.py` و `tests/test_phase11b_provider_extension_foundation.py`: به قرارداد جدید به‌روزرسانی و سبز شدند؛ wheel با وابستگی `websockets` و دربرداشتن `bale_client` بازسازی شد (SHA-256 `c5d1b933…d02eb08f`) و parity سبز است.
+  3. مجموعهٔ کامل Backend در پایان نوبت سبز شد (EXIT=0، صفر FAILED). در اجرای نخست، تنها یک شکست محیطی گذرا (WinError 10053 قطع سوکت آزمون سرور محلی `test_bale_branch_api`) رخ داد که در اجرای منفرد و اجرای مجدد کامل بازتولید نشد؛ flake محیطی ثبت شد.
+  4. `npm run check` و `npm run test:observability` پس از به‌روزرسانی descriptor و پنل سبز شدند؛ `refresh_project_docs.py --check --check-links` و integrity پس از بازتولید نقشه‌ها سبز شدند.
+- حدود: هیچ ورود، ارسال یا اتصال واقعی به بله انجام نشد؛ پذیرش زندهٔ ارسال از مسیر orchestrator و اتصال onboarding/worker حساب‌های بله دروازه‌های بعدی خودش را دارد (فاز بعدیِ مجاز طبق ADR-60). عملیات Live همچنان نیازمند تأیید همان‌لحظهٔ مالک است.
+- مرجع: F-086، ADR-60.

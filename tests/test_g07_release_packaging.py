@@ -111,7 +111,8 @@ def test_release_collection_is_allowlisted_and_excludes_private_or_scratch_state
         "probe.json",
         "Bale/private_client.py",
         "scripts/scratch_fix.py",
-        "src/eitaa_bridge/application/bale_client/private.py",
+        # src/eitaa_bridge/application/bale_client/ ships again per F-086;
+        # its inclusion is asserted in test_bale_personal_authorization.
         "data/coordinator.sqlite3",
         "runtime/app.jsonl",
         "diagnostics/bundle.json",
@@ -297,7 +298,10 @@ def test_bundled_bridge_wheel_matches_current_source_tree() -> None:
     assert result["extra"] == 0
 
 
-def test_release_excludes_quarantined_bale_client_but_keeps_fail_closed_slot() -> None:
+def test_release_ships_owner_authorized_bale_personal_client_again() -> None:
+    """F-086/ADR-60: the bale_client quarantine is lifted; the personal
+    client, the authorized slot and the websockets transport dependency ship
+    with the product while the fail-closed worker gate stays in place."""
     root = Path(__file__).resolve().parents[1]
     selected = {
         path.relative_to(root).as_posix()
@@ -305,19 +309,17 @@ def test_release_excludes_quarantined_bale_client_but_keeps_fail_closed_slot() -
     }
 
     assert "src/eitaa_bridge/providers/bale/slot.py" in selected
-    assert not any(
-        name.startswith("src/eitaa_bridge/application/bale_client/")
-        for name in selected
-    )
+    assert "src/eitaa_bridge/application/bale_client/api.py" in selected
+    assert "src/eitaa_bridge/application/bale_provider_adapter.py" in selected
 
     wheel_path = root / "dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl"
     with ZipFile(wheel_path) as wheel:
         names = wheel.namelist()
         metadata = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/METADATA")
     assert "eitaa_bridge/providers/bale/slot.py" in names
-    assert not any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
-    assert b"Requires-Dist: httpx" not in metadata
-    assert b"Requires-Dist: websockets" not in metadata
+    assert "eitaa_bridge/application/bale_client/api.py" in names
+    assert "eitaa_bridge/application/bale_provider_adapter.py" in names
+    assert b"Requires-Dist: websockets" in metadata
     assert b"Requires-Dist: cryptography==46.0.7" in metadata
 
 
@@ -343,11 +345,12 @@ def test_stdlib_wheel_builder_is_deterministic_and_uses_canonical_contract(
             metadata = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/METADATA")
             entry_points = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/entry_points.txt")
         assert "eitaa_bridge/providers/bale/slot.py" in names
-        assert not any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
-        assert metadata.count(b"Requires-Dist:") == 4
+        assert any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
+        assert metadata.count(b"Requires-Dist:") == 5
         assert b"Requires-Dist: eitaa-core==0.6.0.dev19" in metadata
         assert b"Requires-Dist: requests>=2.31,<3" in metadata
         assert b"Requires-Dist: cryptography==46.0.7" in metadata
+        assert b"Requires-Dist: websockets>=12,<17" in metadata
         assert b"Provides-Extra: dev" in metadata
         assert entry_points.count(b" = eitaa_bridge.") == 4
     finally:

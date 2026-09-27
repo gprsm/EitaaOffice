@@ -120,18 +120,18 @@ def test_default_registry_exposes_capabilities_but_keeps_bale_fail_closed():
     assert catalog["eitaa"].implementation_state == "live_accepted"
     assert "dialogs.read" in catalog["eitaa"].capabilities
     assert catalog["bale"].implementation_state == "implemented"
-    assert catalog["bale"].capabilities == ()
-    assert catalog["bale"].configured is False
+    assert len(catalog["bale"].capabilities) > 0  # owner-authorized path, F-086
+    assert catalog["bale"].configured is True
     assert catalog["bale"].runtime_enabled is False
     assert catalog["bale"].onboarding_enabled is False
-    assert catalog["bale"].reason_code == "provider_adapter_not_configured"
+    assert catalog["bale"].reason_code == "provider_onboarding_wiring_pending"
     with pytest.raises(ProviderExtensionError) as adapter_rejected:
         default_provider_registry().create_adapter(
             "bale",
             _account("bale"),
             InMemoryProviderSessionStore(),
         )
-    assert adapter_rejected.value.code == "provider_adapter_not_configured"
+    assert adapter_rejected.value.code == "provider_onboarding_wiring_pending"
     with pytest.raises(ProviderExtensionError) as rejected:
         default_provider_registry().create_worker("bale", str(uuid4()), None)
     assert rejected.value.code == "provider_worker_not_configured"

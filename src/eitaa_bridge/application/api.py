@@ -1274,6 +1274,12 @@ class BridgeApplicationApi:
             path = parsed.path.rstrip("/") or "/"
             query = {key: values[-1] for key, values in parse_qs(parsed.query, keep_blank_values=True).items()}
             payload = dict(body or {})
+            # Every request starts with a clean actor/service identity: stale
+            # M2M context from a previous request on this execution context
+            # must never influence authorization (F-085 gap #1).
+            self._request_actor_app_user_id.set(None)
+            self._request_actor_global_role.set(None)
+            self._request_service_auth_context.set(None)
             # M2M routes authenticate with their own service credential below;
             # the legacy shared bearer must not shadow them.
             if not self.app_user_auth_enabled and not path.startswith("/api/v2/m2m/"):
@@ -1378,7 +1384,7 @@ class BridgeApplicationApi:
                 ))
 
                 from .m2m_api import dispatch_m2m
-                return asyncio.run(dispatch_m2m(
+                m2m_response = asyncio.run(dispatch_m2m(
                     selected_method,
                     path,
                     body=payload,
@@ -1388,6 +1394,12 @@ class BridgeApplicationApi:
                     coordinator=self._coordinator,
                     resolve_handler=self._m2m_resolve_recipients,
                 ))
+                # Immediate cleanup: the service identity must not outlive its
+                # request on this execution context (F-085 gap #1).
+                self._request_actor_app_user_id.set(None)
+                self._request_actor_global_role.set(None)
+                self._request_service_auth_context.set(None)
+                return m2m_response
             elif self.app_user_auth_enabled:
                 app_auth = self._require_app_auth_service()
                 app_session = app_auth.authorize(
