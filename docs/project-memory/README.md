@@ -85,3 +85,5 @@
 این حافظه نباید Credential، Cookie، Token، OTP، رمز، شمارهٔ کامل، متن خصوصی پیام، Access Hash، Session، IP عمومی، مسیر شخصی غیرضروری یا محتوای خام Support Bundle را ثبت کند. فقط Metadata امن، شناسهٔ opaque و مسیر نسبی پروژه مجاز است.
 
 - [REPORTING_CORE_IMPLEMENTATION_2026-09-08.md](REPORTING_CORE_IMPLEMENTATION_2026-09-08.md) — هستهٔ گزارش ۱۴۰۵ پیاده‌سازی شد؛ رصد ایتا + ایندکس‌گذار intent + بله اضافه شد (ADR-53/54، F-070/071، V-190/191)
+- [گزارش بازنشانی کامل نصب سرور](../reports/features/EITAA_SERVER_FULL_RESET_REPORT_2026-09-26.md) — جایگزینی نسخهٔ محلی، حذف state و توکن‌های پیشین، و مرز پذیرش گفت‌وگوها (F-080/F-082، V-212).
+- [گزارش زیرساخت اتصال سامانهٔ آموزش/آزمون](../reports/features/EDUCATION_SYSTEM_M2M_INFRASTRUCTURE_REPORT_2026-09-27.md) — M2M محدود، resolve فقط‌خواندنی، داربست بله بات و درگاه عامل پس از اعتبارسنجی مستقل (F-083/F-084، V-213/V-214، ADR-59).

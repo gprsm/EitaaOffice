@@ -1071,6 +1071,22 @@ class EitaaRuntimeRegistry:
             )
         return self.runtime_for_account(selected_id)
 
+    def peek_runtime_for_account(
+        self,
+        messenger_account_id: str,
+    ) -> EitaaAccountRuntime | EitaaProcessRuntime | None:
+        """Return an already-running account runtime without starting one.
+
+        Read-only access for surfaces that must not have runtime-start side
+        effects (e.g. the M2M recipient lookup). Returns None when the account
+        has no live runtime in this process.
+        """
+        selected_id = canonical_messenger_account_id(messenger_account_id)
+        with self._lock:
+            if self._closed:
+                return None
+            return self._account_runtimes.get(selected_id)
+
     def runtime_for_account(
         self,
         messenger_account_id: str,

@@ -253,19 +253,38 @@ def test_bale_slot_has_no_transport_dynamic_loader_or_endpoint_literal(capsys):
     root = Path(__file__).resolve().parents[1] / "src" / "eitaa_bridge" / "providers"
     forbidden_imports = {"aiohttp", "httpx", "requests", "socket", "websockets", "importlib", "pkgutil"}
     forbidden_calls = {"eval", "exec", "__import__"}
+    # providers/bale_bot is the official Bale Bot API scaffold (ADR-56): the
+    # only allowed transport import, and only inside that dedicated package.
+    bale_bot_allowed_imports = {"httpx"}
+    bale_bot_root = root / "bale_bot"
     for path in root.rglob("*.py"):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
+        in_bale_bot = bale_bot_root in path.parents
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                assert not ({item.name.split(".")[0] for item in node.names} & forbidden_imports)
+                hit = {item.name.split(".")[0] for item in node.names} & forbidden_imports
+                if in_bale_bot:
+                    assert not (hit - bale_bot_allowed_imports)
+                else:
+                    assert not hit
             if isinstance(node, ast.ImportFrom) and node.module:
-                assert node.module.split(".")[0] not in forbidden_imports
+                top_module = node.module.split(".")[0]
+                if top_module in forbidden_imports:
+                    assert in_bale_bot and top_module in bale_bot_allowed_imports
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 assert node.func.id not in forbidden_calls
         if "providers/bale/" in path.as_posix():
             assert "http://" not in source and "https://" not in source
             assert "raw_rpc" not in source
+        if in_bale_bot:
+            # Official Bot API endpoint only; no personal-client RPC markers
+            # and no dynamic loading. The endpoint base stays a single constant.
+            assert "raw_rpc" not in source
+            assert "importlib" not in source and "pkgutil" not in source
+            assert source.count("https://") <= 1
+            if path.name == "adapter.py":
+                assert 'https://tapi.bale.ai' in source
 
     assert run_worker(
         provider="bale",

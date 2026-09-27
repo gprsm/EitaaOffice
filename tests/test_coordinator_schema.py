@@ -77,18 +77,25 @@ def test_schema6_upgrades_atomically_to_persistent_provider_receipts(tmp_path):
             "DROP TRIGGER provider_operation_receipts_provider_scope_insert"
         )
         connection.execute("DROP TABLE provider_operation_receipts")
-        connection.execute("DELETE FROM schema_migrations WHERE version=7")
+        connection.execute("DROP TABLE service_credentials")
+        connection.execute("DELETE FROM schema_migrations WHERE version>=7")
         connection.execute("PRAGMA user_version=6")
         connection.commit()
 
     database.initialize()
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION
         assert connection.execute(
             """
             SELECT COUNT(*) FROM sqlite_master
             WHERE type='table' AND name='provider_operation_receipts'
+            """
+        ).fetchone()[0] == 1
+        assert connection.execute(
+            """
+            SELECT COUNT(*) FROM sqlite_master
+            WHERE type='table' AND name='service_credentials'
             """
         ).fetchone()[0] == 1
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []

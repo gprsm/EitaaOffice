@@ -25,6 +25,7 @@ import type { Site } from './lib/types'
 import { LoginAppearanceSettingsPanel } from './LoginExperience'
 import { AppUserManagementPanel } from './AppUserManagementPanel'
 import { MessengerAccountManagementPanel } from './MessengerAccountGate'
+import { ServiceAccountSettingsPanel } from './ServiceAccountSettingsPanel'
 
 type SiteForm = {
   site_key: string
@@ -241,6 +242,9 @@ export function SettingsPage({
 
       <AppUserManagementPanel />
       <MessengerAccountManagementPanel />
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
+        <ServiceAccountSettingsPanel />
+      </Paper>
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={1}>

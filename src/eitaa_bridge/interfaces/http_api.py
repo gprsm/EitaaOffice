@@ -595,7 +595,10 @@ class _ApiHandler(BaseHTTPRequestHandler):
                 messenger_account_id=self._single_header(
                     "X-Eitaa-Messenger-Account"
                 ),
-                correlation_id=self._single_header("X-Eitaa-Correlation-Id"),
+                correlation_id=(
+                    self._single_header("X-Request-Id")
+                    or self._single_header("X-Eitaa-Correlation-Id")
+                ),
             )
             request_path = urlsplit(self.path).path.rstrip("/") or "/"
             if (

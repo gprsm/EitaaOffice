@@ -9,6 +9,7 @@ import binascii
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 import hmac
+import json
 import mimetypes
 import os
 import re
@@ -220,6 +221,14 @@ def _provider_login_code_failure(error: RpcError) -> tuple[str, str, str, str]:
 
 
 @dataclass(slots=True, frozen=True)
+class ServiceAuthContext:
+    service_id: str
+    service_name: str
+    allowed_providers: list[str]
+    allowed_messenger_account_ids: list[str] | None
+    scopes: list[str]
+
+@dataclass(slots=True, frozen=True)
 class ApiResponse:
     status: int
     payload: dict[str, Any]
@@ -427,6 +436,10 @@ class BridgeApplicationApi:
         self._persistent_job_worker_id = str(uuid.uuid4())
         self._persistent_job_lease_lock = threading.RLock()
         self._persistent_job_lease_stops: dict[str, threading.Event] = {}
+        self._m2m_rate_limit_lock = threading.Lock()
+        self._m2m_rate_limit_history: dict[str, list[float]] = {}
+        self._m2m_failed_verify_lock = threading.Lock()
+        self._m2m_failed_verify_history: list[float] = []
         if coordinator_database.is_file():
             self._coordinator = CoordinatorDatabase(coordinator_database)
             provider_reconciliation = self._coordinator.reconcile_provider_registrations(
@@ -480,6 +493,10 @@ class BridgeApplicationApi:
         )
         self._request_actor_global_role: ContextVar[str | None] = ContextVar(
             f"eitaa_bridge_request_actor_role_{id(self)}",
+            default=None,
+        )
+        self._request_service_auth_context: ContextVar[ServiceAuthContext | None] = ContextVar(
+            f"eitaa_bridge_request_service_auth_context_{id(self)}",
             default=None,
         )
         self._provider_operation_site_key: ContextVar[str | None] = ContextVar(
@@ -1252,13 +1269,15 @@ class BridgeApplicationApi:
         messenger_account_id: str | None = None,
     ) -> ApiResponse:
         try:
-            if not self.app_user_auth_enabled:
-                self._authorize(authorization)
             selected_method = method.upper().strip()
             parsed = urlsplit(raw_path)
             path = parsed.path.rstrip("/") or "/"
             query = {key: values[-1] for key, values in parse_qs(parsed.query, keep_blank_values=True).items()}
             payload = dict(body or {})
+            # M2M routes authenticate with their own service credential below;
+            # the legacy shared bearer must not shadow them.
+            if not self.app_user_auth_enabled and not path.startswith("/api/v2/m2m/"):
+                self._authorize(authorization)
             forged_account_fields = self._untrusted_account_context_fields(
                 {"body": payload, "query": query}
             )
@@ -1310,7 +1329,66 @@ class BridgeApplicationApi:
                 )
 
             app_session = None
-            if self.app_user_auth_enabled:
+            is_m2m = path.startswith("/api/v2/m2m/")
+            m2m_credential = None
+
+            if is_m2m:
+                if not authorization or not authorization.startswith("Bearer eb_svc_"):
+                    raise CoordinatorAuthenticationError(
+                        "M2M request missing valid service token.",
+                        code="m2m_auth_missing",
+                    )
+                if not request_id:
+                    raise CompositionValidationError("M2M requests require X-Request-Id.", code="m2m_request_id_missing")
+
+                if body is not None and len(json.dumps(body, ensure_ascii=True)) > 65536:
+                    raise CompositionValidationError("M2M request body exceeds 64KB.", code="m2m_request_too_large")
+
+                from ..infrastructure.coordinator.service_credentials import ServiceCredentialService
+                svc_service = ServiceCredentialService(self._coordinator)
+                token_val = authorization[len("Bearer "):].strip()
+
+                if not self._check_m2m_failed_verify_throttle():
+                    raise CoordinatorAuthRateLimitError(
+                        "M2M token verification temporarily throttled.",
+                        code="m2m_auth_throttled",
+                    )
+                m2m_credential = svc_service.verify_token(token_val)
+                if not m2m_credential:
+                    self._record_m2m_failed_verify()
+                    raise CoordinatorAuthenticationError(
+                        "Invalid or revoked service token.",
+                        code="m2m_auth_invalid",
+                    )
+
+                if not self._check_m2m_rate_limit(m2m_credential.id, max_requests=60, window_seconds=60.0):
+                    raise CoordinatorAuthRateLimitError(
+                        "M2M rate limit exceeded.",
+                        code="m2m_rate_limit_exceeded",
+                    )
+
+                self._request_actor_app_user_id.set(m2m_credential.created_by_app_user_id)
+                self._request_actor_global_role.set("service")
+                self._request_service_auth_context.set(ServiceAuthContext(
+                    service_id=m2m_credential.id,
+                    service_name=m2m_credential.service_name,
+                    allowed_providers=m2m_credential.allowed_providers,
+                    allowed_messenger_account_ids=m2m_credential.allowed_messenger_account_ids,
+                    scopes=m2m_credential.scopes,
+                ))
+
+                from .m2m_api import dispatch_m2m
+                return asyncio.run(dispatch_m2m(
+                    selected_method,
+                    path,
+                    body=payload,
+                    service_auth_context=m2m_credential,
+                    request_id=request_id,
+                    orchestrator=self._provider_orchestrator,
+                    coordinator=self._coordinator,
+                    resolve_handler=self._m2m_resolve_recipients,
+                ))
+            elif self.app_user_auth_enabled:
                 app_auth = self._require_app_auth_service()
                 app_session = app_auth.authorize(
                     app_session_token,
@@ -1327,6 +1405,101 @@ class BridgeApplicationApi:
 
             if selected_method == "GET" and path == "/api/v2/app-auth/me":
                 return self._app_auth_me(app_session)
+            if selected_method == "GET" and path == "/api/v2/service-credentials":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                svc = self._require_service_credential_service()
+                creds = svc.list_credentials()
+                return ApiResponse(200, {"ok": True, "credentials": [
+                    {
+                        "id": c.id,
+                        "service_name": c.service_name,
+                        "allowed_providers": c.allowed_providers,
+                        "allowed_messenger_account_ids": c.allowed_messenger_account_ids,
+                        "scopes": c.scopes,
+                        "created_at": c.created_at,
+                        "updated_at": c.updated_at,
+                        "revoked_at": c.revoked_at,
+                        "created_by_app_user_id": c.created_by_app_user_id,
+                        "description": c.description
+                    } for c in creds
+                ]})
+            if selected_method == "POST" and path == "/api/v2/service-credentials":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                svc = self._require_service_credential_service()
+                if not payload:
+                    raise CompositionValidationError("Missing body")
+                cred, token = svc.create_credential(
+                    service_name=payload["service_name"],
+                    allowed_providers=payload["allowed_providers"],
+                    allowed_messenger_account_ids=payload.get("allowed_messenger_account_ids"),
+                    scopes=payload["scopes"],
+                    description=payload.get("description", ""),
+                    created_by_app_user_id=session.principal.app_user_id,
+                )
+                if self._application_logger is not None:
+                    self._application_logger.emit(
+                        "service_credential_created",
+                        correlation_id=request_id,
+                        fields={"credential_id": cred.id, "service_name": cred.service_name},
+                    )
+                return ApiResponse(200, {"ok": True, "token": token, "credential": {
+                    "id": cred.id,
+                    "service_name": cred.service_name,
+                    "allowed_providers": cred.allowed_providers,
+                    "allowed_messenger_account_ids": cred.allowed_messenger_account_ids,
+                    "scopes": cred.scopes,
+                    "created_at": cred.created_at,
+                    "updated_at": cred.updated_at,
+                    "revoked_at": cred.revoked_at,
+                    "created_by_app_user_id": cred.created_by_app_user_id,
+                    "description": cred.description
+                }})
+            match = re.match(r"^/api/v2/service-credentials/([a-zA-Z0-9-]+)/(revoke|rotate)$", path)
+            if selected_method == "POST" and match:
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                cred_id = match.group(1)
+                action = match.group(2)
+                svc = self._require_service_credential_service()
+                if action == "revoke":
+                    svc.revoke_credential(cred_id)
+                    if self._application_logger is not None:
+                        self._application_logger.emit(
+                            "service_credential_revoked",
+                            correlation_id=request_id,
+                            fields={"credential_id": cred_id},
+                        )
+                    return ApiResponse(200, {"ok": True})
+                elif action == "rotate":
+                    try:
+                        token = svc.rotate_credential(cred_id)
+                    except LookupError:
+                        raise CoordinatorAuthorizationError(
+                            "Service credential not found or already revoked.",
+                            code="service_credential_not_found",
+                        )
+                    if self._application_logger is not None:
+                        self._application_logger.emit(
+                            "service_credential_rotated",
+                            correlation_id=request_id,
+                            fields={"credential_id": cred_id},
+                        )
+                    return ApiResponse(200, {"ok": True, "token": token})
+
             if selected_method == "GET" and path == "/api/v2/observability/events":
                 return ApiResponse(200, {"ok": True, "catalog": catalog_payload()})
             if selected_method == "GET" and path == "/api/v2/observability/health":
@@ -1905,6 +2078,128 @@ class BridgeApplicationApi:
             messenger_account_id=account_id,
         )
 
+    def _require_service_credential_service(self):
+        from ..infrastructure.coordinator.service_credentials import ServiceCredentialService
+        return ServiceCredentialService(self._coordinator)
+
+    def _check_m2m_rate_limit(self, service_id: str, max_requests: int = 60, window_seconds: float = 60.0) -> bool:
+        now = time.time()
+        cutoff = now - window_seconds
+        with self._m2m_rate_limit_lock:
+            history = self._m2m_rate_limit_history.get(service_id, [])
+            valid = [t for t in history if t > cutoff]
+            if len(valid) >= max_requests:
+                self._m2m_rate_limit_history[service_id] = valid
+                return False
+            valid.append(now)
+            self._m2m_rate_limit_history[service_id] = valid
+            return True
+
+    def _check_m2m_failed_verify_throttle(self, max_failures: int = 30, window_seconds: float = 60.0) -> bool:
+        """Bound pre-auth PBKDF2 work: refuse token verification while the
+        recent failure rate stays above the threshold (DoS guard)."""
+        now = time.time()
+        cutoff = now - window_seconds
+        with self._m2m_failed_verify_lock:
+            self._m2m_failed_verify_history = [
+                t for t in self._m2m_failed_verify_history if t > cutoff
+            ]
+            return len(self._m2m_failed_verify_history) < max_failures
+
+    def _record_m2m_failed_verify(self, window_seconds: float = 60.0) -> None:
+        now = time.time()
+        cutoff = now - window_seconds
+        with self._m2m_failed_verify_lock:
+            self._m2m_failed_verify_history = [
+                t for t in self._m2m_failed_verify_history if t > cutoff
+            ]
+            self._m2m_failed_verify_history.append(now)
+
+    def _m2m_resolve_recipients(
+        self,
+        recipients: list[Mapping[str, Any]],
+        messenger_account_id: str,
+    ) -> list[dict[str, Any]]:
+        """Read-only phone/dialog resolution for the M2M surface.
+
+        Never writes data and never fabricates peer references: a recipient is
+        `resolved` only when the shared contact directory maps it to an Eitaa
+        identity AND the account's dialog catalog holds that dialog, so the
+        returned reference is directly usable by the send path.
+        """
+        results: list[dict[str, Any]] = []
+        # Read-only peek: resolve must never start a worker/runtime as a side
+        # effect; an account without a live runtime resolves as unsupported.
+        runtime = self._runtime_registry.peek_runtime_for_account(messenger_account_id)
+        catalog = getattr(runtime, "dialog_catalog", None) if runtime is not None else None
+        catalog_available = (
+            runtime is not None
+            and not isinstance(runtime, EitaaProcessRuntime)
+            and catalog is not None
+        )
+
+        for recipient in recipients:
+            kind = str(recipient.get("kind", ""))
+            value = str(recipient.get("value", ""))
+            if not catalog_available:
+                results.append({
+                    "status": "unsupported",
+                    "peer_reference": None,
+                    "reason": "resolve_unavailable_in_worker_mode",
+                })
+                continue
+            if kind == "dialog":
+                dialog = self._m2m_dialog_lookup(catalog, value)
+                if dialog is not None:
+                    results.append({"status": "resolved", "peer_reference": value, "reason": None})
+                else:
+                    results.append({"status": "unresolved", "peer_reference": None, "reason": "dialog_not_found"})
+                continue
+            if kind != "phone":
+                results.append({"status": "unsupported", "peer_reference": None, "reason": "unsupported_kind"})
+                continue
+            try:
+                normalized = normalize_phone(value)
+            except ValueError:
+                results.append({"status": "unsupported", "peer_reference": None, "reason": "invalid_phone"})
+                continue
+            matches = self._contact_store.find_contacts_by_eitaa_identity(
+                phones=[normalized],
+                messenger_account_id=messenger_account_id,
+            )
+            resolved_here = False
+            for contact in matches:
+                raw_user_id = contact.get("eitaa_user_id")
+                if raw_user_id is None:
+                    continue
+                try:
+                    user_id = int(raw_user_id)
+                except (TypeError, ValueError):
+                    continue
+                if user_id <= 0:
+                    continue
+                dialog_key = f"user:{user_id}"
+                if self._m2m_dialog_lookup(catalog, dialog_key) is not None:
+                    results.append({"status": "resolved", "peer_reference": dialog_key, "reason": None})
+                    resolved_here = True
+                    break
+            if not resolved_here:
+                reason = "recipient_not_found"
+                if matches:
+                    reason = "contact_without_active_dialog"
+                results.append({"status": "unresolved", "peer_reference": None, "reason": reason})
+        return results
+
+    @staticmethod
+    def _m2m_dialog_lookup(catalog: Any, dialog_key: str) -> dict[str, Any] | None:
+        try:
+            dialog = catalog.get(str(dialog_key))
+        except Exception:
+            return None
+        if isinstance(dialog, dict) and (dialog.get("active", True) or dialog.get("source") == "manual"):
+            return dialog
+        return None
+
     def _require_app_auth_service(self) -> CoordinatorAppAuth:
         if not self.app_user_auth_enabled or self._app_auth is None:
             raise CoordinatorAuthenticationError(
@@ -1941,6 +2236,21 @@ class BridgeApplicationApi:
         messenger_account_id: str,
         operation: str,
     ) -> None:
+        service_ctx = self._request_service_auth_context.get()
+        if service_ctx is not None:
+            if (
+                service_ctx.allowed_messenger_account_ids is not None
+                and messenger_account_id not in service_ctx.allowed_messenger_account_ids
+            ):
+                raise CoordinatorAuthorizationError(
+                    "Service credential is not authorized for this messenger account.",
+                    safe_context={"messenger_account_id": str(messenger_account_id)},
+                    code="messenger_account_access_denied",
+                )
+            coordinator = self._require_coordinator()
+            coordinator.messenger_account_runtime(messenger_account_id)
+            return
+
         coordinator = self._require_coordinator()
         try:
             coordinator.require_messenger_account_access(
@@ -10483,6 +10793,8 @@ class BridgeApplicationApi:
                 "app_auth_session_invalid",
                 "app_auth_invalid_credentials",
                 "app_auth_current_password_invalid",
+                "m2m_auth_missing",
+                "m2m_auth_invalid",
             }:
                 status = 401
             elif exc.code in {
