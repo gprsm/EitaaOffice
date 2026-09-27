@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "4511295b0c24f1f4",
+  "source_fingerprint": "948c13aae2e65466",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -12936,12 +12936,12 @@
         {
           "name": "_parse_count",
           "kind": "function",
-          "line": 264
+          "line": 248
         },
         {
           "name": "import_into_store",
           "kind": "function",
-          "line": 272
+          "line": 256
         }
       ]
     },
@@ -13278,92 +13278,92 @@
         {
           "name": "MetricDefinition",
           "kind": "class",
-          "line": 29
+          "line": 31
         },
         {
           "name": "MetricDefinition.validate",
           "kind": "method",
-          "line": 38
+          "line": 40
         },
         {
           "name": "MetricDefinition.choice_rank",
           "kind": "method",
-          "line": 52
+          "line": 54
         },
         {
           "name": "MetricDefinition.accepts",
           "kind": "method",
-          "line": 58
+          "line": 60
         },
         {
           "name": "MetricDictionary",
           "kind": "class",
-          "line": 68
+          "line": 70
         },
         {
           "name": "MetricDictionary.__init__",
           "kind": "method",
-          "line": 73
+          "line": 75
         },
         {
           "name": "MetricDictionary.register",
           "kind": "method",
-          "line": 78
+          "line": 80
         },
         {
           "name": "MetricDictionary.get",
           "kind": "method",
-          "line": 84
+          "line": 86
         },
         {
           "name": "MetricDictionary.__contains__",
           "kind": "method",
-          "line": 90
+          "line": 92
         },
         {
           "name": "MetricDictionary.__len__",
           "kind": "method",
-          "line": 93
+          "line": 95
         },
         {
           "name": "MetricDictionary.all",
           "kind": "method",
-          "line": 96
+          "line": 98
         },
         {
           "name": "MetricDictionary.validate_value",
           "kind": "method",
-          "line": 99
+          "line": 101
         },
         {
           "name": "InstrumentField",
           "kind": "class",
-          "line": 144
+          "line": 180
         },
         {
           "name": "AssessmentInstrument",
           "kind": "class",
-          "line": 369
+          "line": 405
         },
         {
           "name": "AssessmentInstrument.validate",
           "kind": "method",
-          "line": 377
+          "line": 413
         },
         {
           "name": "AssessmentInstrument.field_by_metric",
           "kind": "method",
-          "line": 386
+          "line": 422
         },
         {
           "name": "AssessmentInstrument.field_by_column",
           "kind": "method",
-          "line": 389
+          "line": 425
         },
         {
           "name": "normalize_coded_value",
           "kind": "function",
-          "line": 441
+          "line": 479
         }
       ]
     },
@@ -13529,47 +13529,47 @@
         {
           "name": "Mandate",
           "kind": "class",
-          "line": 30
+          "line": 34
         },
         {
           "name": "Mandate.validate",
           "kind": "method",
-          "line": 39
+          "line": 43
         },
         {
           "name": "PlanItem",
           "kind": "class",
-          "line": 47
+          "line": 51
         },
         {
           "name": "PlanItem.validate",
           "kind": "method",
-          "line": 62
+          "line": 67
         },
         {
           "name": "PlanItem.target_for",
           "kind": "method",
-          "line": 73
+          "line": 80
         },
         {
           "name": "campaign_events",
           "kind": "function",
-          "line": 210
+          "line": 217
         },
         {
           "name": "_campaign_tags",
           "kind": "function",
-          "line": 219
+          "line": 226
         },
         {
           "name": "realization_ratio",
           "kind": "function",
-          "line": 225
+          "line": 232
         },
         {
           "name": "realization_report",
           "kind": "function",
-          "line": 239
+          "line": 246
         }
       ]
     },
@@ -13929,207 +13929,207 @@
         {
           "name": "ReportingStore.list_targets",
           "kind": "method",
-          "line": 378
+          "line": 418
         },
         {
           "name": "ReportingStore.save_target",
           "kind": "method",
-          "line": 392
+          "line": 432
         },
         {
           "name": "ReportingStore.delete_target",
           "kind": "method",
-          "line": 414
+          "line": 454
         },
         {
           "name": "ReportingStore.record_decision",
           "kind": "method",
-          "line": 422
+          "line": 462
         },
         {
           "name": "ReportingStore.list_decisions",
           "kind": "method",
-          "line": 463
+          "line": 503
         },
         {
           "name": "ReportingStore.save_candidate",
           "kind": "method",
-          "line": 512
+          "line": 552
         },
         {
           "name": "ReportingStore.list_candidates",
           "kind": "method",
-          "line": 552
+          "line": 592
         },
         {
           "name": "ReportingStore.get_candidate",
           "kind": "method",
-          "line": 602
+          "line": 642
         },
         {
           "name": "ReportingStore.approve_candidate",
           "kind": "method",
-          "line": 629
+          "line": 669
         },
         {
           "name": "ReportingStore.reject_candidate",
           "kind": "method",
-          "line": 644
+          "line": 684
         },
         {
           "name": "ReportingStore.save_event",
           "kind": "method",
-          "line": 662
+          "line": 702
         },
         {
           "name": "ReportingStore.list_events",
           "kind": "method",
-          "line": 743
+          "line": 783
         },
         {
           "name": "ReportingStore.get_event",
           "kind": "method",
-          "line": 809
+          "line": 849
         },
         {
           "name": "ReportingStore.delete_event",
           "kind": "method",
-          "line": 864
+          "line": 904
         },
         {
           "name": "ReportingStore.save_filled_form",
           "kind": "method",
-          "line": 872
+          "line": 912
         },
         {
           "name": "ReportingStore.get_filled_form",
           "kind": "method",
-          "line": 913
+          "line": 953
         },
         {
           "name": "ReportingStore.list_filled_forms",
           "kind": "method",
-          "line": 951
+          "line": 991
         },
         {
           "name": "ReportingStore.record_export",
           "kind": "method",
-          "line": 964
+          "line": 1004
         },
         {
           "name": "ReportingStore.list_exports",
           "kind": "method",
-          "line": 997
+          "line": 1037
         },
         {
           "name": "ReportingStore.get_config",
           "kind": "method",
-          "line": 1007
+          "line": 1047
         },
         {
           "name": "ReportingStore.set_config",
           "kind": "method",
-          "line": 1012
+          "line": 1052
         },
         {
           "name": "ReportingStore.find_unit_by_name",
           "kind": "method",
-          "line": 1030
+          "line": 1070
         },
         {
           "name": "ReportingStore.save_unit",
           "kind": "method",
-          "line": 1044
+          "line": 1084
         },
         {
           "name": "ReportingStore.list_units",
           "kind": "method",
-          "line": 1070
+          "line": 1110
         },
         {
           "name": "ReportingStore.save_imam",
           "kind": "method",
-          "line": 1088
+          "line": 1128
         },
         {
           "name": "ReportingStore.list_imams",
           "kind": "method",
-          "line": 1130
+          "line": 1170
         },
         {
           "name": "ReportingStore.save_venue",
           "kind": "method",
-          "line": 1156
+          "line": 1196
         },
         {
           "name": "ReportingStore.list_venues",
           "kind": "method",
-          "line": 1187
+          "line": 1227
         },
         {
           "name": "ReportingStore.save_nomokalaf",
           "kind": "method",
-          "line": 1208
+          "line": 1248
         },
         {
           "name": "ReportingStore.list_nomokalaf",
           "kind": "method",
-          "line": 1261
+          "line": 1301
         },
         {
           "name": "ReportingStore.save_entity_fact",
           "kind": "method",
-          "line": 1304
+          "line": 1344
         },
         {
           "name": "ReportingStore.list_entity_facts",
           "kind": "method",
-          "line": 1350
+          "line": 1390
         },
         {
           "name": "ReportingStore.save_normalization_candidate",
           "kind": "method",
-          "line": 1401
+          "line": 1441
         },
         {
           "name": "ReportingStore.list_normalization_candidates",
           "kind": "method",
-          "line": 1449
+          "line": 1489
         },
         {
           "name": "ReportingStore.approve_normalization_candidate",
           "kind": "method",
-          "line": 1460
+          "line": 1500
         },
         {
           "name": "ReportingStore.reject_normalization_candidate",
           "kind": "method",
-          "line": 1533
+          "line": 1573
         },
         {
           "name": "ReportingStore.approve_imam_candidate",
           "kind": "method",
-          "line": 1545
+          "line": 1585
         },
         {
           "name": "ReportingStore.save_plan_item",
           "kind": "method",
-          "line": 1574
+          "line": 1614
         },
         {
           "name": "ReportingStore.list_plan_items",
           "kind": "method",
-          "line": 1613
+          "line": 1655
         },
         {
           "name": "ReportingStore.save_mandate",
           "kind": "method",
-          "line": 1636
+          "line": 1679
         },
         {
           "name": "ReportingStore.list_mandates",
           "kind": "method",
-          "line": 1660
+          "line": 1703
         }
       ]
     },
@@ -20165,49 +20165,64 @@
           "line": 306
         },
         {
+          "name": "TestStoreShell.test_section_entity_and_program_period_facts",
+          "kind": "method",
+          "line": 316
+        },
+        {
+          "name": "TestStoreShell.test_plan_action_class_roundtrip",
+          "kind": "method",
+          "line": 341
+        },
+        {
+          "name": "TestStoreShell.test_v2_database_migrates_to_v3",
+          "kind": "method",
+          "line": 352
+        },
+        {
           "name": "_write_assessment_workbook",
           "kind": "function",
-          "line": 321
+          "line": 399
         },
         {
           "name": "TestAssessmentImport",
           "kind": "class",
-          "line": 342
+          "line": 420
         },
         {
           "name": "TestAssessmentImport.test_parse_produces_coded_facts_and_candidates",
           "kind": "method",
-          "line": 343
+          "line": 421
         },
         {
           "name": "TestAssessmentImport.test_coded_facts_keep_raw_text_note",
           "kind": "method",
-          "line": 381
+          "line": 459
         },
         {
           "name": "TestAssessmentImport.test_reimport_is_idempotent",
           "kind": "method",
-          "line": 394
+          "line": 472
         },
         {
           "name": "TestProjections",
           "kind": "class",
-          "line": 410
+          "line": 488
         },
         {
           "name": "TestProjections._setup",
           "kind": "method",
-          "line": 411
+          "line": 489
         },
         {
           "name": "TestProjections.test_visit_row_counts_and_gaps",
           "kind": "method",
-          "line": 436
+          "line": 514
         },
         {
           "name": "TestProjections.test_dossier_contains_no_person_data",
           "kind": "method",
-          "line": 451
+          "line": 529
         }
       ]
     },

@@ -313,6 +313,84 @@ class TestStoreShell:
         assert len(items) == len(PRAYER_PLAN_1405)
         assert store.list_mandates()[0].mandate_id == "mnd-staff-agreement-1405"
 
+    def test_section_entity_and_program_period_facts(self, store: ReportingStore) -> None:
+        from eitaa_bridge.reporting.registry import EntityFact as _EF
+
+        obstacles = _EF(
+            fact_id="sec1", entity_type="section", entity_id="section:prayer",
+            metric="program_obstacles", text_value="محدودیت بودجه", unit_of_measure="text",
+            period="1405-P1", source=ValueSource.MANUAL,
+        )
+        store.save_entity_fact(obstacles)
+        budget = _EF(
+            fact_id="sec2", entity_type="section", entity_id="section:prayer",
+            metric="allocated_budget", value=150_000_000.0, unit_of_measure="currency",
+            period="1405-P1", source=ValueSource.MANUAL,
+        )
+        store.save_entity_fact(budget)
+        facts = store.list_entity_facts(entity_type="section", period="1405-P1")
+        assert {(f.metric) for f in facts} == {"program_obstacles", "allocated_budget"}
+        assert facts[1].value == 150_000_000.0
+        # unknown section metrics are still blocked by the dictionary
+        with pytest.raises(KeyError):
+            store.save_entity_fact(
+                _EF(fact_id="sec3", entity_type="section", entity_id="section:prayer",
+                    metric="nonexistent_metric", text_value="x", unit_of_measure="text")
+            )
+
+    def test_plan_action_class_roundtrip(self, store: ReportingStore) -> None:
+        from eitaa_bridge.reporting.plans import PlanItem as _PI
+
+        item = _PI(plan_id="ac1", title="اقدام آزمایشی", action_class="transformation_doc",
+                   targets={"provincial_hq": 1})
+        store.save_plan_item(item)
+        loaded = store.list_plan_items(period="1405")[0]
+        assert loaded.action_class == "transformation_doc"
+        with pytest.raises(ValueError, match="action class"):
+            _PI(plan_id="ac2", title="نامعتبر", action_class="unknown_class").validate()
+
+    def test_v2_database_migrates_to_v3(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "v2.db"
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE reporting_schema (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+            INSERT INTO reporting_schema VALUES (2, '2026-09-01T00:00:00');
+            CREATE TABLE entity_facts (
+                fact_id TEXT PRIMARY KEY,
+                entity_type TEXT NOT NULL CHECK(entity_type IN ('unit', 'venue', 'imam', 'nomokalaf')),
+                entity_id TEXT NOT NULL, metric TEXT NOT NULL, value REAL NOT NULL DEFAULT 0.0,
+                text_value TEXT NOT NULL DEFAULT '', value_kind TEXT NOT NULL DEFAULT 'reported_by_unit',
+                unit_of_measure TEXT NOT NULL DEFAULT 'count', period TEXT NOT NULL DEFAULT '1405',
+                evidence_refs_json TEXT NOT NULL DEFAULT '[]', source TEXT NOT NULL DEFAULT 'manual',
+                note TEXT, created_at TEXT NOT NULL, created_by TEXT
+            );
+            INSERT INTO entity_facts VALUES ('old1', 'unit', 'unit:x', 'jammat_frequency', 0.0,
+                'daily', 'reported_by_unit', 'choice', '1405', '[]', 'legacy_import', '', '2026-09-01', '');
+            CREATE TABLE program_plans (
+                plan_id TEXT NOT NULL, period TEXT NOT NULL DEFAULT '1405', section TEXT NOT NULL DEFAULT 'prayer',
+                strategy TEXT NOT NULL DEFAULT '', title TEXT NOT NULL, plan_type TEXT NOT NULL DEFAULT 'central_mandated',
+                targets_json TEXT NOT NULL DEFAULT '{}', campaign_tag TEXT NOT NULL DEFAULT '',
+                mandate_ids_json TEXT NOT NULL DEFAULT '[]', needs_confirmation INTEGER NOT NULL DEFAULT 0,
+                notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                PRIMARY KEY (plan_id, period)
+            );
+            """
+        )
+        conn.commit()
+        conn.close()
+
+        migrated = ReportingStore(db_path)
+        fact = migrated.list_entity_facts(period="1405")[0]
+        assert fact.text_value == "daily"
+        # the migrated table must now accept section facts
+        migrated.save_entity_fact(
+            EntityFact(fact_id="sec-mig", entity_type="section", entity_id="section:prayer",
+                       metric="program_obstacles", text_value="آزمایش", unit_of_measure="text",
+                       source=ValueSource.LEGACY_IMPORT)
+        )
+        assert any(f.fact_id == "sec-mig" for f in migrated.list_entity_facts())
+
 
 # --------------------------------------------------------------------------
 # Assessment import (synthetic workbook mirrors the 1405 file layout)

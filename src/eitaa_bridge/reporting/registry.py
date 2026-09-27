@@ -176,7 +176,7 @@ class EntityFact:
     created_by: str = ""
 
     def validate(self, dictionary: MetricDictionary) -> None:
-        if self.entity_type not in {"unit", "venue", "imam", "nomokalaf"}:
+        if self.entity_type not in {"unit", "venue", "imam", "nomokalaf", "section"}:
             raise ValueError(f"Unknown entity type: {self.entity_type!r}")
         if not self.entity_id.strip():
             raise ValueError("Entity id cannot be empty.")

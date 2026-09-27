@@ -19,8 +19,10 @@ METRIC_DICTIONARY_VERSION = "prayer-metrics-v1"
 UNITS = frozenset({"count", "currency", "percent", "text", "choice"})
 
 # Entity kinds a fact may attach to (ADR-61: facts attach to events AND to
-# registry entities such as units, venues and imams).
-ENTITY_KINDS = frozenset({"event", "unit", "venue", "imam", "nomokalaf"})
+# registry entities such as units, venues and imams, and to a section for
+# program-period facts). Periods use the "1405-P1/P2/P3" convention for the
+# bimonthly slices of a jalali year.
+ENTITY_KINDS = frozenset({"event", "unit", "venue", "imam", "nomokalaf", "section"})
 
 AGGREGATIONS = frozenset({"sum", "average", "latest", "none"})
 
@@ -130,6 +132,40 @@ PRAYER_EVENT_METRICS: tuple[MetricDefinition, ...] = (
         unit="text",
         applies_to=frozenset({"event"}),
         aggregate="none",
+    ),
+)
+
+# Program-period narrative-financial facts (reporting-document-genres 1&2):
+# the قالب گزارش عملکرد genre demands موانع، راهکارها and the
+# اعتبار تخصیصی/هزینه‌کرد pair per program per period.
+PROGRAM_PERIOD_METRICS: tuple[MetricDefinition, ...] = (
+    MetricDefinition(
+        key="program_obstacles",
+        label="موانع پیشرفت برنامه",
+        unit="text",
+        applies_to=frozenset({"section"}),
+        aggregate="none",
+    ),
+    MetricDefinition(
+        key="program_proposals",
+        label="راهکارها و پیشنهادات",
+        unit="text",
+        applies_to=frozenset({"section"}),
+        aggregate="none",
+    ),
+    MetricDefinition(
+        key="allocated_budget",
+        label="اعتبار تخصیصی دوره",
+        unit="currency",
+        applies_to=frozenset({"section"}),
+        aggregate="sum",
+    ),
+    MetricDefinition(
+        key="spent_budget",
+        label="هزینه‌کرد تا پایان دوره",
+        unit="currency",
+        applies_to=frozenset({"section"}),
+        aggregate="sum",
     ),
 )
 
@@ -397,7 +433,9 @@ ASSESSMENT_INSTRUMENT_1405 = AssessmentInstrument(
     fields=_ASSESSMENT_FIELDS,
 )
 
-METRIC_DICTIONARY = MetricDictionary([f.metric for f in _ASSESSMENT_FIELDS] + list(PRAYER_EVENT_METRICS))
+METRIC_DICTIONARY = MetricDictionary(
+    [f.metric for f in _ASSESSMENT_FIELDS] + list(PRAYER_EVENT_METRICS) + list(PROGRAM_PERIOD_METRICS)
+)
 
 # Council-session mandate threshold: the 1405 دستورالعمل expects the top band
 # ("4 تا 6 جلسه در سال"). Realization/monitoring compares against this rank.

@@ -36,7 +36,7 @@ from .monitor import DialogWatchConfig
 from .plans import Mandate, PlanItem
 from .registry import EntityFact, ImamRecord, NomokalafRecord, UnitRecord, VenueRecord
 
-REPORTING_SCHEMA_VERSION = 2
+REPORTING_SCHEMA_VERSION = 3
 
 
 def _utc_now() -> str:
@@ -263,7 +263,7 @@ class ReportingStore:
 
                 CREATE TABLE IF NOT EXISTS entity_facts (
                     fact_id TEXT PRIMARY KEY,
-                    entity_type TEXT NOT NULL CHECK(entity_type IN ('unit', 'venue', 'imam', 'nomokalaf')),
+                    entity_type TEXT NOT NULL CHECK(entity_type IN ('unit', 'venue', 'imam', 'nomokalaf', 'section')),
                     entity_id TEXT NOT NULL,
                     metric TEXT NOT NULL,
                     value REAL NOT NULL DEFAULT 0.0,
@@ -307,6 +307,7 @@ class ReportingStore:
                     strategy TEXT NOT NULL DEFAULT '',
                     title TEXT NOT NULL,
                     plan_type TEXT NOT NULL DEFAULT 'central_mandated',
+                    action_class TEXT NOT NULL DEFAULT '',
                     targets_json TEXT NOT NULL DEFAULT '{}',
                     campaign_tag TEXT NOT NULL DEFAULT '',
                     mandate_ids_json TEXT NOT NULL DEFAULT '[]',
@@ -334,6 +335,45 @@ class ReportingStore:
             event_columns = {row[1] for row in conn.execute("PRAGMA table_info(reported_events)")}
             if "campaign" not in event_columns:
                 conn.execute("ALTER TABLE reported_events ADD COLUMN campaign TEXT NOT NULL DEFAULT ''")
+
+            # Migration v2→v3: the section entity kind (program-period facts)
+            # and the plan action_class (قالب گزارش عملکرد classification).
+            entity_facts_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='entity_facts'"
+            ).fetchone()
+            if entity_facts_sql and entity_facts_sql[0] and "'section'" not in entity_facts_sql[0]:
+                conn.executescript(
+                    """
+                    CREATE TABLE entity_facts_v3 (
+                        fact_id TEXT PRIMARY KEY,
+                        entity_type TEXT NOT NULL CHECK(entity_type IN ('unit', 'venue', 'imam', 'nomokalaf', 'section')),
+                        entity_id TEXT NOT NULL,
+                        metric TEXT NOT NULL,
+                        value REAL NOT NULL DEFAULT 0.0,
+                        text_value TEXT NOT NULL DEFAULT '',
+                        value_kind TEXT NOT NULL DEFAULT 'reported_by_unit',
+                        unit_of_measure TEXT NOT NULL DEFAULT 'count',
+                        period TEXT NOT NULL DEFAULT '1405',
+                        evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+                        source TEXT NOT NULL DEFAULT 'manual',
+                        note TEXT,
+                        created_at TEXT NOT NULL,
+                        created_by TEXT
+                    );
+                    INSERT INTO entity_facts_v3
+                        SELECT fact_id, entity_type, entity_id, metric, value, text_value,
+                               value_kind, unit_of_measure, period, evidence_refs_json, source,
+                               note, created_at, created_by
+                        FROM entity_facts;
+                    DROP TABLE entity_facts;
+                    ALTER TABLE entity_facts_v3 RENAME TO entity_facts;
+                    CREATE INDEX IF NOT EXISTS idx_entity_facts_entity ON entity_facts(entity_type, entity_id, period);
+                    CREATE INDEX IF NOT EXISTS idx_entity_facts_metric ON entity_facts(metric, period);
+                    """
+                )
+            plan_columns = {row[1] for row in conn.execute("PRAGMA table_info(program_plans)")}
+            if plan_columns and "action_class" not in plan_columns:
+                conn.execute("ALTER TABLE program_plans ADD COLUMN action_class TEXT NOT NULL DEFAULT ''")
 
             # Seed schema version if not recorded
             cur = conn.execute("SELECT version FROM reporting_schema WHERE version = ?", (REPORTING_SCHEMA_VERSION,))
@@ -1578,14 +1618,15 @@ class ReportingStore:
             conn.execute(
                 """
                 INSERT INTO program_plans (
-                    plan_id, period, section, strategy, title, plan_type, targets_json,
-                    campaign_tag, mandate_ids_json, needs_confirmation, notes, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    plan_id, period, section, strategy, title, plan_type, action_class,
+                    targets_json, campaign_tag, mandate_ids_json, needs_confirmation, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(plan_id, period) DO UPDATE SET
                     section = excluded.section,
                     strategy = excluded.strategy,
                     title = excluded.title,
                     plan_type = excluded.plan_type,
+                    action_class = excluded.action_class,
                     targets_json = excluded.targets_json,
                     campaign_tag = excluded.campaign_tag,
                     mandate_ids_json = excluded.mandate_ids_json,
@@ -1600,6 +1641,7 @@ class ReportingStore:
                     item.strategy,
                     item.title,
                     item.plan_type,
+                    item.action_class,
                     json.dumps(dict(item.targets), ensure_ascii=False),
                     item.campaign_tag,
                     json.dumps(list(item.mandate_ids), ensure_ascii=False),
@@ -1624,6 +1666,7 @@ class ReportingStore:
                     strategy=row["strategy"] or "",
                     title=row["title"] or "",
                     plan_type=row["plan_type"],
+                    action_class=(row["action_class"] or "") if "action_class" in row.keys() else "",
                     targets=json.loads(row["targets_json"]),
                     campaign_tag=row["campaign_tag"] or "",
                     mandate_ids=tuple(json.loads(row["mandate_ids_json"])),

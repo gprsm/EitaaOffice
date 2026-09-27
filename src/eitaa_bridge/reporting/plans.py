@@ -24,6 +24,10 @@ PLAN_PERIOD_DEFAULT = "1405"
 
 PLAN_TYPES = frozenset({"central_mandated", "provincial_native", "innovative"})
 TARGET_SCOPES = frozenset({"provincial_hq", "judicial_domains"})
+# Narrative-report classification axis (قالب گزارش عملکرد): the report is
+# ordered سند تحول → وظایف ذاتی → اقدامات شاخص و فوق‌العاده; "" = unclassified
+# until the operator pins the mandate basis.
+PLAN_ACTION_CLASSES = frozenset({"", "transformation_doc", "inherent_duty", "outstanding"})
 
 
 @dataclass(slots=True)
@@ -53,6 +57,7 @@ class PlanItem:
     strategy: str = ""
     title: str = ""
     plan_type: str = "central_mandated"
+    action_class: str = ""  # transformation_doc | inherent_duty | outstanding | ""
     targets: Mapping[str, float] = field(default_factory=dict)  # scope → count
     campaign_tag: str = ""  # links events to this item (طرح dimension)
     mandate_ids: tuple[str, ...] = ()
@@ -64,6 +69,8 @@ class PlanItem:
             raise ValueError("Plan id and title cannot be empty.")
         if self.plan_type not in PLAN_TYPES:
             raise ValueError(f"Unknown plan type: {self.plan_type!r}")
+        if self.action_class not in PLAN_ACTION_CLASSES:
+            raise ValueError(f"Unknown action class: {self.action_class!r}")
         if set(self.targets) - TARGET_SCOPES:
             raise ValueError(f"Unknown target scopes: {sorted(set(self.targets) - TARGET_SCOPES)}")
         for scope, value in self.targets.items():

@@ -228,22 +228,6 @@ def parse_assessment_rows(
 
         imam_source_raw = str(row.get("L", "") or "").strip()
         imam_source_code = normalize_coded_value("imam_source", imam_source_raw) or "none"
-        if imam_source_code != "none":
-            result.facts.append(
-                EntityFact(
-                    fact_id=f"entf-imp-{index:04d}-L",
-                    entity_type="unit",
-                    entity_id=unit_ref,
-                    metric="imam_source",
-                    text_value=imam_source_code,
-                    value_kind="reported_by_unit",
-                    unit_of_measure="choice",
-                    period=period,
-                    evidence_refs=(f"assessment-1405:{instrument.instrument_id}!L{row_marker}",),
-                    source=source,
-                    note=imam_source_raw,
-                )
-            )
 
         imam_name = str(row.get(IMAM_NAME_COLUMN, "") or "").strip()
         if imam_name:
