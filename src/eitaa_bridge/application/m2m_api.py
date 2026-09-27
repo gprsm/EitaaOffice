@@ -10,6 +10,11 @@ Rules enforced here (do not weaken):
   not_found. Automatic retry for `uncertain` is the caller's problem and is
   documented as forbidden without a safety witness.
 - The service actor runs with the least privilege role ("user"), never "admin".
+- A claimed chat attempt exits only resolved (F-091): the reply is stored
+  atomically with its conversation (``record_exchange``) or the claim is
+  failed with its real error code (``fail_reply``); waiters receive the same
+  failure and a retry claims fresh. Save failures are never masked by
+  cleanup errors.
 """
 
 from typing import Any, Callable, Mapping
@@ -115,9 +120,18 @@ async def handle_agent_chat(body: Mapping[str, Any], service_auth_context: Any) 
                 "replayed": True,
             })
 
-        # This caller owns the first adapter attempt.
+        # This caller owns the first adapter attempt. Every exit below must
+        # resolve the claim for this message id (F-091): the reply is either
+        # stored for replay or the claim is failed with its real error code —
+        # a failed save must never leave the id pending in-flight.
         current_adapter = agent_gateway_module.default_agent_adapter
-        history = store.get_history(context)
+        try:
+            history = store.get_history(context)
+        except BaseException:
+            # Nothing has run yet and the claim is still ours; release it so
+            # a retry can claim fresh.
+            store.fail_reply(context, str(message_id), "agent_reply_not_stored")
+            raise
         try:
             response = await current_adapter.chat(
                 str(message), context.session_id, context, history=history
@@ -138,12 +152,17 @@ async def handle_agent_chat(body: Mapping[str, Any], service_auth_context: Any) 
             # racing waiters too; nothing is cached because nothing completed.
             store.fail_reply(context, str(message_id), "agent_first_attempt_cancelled")
             raise
-        store.add_message(context, "user", str(message))
-        store.add_message(context, "agent", response.response)
-        store.complete_reply(
+
+        # The exchange — user message, agent message and the replayable reply
+        # record — becomes visible atomically or not at all. On any failure
+        # record_exchange rolls the partial state back, resolves the claim
+        # with the real failure code (releasing waiters) and re-raises the
+        # original error unmasked (F-091).
+        store.record_exchange(
             context,
             str(message_id),
             message_hash,
+            str(message),
             response.response,
             bool(response.is_test_response),
         )

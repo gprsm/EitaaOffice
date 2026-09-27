@@ -1,11 +1,11 @@
 # Education System API Contract
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Date:** 2026-09-27
 **Status:** Design/Implementation (offline-tested; NOT live-accepted)
 
-F-085 and F-090 review items are implemented and offline-tested (V-217,
-V-222). Live acceptance is a separate gate.
+F-085, F-090 and F-091 review items are implemented and offline-tested
+(V-217, V-222, V-224). Live acceptance is a separate gate.
 
 ## Data Ownership Boundaries
 
@@ -166,6 +166,19 @@ all answer `not_found` — ownership is never guessed.
   cache is in-memory and per-process — after a backend restart, or across
   multiple backend processes, the same message id may run the adapter again.
   No exactly-once execution is claimed beyond this process boundary.
+- The claim stays owned until the reply is fully stored or explicitly failed
+  (F-091). The user message, the agent message and the replayable reply
+  record are stored atomically: other requests observe the full exchange or
+  nothing. If storing fails after the adapter answered — for example the
+  session expired while the adapter ran and the per-service session capacity
+  is exhausted — the partial state is rolled back, the first request gets
+  the real failure (e.g. `400 agent_too_many_sessions`), racing waiters
+  receive the same error code, nothing half-recorded remains in the history
+  or the reply cache, and a later retry with the same message id takes a
+  fresh claim (the adapter may run again; see the retry policy above).
+  Unknown internal save failures give the first request
+  `500 internal_error` and waiters `400 agent_reply_not_stored`; both leave
+  the claim resolved, never pending.
 - Conversation continuation is real: the adapter receives the bounded prior
   conversation (last 20 turns) of exactly this (service, web user, session);
   other services and users never see it. Session expiry (one hour of

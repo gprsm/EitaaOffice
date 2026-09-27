@@ -875,3 +875,323 @@ def test_f090_first_attempt_failure_releases_waiter_with_same_error():
     finally:
         agent_gateway.default_agent_adapter = previous_adapter
         agent_gateway.session_store = previous_store
+
+
+# ---------------------------------------------------------------------------
+# F-091 reproduction tests (RED before the fix): a claimed first attempt
+# stays owned until the reply is fully stored or the claim is explicitly
+# failed — a failed save must never leave the message id pending in-flight.
+# ---------------------------------------------------------------------------
+
+class _FakeClock:
+    def __init__(self, start=2_000_000.0):
+        self.now = start
+
+    def __call__(self):
+        return self.now
+
+
+class _GatedAdapter:
+    """Counts real adapter invocations; while gated, the call blocks until
+    the test releases it, so the store state can change mid-adapter-run."""
+
+    is_test_adapter = False
+
+    def __init__(self, reply="late-reply"):
+        self.calls = 0
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.gate = True
+        self._reply = reply
+
+    async def chat(self, message, session_id, context, *, history):
+        self.calls += 1
+        if self.gate:
+            self.entered.set()
+            await self.release.wait()
+        return AgentChatResponse(
+            response=self._reply, session_id=session_id, is_test_response=False,
+        )
+
+    async def health(self):
+        return True
+
+
+def _fill_service_capacity(store, service_name, total=100):
+    """Fill the per-service session cap through the real store path."""
+    for i in range(total):
+        store.add_message(
+            AgentChatContext(f"fill-user-{i}", f"fill-session-{i}", service_name),
+            "user",
+            "capacity-fill",
+        )
+
+
+def _install_f091_harness(store, adapter, wait_seconds=2.0):
+    from eitaa_bridge.application import agent_gateway
+
+    previous = (
+        agent_gateway.default_agent_adapter,
+        agent_gateway.session_store,
+        agent_gateway.AGENT_INFLIGHT_WAIT_SECONDS,
+    )
+    agent_gateway.default_agent_adapter = adapter
+    agent_gateway.session_store = store
+    agent_gateway.AGENT_INFLIGHT_WAIT_SECONDS = wait_seconds
+    return previous
+
+
+def _restore_f091_harness(previous):
+    from eitaa_bridge.application import agent_gateway
+
+    (
+        agent_gateway.default_agent_adapter,
+        agent_gateway.session_store,
+        agent_gateway.AGENT_INFLIGHT_WAIT_SECONDS,
+    ) = previous
+
+
+def test_f091_session_expiry_and_full_capacity_during_adapter_run_resolve_claim():
+    """V-223/F-091 reproduction: the session expires while the adapter runs
+    and the per-service capacity fills up, so storing the reply fails with
+    agent_too_many_sessions. The claim must still be resolved: no in-flight
+    entry may stay behind and a same-id retry must never come back as
+    agent_reply_pending."""
+    from eitaa_bridge.application import agent_gateway
+
+    clock = _FakeClock()
+    store = _fresh_store(clock=clock)
+    adapter = _GatedAdapter()
+    previous = _install_f091_harness(store, adapter)
+    try:
+        class DummyAuth:
+            scopes = ["agent.chat"]
+            service_name = "f091-capacity"
+
+        ctx = AgentChatContext("u1", "s1", "f091-capacity")
+        message_id = _chat_body()["message_id"]
+
+        async def _run():
+            first_task = asyncio.ensure_future(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r1",
+            ))
+            await asyncio.wait_for(adapter.entered.wait(), timeout=5)
+            clock.now += 3601  # the session expires mid-adapter-run
+            _fill_service_capacity(store, "f091-capacity")
+            assert store.service_session_counts["f091-capacity"] == 100
+            adapter.release.set()
+            first = await asyncio.wait_for(first_task, timeout=5)
+            retry = await asyncio.wait_for(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r2",
+            ), timeout=5)
+            return first, retry
+
+        first, retry = asyncio.run(_run())
+
+        assert first.status == 400, first.payload
+        assert first.payload["error"] == "agent_too_many_sessions"
+
+        # The failed save must not leave the claim behind (F-091).
+        assert len(store._inflight) == 0, (
+            f"in-flight left behind: {sorted(store._inflight)}"
+        )
+
+        # The retry gets a real, fresh decision — never agent_reply_pending.
+        assert retry.status == 400, retry.payload
+        assert retry.payload["error"] == "agent_too_many_sessions"
+        # Capacity is still exhausted, so the retry is rejected at claim time
+        # without charging the agent again.
+        assert adapter.calls == 1, f"adapter invoked {adapter.calls} times"
+
+        # No half-recorded history or reply anywhere.
+        assert store.get_history(ctx) == []
+        assert store.get_reply(ctx, message_id) is None
+    finally:
+        _restore_f091_harness(previous)
+
+
+def test_f091_waiter_receives_same_save_failure_and_claim_is_resolved():
+    """A racing waiter must receive the same defined failure as the first
+    request when the reply cannot be stored — never agent_reply_pending —
+    and the in-flight entry must be resolved."""
+    from eitaa_bridge.application import agent_gateway
+
+    clock = _FakeClock()
+    store = _fresh_store(clock=clock)
+    adapter = _GatedAdapter()
+    previous = _install_f091_harness(store, adapter, wait_seconds=5.0)
+    try:
+        class DummyAuth:
+            scopes = ["agent.chat"]
+            service_name = "f091-waiter"
+
+        async def _run():
+            first_task = asyncio.ensure_future(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r1",
+            ))
+            await asyncio.wait_for(adapter.entered.wait(), timeout=5)
+            waiter_task = asyncio.ensure_future(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r2",
+            ))
+            await asyncio.sleep(0.1)  # the waiter joins the in-flight wait
+            clock.now += 3601
+            _fill_service_capacity(store, "f091-waiter")
+            adapter.release.set()
+            first = await asyncio.wait_for(first_task, timeout=10)
+            waiter = await asyncio.wait_for(waiter_task, timeout=10)
+            return first, waiter
+
+        first, waiter = asyncio.run(_run())
+
+        assert first.status == 400, first.payload
+        assert first.payload["error"] == "agent_too_many_sessions"
+        assert waiter.status == 400, waiter.payload
+        assert waiter.payload["error"] == "agent_too_many_sessions"
+        assert waiter.payload["error"] != "agent_reply_pending"
+        assert len(store._inflight) == 0, (
+            f"in-flight left behind: {sorted(store._inflight)}"
+        )
+        assert adapter.calls == 1, f"adapter invoked {adapter.calls} times"
+    finally:
+        _restore_f091_harness(previous)
+
+
+def test_f091_retry_after_save_failure_takes_fresh_claim_and_can_succeed():
+    """After a failed save, the next same-id attempt must take a fresh claim:
+    once capacity is available again the adapter runs again, the reply is
+    stored, and a third call replays it without the adapter (F-090 kept)."""
+    from eitaa_bridge.application import agent_gateway
+
+    clock = _FakeClock()
+    store = _fresh_store(clock=clock)
+    adapter = _GatedAdapter()
+    previous = _install_f091_harness(store, adapter)
+    try:
+        class DummyAuth:
+            scopes = ["agent.chat"]
+            service_name = "f091-retry"
+
+        ctx = AgentChatContext("u1", "s1", "f091-retry")
+        message_id = _chat_body()["message_id"]
+
+        async def _run():
+            first_task = asyncio.ensure_future(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r1",
+            ))
+            await asyncio.wait_for(adapter.entered.wait(), timeout=5)
+            clock.now += 3601
+            _fill_service_capacity(store, "f091-retry")
+            adapter.release.set()
+            first = await asyncio.wait_for(first_task, timeout=5)
+            # Free the capacity the honest way: the fill sessions expire too.
+            adapter.gate = False
+            clock.now += 3601
+            retry = await asyncio.wait_for(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r2",
+            ), timeout=5)
+            third = await asyncio.wait_for(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r3",
+            ), timeout=5)
+            return first, retry, third
+
+        first, retry, third = asyncio.run(_run())
+
+        assert first.status == 400, first.payload
+        assert first.payload["error"] == "agent_too_many_sessions"
+        assert len(store._inflight) == 0, (
+            f"in-flight left behind: {sorted(store._inflight)}"
+        )
+
+        assert retry.status == 200, retry.payload
+        assert retry.payload["replayed"] is False
+        assert retry.payload["response"] == "late-reply"
+        assert adapter.calls == 2, f"adapter invoked {adapter.calls} times"
+        assert len(store._inflight) == 0
+        stored = store.get_reply(ctx, message_id)
+        assert stored is not None and stored.response == "late-reply"
+
+        # The stored reply replays without a third adapter call.
+        assert third.payload["replayed"] is True
+        assert third.payload["response"] == "late-reply"
+        assert adapter.calls == 2, f"adapter invoked {adapter.calls} times"
+    finally:
+        _restore_f091_harness(previous)
+
+
+def test_f091_mid_save_failure_rolls_back_partial_history_and_releases_claim():
+    """A failure between storing the user message and the agent message must
+    leave no half-recorded history or reply; the claim is released with the
+    real failure code for the first request and every waiter, and a retry
+    with the failure disarmed succeeds."""
+    from eitaa_bridge.application import agent_gateway
+
+    class FailingAppendStore(AgentChatSessionStore):
+        def __init__(self):
+            super().__init__()
+            self.fail_agent_append = False
+
+        def _append_message_locked(self, context, session_data, now, role, content):
+            if self.fail_agent_append and role == "agent":
+                raise BridgeError(
+                    "synthetic history storage failure", code="agent_storage_failed"
+                )
+            return super()._append_message_locked(context, session_data, now, role, content)
+
+    store = FailingAppendStore()
+    adapter = _GatedAdapter()
+    previous = _install_f091_harness(store, adapter, wait_seconds=5.0)
+    try:
+        class DummyAuth:
+            scopes = ["agent.chat"]
+            service_name = "f091-rollback"
+
+        ctx = AgentChatContext("u1", "s1", "f091-rollback")
+        message_id = _chat_body()["message_id"]
+
+        async def _run():
+            first_task = asyncio.ensure_future(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r1",
+            ))
+            await asyncio.wait_for(adapter.entered.wait(), timeout=5)
+            waiter_task = asyncio.ensure_future(dispatch_m2m(
+                "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r2",
+            ))
+            await asyncio.sleep(0.1)
+            store.fail_agent_append = True
+            adapter.release.set()
+            first = await asyncio.wait_for(first_task, timeout=10)
+            waiter = await asyncio.wait_for(waiter_task, timeout=10)
+            return first, waiter
+
+        first, waiter = asyncio.run(_run())
+
+        assert first.status == 400, first.payload
+        assert first.payload["error"] == "agent_storage_failed"
+        assert waiter.status == 400, waiter.payload
+        assert waiter.payload["error"] == "agent_storage_failed"
+        # No half-recorded exchange: no user message, no reply, no claim.
+        assert store.get_history(ctx) == []
+        assert store.get_reply(ctx, message_id) is None
+        assert len(store._inflight) == 0, (
+            f"in-flight left behind: {sorted(store._inflight)}"
+        )
+        # The session predates the failed exchange and stays; capacity
+        # accounting stays consistent (no leak, no double release).
+        assert store.service_session_counts["f091-rollback"] == 1
+        assert adapter.calls == 1, f"adapter invoked {adapter.calls} times"
+
+        # Recovery: with the failure disarmed, a same-id retry claims fresh,
+        # runs the adapter again and stores the full exchange.
+        store.fail_agent_append = False
+        adapter.gate = False
+        recovered = asyncio.run(dispatch_m2m(
+            "POST", "/api/v2/m2m/agent/chat", _chat_body(), DummyAuth(), "r3",
+        ))
+        assert recovered.status == 200, recovered.payload
+        assert recovered.payload["replayed"] is False
+        assert adapter.calls == 2, f"adapter invoked {adapter.calls} times"
+        assert [item["role"] for item in store.get_history(ctx)] == ["user", "agent"]
+        assert store.get_reply(ctx, message_id) is not None
+        assert len(store._inflight) == 0
+    finally:
+        _restore_f091_harness(previous)

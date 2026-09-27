@@ -2100,3 +2100,25 @@
 - نتایج دروازه‌ها: آزمون‌های هدفمند (agent_gateway شامل ۱۰ آزمون F-090، service_auth، m2m_endpoints، بله‌ها، schema، phase5) سبز؛ مجموعهٔ کامل Backend پس از بازسازی wheel سبز (EXIT=0)؛ `npm run check` و `npm run test:observability` خروجی صفر؛ integrity و `refresh_project_docs.py --check --check-links` سبز.
 - حدود: همهٔ شواهد آفلاین و ساختگی‌اند؛ هیچ ورود، OTP، import، ارسال واقعی ایتا/بله، اتصال عامل واقعی یا انتشار سرور انجام نشد؛ پذیرش زندهٔ سه مرز همچنان دروازهٔ مستقل دارد.
 - مرجع: F-090 (بسته)، F-085، F-086، قرارداد نسخهٔ 1.3.0.
+
+### V-223 — ممیزی مستقل کامیت F-090 و بازتولید مسیر شکست ذخیرهٔ چت
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `STATIC / ISOLATED SYNTHETIC RUNTIME / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.
+- Trigger بررسی مجدد: درخواست صریح مالک برای راستی‌آزمایی ادعای انجام F-090 پس از تغییر کد و انتشار `2de1d575`. کد و اسناد همین checkout ملاک بودند؛ شاخهٔ گزارش‌سازی جداگانهٔ دوردست وارد این بررسی نشد.
+- مرز Git: شاخهٔ محلی `codex/f090-chat-replay-ttl-repair` روی `2de1d575` بود و `git ls-remote` همان SHA را برای شاخهٔ هم‌نام origin نشان داد. فایل‌های untracked از پیش موجود حفظ شدند؛ checkout/reset/clean/merge/commit/push انجام نشد.
+- آزمون مستقل: `pytest -q tests/test_agent_gateway.py` سبز (۲۴ آزمون). `pytest -q` کامل با exit=0 و یک skip و یک هشدار deprecation از `websockets` سبز؛ `npm.cmd --prefix ui run check` و `npm.cmd --prefix ui run test:observability` هر دو exit=0. checker حافظه و freshness/link check پیش از ثبت این رکورد نیز exit=0 داشتند. هیچ تماس شبکهٔ عامل یا عملیات واقعی پیام‌رسان انجام نشد.
+- بازتولید F-091: probe حافظه‌ای با `AgentChatSessionStore(clock=fake)` و adapter ساختگی اجرا شد. پس از claim، ساعت به بعد از TTL رفت و adapter صد نشست همان سرویس را پر کرد؛ سپس پاسخ ساختگی داد. اولین `handle_agent_chat` برابر `400 agent_too_many_sessions`، تکرار همان شناسه برابر `503 agent_reply_pending`، شمار فراخوانی adapter برابر ۱ و اندازهٔ `_inflight` برابر ۱ بود. انتظار آزمایشی به ۰٫۰۱ ثانیه کاهش یافت؛ مقدار پیش‌فرض محصول ۳۰ ثانیه است. علت ایستا: `add_message`/`complete_reply` بیرون از حفاظت `fail_reply` قرار دارند.
+- نتیجه: سه اصلاح اصلی F-090 در مسیرهای آزموده‌شده برقرارند و کامیت منتشر شده است؛ ادعای آزادسازی تمام in-flightها و retry پس از هر شکست تأیید نمی‌شود. F-091 باز است. پذیرش Live چت/ارسال همچنان جداگانه است. Trigger تکرار: اصلاح مسیر شکست ذخیره و آزمون regression مرتبط، سپس مجموعهٔ کامل.
+- پس از ثبت یافته، `refresh_project_docs.py` اجرا شد؛ checker حافظه، `refresh_project_docs.py --check --check-links` و `git diff --check` همگی exit=0 داشتند. تنها چهار سند بازبینی تغییر کردند؛ فایل‌های عملیاتی و source محصول دست‌نخورده ماندند.
+- مرجع: F-091، F-090، V-222 و قرارداد نسخهٔ 1.3.0.
+
+### V-224 — اصلاح F-091: تعیین تکلیف claim در هر خروجی و ذخیرهٔ اتمیک مبادلهٔ چت
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `ISOLATED SYNTHETIC RUNTIME / FULL OFFLINE BACKEND / WHEEL PARITY / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY`.
+- Trigger تکرار: همان trigger ثبت‌شده در V-223؛ اصلاح مسیر شکست ذخیرهٔ چت و افزودن آزمون regression مرتبط، و سپس مجموعهٔ کامل.
+- RED: چهار آزمون نام‌دار `f091_*` در `tests/test_agent_gateway.py` پیش از اصلاح روی کد `2de1d575` با exit=1 شکست خوردند و هر چهار با دلیل درست: entry رهاشدهٔ `('svc','u1','s1','msg-…')` در `_inflight` (آزمون ظرفیت/TTL)، پاسخ `503 agent_reply_pending` به منتظر هم‌زمان به‌جای همان کد خطای ذخیره، گیرکردن retry پشت entry رهاشده (بدون claim تازه) و ۲۰۰ به‌جای خطا در مسیر شکست میانهٔ ذخیره. بازتولید با ساعت و آداپتور ساختگی، بدون شبکه و حساب واقعی و با مسیر واقعی ظرفیت/انقضا (`AgentChatSessionStore` واقعی و سقف ۱۰۰) انجام شد.
+- GREEN پس از اصلاح: متد `record_exchange` (ذخیرهٔ اتمیک پیام کاربر + پیام عامل + رکورد پاسخ در یک نگه‌داشتن قفل، با rollback تغییرات نیمه‌کاره، تعیین تکلیف entry با کد خطای واقعی و raise بدون پوشاندن خطای اصلی) و بازسازی `handle_agent_chat` (مسیرهای خطا/لغو آداپتور و `get_history` نیز claim را آزاد می‌کنند). هر چهار آزمون و تمام ۲۸ آزمون `tests/test_agent_gateway.py` سبز شدند.
+- دروازه‌ها: `pytest -q` کامل با junitxml: ۹۰۰ آزمون، ۰ شکست، ۰ خطا، ۱ skip، exit=0. شکست نخستِ `test_bundled_bridge_wheel_matches_current_source_tree` به‌علت تغییر سورس پس از wheel قبلی بود؛ با بازسازی wheel از طریق `scripts/build_wheel_stdlib.py --force` (مصنوع ignore‌شدهٔ `dist/`) برطرف و اجرای مجدد کامل سبز شد — علت و نتیجهٔ اجرای مجدد به‌همین‌جا ثبت است. `npm.cmd --prefix ui run check` و `npm.cmd --prefix ui run test:observability` هر دو exit=0. `refresh_project_docs.py` نقشهٔ پروژه را به‌روزرسانی کرد؛ checker حافظه، `--check` و `--check --check-links` و `git diff --check` همگی exit=0.
+- مرز Git: کار روی شاخهٔ محلی `codex/f090-chat-replay-ttl-repair` روی `2de1d575` با worktree عمداً dirty انجام شد؛ فایل‌های عملیاتی (`bridge.json`، `.env`، `data/`، نشست‌ها) و untrackedهای از پیش موجود دست‌نخورده ماندند؛ reset/checkout/clean انجام نشد.
+- حدود: همهٔ شواهد آفلاین و ساختگی‌اند؛ ضمانت تعیین تکلیف claim در-فرایندی و تا restart است (ادعای exactly-once میان فرایند/پس از restart ندارد)؛ هیچ تماس شبکهٔ عامل، ورود، ارسال واقعی ایتا/بله یا انتشار سرور انجام نشد؛ پذیرش Live چت/ارسال جداگانه است.
+- مرجع: F-091 (بسته)، F-090، V-222، V-223 و قرارداد نسخهٔ 1.4.0.

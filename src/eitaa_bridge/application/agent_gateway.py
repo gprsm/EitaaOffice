@@ -24,6 +24,16 @@ F-090 hardening (2026-09-27):
   request-content hash; replay never re-labels a stored reply from the
   current adapter and never returns a stored reply for different content.
 - Session expiry is enforced on every read, not only on writes.
+
+F-091 hardening (2026-09-27):
+- A claimed first attempt stays owned until the reply is fully stored or the
+  claim is explicitly failed. The user message, the agent message and the
+  reply record are stored atomically (``record_exchange``); every failure —
+  including a save failure after the adapter answered (e.g. the session
+  expired mid-run and the per-service capacity is exhausted) and a
+  cancellation — resolves the in-flight entry with the real error code, so
+  waiters are released and a retry takes a fresh claim. No half-recorded
+  history or partial reply is ever visible.
 """
 
 from __future__ import annotations
@@ -292,16 +302,31 @@ class AgentChatSessionStore:
             self.service_session_counts[context.service_name] += 1
         return key, self.sessions[key], now
 
+    def _append_message_locked(
+        self,
+        context: AgentChatContext,
+        session_data: dict,
+        now: float,
+        role: str,
+        content: str,
+    ) -> None:
+        """Append one message under the store lock and enforce the cap.
+
+        Shared by ``add_message`` and ``record_exchange``; callers must hold
+        the lock and pass an ensured session.
+        """
+        session_data['messages'].append(ChatMessage(role=role, content=content, timestamp=now))
+
+        # Keep only last N messages
+        if len(session_data['messages']) > context.max_context_messages:
+            session_data['messages'] = session_data['messages'][-context.max_context_messages:]
+
     def add_message(self, context: AgentChatContext, role: str, content: str):
         with self._lock:
             self._cleanup_expired_locked(context)
             key, session_data, now = self._ensure_session_locked(context)
             session_data['last_accessed'] = now
-            session_data['messages'].append(ChatMessage(role=role, content=content, timestamp=now))
-
-            # Keep only last N messages
-            if len(session_data['messages']) > context.max_context_messages:
-                session_data['messages'] = session_data['messages'][-context.max_context_messages:]
+            self._append_message_locked(context, session_data, now, role, content)
 
     def get_messages(self, context: AgentChatContext):
         with self._lock:
@@ -339,7 +364,8 @@ class AgentChatSessionStore:
         ``("conflict", None)`` when the id is bound to different content, and
         ``("inflight", InflightCall)`` when a first attempt is already
         running; otherwise ``("run", None)`` and this caller owns the first
-        attempt and must finish it with ``complete_reply``/``fail_reply``.
+        attempt and must finish it with ``record_exchange`` (reply stored
+        atomically with the conversation) or ``fail_reply``.
         """
         with self._lock:
             self._cleanup_expired_locked(context)
@@ -361,6 +387,85 @@ class AgentChatSessionStore:
             self._inflight[inflight_key] = InflightCall(message_hash=message_hash)
             return ("run", None)
 
+    def record_exchange(
+        self,
+        context: AgentChatContext,
+        message_id: str,
+        message_hash: str,
+        user_message: str,
+        agent_message: str,
+        is_test_response: bool,
+    ) -> ReplyRecord | None:
+        """Store one full exchange atomically and resolve its claim (F-091).
+
+        The user message, the agent message and the replayable reply record
+        for ``message_id`` become visible to other requests together, or not
+        at all. On any failure the partial mutations are rolled back, the
+        in-flight claim started by ``claim_reply`` is resolved with the real
+        failing error code (releasing waiters), and the original failure is
+        re-raised unmasked. A failed save therefore never leaves a
+        half-recorded history, a partial reply or a pending claim behind.
+        """
+        key = (context.service_name, context.web_user_id, context.session_id)
+        inflight_key = (*key, str(message_id))
+        inflight: InflightCall | None = None
+        record: ReplyRecord | None = None
+        snapshot: dict[str, Any] | None = None
+        try:
+            with self._lock:
+                # Resolve the claim entry first: everything below can fail,
+                # and this call must stay able to release the claim.
+                inflight = self._inflight.pop(inflight_key, None)
+                session = self.sessions.get(key)
+                if session is not None:
+                    snapshot = {
+                        "session": session,
+                        "last_accessed": session['last_accessed'],
+                        "messages": list(session['messages']),
+                        "replies": dict(session['replies']),
+                    }
+                self._cleanup_expired_locked(context)
+                _, session_data, now = self._ensure_session_locked(context)
+                session_data['last_accessed'] = now
+                self._append_message_locked(context, session_data, now, "user", str(user_message))
+                self._append_message_locked(context, session_data, now, "agent", str(agent_message))
+                record = ReplyRecord(
+                    response=str(agent_message),
+                    is_test_response=bool(is_test_response),
+                    message_hash=message_hash,
+                    stored_at=now,
+                )
+                session_data['replies'][str(message_id)] = record
+                if len(session_data['replies']) > self.MAX_REPLIES_PER_SESSION:
+                    session_data['replies'].pop(next(iter(session_data['replies'])))
+        except BaseException as exc:
+            with self._lock:
+                current = self.sessions.get(key)
+                if snapshot is not None:
+                    if current is snapshot["session"]:
+                        # Undo this call's mutations; the session predates it.
+                        current['last_accessed'] = snapshot["last_accessed"]
+                        current['messages'] = snapshot["messages"]
+                        current['replies'] = snapshot["replies"]
+                    elif current is not None:
+                        # This call re-created the session after expiry; the
+                        # failed exchange must not leave it behind.
+                        self._remove_session(key)
+                elif current is not None:
+                    # The session was created by this call.
+                    self._remove_session(key)
+            if inflight is not None:
+                code = str(getattr(exc, "code", "") or "agent_reply_not_stored")
+                inflight.error_code = code
+                inflight.event.set()
+            raise
+        if inflight is not None:
+            # Publish outside the lock: waiters read the inflight object
+            # directly and must never block on the store lock at wake-up.
+            inflight.result = record
+            inflight.event.set()
+        return record
+
     def complete_reply(
         self,
         context: AgentChatContext,
@@ -369,7 +474,13 @@ class AgentChatSessionStore:
         response: str,
         is_test_response: bool,
     ) -> None:
-        """Store the first attempt's reply and wake any racing requests."""
+        """Store the first attempt's reply and wake any racing requests.
+
+        Lower-level primitive: it stores only the reply record. The handler
+        path must use ``record_exchange`` instead, which additionally stores
+        the conversation atomically and resolves the claim on every failure
+        (F-091).
+        """
         with self._lock:
             key = (context.service_name, context.web_user_id, context.session_id)
             inflight_key = (*key, str(message_id))
