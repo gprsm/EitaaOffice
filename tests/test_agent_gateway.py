@@ -1195,3 +1195,52 @@ def test_f091_mid_save_failure_rolls_back_partial_history_and_releases_claim():
         assert len(store._inflight) == 0
     finally:
         _restore_f091_harness(previous)
+
+
+def test_f091_claim_stays_registered_until_the_exchange_failure_is_resolved():
+    """The claim must cover the full exchange transaction, including its
+    rollback.  Removing it before a failing write leaves a window in which a
+    competing same-id request can take a second first-attempt claim."""
+
+    class ClaimVisibleFailureStore(AgentChatSessionStore):
+        def __init__(self):
+            super().__init__()
+            self.claim_was_held_during_failure = False
+
+        def _append_message_locked(self, context, session_data, now, role, content):
+            if role == "agent":
+                inflight_key = (
+                    context.service_name,
+                    context.web_user_id,
+                    context.session_id,
+                    "f091-transaction-claim",
+                )
+                self.claim_was_held_during_failure = inflight_key in self._inflight
+                raise BridgeError(
+                    "synthetic exchange storage failure", code="agent_storage_failed"
+                )
+            return super()._append_message_locked(context, session_data, now, role, content)
+
+    store = ClaimVisibleFailureStore()
+    context = AgentChatContext("u1", "s1", "f091-transaction")
+    message_id = "f091-transaction-claim"
+    message_hash = "f091-hash"
+
+    outcome, _ = store.claim_reply(context, message_id, message_hash)
+    assert outcome == "run"
+    with pytest.raises(BridgeError, match="synthetic exchange storage failure"):
+        store.record_exchange(
+            context,
+            message_id,
+            message_hash,
+            "request",
+            "response",
+            False,
+        )
+
+    # A claim must remain registered until the transaction either publishes a
+    # full exchange or has rolled it back and told all waiters about failure.
+    assert store.claim_was_held_during_failure is True
+    assert store.get_history(context) == []
+    assert store.get_reply(context, message_id) is None
+    assert store._inflight == {}

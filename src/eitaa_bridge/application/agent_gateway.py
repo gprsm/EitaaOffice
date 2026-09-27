@@ -408,22 +408,23 @@ class AgentChatSessionStore:
         """
         key = (context.service_name, context.web_user_id, context.session_id)
         inflight_key = (*key, str(message_id))
-        inflight: InflightCall | None = None
-        record: ReplyRecord | None = None
-        snapshot: dict[str, Any] | None = None
-        try:
-            with self._lock:
-                # Resolve the claim entry first: everything below can fail,
-                # and this call must stay able to release the claim.
-                inflight = self._inflight.pop(inflight_key, None)
-                session = self.sessions.get(key)
-                if session is not None:
-                    snapshot = {
-                        "session": session,
-                        "last_accessed": session['last_accessed'],
-                        "messages": list(session['messages']),
-                        "replies": dict(session['replies']),
-                    }
+        with self._lock:
+            # The claim deliberately remains in the registry for the entire
+            # transaction.  In particular, do not pop it before a potentially
+            # failing write: otherwise another same-id request could take a
+            # second first-attempt claim between the write failure and its
+            # rollback (F-091).
+            inflight = self._inflight.get(inflight_key)
+            session = self.sessions.get(key)
+            snapshot: dict[str, Any] | None = None
+            if session is not None:
+                snapshot = {
+                    "session": session,
+                    "last_accessed": session['last_accessed'],
+                    "messages": list(session['messages']),
+                    "replies": dict(session['replies']),
+                }
+            try:
                 self._cleanup_expired_locked(context)
                 _, session_data, now = self._ensure_session_locked(context)
                 session_data['last_accessed'] = now
@@ -438,33 +439,48 @@ class AgentChatSessionStore:
                 session_data['replies'][str(message_id)] = record
                 if len(session_data['replies']) > self.MAX_REPLIES_PER_SESSION:
                     session_data['replies'].pop(next(iter(session_data['replies'])))
-        except BaseException as exc:
-            with self._lock:
-                current = self.sessions.get(key)
-                if snapshot is not None:
-                    if current is snapshot["session"]:
-                        # Undo this call's mutations; the session predates it.
-                        current['last_accessed'] = snapshot["last_accessed"]
-                        current['messages'] = snapshot["messages"]
-                        current['replies'] = snapshot["replies"]
+            except BaseException as exc:
+                # Complete rollback and claim resolution while holding the
+                # same lock as the write.  Cleanup is deliberately best-effort
+                # here: it must never replace the original storage failure.
+                try:
+                    current = self.sessions.get(key)
+                    if snapshot is not None:
+                        if current is snapshot["session"]:
+                            # Undo this call's mutations; the session predates it.
+                            current['last_accessed'] = snapshot["last_accessed"]
+                            current['messages'] = snapshot["messages"]
+                            current['replies'] = snapshot["replies"]
+                        elif current is not None:
+                            # This call re-created the session after expiry; the
+                            # failed exchange must not leave it behind.
+                            self._remove_session(key)
                     elif current is not None:
-                        # This call re-created the session after expiry; the
-                        # failed exchange must not leave it behind.
+                        # The session was created by this call.
                         self._remove_session(key)
-                elif current is not None:
-                    # The session was created by this call.
-                    self._remove_session(key)
+                except BaseException:
+                    pass
+                finally:
+                    self._inflight.pop(inflight_key, None)
+                    if inflight is not None:
+                        try:
+                            inflight.error_code = str(
+                                getattr(exc, "code", "") or "agent_reply_not_stored"
+                            )
+                            inflight.event.set()
+                        except BaseException:
+                            pass
+                raise
+
+            # Publish a complete exchange and resolve the claim in the same
+            # critical section.  A waiter may wake immediately and reads the
+            # InflightCall directly, so it never needs to contend for this
+            # store lock.
+            self._inflight.pop(inflight_key, None)
             if inflight is not None:
-                code = str(getattr(exc, "code", "") or "agent_reply_not_stored")
-                inflight.error_code = code
+                inflight.result = record
                 inflight.event.set()
-            raise
-        if inflight is not None:
-            # Publish outside the lock: waiters read the inflight object
-            # directly and must never block on the store lock at wake-up.
-            inflight.result = record
-            inflight.event.set()
-        return record
+            return record
 
     def complete_reply(
         self,

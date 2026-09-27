@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 369
-- اثرانگشت منبع: `e8fcb631e0cf6cd1`
+- اثرانگشت منبع: `ad91690698620353`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -232,7 +232,7 @@
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
 | `tests/test_account_runtime.py` | Python test | 12 | — |
-| `tests/test_agent_gateway.py` | Python test | 49 | — |
+| `tests/test_agent_gateway.py` | Python test | 50 | — |
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
 | `tests/test_application_api.py` | Python test | 42 | — |

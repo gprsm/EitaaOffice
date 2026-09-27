@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "e8fcb631e0cf6cd1",
+  "source_fingerprint": "ad91690698620353",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -2180,17 +2180,17 @@
         {
           "name": "AgentChatSessionStore.complete_reply",
           "kind": "method",
-          "line": 469
+          "line": 485
         },
         {
           "name": "AgentChatSessionStore.fail_reply",
           "kind": "method",
-          "line": 509
+          "line": 525
         },
         {
           "name": "AgentChatSessionStore.get_reply",
           "kind": "method",
-          "line": 524
+          "line": 540
         }
       ]
     },
@@ -13955,6 +13955,11 @@
           "name": "test_f091_mid_save_failure_rolls_back_partial_history_and_releases_claim",
           "kind": "function",
           "line": 1121
+        },
+        {
+          "name": "test_f091_claim_stays_registered_until_the_exchange_failure_is_resolved",
+          "kind": "function",
+          "line": 1200
         }
       ]
     },

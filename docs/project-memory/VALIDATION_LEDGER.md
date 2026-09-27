@@ -2122,3 +2122,12 @@
 - مرز Git: کار روی شاخهٔ محلی `codex/f090-chat-replay-ttl-repair` روی `2de1d575` با worktree عمداً dirty انجام شد؛ فایل‌های عملیاتی (`bridge.json`، `.env`، `data/`، نشست‌ها) و untrackedهای از پیش موجود دست‌نخورده ماندند؛ reset/checkout/clean انجام نشد.
 - حدود: همهٔ شواهد آفلاین و ساختگی‌اند؛ ضمانت تعیین تکلیف claim در-فرایندی و تا restart است (ادعای exactly-once میان فرایند/پس از restart ندارد)؛ هیچ تماس شبکهٔ عامل، ورود، ارسال واقعی ایتا/بله یا انتشار سرور انجام نشد؛ پذیرش Live چت/ارسال جداگانه است.
 - مرجع: F-091 (بسته)، F-090، V-222، V-223 و قرارداد نسخهٔ 1.4.0.
+
+### V-225 — ممیزی تکمیلی F-091: حفظ claim در تمام تراکنش exchange
+
+- تاریخ: 2026-09-27؛ سطح شاهد: `STATIC / ISOLATED SYNTHETIC RUNTIME / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY`.
+- Trigger تکرار: درخواست صریح مالک برای راستی‌آزمایی تحویل ادعاشدهٔ F-091 در checkout واقعی پس از V-224. هیچ بررسی Live یا دادهٔ عملیاتی انجام نشد.
+- RED: آزمون مستقل `test_f091_claim_stays_registered_until_the_exchange_failure_is_resolved` در `tests/test_agent_gateway.py` روی HEAD پیشین V-224 با exit=1 شکست خورد: هنگام خطای ساختگیِ ثبت پیام عامل، entry همان message_id پیش از rollback از `_inflight` حذف شده بود. این پنجره می‌توانست به رقیب هم‌زمان اجازهٔ claim تازه پیش از تعیین تکلیف خطای تلاش اول را بدهد.
+- GREEN: `record_exchange` اکنون claim را در تمام write/rollback زیر همان قفل نگه می‌دارد و فقط پس از publication موفق یا rollback و ثبت کد خطای اصلی آن را حذف و منتظران را بیدار می‌کند. آزمون RED و مجموعهٔ `tests/test_agent_gateway.py` پس از اصلاح سبز شدند. اجرای کامل `pytest -q` پس از rebuild wheel تطبیقیِ سورس فعلی exit=0 بود (تنها یک هشدار deprecation شناخته‌شدهٔ `websockets`); `npm.cmd --prefix ui run check` و `npm.cmd --prefix ui run test:observability` هر دو exit=0 بودند. مولد اسناد، checker حافظه، freshness/link check و `git diff --check` نیز پس از این ثبت exit=0 بودند.
+- حدود: این آزمون و اصلاح کاملاً حافظه‌ای/ساختگی‌اند؛ ضمانت فقط در یک فرایند و تا restart است. هیچ تماس شبکهٔ عامل، ورود یا ارسال واقعی ایتا/بله انجام نشد.
+- مرجع: F-091، V-224 و قرارداد نسخهٔ 1.4.1.
