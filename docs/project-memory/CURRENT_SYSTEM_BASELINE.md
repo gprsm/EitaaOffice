@@ -138,7 +138,7 @@ AppUser -> Membership -> PhoneAccount -> MessengerAccount -> Provider Runtime
 | Provider | مدل/Registry | Adapter واقعی | ورود واقعی | اولویت |
 |---|---:|---:|---:|---:|
 | Eitaa | موجود | موجود | پذیرفته شده | اول |
-| Bale Personal | `implemented` + مجاز به تصمیم مالک F-086/ADR-60؛ configured=true، runtime/onboarding=false تا اتصال فاز بعدی | آداپتور واقعی متصل به `bale_client` (پذیرش زندهٔ نشست V-194)؛ probe قرارداد آفلاین سبز | عملیات نشست روی شاخهٔ Bale پذیرش زنده شده (V-194)؛ ارسال از مسیر orchestrator هنوز Live نیست | V-215 آفلاین |
+| Bale Personal | `contract_verified` + مجاز به تصمیم مالک F-086/ADR-60 و ADR-61/F-092؛ configured=true، runtime=true، onboarding=true | آداپتور متصل به `bale_client` و کارخانه‌های ورکر Process و In-Process | عملیات نشست روی شاخهٔ Bale پذیرش زنده شده (V-194)؛ ورود/ارسال تازه در انتظار ورودی زنده | V-228 آفلاین سبز |
 | Bale Bot/Arm | تصمیم تاریخی بازیابی‌شده؛ مرجع جاری F-046 | مسیر رسمی در حافظه ثبت شده، اما قابلیت تازه در دامنهٔ تثبیت نیست | انجام نشده | خارج از توسعهٔ جاری |
 | Rubika | تصمیم معماری | موجود نیست | انجام نشده | آینده |
 | SoroushPlus | تصمیم معماری | موجود نیست | انجام نشده | آینده |
@@ -162,7 +162,7 @@ Discovery تاریخی 11-A تفکیک هویت Bot/Arm و Personal را ثبت 
 - دکمه و Dialog «افزودن حساب پیام‌رسان» Provider فعال را از catalog می‌گیرد، شمارهٔ E.164 و label اختیاری را می‌پذیرد و مقدار خصوصی را پس از submit/cancel پاک می‌کند.
 - `POST /api/v2/messenger-accounts` فقط فیلدهای `provider/phone/label` را می‌پذیرد؛ `token` در این مرز مردود است و فقط descriptor دارای identity kind برابر `phone_e164` وارد PhoneAccount می‌شود. شناسه‌ها، Membership و مسیرها سمت سرور ساخته می‌شوند.
 - ساخت حساب تازه Worker یا اتصال شبکه را خودکار آغاز نمی‌کند. کاربر حساب را صریح Start می‌کند و سپس Auth flow مرحله‌ای موجود در scope همان MessengerAccount اجرا می‌شود.
-- Eitaa onboardable است. Bale با تصمیم مالک F-086/ADR-60 مجاز شده؛ descriptor با `configured=true` و reason صادقانهٔ `provider_onboarding_wiring_pending` نمایش داده می‌شود (onboarding چندProvider هنوز وصل نشده؛ استفادهٔ عملیاتی از سطح v1 شاخهٔ Bale انجام می‌شود).
+- Eitaa و Bale هر دو onboardable هستند. Bale با تصمیم مالک و مأموریت‌های B0 تا B6 (ADR-61/F-092) با `configured=true`، `runtime_enabled=true`، `onboarding_enabled=true` و وضعیت `contract_verified` یکپارچه شد. مدیریت کامل چندحسابی، مخاطبان، دیالوگ‌ها، پیام‌ها، رسانه و ورکر اختصاصی متصل است.
 - تکرار/restart/race همان مالک idempotent است و مالک دیگر نمی‌تواند هویت ثبت‌شده را claim یا از پاسخ وجود آن را استنتاج کند.
 - نصب فعلی فقط یک حساب واقعی ایتا در انتخاب‌گر دارد؛ بنابراین تعویض واقعی میان دو حساب هنوز پذیرش نشده است.
 - صفحهٔ ورود اکنون دکمهٔ «کاربر جدید هستم» دارد و ثبت‌نام خودخدمت در شبکهٔ خصوصی، بدون امکان انتخاب نقش مدیر، انجام می‌شود.

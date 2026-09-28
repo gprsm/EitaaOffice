@@ -2162,3 +2162,15 @@
 - نتایج دروازه‌های کیفی: آزمون‌های محصولی بله: ۱۸ پاس؛ آزمون‌های خانوادهٔ بله و Multi-Provider: ۱۳۱ پاس؛ فول‌سوییت کامل Backend: ۹۲۰ آزمون (۹۱۹ پاس، ۱ اسکیپ، ۰ خطا) در ۲ دقیقه و ۳۵ ثانیه، exit=0. تایپ‌چک UI با `npm run check`: exit=0. تست observability رابط کاربری با `npm run test:observability`: exit=0. بازسازی رسمی Wheel سورس جاری با `scripts/build_wheel_stdlib.py --force`: exit=0 با هش معتبر. اسکریپت‌های اسناد `refresh_project_docs.py`، `check_project_memory_integrity.py` و بررسی لینک‌ها همگی exit=0؛ `git diff --check`: exit=0.
 - مرزهای پذیرش: BALE-A01 تا BALE-A08 همگی به عنوان OFFLINE_COMPLETE پذیرفته شدند. ورود زنده، تبادل پیام زنده و پایلوت واقعی طبق قواعد AGENTS.md نیازمند ورودی واقعی کاربر و تأیید صریح همان‌لحظه است و در وضعیت LIVE_PENDING_INPUT قرار دارد.
 - مرجع: F-092، [گزارش کامل بله](../reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md)، [Handoff بله](../handoffs/BALE_FULL_PRODUCT_INTEGRATION_HANDOFF.md)، V-227.
+
+### V-229 — بازبینی جامع محصول، پالایش فرانت‌اند/پیش‌نمایش و انطباق کامل اسناد بله
+
+- تاریخ: 2026-09-28؛ سطح شاهد: `OFFLINE_REGRESSION / UI_DEV_FIXTURE_PARITY / UI_HISTORY_SYNC / PREVIEW_TEARDOWN_ROBUSTNESS / SPEC_AND_STRUCTURE_ALIGNMENT / WHEEL_SOURCE_PARITY / GATE_VERIFIED`.
+- Trigger: درخواست صریح کاربر برای بررسی کامل و مجدد ادغام محصولی بله جهت اطمینان از رفع هرگونه نقص یا عدم تطابق باقی‌مانده.
+- موارد بررسی و اصلاح‌شده:
+  1. فرانت‌اند (`ui/src/BaleWorkspace.tsx`): رفرش فوری تاریخچه بلافاصله پس از تأیید ارسال پیام متنی و فایل جهت حذف تأخیر ناشی از polling پنج‌ثانیه‌ای؛ پاک‌سازی وضعیت گفتگو، پیام‌ها و مخاطبان هنگام تعویض حساب برای جلوگیری از نشت گذرا؛ افزودن راهنمای فرمت E.164 و پاک‌سازی فاصله‌های اضافی در ورود مخاطب.
+  2. فیکسچر و توسعه مستقل (`ui/src/main.tsx`): ارتقای دیسکریپتور ماک بله از `runtime_enabled: false` به `runtime_enabled: true`، `onboarding_enabled: true` و `contract_verified`، به همراه افزودن حساب ساختگی بله و ماک روت‌های گفتگو، تاریخچه، مخاطبان و پیام‌ها برای کارکرد بدون نقص محیط مستقل Vite.
+  3. سرور پیش‌نمایش (`tests/bale_ui_preview.py`): افزودن `ignore_cleanup_errors=True` به دایرکتوری موقت جهت جلوگیری از قفل فایل دیتابیس SQLite در ویندوز (`PermissionError: [WinError 32]`)، هندلینگ وقفه و خاموش‌سازی تمیز سرور HTTP؛ صحه‌گذاری موفق پروب خودکار اندپوینت‌های روت و وب‌هوک.
+  4. انطباق اسناد و تصمیمات معماری: همسان‌سازی کامل `PROJECT_SPECIFICATION.md`، `PROJECT_STRUCTURE.md`، `EDUCATION_SYSTEM_API_CONTRACT_v1.md`، `CURRENT_SYSTEM_BASELINE.md`، `BALE_PROVIDER_DISCOVERY.md` و ثبت تصمیم معماری شماره ۶۱ (ADR-61) در `ARCHITECTURE_DECISIONS.md`.
+- نتایج دروازه‌ها: بیلد تمیز UI با Vite (۱۰۲۸ ماژول، ۵.۶ ثانیه)؛ تایپ‌چک فرانت‌اند `npm run check` و `npm run test:observability` سبز؛ آزمون‌های فول‌سوییت ۹۲۰ تستی Backend سبز (۹۱۹ پاس، ۱ اسکیپ)؛ بازسازی Wheel رسمی و تطابق کامل سورس؛ اعتبارسنجی یکپارچگی حافظه و لینک‌های اسناد.
+- مرجع: F-092، ADR-61، V-228، `docs/reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md`.

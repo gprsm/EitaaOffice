@@ -1,7 +1,7 @@
 # Handoff اجرای کامل آفلاین BALE-PRODUCT
 
 تاریخ: 2026-09-28؛ وضعیت: `OFFLINE_COMPLETE / LIVE_PENDING_INPUT / NO_PUBLICATION`.
-مرجع: [گزارش کامل محصولی بله](../reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md)، [ماتریس B0](../implementation-plans/bridge-client-2026-09-28/BALE_B0_INVENTORY.md)، F-092 و V-228.
+مرجع: [گزارش کامل محصولی بله](../reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md)، [ماتریس B0](../implementation-plans/bridge-client-2026-09-28/BALE_B0_INVENTORY.md)، F-092، ADR-61، V-228 و V-229.
 
 ## خلاصهٔ وضعیت تحویل‌شده
 

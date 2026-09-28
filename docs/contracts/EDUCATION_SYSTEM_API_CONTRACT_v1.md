@@ -239,12 +239,11 @@ all answer `not_found` — ownership is never guessed.
   already started a conversation with the bot.
 - **Bale Personal** (owner decision F-086/ADR-60, 2026-09-27): authorized as
   a first-class product path alongside the bot. The client
-  (`application/bale_client`) ships with the product and its adapter is
-  offline contract-verified; provider-side send over the orchestrator is not
-  live-accepted yet and multi-provider onboarding/worker wiring is the next
-  authorized phase (`provider_onboarding_wiring_pending`). Personal Bale
-  delivery today runs through the Bale-branch v1 surface (session ops
-  live-accepted, V-194).
+  (`application/bale_client`) ships with the product and its adapter, worker,
+  and multi-provider onboarding are offline contract-verified (`CONTRACT_VERIFIED`,
+  `runtime_enabled=True`, `onboarding_enabled=True`). M2M recipient prepare and
+  resolve endpoints support Bale references (`bale:user:<id>`); live send
+  acceptance remains subject to instant operator permission.
 - **Agent**: the test adapter returns a fixed marked response; a real adapter
   requires explicit configuration (vendor, URL, credential) that must not be
   guessed.

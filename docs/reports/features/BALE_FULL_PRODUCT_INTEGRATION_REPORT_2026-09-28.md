@@ -55,6 +55,14 @@ HEAD آغاز: `ab7563c5`؛ شاخه: `codex/bale-web-client-instructions`؛ ت�
   - فرمان: `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links` (Exit Code 0)
   - فرمان: `git diff --check` (Exit Code 0).
 
+## بازبینی تکمیلی و پالایش‌های جامع (V-229)
+
+پیرو بازبینی عمیق و مجدد کلیهٔ بخش‌های کلاینت، رانتایم، آزمون‌ها و اسناد:
+1. **رفرش آنی تاریخچه در فرانت‌اند (`ui/src/BaleWorkspace.tsx`):** ارسال پیام و فایل با فراخوانی بلافاصلهٔ `fetchHistory` همراه شد تا کاربر بدون نیاز به انتظار برای پایان چرخهٔ Polling پنج‌ثانیه‌ای، پیام ارسالی را بلافاصله در تاریخچه مشاهده کند. همچنین وضعیت گفتگو و پیام‌ها در هنگام تغییر حساب فعال پاک‌سازی می‌شود.
+2. **ارتقای فیکسچر توسعهٔ مستقل (`ui/src/main.tsx`):** دیسکریپتور ماک بله در حالت توسعهٔ Vite از `runtime_enabled: false` به `runtime_enabled: true`، `onboarding_enabled: true` و `contract_verified` ارتقا یافت و با داده‌های ساختگی حساب و گفتگو، عملکرد بدون وابستگی به سرور پایتون تضمین گردید.
+3. **پایداری اسکریپت پیش‌نمایش (`tests/bale_ui_preview.py`):** قفل فایل دیتابیس SQLite روی ویندوز در هنگام پاک‌سازی دایرکتوری موقت برطرف شد و سرور پیش‌نمایش به صورت خودکار با پروب‌های HTTP صحه‌گذاری گردید.
+4. **همگام‌سازی کامل اسناد معماری:** تصمیم معماری شماره ۶۱ (ADR-61) در `ARCHITECTURE_DECISIONS.md` به همراه مستندات `PROJECT_SPECIFICATION.md`، `PROJECT_STRUCTURE.md`، `EDUCATION_SYSTEM_API_CONTRACT_v1.md`، `BALE_PROVIDER_DISCOVERY.md` و `CURRENT_SYSTEM_BASELINE.md` کاملاً منطبق شدند.
+
 ## برنامهٔ Pilot زنده و ورودی‌های مورد نیاز
 
 بخش توسعهٔ نرم‌افزاری و آفلاین کامل شده است. انجام Pilot زنده در حالت عملیاتی نیازمند فراهم شدن شرایط و تأیید صریح مالک در زمان اجرا است:

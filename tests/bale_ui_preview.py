@@ -17,7 +17,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     workspace = root / ".test-work"
     workspace.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="bale-ui-", dir=workspace) as directory:
+    with tempfile.TemporaryDirectory(prefix="bale-ui-", dir=workspace, ignore_cleanup_errors=True) as directory:
         path = Path(directory) / "bridge.json"
         config = {"schema_version": 1, "bridge": {"diagnostics_root": "diagnostics/bridge", "diagnostics_enabled": False}, "default_site_key": "fixture", "core": {"session_file": "session.json", "database_file": "data/messages.sqlite3", "media_directory": "data/media", "diagnostics_root": "diagnostics/core", "diagnostics_enabled": False, "timeout_seconds": 30},
             "features": {"multi_session": {"enabled": True}, "app_user_auth": {"enabled": True}},
@@ -65,7 +65,10 @@ def main():
         print(f"http://127.0.0.1:{server.server_address[1]}/", flush=True)
         try:
             server.serve_forever()
+        except KeyboardInterrupt:
+            pass
         finally:
+            server.shutdown()
             server.server_close()
             app.close()
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "fdce1ead6b0e1bd7",
+  "source_fingerprint": "196ac5a6a7e1e40e",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -21897,42 +21897,42 @@
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 49
+          "line": 50
         },
         {
           "name": "authenticate",
           "kind": "script symbol",
-          "line": 55
+          "line": 56
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 65
+          "line": 66
         },
         {
           "name": "loadOlder",
           "kind": "script symbol",
-          "line": 93
+          "line": 94
         },
         {
           "name": "loadContacts",
           "kind": "script symbol",
-          "line": 101
+          "line": 102
         },
         {
           "name": "send",
           "kind": "script symbol",
-          "line": 110
+          "line": 111
         },
         {
           "name": "sendFile",
           "kind": "script symbol",
-          "line": 118
+          "line": 128
         },
         {
           "name": "download",
           "kind": "script symbol",
-          "line": 128
+          "line": 147
         }
       ]
     },
@@ -22599,12 +22599,12 @@
         {
           "name": "browserSelectLoginBackground",
           "kind": "script symbol",
-          "line": 212
+          "line": 236
         },
         {
           "name": "Root",
           "kind": "script symbol",
-          "line": 271
+          "line": 295
         }
       ]
     },

@@ -12,13 +12,13 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - حساب‌های موجود در UI قابل انتخاب و تعویض‌اند.
 - Phase 11-0 ساخت حساب جدید ایتا را با API اتمیک/idempotent، مالکیت AppUser، هویت رمزگذاری‌شده و فرم خصوصی UI فراهم کرده و با Fake/Contract/Adversarial پذیرفته شده است.
 - ورود مرحله‌ای حساب تازه پس از Start همان حساب از Auth flow حساب‌محور موجود انجام می‌شود؛ Pilot واقعی حساب دوم هنوز عمداً اجرا نشده است.
-- قرارداد توسعه‌ای متأخر Bale طبق F-046 معتبر و بدون rollback است. G-02 implementation ناقص را quarantine و registration را با state=`implemented` ولی configured/runtime/onboarding=false، factory و capability خالی fail-closed کرد. این نتیجه توسعهٔ قابلیت یا پذیرش Live نیست.
+- قرارداد توسعه‌ای متأخر Bale طبق F-086/ADR-60 و مأموریت BALE-PRODUCT اتصال درجه‌یک محصول را کامل کرده است؛ وضعیت ثبت `contract_verified`، با `configured=true`، `runtime_enabled=true` و `onboarding_enabled=true`، و factoryهای آداپتور و worker متصل‌اند. این وضعیت آفلاین تأیید شده و با پذیرش Live متمایز است.
 - WordPress integration اختیاری است و انتشار واقعی نیازمند تأیید لحظه‌ای است.
 - Phase 10 و Phase 11-0 در دامنهٔ تاریخی خود پذیرفته شده‌اند. Phase 11-A یک Discovery تاریخی است؛ قرارداد متأخر F-046 تصمیم محصولی جاری را ثبت می‌کند. این تغییر به معنی پذیرش Live یا حذف دروازهٔ تأیید همان لحظه نیست.
 - Phase 11-B0 زیرساخت عمومی Provider Extension را ایجاد کرد؛ G-02 فعال‌سازی شکستهٔ Bale را مهار و descriptor/UI fixture را با وضعیت غیرقابل‌اجرا همسو کرد.
 - Phase 11-B1 Registry پایدار، Coordinator schema v6، Contact schema v3، Audit عمومی، Fake Provider سوم و Capability service حساب‌محور را تکمیل کرده است؛ product catalog همچنان فقط Eitaa/Bale را نمایش می‌دهد و Fake test-only است.
 - Phase 11-B2 هر شش عملیات Dialog/History/Text Send/Media/Contacts را در orchestrator عمومی، Eitaa compatibility و Process Child RPC محدود تکمیل کرده است. receiptهای mutation در Coordinator schema v7 پایدار و privacy-safe هستند؛ نتیجه Contract/Fake/Adversarial است و Live ادعا نمی‌شود.
-- Phase 11-C از نظر قرارداد متأخر تصمیم‌گیری شده، ولی runtime Bale خاموش و نه contract-verified و نه Live-verified است. بخش محلی 11-D و read/live-sync حساب موجود ایتا پذیرفته شده‌اند؛ Pilot واقعی حساب دوم یا Bale اجرا نشده و عملیات Live به تأیید همان لحظه نیاز دارد.
+- اتصال Bale Personal به لایه‌های مالکیت، runtime، worker، مخاطبین، گفتگو، رسانه و M2M طبق مأموریت BALE-PRODUCT و ADR-60 تکمیل و contract-verified شده است. بخش محلی 11-D و read/live-sync حساب موجود ایتا پذیرفته شده‌اند؛ Pilot زنده نیازمند مجوز صریح همان‌لحظه است.
 - دامنهٔ تثبیت G-00 تا G-09 کامل و توسط کاربر پذیرفته شده است. checkpoint فعال‌سازی/نصب‌کننده اکنون Backend=`691/691`، TypeScript، UI/Electron observability و onboarding UI=`8/8` سبز، wheel/source parity، install-copy simulation، EXE `--verify-only` و privacy inspection بدون finding دارد. Setup RC5 برای Windows 10/11 x64 با UI گرافیکی فارسی، آیکون چنداندازه و امضای داخلی pinned ساخته شده، Python/Node مقصد نمی‌خواهد و پیش از Config/DB به مجوز Ed25519 وابسته به دستگاه gate می‌شود. نصب تازه بعد از فعال‌سازی ابتدا مدیر محلی و سپس حساب Eitaa متعلق به همان مدیر را می‌سازد؛ multi-account/worker فعال‌اند و Start/Auth هر حساب صریح است. Copy/Paste فعال‌سازی مستقل از layout است و build خروجی قبلی را آرشیو می‌کند. کلید Authenticode non-exportable و trust bundle عمومی آماده است؛ Production key فعال‌سازی، public reputation، اعتماد مقصد، پذیرش دیداری و نصب واقعی Windows تمیز همچنان بازند.
 - AppUser می‌تواند از صفحهٔ ورود و دکمهٔ «کاربر جدید هستم» در deployment خصوصی ثبت‌نام کند. حساب تازه همیشه role=`user` دارد؛ حداقل رمز چهار نویسه و policy نشست جاری یک سال است.
 - UI فعال Material-only و mobile-first است و page/barهای اصلی module جدا دارند. پیام‌های گفتگوی باز و top/unread فهرست گفتگوها بدون reload دستی و با polling تطبیقی account-scoped تازه می‌شوند.
@@ -42,7 +42,7 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - احراز هویت AppUser و مدیریت session/device.
 - ثبت‌نام خودخدمت AppUser فقط در loopback/LAN خصوصی، با role ثابت user و audit امن.
 - فهرست و انتخاب حساب‌های مجاز کاربر.
-- افزودن چند حساب ایتا با ورودی عمومی محدود به `provider/phone/label`، هویت تلفنی canonical E.164، شناسه و مسیرهای کاملاً server-owned، عضویت مالک اتمیک و نمایش شمارهٔ canonical کامل طبق تصمیم محصول متأخر؛ `token` در این مرز پذیرفته نمی‌شود و ثبت شماره در Log/Audit/Diagnostic/Support Bundle ممنوع است.
+- افزودن چند حساب ایتا و بله شخصی با ورودی عمومی محدود به `provider/phone/label`، هویت تلفنی canonical E.164، شناسه و مسیرهای کاملاً server-owned، عضویت مالک اتمیک و نمایش شمارهٔ canonical کامل طبق تصمیم محصول متأخر؛ `token` در این مرز پذیرفته نمی‌شود و ثبت شماره در Log/Audit/Diagnostic/Support Bundle ممنوع است.
 - runtime مستقل حساب با worker process و IPC.
 - کاتالوگ گفتگوها، مخاطبان، اعضا و عملیات مرتبط.
 - ارسال مستقیم/صفی با کنترل مقصد، retry، rate limit و audit.

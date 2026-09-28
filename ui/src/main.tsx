@@ -113,6 +113,7 @@ function phase9VisualFixtureApi(method: string, rawPath: string, body?: unknown,
     global_role: userKind === 'operator' ? 'user' : 'admin',
     permissions: { manage_users: userKind === 'admin', use_legacy_workspace: true },
   }
+  const baleAccountId = 'bbbbbbbb-1111-4bbb-8bbb-bbbbbbbbbbbb'
   const accounts = [
     {
       messenger_account_id: selectedAccount,
@@ -129,6 +130,21 @@ function phase9VisualFixtureApi(method: string, rawPath: string, body?: unknown,
       session_generation: 2,
       storage_revision: 1,
       worker: { worker_instance_id: '55555555-5555-4555-8555-555555555555', generation: 2, runtime_state: 'ready', process_id: 1234, last_heartbeat_at: new Date().toISOString(), safe_reason_code: null },
+      permissions: { view: true, operate: true, manage_worker: userKind === 'admin' },
+    },
+    {
+      messenger_account_id: baleAccountId,
+      phone_account_id: '44444444-4444-4444-8444-444444444444',
+      provider: 'bale',
+      label: 'حساب بله آزمایشی',
+      phone_hint: '+••••••••۴۵',
+      membership_role: userKind === 'operator' ? 'operator' : 'admin',
+      lifecycle_state: 'active',
+      desired_worker_state: 'running',
+      auth_state: 'authenticated',
+      session_generation: 1,
+      storage_revision: 1,
+      worker: { worker_instance_id: '55555555-5555-4555-8555-666666666666', generation: 1, runtime_state: 'ready', process_id: 1235, last_heartbeat_at: new Date().toISOString(), safe_reason_code: null },
       permissions: { view: true, operate: true, manage_worker: userKind === 'admin' },
     },
   ]
@@ -158,8 +174,16 @@ function phase9VisualFixtureApi(method: string, rawPath: string, body?: unknown,
   })
   let payload: Record<string, unknown> = { ok: true }
   if (path === '/api/v2/app-auth/status' || path === '/api/v2/app-auth/me') payload = { ok: true, enabled: true, setup_required: false, authenticated: true, self_registration_enabled: true, principal, csrf_token: 'phase9-visual-csrf', idle_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60_000).toISOString(), absolute_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60_000).toISOString() }
-  else if (method === 'GET' && path === '/api/v2/messenger-accounts') payload = { ok: true, feature_enabled: true, default_messenger_account_id: selectedAccount, accounts, provider_adapters: { eitaa: { provider: 'eitaa', display_name: 'ایتا', configured: true, runtime_enabled: true, onboarding_enabled: true, account_identity_kind: 'phone_e164', auth_steps: ['identity', 'challenge', 'second_factor_optional'], account_kind: 'personal', implementation_state: 'live_accepted', capabilities: ['auth.logout', 'auth.phone', 'contacts.read', 'dialogs.read', 'history.read', 'media.read', 'media.send', 'messages.send', 'updates.live'] }, bale: { provider: 'bale', display_name: 'بله', configured: true, runtime_enabled: false, onboarding_enabled: false, account_identity_kind: 'phone_e164', auth_steps: ['identity', 'challenge', 'second_factor_optional'], account_kind: 'personal', implementation_state: 'implemented', capabilities: ['auth.phone', 'contacts.read', 'contacts.write', 'dialogs.read', 'history.read', 'media.read', 'media.send', 'messages.send', 'updates.live'], reason_code: 'provider_onboarding_wiring_pending' } } }
-  else if (method === 'GET' && /^\/api\/v2\/messenger-accounts\/[0-9a-f-]{36}\/capabilities$/i.test(path)) payload = { ok: true, messenger_account_id: selectedAccount, provider: 'eitaa', implementation_state: 'live_accepted', runtime_enabled: true, capabilities: ['contacts.read', 'contacts.write', 'dialogs.read', 'history.read', 'media.read', 'media.send', 'messages.send'].map(capability => ({ capability, status: 'supported', reason_code: 'provider_capability_supported', constraints_present: false, revision: 1 })) }
+  else if (method === 'GET' && path === '/api/v2/messenger-accounts') payload = { ok: true, feature_enabled: true, default_messenger_account_id: selectedAccount, accounts, provider_adapters: { eitaa: { provider: 'eitaa', display_name: 'ایتا', configured: true, runtime_enabled: true, onboarding_enabled: true, account_identity_kind: 'phone_e164', auth_steps: ['identity', 'challenge', 'second_factor_optional'], account_kind: 'personal', implementation_state: 'live_accepted', capabilities: ['auth.logout', 'auth.phone', 'contacts.read', 'dialogs.read', 'history.read', 'media.read', 'media.send', 'messages.send', 'updates.live'] }, bale: { provider: 'bale', display_name: 'بله', configured: true, runtime_enabled: true, onboarding_enabled: true, account_identity_kind: 'phone_e164', auth_steps: ['identity', 'challenge', 'second_factor_optional'], account_kind: 'personal', implementation_state: 'contract_verified', capabilities: ['auth.phone', 'contacts.read', 'contacts.write', 'dialogs.read', 'history.read', 'media.read', 'media.send', 'messages.send', 'updates.live'] } } }
+  else if (method === 'GET' && /^\/api\/v2\/messenger-accounts\/[0-9a-f-]{36}\/capabilities$/i.test(path)) {
+    const isBale = path.includes(baleAccountId)
+    payload = { ok: true, messenger_account_id: isBale ? baleAccountId : selectedAccount, provider: isBale ? 'bale' : 'eitaa', implementation_state: isBale ? 'contract_verified' : 'live_accepted', runtime_enabled: true, capabilities: ['contacts.read', 'contacts.write', 'dialogs.read', 'history.read', 'media.read', 'media.send', 'messages.send'].map(capability => ({ capability, status: 'supported', reason_code: 'provider_capability_supported', constraints_present: false, revision: 1 })) }
+  }
+  else if (path.includes(baleAccountId) && path.endsWith('/auth/status')) payload = { ok: true, auth_state: 'authenticated', has_vault: true }
+  else if (path.includes(baleAccountId) && path.endsWith('/dialogs/query')) payload = { ok: true, dialogs: [{ peer_reference: 'bale:user:42', peer_kind: 'private', title: 'مخاطب بله', last_text: 'سلام از بله', unread_count: 1 }] }
+  else if (path.includes(baleAccountId) && path.endsWith('/history/query')) payload = { ok: true, messages: [{ message_reference: 'bale:message:1', text: 'پیام آزمایشی بله', sent_at_unix_ms: Date.now() - 60000 }] }
+  else if (path.includes(baleAccountId) && path.endsWith('/contacts/query')) payload = { ok: true, contacts: [{ contact_reference: 'bale:user:42', display_name: 'مخاطب بله' }] }
+  else if (method === 'POST' && path.includes(baleAccountId) && path.endsWith('/messages/send-text')) payload = { ok: true, status: 'succeeded', message_reference: 'bale:submission:1' }
   else if (method === 'POST' && path === '/api/v2/messenger-accounts') payload = { ok: true, account: { ...accounts[0], messenger_account_id: '88888888-8888-4888-8888-888888888888', phone_account_id: '99999999-9999-4999-8999-999999999999', label: typeof body === 'object' && body && 'label' in body ? String(body.label || '') || null : null, phone_hint: '+••••••••89', lifecycle_state: 'created', desired_worker_state: 'stopped', auth_state: 'absent', worker: null } }
   else if (path === '/api/v1/auth/status') payload = { ok: true, authenticated: true, session_present: true, password_pending: false }
   else if (path === '/api/v1/sites') payload = { ok: true, default_site_key: 'main', sites: [{ site_key: 'main', base_url: 'https://example.invalid', is_default: true, default_status: 'draft', credentials_configured: true }] }

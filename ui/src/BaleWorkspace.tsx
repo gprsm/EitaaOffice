@@ -43,6 +43,7 @@ export function BaleWorkspace() {
 
   useEffect(() => {
     alive.current = true
+    setPeer(null); setDialogs([]); setMessages([]); setContacts([])
     void api<Auth>('GET', `${base}/auth/status`).then(value => { if (alive.current) setAuth(value) }).catch(reason => { if (alive.current) setError(String(reason.message)) })
     return () => { alive.current = false }
   }, [base])
@@ -110,10 +111,19 @@ export function BaleWorkspace() {
   const send = async () => {
     if (!peer || !text.trim()) return
     const key = crypto.randomUUID()
-    const result = await api<{ status: string }>('POST', `${base}/messages/send-text`, { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, text, idempotency_key: key, confirm: true })
+    const targetPeer = peer
+    const result = await api<{ status: string }>('POST', `${base}/messages/send-text`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, text, idempotency_key: key, confirm: true })
     if (!alive.current) return
     setText('')
     setNotice(result.status === 'succeeded' ? 'پیام به سرویس بله ارسال شد؛ مشاهدهٔ گیرنده تأیید نشده است.' : 'نتیجهٔ ارسال نامعلوم است؛ ارسال خودکار تکرار نمی‌شود.')
+    if (targetPeer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
+      try {
+        const history = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, limit: 100 })
+        if (alive.current && selectedPeer.current === targetPeer.peer_reference) {
+          setMessages(previous => mergeMessages(previous, history.messages))
+        }
+      } catch { /* Background poll handles errors */ }
+    }
   }
   const sendFile = async () => {
     if (!peer || !draftFile) return
@@ -121,9 +131,18 @@ export function BaleWorkspace() {
     const bytes = new Uint8Array(await draftFile.arrayBuffer())
     let binary = ''
     bytes.forEach(value => { binary += String.fromCharCode(value) })
-    const result = await api<{ status: string }>('POST', `${base}/messages/send-media`, { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, filename: draftFile.name, data_base64: btoa(binary), caption: text, idempotency_key: crypto.randomUUID(), confirm: true })
+    const targetPeer = peer
+    const result = await api<{ status: string }>('POST', `${base}/messages/send-media`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, filename: draftFile.name, data_base64: btoa(binary), caption: text, idempotency_key: crypto.randomUUID(), confirm: true })
     if (!alive.current) return
     setDraftFile(null); setText(''); setNotice(result.status === 'succeeded' ? 'فایل به سرویس ارسال شد.' : 'نتیجه نامعلوم است؛ خودکار تکرار نمی‌شود.')
+    if (targetPeer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
+      try {
+        const history = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, limit: 100 })
+        if (alive.current && selectedPeer.current === targetPeer.peer_reference) {
+          setMessages(previous => mergeMessages(previous, history.messages))
+        }
+      } catch { /* Background poll handles errors */ }
+    }
   }
   const download = async (message: Message) => {
     if (!peer || !message.media_reference) return
@@ -182,9 +201,10 @@ export function BaleWorkspace() {
     </Stack>}
     {auth?.auth_state === 'authenticated' && view === 'contacts' && <Stack spacing={2}>
       <Stack direction="row" gap={1}><TextField label="جستجوی مخاطب" value={search} onChange={event => setSearch(event.target.value)} /><Button disabled={busy || !accounts.hasCapability('contacts.read')} onClick={() => void run(loadContacts)}>جستجو / تازه‌سازی</Button></Stack>
-      <Stack direction="row" gap={1} flexWrap="wrap"><TextField label="شمارهٔ E.164 یا bale:user:شناسه" value={identity} onChange={event => setIdentity(event.target.value)} /><TextField label="نام مخاطب" value={name} onChange={event => setName(event.target.value)} />
-        <Button disabled={busy || !identity || !name || !accounts.hasCapability('contacts.write')} onClick={() => setConfirm({ label: `افزودن مخاطب با نام ${name} در همین حساب بله؟`, run: async () => {
-          await api('POST', `${base}/contacts/upsert`, { identity, display_name: name, idempotency_key: crypto.randomUUID(), confirm: true }); if (!alive.current) return; setIdentity(''); setName(''); await loadContacts()
+      <Stack direction="row" gap={1} flexWrap="wrap"><TextField label="شمارهٔ E.164 یا bale:user:شناسه" value={identity} onChange={event => setIdentity(event.target.value)} helperText="مثال: +989123456789 یا bale:user:123456" /><TextField label="نام مخاطب" value={name} onChange={event => setName(event.target.value)} />
+        <Button disabled={busy || !identity.trim() || !name.trim() || !accounts.hasCapability('contacts.write')} onClick={() => setConfirm({ label: `افزودن مخاطب با نام ${name.trim()} در همین حساب بله؟`, run: async () => {
+          const cleanIdentity = identity.trim().replace(/\s+/g, '')
+          await api('POST', `${base}/contacts/upsert`, { identity: cleanIdentity, display_name: name.trim(), idempotency_key: crypto.randomUUID(), confirm: true }); if (!alive.current) return; setIdentity(''); setName(''); await loadContacts()
         } })}>افزودن مخاطب</Button></Stack>
       {contacts.map(item => <Paper key={item.contact_reference} variant="outlined" sx={{ p: 1 }}><Stack direction="row" gap={2} alignItems="center">
         <Typography>{item.display_name || item.contact_reference}</Typography>
