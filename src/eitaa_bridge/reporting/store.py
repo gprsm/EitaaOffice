@@ -332,6 +332,23 @@ class ReportingStore:
                     created_at TEXT NOT NULL
                 );
 
+                -- Questionnaire projection (F-094/F-095): the operational
+                -- description, monitoring criteria and per-sheet question
+                -- structure of each official form are projected here so
+                -- read-only consumers (the cultural portal) render policy
+                -- changes from the same SQLite without code access.
+                CREATE TABLE IF NOT EXISTS form_definitions (
+                    program_code TEXT PRIMARY KEY,
+                    program_id TEXT NOT NULL DEFAULT '',
+                    title TEXT NOT NULL DEFAULT '',
+                    operational_description TEXT NOT NULL DEFAULT '',
+                    monitoring_criteria_json TEXT NOT NULL DEFAULT '[]',
+                    policy_framework TEXT NOT NULL DEFAULT '',
+                    questions_json TEXT NOT NULL DEFAULT '[]',
+                    version TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL
+                );
+
                 -- Section registry (F-088 §4): sections are data rows, not
                 -- code enums; adding a report topic means adding a row.
                 CREATE TABLE IF NOT EXISTS reporting_sections (
@@ -441,32 +458,90 @@ class ReportingStore:
             if mandate_columns and "program_code" not in mandate_columns:
                 conn.execute("ALTER TABLE mandates ADD COLUMN program_code TEXT NOT NULL DEFAULT ''")
 
-            # Seed canonical mandates if empty
-            count_mandates = conn.execute("SELECT COUNT(*) FROM mandates").fetchone()[0]
-            if count_mandates == 0:
-                from .plans import CANONICAL_MANDATES
-                now_mnd = _utc_now()
-                for mandate in CANONICAL_MANDATES:
-                    mandate.validate()
-                    conn.execute(
-                        """
-                        INSERT INTO mandates (
-                            mandate_id, kind, title, number, issued_on, document_ref, notes, program_code, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(mandate_id) DO NOTHING
-                        """,
-                        (
-                            mandate.mandate_id,
-                            mandate.kind,
-                            mandate.title,
-                            mandate.number,
-                            mandate.issued_on,
-                            mandate.document_ref,
-                            mandate.notes,
-                            mandate.program_code,
-                            now_mnd,
-                        ),
-                    )
+            # Self-healing seed (F-096): canonical mandates upsert on every
+            # init so corrected titles/numbers/codes from the official
+            # visit-worksheet source reach the operational DB. Operator- and
+            # portal-created mandates carry random ids and are never touched.
+            from .plans import CANONICAL_MANDATES
+            now_mnd = _utc_now()
+            for mandate in CANONICAL_MANDATES:
+                mandate.validate()
+                conn.execute(
+                    """
+                    INSERT INTO mandates (
+                        mandate_id, kind, title, number, issued_on, document_ref, notes, program_code, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(mandate_id) DO UPDATE SET
+                        kind = excluded.kind,
+                        title = excluded.title,
+                        number = excluded.number,
+                        issued_on = excluded.issued_on,
+                        document_ref = excluded.document_ref,
+                        notes = excluded.notes,
+                        program_code = excluded.program_code
+                    """,
+                    (
+                        mandate.mandate_id,
+                        mandate.kind,
+                        mandate.title,
+                        mandate.number,
+                        mandate.issued_on,
+                        mandate.document_ref,
+                        mandate.notes,
+                        mandate.program_code,
+                        now_mnd,
+                    ),
+                )
+
+            # Upsert questionnaire definitions on every init: policy text
+            # edited in forms.py must reach the portal on next store open
+            # (idempotent, no operator data involved).
+            from .forms import EXTENDED_FORMS
+            now_forms = _utc_now()
+            for form_def in EXTENDED_FORMS:
+                if not form_def.program_code:
+                    continue
+                questions_payload = [
+                    {
+                        "key": question.key,
+                        "label": question.label,
+                        "qtype": question.qtype,
+                        "star": question.star,
+                        "choices": list(question.choices),
+                        "auto_from": question.auto_from,
+                        "human_gate": question.human_gate,
+                    }
+                    for question in form_def.questions
+                ]
+                conn.execute(
+                    """
+                    INSERT INTO form_definitions (
+                        program_code, program_id, title, operational_description,
+                        monitoring_criteria_json, policy_framework, questions_json,
+                        version, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(program_code) DO UPDATE SET
+                        program_id = excluded.program_id,
+                        title = excluded.title,
+                        operational_description = excluded.operational_description,
+                        monitoring_criteria_json = excluded.monitoring_criteria_json,
+                        policy_framework = excluded.policy_framework,
+                        questions_json = excluded.questions_json,
+                        version = excluded.version,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        form_def.program_code,
+                        getattr(form_def.program_id, "value", str(form_def.program_id)),
+                        form_def.title,
+                        form_def.operational_description,
+                        json.dumps(list(form_def.monitoring_criteria), ensure_ascii=False),
+                        form_def.policy_framework,
+                        json.dumps(questions_payload, ensure_ascii=False),
+                        form_def.version,
+                        now_forms,
+                    ),
+                )
 
             # Seed schema version if not recorded
             cur = conn.execute("SELECT version FROM reporting_schema WHERE version = ?", (REPORTING_SCHEMA_VERSION,))
@@ -1907,6 +1982,21 @@ class ReportingStore:
         with self._connect() as conn:
             cursor = conn.execute("DELETE FROM mandates WHERE mandate_id = ?", (mandate_id,))
             return cursor.rowcount > 0
+
+    # ----------------------------------------------------------------------
+    # Questionnaire definitions projection (F-095): shared with the portal
+    # ----------------------------------------------------------------------
+    def list_form_definitions(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM form_definitions ORDER BY program_code").fetchall()
+            return [dict(row) for row in rows]
+
+    def get_form_definition(self, program_code: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM form_definitions WHERE program_code = ?", (program_code.strip(),)
+            ).fetchone()
+            return dict(row) if row else None
 
     # ----------------------------------------------------------------------
     # Section Registry (data-driven report axes, F-088 section 4)

@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 391
-- اثرانگشت منبع: `084d2aeae4fa852c`
+- اثرانگشت منبع: `a4046016b12d1080`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -25,7 +25,7 @@
 | `scripts/create_diagnostics_bundle.py` | Operations/tooling | 11 | — |
 | `scripts/create_shortcuts.ps1` | Operations/tooling | 0 | — |
 | `scripts/doctor.py` | Operations/tooling | 0 | — |
-| `scripts/export_cultural_report.py` | Operations/tooling | 2 | Export cultural report Excel spreadsheet with safety timeout. |
+| `scripts/export_cultural_report.py` | Operations/tooling | 3 | Export cultural report Excel spreadsheet with safety timeout. |
 | `scripts/extract_block.py` | Operations/tooling | 0 | — |
 | `scripts/extract_helpers.py` | Operations/tooling | 0 | — |
 | `scripts/extract_jalali.py` | Operations/tooling | 0 | — |
@@ -236,8 +236,8 @@
 | `src/eitaa_bridge/reporting/registry.py` | Project | 17 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
-| `src/eitaa_bridge/reporting/service.py` | Project | 27 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 57 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/service.py` | Project | 29 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 59 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -322,7 +322,7 @@
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
-| `tests/test_reporting_store.py` | Python test | 17 | Unit and integration tests for the ReportingStore and service persistence. |
+| `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_ownership.py` | Python test | 34 | — |

@@ -438,10 +438,30 @@ class ReportingService:
         template_root: Path | None = None,
         allow_unresolved_star: bool = False,
         exported_by: str = "",
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> Path:
-        """Export unified report and record audit trail with SHA-256 hash."""
-        evs = list(events) if events is not None else self.get_stored_events()
-        forms = dict(filled_forms) if filled_forms is not None else self.load_filled_forms()
+        """Export unified report and record audit trail with SHA-256 hash.
+
+        ``date_from``/``date_to`` (ISO ``YYYY-MM-DD``) restrict the export to
+        a time window (بازهٔ زمانی). Within a window the aggregates are
+        recomputed from that window's events and the period-wide saved forms
+        are deliberately excluded, so a subrange never inherits whole-period
+        totals. Without a window the full store and saved forms are used.
+        """
+        evs = list(events) if events is not None else self.get_stored_events(limit=1_000_000)
+        if date_from or date_to:
+            d_from = date.fromisoformat(date_from) if date_from else None
+            d_to = date.fromisoformat(date_to) if date_to else None
+            evs = [
+                event
+                for event in evs
+                if (d_from is None or event.occurred_on >= d_from)
+                and (d_to is None or event.occurred_on <= d_to)
+            ]
+            forms: dict[str, FilledForm] = {}
+        else:
+            forms = dict(filled_forms) if filled_forms is not None else self.load_filled_forms()
         dest = destination or Path("unified_report_1405.xlsx")
         out_path = self.export(
             evs,
@@ -516,5 +536,17 @@ class ReportingService:
         if self.store is None:
             raise RuntimeError("Reporting store is not initialized.")
         return self.store.delete_mandate(mandate_id)
+
+    # -- Questionnaire definitions projection (F-095) ------------------------
+    def form_definitions(self) -> list[dict[str, Any]]:
+        """Projected form definitions (شرح عملیاتی/موازین/ساختار هر شیت)."""
+        if self.store is None:
+            return []
+        return self.store.list_form_definitions()
+
+    def form_definition(self, program_code: str) -> dict[str, Any] | None:
+        if self.store is None:
+            return None
+        return self.store.get_form_definition(program_code)
 
 

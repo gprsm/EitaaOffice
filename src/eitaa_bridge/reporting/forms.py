@@ -109,12 +109,16 @@ TRIP_FORM = QuestionnaireDefinition(
     ),
     monitoring_criteria=(
         "ثبت دقیق تعداد نفرات و سرانه هزینه به تفکیک همکاران و اعضای خانواده",
+        "تفکیک سه نوع اردو مطابق کاربرگ بازدید استانی: کارکنان، خانوادگی، و مزدوجین سال اول ازدواج",
         "الزام اخذ بیمه‌نامه حوادث معتبر پیش از حرکت و هماهنگی رسمی خودرویی/حمل‌ونقل",
         "تدوین و تأیید سین تفصیلی برنامه فرهنگی، زیارتی و پذیرایی",
-        "تفکیک شفاف سه نوع اردو: کارکنان، خانوادگی، و نومزدوجین/فرزندآوری",
         "اجرای نظرسنجی اثربخشی و مستندسازی تصویری کامل جهت الحاق به پیوست گزارش",
     ),
-    policy_framework="بخشنامه جامع رفاهی قوه قضاییه و راهکار ارتقای نشاط معنوی و سلامت خانواده سند تحول قضایی",
+    policy_framework=(
+        "دستورالعمل اجرایی برگزاری اردوهای فرهنگی زیارتی (28/2/1405)؛ سند تحول و تعالی قوه قضاییه "
+        "(فصل سوم، مبحث دوم، بند ۸ — الگوی مطلوب فرهنگ سازمانی)؛ بند ۵ سیاست‌های کلی خانواده؛ "
+        "ماده ۲۵ قانون حمایت از خانواده و جوانی جمعیت (تعرفه‌های فرهنگی و تفریحی)"
+    ),
     questions=(
         *_common_header(),
         Question(key="trip_count", label="تعداد اردو", qtype=QuestionType.COUNT, star=True, auto_from="trip_count"),
@@ -128,7 +132,7 @@ TRIP_FORM = QuestionnaireDefinition(
         Question(key="reception", label="پذیرایی", qtype=QuestionType.COUNT, star=True, auto_from="reception_count"),
         Question(key="trip_type_staff", label="نوع اردو — کارکنان", qtype=QuestionType.COUNT, star=True, auto_from="trip_type_staff"),
         Question(key="trip_type_family", label="نوع اردو — خانواده", qtype=QuestionType.COUNT, star=True, auto_from="trip_type_family"),
-        Question(key="trip_type_marriage", label="نوع اردو — فرزندآوری و ازدواج", qtype=QuestionType.COUNT, star=True, auto_from="trip_type_marriage"),
+        Question(key="trip_type_marriage", label="نوع اردو — مزدوجین سال اول ازدواج", qtype=QuestionType.COUNT, star=True, auto_from="trip_type_marriage"),
         *_standard_trailer(),
     ),
 )
@@ -138,18 +142,24 @@ CONTEST_FORM = QuestionnaireDefinition(
     program_code="80402",
     title="80402 - مسابقات",
     operational_description=(
-        "برنامه‌ریزی و اجرای مسابقات قرآنی (شامل رشته‌های حفظ، قرائت تحقیق و ترتیل، مفاهیم و اذان)، "
-        "مسابقات فرهنگی، کتابخوانی، ادبی و هنری، و رقابت‌های ورزشی استانی جهت اشاعه الگوهای اخلاقی، "
-        "سلامت جسمانی و معرفت دینی در ۴ گروه مخاطب: شاغلین، همسران، بانوان و فرزندان."
+        "برنامه‌ریزی و اجرای مسابقات قرآنی در رشته‌های قرآن، عترت و نماز و مهدویت (حفظ، قرائت تحقیق و ترتیل، "
+        "مفاهیم و اذان)، مسابقات فرهنگی، ادبی و هنری، و رقابت‌های ورزشی استانی مطابق جدول برنامه و بودجه ابلاغی "
+        "(۱۲ مسابقه فرهنگی-ورزشی) جهت اشاعه الگوهای اخلاقی، سلامت جسمانی و معرفت دینی در ۴ گروه مخاطب: "
+        "شاغلین، همسران، بانوان و فرزندان؛ و برگزاری مسابقات با موضوع تشویق به فرزندآوری به استناد ماده ۲۸."
     ),
     monitoring_criteria=(
-        "تشکیل ستاد اجرایی مسابقات و ثبت احکام داوران رسمی و تخصصی",
-        "تفکیک جدول مسابقات قرآنی از مسابقات فرهنگی، هنری، ادبی و ورزشی",
-        "ثبت مشخصات و فهرست کامل شرکت‌کنندگان و تقدیر رسمی از برگزیدگان با اهدای جوایز",
-        "پوشش متوازن چهار گروه مخاطب (کارکنان، همسران، بانوان شاغل و فرزندان)",
+        "تشکیل ستاد برگزاری مسابقات و ثبت احکام داوران رسمی و تخصصی",
+        "تفکیک رشته‌های مسابقات قرآن، عترت، نماز و مهدویت از مسابقات فرهنگی، ادبی، هنری و ورزشی",
+        "ثبت موضوع، تعداد شرکت‌کنندگان و تعداد برندگان برای هر ردهٔ مسابقه مطابق کاربرگ بازدید استانی",
+        "پوشش ۱۲ مسابقه فرهنگی-ورزشی مصوب جدول برنامه و بودجه ابلاغی",
+        "برگزاری مسابقه با موضوع تشویق به فرزندآوری به استناد ماده ۲۸ قانون حمایت از خانواده و جوانی جمعیت",
         "مستندسازی سؤالات آزمون، برگه‌های داوری و گزارش تصویری آیین اختتامیه",
     ),
-    policy_framework="شیوه‌نامه اجرایی مسابقات سراسری قرآن و عترت و المپیاد فرهنگی-ورزشی معاونت منابع انسانی و امور فرهنگی",
+    policy_framework=(
+        "دستورالعمل اجرایی برگزاری مسابقات قرآن و عترت (27/2/1405) و دستورالعمل مسابقات فرهنگی و ورزشی "
+        "(27/2/1405) — برنامه‌های ابلاغی معاونت راهبردی؛ برنامه مصوب جدول برنامه و بودجه ابلاغی؛ "
+        "ماده ۲۸ قانون حمایت از خانواده و جوانی جمعیت (مصوب 24/7/1400)"
+    ),
     questions=(
         *_common_header(),
         Question(key="quran_attendees", label="مسابقات قرآنی — تعداد شرکت‌کنندگان", qtype=QuestionType.ATTENDEES, star=True, auto_from="quran_attendees"),
@@ -165,7 +175,9 @@ CONTEST_FORM = QuestionnaireDefinition(
         Question(key="contest_type_literary", label="نوع مسابقه — ادبی", qtype=QuestionType.COUNT, star=True, auto_from="contest_type_literary"),
         Question(key="contest_type_artistic", label="نوع مسابقه — هنری", qtype=QuestionType.COUNT, star=True, auto_from="contest_type_artistic"),
         Question(key="contest_type_sports", label="نوع مسابقه — ورزشی", qtype=QuestionType.COUNT, star=True, auto_from="contest_type_sports"),
+        Question(key="contest_childbearing", label="مسابقه با موضوع تشویق به فرزندآوری (ماده ۲۸)", qtype=QuestionType.COUNT, star=True, auto_from="contest_childbearing"),
         Question(key="attendees", label="فرهنگی — تعداد شرکت‌کنندگان", qtype=QuestionType.ATTENDEES, star=True, auto_from="attendees"),
+        Question(key="winners", label="تعداد برندگان به تفکیک رده", qtype=QuestionType.COUNT, star=True, auto_from="winners_count"),
         Question(key="staff", label="فرهنگی — تشکیل ستاد", qtype=QuestionType.COUNT, star=True, auto_from="staff_count"),
         Question(key="announcement", label="فرهنگی — اطلاع‌رسانی", qtype=QuestionType.COUNT, star=True, auto_from="announcement_count"),
         Question(key="list", label="فرهنگی — لیست شرکت‌کنندگان", qtype=QuestionType.COUNT, star=True, auto_from="list_count"),
@@ -191,12 +203,17 @@ CEREMONIES_FORM = QuestionnaireDefinition(
         "از طریق سخنرانی تبیینی، سوگواری، مدیحه‌سرایی، فضاسازی محیطی، برپایی موکب و ایستگاه صلواتی و توزیع بسته‌های فرهنگی."
     ),
     monitoring_criteria=(
+        "انطباق مراسم با تقویم مناسبت‌های ابلاغی (هفته قوه قضائیه، هفته دفاع مقدس، دهه فجر، محرم و صفر، "
+        "اعیاد فطر/قربان/غدیر، مناسبت‌های ویژه مانند مراسم رهبر شهید انقلاب)",
         "تفکیک ماهیت برگزاری رویداد به سه رده مشخص: مذهبی، ملی، و انقلابی",
         "قاعده عدم اختلاط آمار زیارت عاشورا: مراسم هفتگی قرائت زیارت عاشورا و ادعیه به عنوان سنجه مستقل استانی در پیوست جداگانه گزارش شده و در سرجمع مراسم‌ها شمرده نمی‌شود",
         "ثبت هماهنگی با سخنران، مداح یا کارشناس برجسته و رعایت سقف هزینه‌های مصوب",
-        "فضاسازی محیطی، تبلیغات و نشر آموزه‌های دینی و بصیرتی متناسب با مناسبت",
+        "توزیع بسته‌های فرهنگی با ثبت تعداد و نوع (بروشور، کتابچه، موشن گرافی، ویدئوهای کوتاه آموزشی)",
     ),
-    policy_framework="دستورالعمل ستاد تعظیم شعائر و مناسبت‌های انقلابی و اهداف فرهنگی-تربیتی سند تحول قضایی",
+    policy_framework=(
+        "دستورالعمل اجرای برنامه‌های مناسبتی ملی، مذهبی و انقلابی قوه قضائیه (28/2/1405)؛ "
+        "ابلاغ تقویم مناسبت‌ها؛ برنامه‌های ابلاغی معاونت راهبردی"
+    ),
     questions=(
         *_common_header(),
         Question(key="ceremony_national", label="تعداد مراسم — ملی", qtype=QuestionType.COUNT, star=True, auto_from="ceremony_national"),
@@ -206,7 +223,7 @@ CEREMONIES_FORM = QuestionnaireDefinition(
         Question(key="speaker_coordination", label="هماهنگی با سخنران/مداح/مجری", qtype=QuestionType.COUNT, star=True, auto_from="speaker_count"),
         Question(key="announcement", label="اطلاع‌رسانی", qtype=QuestionType.COUNT, star=True, auto_from="announcement_count"),
         Question(key="reception", label="پذیرایی (حسب مورد)", qtype=QuestionType.COUNT, star=True, auto_from="reception_count"),
-        Question(key="culture_pack", label="تهیه و توزیع بستهٔ فرهنگی", qtype=QuestionType.COUNT, star=True, auto_from="culture_pack_count"),
+        Question(key="culture_pack", label="بسته‌های فرهنگی — تعداد (بروشور، کتابچه، موشن گرافی، ویدئو)", qtype=QuestionType.COUNT, star=True, auto_from="culture_pack_count"),
         Question(key="space_setup", label="فضاسازی", qtype=QuestionType.COUNT, star=True, auto_from="space_setup_count"),
         Question(key="special_action", label="نوآوری/خلاقیت/اقدام ویژه", qtype=QuestionType.COUNT, star=True, auto_from="special_action_count"),
         Question(key="ashura_pilgrimage_count", label="زیارت عاشورا — تعداد (جدا از آمار اصلی)", qtype=QuestionType.COUNT, star=True, auto_from="ashura_pilgrimage_count"),
@@ -227,14 +244,22 @@ PRAYER_FORM = QuestionnaireDefinition(
     monitoring_criteria=(
         "تشکیل منظم جلسات فصلی شورای اقامه نماز به ریاست رئیس‌کل یا قائم‌مقام و پیگیری مصوبات",
         "پایش استمرار نماز جماعت اول وقت و نظرسنجی فصلی از کیفیت اقامه نماز و بیان احکام",
+        "تکمیل فرم وضعیت‌سنجی کمی و کیفی نمازخانه‌ها و پایش کیفیت زیباسازی آن‌ها",
         "ثبت و به‌روزرسانی بانک اطلاعات و حق‌القدم ائمه جماعت در کلیه حوزه‌ها",
-        "تکمیل بانک اطلاعات نومکلفین و اجرای آیین رویش جوانه‌ها همراه با اهدای بسته تشویقی",
-        "ارزیابی و نظارت میدانی بر بهداشت و تجهیزات نمازخانه‌ها",
+        "تکمیل بانک اطلاعات نومکلفین و اجرای آیین رویش جوانه‌ها با ثبت مراسم، شرکت‌کنندگان و تکریم‌شدگان",
+        "ثبت مشارکت در بازسازی عتبات، طرح خادمیاری (تعداد نمازخانه و تقدیرشدگان) و کمک به غزه",
     ),
-    policy_framework="آیین‌نامه ترویج فرهنگ اقامه نماز مصوب هیئت وزیران و بخشنامه ۱۱۱۷۱۷/۰۱/۱ طرح بومی‌سازی ستاد اقامه نماز",
+    policy_framework=(
+        "مفاد تفاهم‌نامه با ستاد اقامه نماز استان (طرح بومی‌سازی ۱۴۰۵، شماره 111717/01/1)؛ "
+        "فرم وضعیت‌سنجی نمازخانه‌ها؛ برنامه مصوب و شرح وظایف ابلاغی (کد اقدام 80501)؛ "
+        "مکاتبات مشارکت در بازسازی عتبات (5000/2822 مورخ 13/2/1404 و 5000/41568/9000 مورخ 28/5/1405)؛ "
+        "مکاتبات طرح خادمیاری (30010/5000 مورخ 21/12/1403 و 9000/129174/5000 مورخ 20/12/1403)؛ "
+        "مکاتبه کمک به غزه (5000/41565/9000)"
+    ),
     questions=(
         *_common_header(),
         Question(key="staff", label="تشکیل ستاد", qtype=QuestionType.COUNT, star=True, auto_from="staff_count"),
+        Question(key="council_sessions", label="جلسات شورای اقامه نماز", qtype=QuestionType.COUNT, star=True, auto_from="council_session_count"),
         Question(key="nominees", label="تعداد کل افراد نومکلف (بانک اطلاعات)", qtype=QuestionType.COUNT, star=True, auto_from="nominee_count"),
         Question(key="attendees", label="تعداد شرکت‌کنندگان", qtype=QuestionType.ATTENDEES, star=True, auto_from="attendees"),
         Question(key="announcement", label="اطلاع‌رسانی جشن تکلیف", qtype=QuestionType.COUNT, star=True, auto_from="announcement_count"),
@@ -244,6 +269,12 @@ PRAYER_FORM = QuestionnaireDefinition(
         Question(key="invitation", label="دعوت‌نامه", qtype=QuestionType.COUNT, star=True, auto_from="invitation_count"),
         Question(key="space_setup", label="فضاسازی محیطی", qtype=QuestionType.COUNT, star=True, auto_from="space_setup_count"),
         Question(key="imam_bank", label="بانک اطلاعات ائمه جماعت", qtype=QuestionType.COUNT, star=True, auto_from="imam_bank_count"),
+        Question(key="mosque_condition", label="فرم وضعیت‌سنجی نمازخانه‌ها (کمی و کیفی)", qtype=QuestionType.COUNT, star=True, auto_from="mosque_condition_count"),
+        Question(key="beautification", label="اقدامات کیفیت زیباسازی نمازخانه", qtype=QuestionType.COUNT, star=True, auto_from="beautification_count"),
+        Question(key="atrat_reconstruction", label="مشارکت در بازسازی عتبات", qtype=QuestionType.COUNT, star=True, auto_from="atrat_reconstruction_count"),
+        Question(key="khademiari_mosques", label="طرح خادمیاری — تعداد نمازخانه", qtype=QuestionType.COUNT, star=True, auto_from="khademiari_mosque_count"),
+        Question(key="khademiari_honorees", label="طرح خادمیاری — تعداد تقدیرشدگان", qtype=QuestionType.COUNT, star=True, auto_from="khademiari_honoree_count"),
+        Question(key="gaza_aid", label="کمک به غزه (تعداد اقدام/بسته)", qtype=QuestionType.COUNT, star=True, auto_from="gaza_aid_count"),
         *_standard_trailer(),
     ),
 )
@@ -257,9 +288,9 @@ HONOR_FORM = QuestionnaireDefinition(
         "برگزیدگان مسابقات و نخبگان استانی از طریق برگزاری آیین‌های مستقل تجلیل و اهدای لوح تقدیر و هدایای مادی و معنوی مصوب."
     ),
     monitoring_criteria=(
+        "تفکیک تقدیرشدگان مطابق دسته‌بندی کاربرگ بازدید استانی: مفاخر، بازنشستگان، پیشکسوتان، خادمان نماز، مناسبت‌های خاص",
         "شرط الزامی پذیرش آمار: مراسم باید مستقل و با عنوان اختصاصی تکریم و تجلیل برگزار شده باشد",
         "گیت انسانی نظارت: ثبت و احراز حضور رئیس‌کل دادگستری یا بالاترین مقام قضایی استان در مراسم",
-        "تفکیک دقیق تقدیرشدگان به تفکیک کادر اداری و کادر قضایی",
         "ثبت اسامی و پرونده پرسنلی تقدیرشدگان جهت جلوگیری از اعمال جوایز تکراری غیرمصوب",
     ),
     policy_framework="ماده ۳۳ آیین‌نامه رفاهی قوه قضاییه و دستورالعمل تکریم مفاخر و ایثارگران دستگاه قضایی",
@@ -267,6 +298,11 @@ HONOR_FORM = QuestionnaireDefinition(
         *_common_header(),
         Question(key="ceremony_count", label="تعداد مراسم", qtype=QuestionType.COUNT, star=True, auto_from="ceremony_count"),
         Question(key="honorees", label="تعداد تقدیرشدگان به تفکیک مناسبت", qtype=QuestionType.COUNT, star=True, auto_from="honoree_count"),
+        Question(key="honor_legends", label="تکریم مفاخر", qtype=QuestionType.COUNT, star=True, auto_from="honor_legends_count"),
+        Question(key="honor_retirees", label="تکریم بازنشستگان", qtype=QuestionType.COUNT, star=True, auto_from="honor_retirees_count"),
+        Question(key="honor_veterans", label="تکریم پیشکسوتان", qtype=QuestionType.COUNT, star=True, auto_from="honor_veterans_count"),
+        Question(key="honor_prayer_servants", label="تکریم خادمان نماز", qtype=QuestionType.COUNT, star=True, auto_from="honor_prayer_servants_count"),
+        Question(key="honor_special", label="تکریم مناسبت‌های خاص", qtype=QuestionType.COUNT, star=True, auto_from="honor_special_count"),
         Question(key="announcement", label="اطلاع‌رسانی", qtype=QuestionType.COUNT, star=True, auto_from="announcement_count"),
         Question(key="invitee_list", label="لیست دعوت‌شدگان", qtype=QuestionType.COUNT, star=True, auto_from="list_count"),
         Question(key="reception", label="پذیرایی (حسب مورد)", qtype=QuestionType.COUNT, star=True, auto_from="reception_count"),
@@ -320,17 +356,25 @@ CHARTER_FORM = QuestionnaireDefinition(
         "در بسترهای ارتباطی و فضای مجازی، و انجام اقدامات نظارتی و ترویجی جهت صیانت از شأن دادگستری."
     ),
     monitoring_criteria=(
-        "ممیزی و پایش تعداد تابلوهای منشور نصب‌شده در ساختمان‌های قضایی استان",
+        "برگزاری منظم جلسات شورای فرهنگی دادگستری استان و ثبت مصوبات",
+        "برگزاری ویژه‌نامه رونمایی از منشور اخلاقی در استان",
+        "ممیزی و پایش نصب تابلوهای منشور با ثبت نوع و تعداد اقلام و تعداد اطلاع‌رسانی در فضای مجازی",
+        "ارسال منظم گزارش اقدامات به مقام مافوق (تکلیف صریح نامهٔ ابلاغی)",
         "پایش استمرار بازنشر محتوای منشور و آموزه‌های رفتاری در کانال‌ها و پیام‌رسان‌ها",
-        "شمارش مکاتبات صیانتی، ابلاغیه‌ها و توصیه‌نامه‌های اخلاقی ارسال‌شده به واحدها",
         "برگزاری کارگاه‌های توجیهی اخلاق حرفه‌ای برای نیروهای جدیدالورود و مدیران دفاتر",
     ),
-    policy_framework="منشور اخلاقی مصوب ریاست قوه قضاییه و مصوبات هیئت ارتقای سلامت نظام اداری",
+    policy_framework=(
+        "نامه ابلاغی 5000/111979 مورخ 8/11/1404؛ برنامه‌های ابلاغی معاونت راهبردی (کد اقدام 80202)؛ "
+        "منشور اخلاقی مصوب ریاست قوه قضاییه و مصوبات هیئت ارتقای سلامت نظام اداری"
+    ),
     questions=(
         *_common_header(),
         Question(key="correspondence", label="مکاتبات", qtype=QuestionType.COUNT, star=True, auto_from="correspondence_count"),
-        Question(key="boards_installed", label="تابلو نصب‌شده", qtype=QuestionType.COUNT, star=True, auto_from="board_count"),
-        Question(key="republish", label="بازنشر (کانال/گروه/فضای مجازی)", qtype=QuestionType.COUNT, star=True, auto_from="republish_count"),
+        Question(key="council_sessions", label="جلسات شورای فرهنگی استان", qtype=QuestionType.COUNT, star=True, auto_from="council_session_count"),
+        Question(key="unveiling_ceremony", label="ویژه‌نامه رونمایی از منشور اخلاقی", qtype=QuestionType.COUNT, star=True, auto_from="unveiling_count"),
+        Question(key="boards_installed", label="تابلو نصب‌شده (نوع و تعداد اقلام)", qtype=QuestionType.COUNT, star=True, auto_from="board_count"),
+        Question(key="republish", label="بازنشر/اطلاع‌رسانی در فضای مجازی", qtype=QuestionType.COUNT, star=True, auto_from="republish_count"),
+        Question(key="action_reports", label="ارسال گزارش اقدامات", qtype=QuestionType.COUNT, star=True, auto_from="action_report_count"),
         Question(key="other_actions", label="سایر", qtype=QuestionType.COUNT, star=True, auto_from="other_action_count"),
         Question(key="survey", label="نظرسنجی", qtype=QuestionType.COUNT, star=True),
         Question(key="innovation", label="نوآوری و خلاقیت", qtype=QuestionType.COUNT, star=True),

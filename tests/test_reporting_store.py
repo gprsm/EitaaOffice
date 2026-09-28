@@ -315,3 +315,160 @@ class TestServicePersistenceIntegration:
         assert exports[0]["exported_by"] == "کاربر آزمایشی"
         assert len(exports[0]["file_sha256"]) == 64
 
+
+# --------------------------------------------------------------------------
+# Questionnaire definitions projection & ranged export (F-095)
+# --------------------------------------------------------------------------
+
+class TestFormDefinitionsProjection:
+    def test_all_official_forms_projected(self, store: ReportingStore) -> None:
+        definitions = store.list_form_definitions()
+        codes = {d["program_code"] for d in definitions}
+        assert codes == {"80401", "80402", "80403", "80501", "80406", "80601", "80202", "80000"}
+
+    def test_trip_definition_carries_policy_fields(self, store: ReportingStore) -> None:
+        trip = store.get_form_definition("80401")
+        assert trip is not None
+        assert trip["program_id"] == "trip"
+        assert trip["title"].startswith("80401")
+        assert "اردو" in trip["operational_description"]
+        assert "دستورالعمل" in trip["policy_framework"]
+        import json as _json
+        criteria = _json.loads(trip["monitoring_criteria_json"])
+        assert isinstance(criteria, list) and len(criteria) >= 3
+        questions = _json.loads(trip["questions_json"])
+        auto_metrics = {q["auto_from"] for q in questions if q["auto_from"]}
+        assert {"trip_count", "attendees", "insurance_count", "vehicle_count"} <= auto_metrics
+
+    def test_visit_worksheet_fields_projected(self, store: ReportingStore) -> None:
+        """فیلدهای کاربرگ بازدید استانی در تعاریف فرم‌ها تصویر شده باشند (F-096)."""
+        import json as _json
+
+        def metrics(code: str) -> set[str]:
+            row = store.get_form_definition(code)
+            assert row is not None, code
+            return {q["auto_from"] for q in _json.loads(row["questions_json"]) if q["auto_from"]}
+
+        # ردیف ۱: مسابقه موضوع فرزندآوری (ماده ۲۸) و تعداد برندگان
+        contest = metrics("80402")
+        assert {"contest_childbearing", "winners_count"} <= contest
+        # ردیف ۵: وضعیت‌سنجی نمازخانه، زیباسازی، بازسازی عتبات، خادمیاری، کمک به غزه
+        prayer = metrics("80501")
+        assert {
+            "mosque_condition_count", "beautification_count", "atrat_reconstruction_count",
+            "khademiari_mosque_count", "khademiari_honoree_count", "gaza_aid_count",
+        } <= prayer
+        # ردیف تکریم: دسته‌بندی پنج‌گانه
+        honor = metrics("80406")
+        assert {
+            "honor_legends_count", "honor_retirees_count", "honor_veterans_count",
+            "honor_prayer_servants_count", "honor_special_count",
+        } <= honor
+        # منشور: شورای فرهنگی، رونمایی، گزارش اقدامات
+        charter = metrics("80202")
+        assert {"council_session_count", "unveiling_count", "action_report_count"} <= charter
+
+    def test_projection_refreshes_on_reinit(self, store: ReportingStore, tmp_path: Path) -> None:
+        assert store.get_form_definition("80406") is not None
+        # Reopening the same DB re-upserts definitions without duplicating.
+        reopened = ReportingStore(store.db_path)
+        definitions = reopened.list_form_definitions()
+        assert len(definitions) == 8
+
+
+class TestCanonicalMandatesSeed:
+    def test_visit_worksheet_mandates_seeded(self, store: ReportingStore) -> None:
+        """مستندات ابلاغی دقیق کاربرگ بازدید استانی بن‌مایه شده باشند (F-096)."""
+        by_id = {m.mandate_id: m for m in store.list_mandates()}
+        trip = by_id["mnd-80401-trip-circular"]
+        assert trip.number == "28/2/1405"
+        assert trip.issued_on == "۱۴۰۵/۰۲/۲۸"
+
+        contest = by_id["mnd-80402-contest-guideline"]
+        assert "قرآن و عترت" in contest.title
+        assert contest.number == "27/2/1405"
+        # ثبت تذکر تعارض کد چاپ‌شده سند (Q-IR-001)
+        assert "Q-IR-001" in contest.notes
+
+        # اسناد موضوعات تکمیلی کاربرگ بازدید با کد ارجاعِ بخش
+        assert by_id["mnd-counseling-policy"].program_code == "counseling"
+        assert by_id["mnd-education-services-policy"].program_code == "education_services"
+        assert by_id["mnd-content-production-duties"].program_code == "content_production"
+        assert by_id["mnd-training-courses-plan"].program_code == "training_courses"
+        assert by_id["mnd-external-collaboration-plan"].program_code == "external_collaboration"
+
+    def test_self_healing_seed_updates_existing_rows(self, store: ReportingStore) -> None:
+        """اصلاح متن بن‌مایه در کد، پس از بازگشایی پایگاه منتشر می‌شود."""
+        store.db_path  # ensure initialized
+        from eitaa_bridge.reporting.plans import CANONICAL_MANDATES
+        assert len(CANONICAL_MANDATES) >= 15
+        reopened = ReportingStore(store.db_path)
+        mandates = {m.mandate_id: m for m in reopened.list_mandates()}
+        assert len(mandates) >= len(CANONICAL_MANDATES)
+        # متن اصلاح‌شده جایگزین نسخهٔ قدیمی شده است
+        assert mandates["mnd-80202-charter-law"].number == "5000/111979"
+
+
+class TestRangedExportWithAudit:
+    def _make_event(self, event_id: str, occurred: date, kind: ProgramKind, attendees: int) -> ReportedEvent:
+        event = ReportedEvent(
+            event_id=event_id,
+            program_kinds=(kind,),
+            occurred_on=occurred,
+            unit=UnitScope.PROVINCIAL_HQ,
+        )
+        event.add_fact(
+            Fact(
+                metric="attendees",
+                value=float(attendees),
+                value_kind=FactValueKind.REPORTED_BY_UNIT,
+                source=ValueSource.EITAA,
+            )
+        )
+        return event
+
+    def test_ranged_export_counts_only_window(self, store: ReportingStore, tmp_path: Path) -> None:
+        from openpyxl import load_workbook
+
+        service = ReportingService(store=store)
+        store.save_event(self._make_event("evt-r1", date(2026, 7, 25), ProgramKind.TRIP, 10))
+        store.save_event(self._make_event("evt-r2", date(2026, 8, 15), ProgramKind.TRIP, 20))
+        store.save_event(self._make_event("evt-r3", date(2026, 8, 28), ProgramKind.TRIP, 40))
+
+        out_file = tmp_path / "ranged_report.xlsx"
+        exported_path = service.export_with_audit(
+            destination=out_file,
+            province_name="مازندران",
+            report_period="تیر تا مرداد",
+            allow_unresolved_star=True,
+            date_from="2026-07-01",
+            date_to="2026-08-20",
+        )
+        assert exported_path.exists()
+
+        workbook = load_workbook(exported_path)
+        # C5 = تعداد اردو: فقط evt-r1 و evt-r2 داخل بازه‌اند (evt-r3 خارج).
+        assert workbook["اردو"]["C5"].value == 2
+        # D5 = تعداد شرکت‌کنندگان داخل بازه.
+        assert workbook["اردو"]["D5"].value == 30
+
+        exports = store.list_exports()
+        assert exports and exports[0]["total_events"] == 2
+
+    def test_window_without_upper_bound(self, store: ReportingStore, tmp_path: Path) -> None:
+        from openpyxl import load_workbook
+
+        service = ReportingService(store=store)
+        store.save_event(self._make_event("evt-w1", date(2026, 6, 1), ProgramKind.TRIP, 5))
+        store.save_event(self._make_event("evt-w2", date(2026, 8, 1), ProgramKind.TRIP, 7))
+
+        out_file = tmp_path / "open_ranged.xlsx"
+        exported_path = service.export_with_audit(
+            destination=out_file,
+            allow_unresolved_star=True,
+            date_from="2026-07-01",
+        )
+        workbook = load_workbook(exported_path)
+        assert workbook["اردو"]["C5"].value == 1
+        assert workbook["اردو"]["D5"].value == 7
+

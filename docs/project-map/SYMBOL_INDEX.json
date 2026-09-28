@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "084d2aeae4fa852c",
+  "source_fingerprint": "a4046016b12d1080",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -397,12 +397,17 @@
         {
           "name": "run_export",
           "kind": "function",
-          "line": 33
+          "line": 40
+        },
+        {
+          "name": "_parse_iso_date",
+          "kind": "function",
+          "line": 91
         },
         {
           "name": "main",
           "kind": "function",
-          "line": 76
+          "line": 98
         }
       ]
     },
@@ -13251,42 +13256,42 @@
         {
           "name": "FormAnswer",
           "kind": "class",
-          "line": 358
+          "line": 402
         },
         {
           "name": "FilledForm",
           "kind": "class",
-          "line": 368
+          "line": 412
         },
         {
           "name": "FilledForm.set",
           "kind": "method",
-          "line": 373
+          "line": 417
         },
         {
           "name": "FilledForm.unresolved_star_keys",
           "kind": "method",
-          "line": 376
+          "line": 420
         },
         {
           "name": "FilledForm.unresolved_human_gates",
           "kind": "method",
-          "line": 384
+          "line": 428
         },
         {
           "name": "prefill_form",
           "kind": "function",
-          "line": 393
+          "line": 437
         },
         {
           "name": "prefill_narrative_form",
           "kind": "function",
-          "line": 454
+          "line": 498
         },
         {
           "name": "_narrative_questions",
           "kind": "function",
-          "line": 490
+          "line": 534
         }
       ]
     },
@@ -13723,37 +13728,37 @@
         {
           "name": "PlanItem",
           "kind": "class",
-          "line": 150
+          "line": 273
         },
         {
           "name": "PlanItem.validate",
           "kind": "method",
-          "line": 166
+          "line": 289
         },
         {
           "name": "PlanItem.target_for",
           "kind": "method",
-          "line": 179
+          "line": 302
         },
         {
           "name": "campaign_events",
           "kind": "function",
-          "line": 531
+          "line": 654
         },
         {
           "name": "_campaign_tags",
           "kind": "function",
-          "line": 557
+          "line": 680
         },
         {
           "name": "realization_ratio",
           "kind": "function",
-          "line": 563
+          "line": 686
         },
         {
           "name": "realization_report",
           "kind": "function",
-          "line": 577
+          "line": 700
         }
       ]
     },
@@ -14113,22 +14118,32 @@
         {
           "name": "ReportingService.suggest_candidate_review",
           "kind": "method",
-          "line": 467
+          "line": 487
         },
         {
           "name": "ReportingService.list_mandates",
           "kind": "method",
-          "line": 505
+          "line": 525
         },
         {
           "name": "ReportingService.save_mandate",
           "kind": "method",
-          "line": 510
+          "line": 530
         },
         {
           "name": "ReportingService.delete_mandate",
           "kind": "method",
-          "line": 515
+          "line": 535
+        },
+        {
+          "name": "ReportingService.form_definitions",
+          "kind": "method",
+          "line": 541
+        },
+        {
+          "name": "ReportingService.form_definition",
+          "kind": "method",
+          "line": 547
         }
       ]
     },
@@ -14170,257 +14185,267 @@
         {
           "name": "ReportingStore.list_targets",
           "kind": "method",
-          "line": 545
+          "line": 620
         },
         {
           "name": "ReportingStore.save_target",
           "kind": "method",
-          "line": 559
+          "line": 634
         },
         {
           "name": "ReportingStore.delete_target",
           "kind": "method",
-          "line": 581
+          "line": 656
         },
         {
           "name": "ReportingStore.record_decision",
           "kind": "method",
-          "line": 589
+          "line": 664
         },
         {
           "name": "ReportingStore.list_decisions",
           "kind": "method",
-          "line": 630
+          "line": 705
         },
         {
           "name": "ReportingStore.save_candidate",
           "kind": "method",
-          "line": 679
+          "line": 754
         },
         {
           "name": "ReportingStore.list_candidates",
           "kind": "method",
-          "line": 719
+          "line": 794
         },
         {
           "name": "ReportingStore.get_candidate",
           "kind": "method",
-          "line": 769
+          "line": 844
         },
         {
           "name": "ReportingStore.approve_candidate",
           "kind": "method",
-          "line": 796
+          "line": 871
         },
         {
           "name": "ReportingStore.reject_candidate",
           "kind": "method",
-          "line": 811
+          "line": 886
         },
         {
           "name": "ReportingStore.save_event",
           "kind": "method",
-          "line": 829
+          "line": 904
         },
         {
           "name": "ReportingStore.list_events",
           "kind": "method",
-          "line": 910
+          "line": 985
         },
         {
           "name": "ReportingStore.get_event",
           "kind": "method",
-          "line": 976
+          "line": 1051
         },
         {
           "name": "ReportingStore.delete_event",
           "kind": "method",
-          "line": 1031
+          "line": 1106
         },
         {
           "name": "ReportingStore.save_filled_form",
           "kind": "method",
-          "line": 1039
+          "line": 1114
         },
         {
           "name": "ReportingStore.get_filled_form",
           "kind": "method",
-          "line": 1081
+          "line": 1156
         },
         {
           "name": "ReportingStore.list_filled_forms",
           "kind": "method",
-          "line": 1121
+          "line": 1196
         },
         {
           "name": "ReportingStore.record_export",
           "kind": "method",
-          "line": 1135
+          "line": 1210
         },
         {
           "name": "ReportingStore.list_exports",
           "kind": "method",
-          "line": 1168
+          "line": 1243
         },
         {
           "name": "ReportingStore.get_config",
           "kind": "method",
-          "line": 1178
+          "line": 1253
         },
         {
           "name": "ReportingStore.set_config",
           "kind": "method",
-          "line": 1183
+          "line": 1258
         },
         {
           "name": "ReportingStore.find_unit_by_name",
           "kind": "method",
-          "line": 1201
+          "line": 1276
         },
         {
           "name": "ReportingStore.save_unit",
           "kind": "method",
-          "line": 1215
+          "line": 1290
         },
         {
           "name": "ReportingStore.list_units",
           "kind": "method",
-          "line": 1241
+          "line": 1316
         },
         {
           "name": "ReportingStore.save_imam",
           "kind": "method",
-          "line": 1259
+          "line": 1334
         },
         {
           "name": "ReportingStore.list_imams",
           "kind": "method",
-          "line": 1301
+          "line": 1376
         },
         {
           "name": "ReportingStore.save_venue",
           "kind": "method",
-          "line": 1327
+          "line": 1402
         },
         {
           "name": "ReportingStore.list_venues",
           "kind": "method",
-          "line": 1358
+          "line": 1433
         },
         {
           "name": "ReportingStore.save_nomokalaf",
           "kind": "method",
-          "line": 1379
+          "line": 1454
         },
         {
           "name": "ReportingStore.list_nomokalaf",
           "kind": "method",
-          "line": 1432
+          "line": 1507
         },
         {
           "name": "ReportingStore.save_entity_fact",
           "kind": "method",
-          "line": 1475
+          "line": 1550
         },
         {
           "name": "ReportingStore.list_entity_facts",
           "kind": "method",
-          "line": 1521
+          "line": 1596
         },
         {
           "name": "ReportingStore.save_normalization_candidate",
           "kind": "method",
-          "line": 1572
+          "line": 1647
         },
         {
           "name": "ReportingStore.list_normalization_candidates",
           "kind": "method",
-          "line": 1620
+          "line": 1695
         },
         {
           "name": "ReportingStore.approve_normalization_candidate",
           "kind": "method",
-          "line": 1631
+          "line": 1706
         },
         {
           "name": "ReportingStore.reject_normalization_candidate",
           "kind": "method",
-          "line": 1737
+          "line": 1812
         },
         {
           "name": "ReportingStore.approve_imam_candidate",
           "kind": "method",
-          "line": 1749
+          "line": 1824
         },
         {
           "name": "ReportingStore.save_plan_item",
           "kind": "method",
-          "line": 1778
+          "line": 1853
         },
         {
           "name": "ReportingStore.list_plan_items",
           "kind": "method",
-          "line": 1819
+          "line": 1894
         },
         {
           "name": "ReportingStore.seed_default_plans",
           "kind": "method",
-          "line": 1843
+          "line": 1918
         },
         {
           "name": "ReportingStore.save_mandate",
           "kind": "method",
-          "line": 1852
+          "line": 1927
         },
         {
           "name": "ReportingStore.list_mandates",
           "kind": "method",
-          "line": 1883
+          "line": 1958
         },
         {
           "name": "ReportingStore.delete_mandate",
           "kind": "method",
-          "line": 1906
+          "line": 1981
+        },
+        {
+          "name": "ReportingStore.list_form_definitions",
+          "kind": "method",
+          "line": 1989
+        },
+        {
+          "name": "ReportingStore.get_form_definition",
+          "kind": "method",
+          "line": 1994
         },
         {
           "name": "ReportingStore.list_sections",
           "kind": "method",
-          "line": 1914
+          "line": 2004
         },
         {
           "name": "ReportingStore.upsert_section",
           "kind": "method",
-          "line": 1933
+          "line": 2023
         },
         {
           "name": "ReportingStore.save_person",
           "kind": "method",
-          "line": 1970
+          "line": 2060
         },
         {
           "name": "ReportingStore.list_persons",
           "kind": "method",
-          "line": 2019
+          "line": 2109
         },
         {
           "name": "ReportingStore.person_family",
           "kind": "method",
-          "line": 2061
+          "line": 2151
         },
         {
           "name": "ReportingStore.save_wp_link",
           "kind": "method",
-          "line": 2068
+          "line": 2158
         },
         {
           "name": "ReportingStore.link_wp_post_to_event",
           "kind": "method",
-          "line": 2103
+          "line": 2193
         },
         {
           "name": "ReportingStore.list_wp_links",
           "kind": "method",
-          "line": 2114
+          "line": 2204
         }
       ]
     },
@@ -20879,6 +20904,66 @@
           "name": "TestServicePersistenceIntegration.test_service_export_with_audit",
           "kind": "method",
           "line": 291
+        },
+        {
+          "name": "TestFormDefinitionsProjection",
+          "kind": "class",
+          "line": 323
+        },
+        {
+          "name": "TestFormDefinitionsProjection.test_all_official_forms_projected",
+          "kind": "method",
+          "line": 324
+        },
+        {
+          "name": "TestFormDefinitionsProjection.test_trip_definition_carries_policy_fields",
+          "kind": "method",
+          "line": 329
+        },
+        {
+          "name": "TestFormDefinitionsProjection.test_visit_worksheet_fields_projected",
+          "kind": "method",
+          "line": 343
+        },
+        {
+          "name": "TestFormDefinitionsProjection.test_projection_refreshes_on_reinit",
+          "kind": "method",
+          "line": 371
+        },
+        {
+          "name": "TestCanonicalMandatesSeed",
+          "kind": "class",
+          "line": 379
+        },
+        {
+          "name": "TestCanonicalMandatesSeed.test_visit_worksheet_mandates_seeded",
+          "kind": "method",
+          "line": 380
+        },
+        {
+          "name": "TestCanonicalMandatesSeed.test_self_healing_seed_updates_existing_rows",
+          "kind": "method",
+          "line": 400
+        },
+        {
+          "name": "TestRangedExportWithAudit",
+          "kind": "class",
+          "line": 412
+        },
+        {
+          "name": "TestRangedExportWithAudit._make_event",
+          "kind": "method",
+          "line": 413
+        },
+        {
+          "name": "TestRangedExportWithAudit.test_ranged_export_counts_only_window",
+          "kind": "method",
+          "line": 430
+        },
+        {
+          "name": "TestRangedExportWithAudit.test_window_without_upper_bound",
+          "kind": "method",
+          "line": 458
         }
       ]
     },

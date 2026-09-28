@@ -2235,3 +2235,23 @@
   - هیچ دادهٔ حساس، رمز، کلید یا PII نشت پیدا نکرد و فایل‌های نشست و پیکربندی بدون تغییر محافظت شدند.
 - Trigger تکرار: تغییر تعاریف کد برنامه‌های بودجه‌ای یا اضافه شدن فیلدهای جدید به اسناد بالادستی.
 
+
+### V-228 — اعتبارسنجی تکمیل پرتال فرهنگی (F-095) و هم‌سازی با کاربرگ بازدید استانی (F-096)
+
+- تاریخ: 2026-09-28
+- دامنه: `src/eitaa_bridge/reporting/forms.py`, `plans.py`, `store.py`, `service.py`, `scripts/export_cultural_report.py`, `tests/test_reporting_store.py`, `dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl`, پرتال `cultural-portal` (ReportingService.php، EntryFormDefinitions.php، EitaaBridgeClient.php، Helpers.php، api/index.php، views/tabs/{worksheets,mandates,dashboard,districts,wordpress_posts}.php، views/tabs/partials/*، views/{header,footer}.php، assets/js/portal.js، assets/css/portal.css).
+- سطح: UNIT + CONTRACT + UI_CONTRACT + RUNTIME_LOCAL + BROWSER.
+- روش امن:
+  1. `.\.venv\Scripts\python.exe -m pytest -q` — کل مجموعه ۹۶۹ آزمون با کد خروج ۰ (شامل آزمون‌های تازهٔ تصویر فرم‌ها، بن‌مایهٔ خودشفاء، صادرات بازه‌ای و رجیستری اسناد کاربرگ بازدید؛ شکست مقطعی `test_coordinator_migration` در اجرای ترکیبی در اجرای منزوی و اجرای نهایی سبز شد و وابسته به ترتیب آزمون است، نه این تغییرات).
+  2. `npm.cmd --prefix ui run check` و `npm.cmd --prefix ui run test:observability` — پاس کامل.
+  3. بازسازی wheel استاندارد (`scripts/build_wheel_stdlib.py --force`) و عبور کامل `tests/test_g07_release_packaging.py` (۱۵/۱۵).
+  4. هارنس PHP روی کپی موقت پایگاه (بدون دست‌زدن به دادهٔ عملیاتی): رندر ۱۳ فرم اختصاصی، مشتق ستون‌های اختصاصی، ثبت رویداد تکریم با نگاشت دسته←فکت (honor_retirees_count=3)، الصاق متن فرم به شرح، ذخیرهٔ occasion_class، فکت بستهٔ فرهنگی، و واکشی اسناد ابلاغی اردو/مشاوره/کل (>=15) — همه PASS.
+  5. اجرای `scripts/export_cultural_report.py --from-date/--to-date/--period-label` روی پایگاه عملیاتی: صدور موفق فایل بازه‌ای مستقل با گزارش «۱۴۰۵/۰۵/۰۱ تا ۱۴۰۵/۰۶/۳۱».
+  6. بررسی مرورگر زنده (localhost/cultural-portal): کدهای رسمی در انتخابگرها و داشبورد، کارت شرح عملیاتی + ۱۱ ستون اختصاصی شیت اردو، کارت موضوع مشاوره با سند ابلاغی سند رسمی، مودال ثبت رویداد با فرم اختصاصی AJAX (اردو/تکریم) و نگاشت دسته‌ها، تب اسناد با ۱۸ چیپ پوشش و ۱۷ سند، پیام پایان فهرست اسکرول‌لود.
+  7. `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py` و `scripts\refresh_project_docs.py --check --check-links` — پاس کامل پس از ثبت این رکوردها.
+- نتیجه:
+  - شناسه‌های ساختگی `PRG-WB-xx` به‌طور کامل از پرتال حذف شد؛ کدهای رسمی (۸۰۴۰۱ اردو، …) در تمام نماها حاکم است.
+  - شرح عملیاتی، موازین پایش و چارچوب سیاستی هر برنامه از پایگاه مشترک (تصویر forms.py) رندر می‌شود؛ ۱۷ سند ابلاغی دقیق سند رسمی در رجیستری بن‌مایه شد.
+  - فرم ورود اطلاعات هر محور، مطابق ردیف‌های کاربرگ بازدید استانی مجزا و راهنمادار شد؛ خروجی آن فکت‌های هم‌نام با ستون‌های کارتابل و اکسل می‌سازد.
+  - صادرات اکسل با سقف کامل رویدادها و پشتیبانی بازهٔ زمانی مستقل عملیاتی شد؛ هیچ دادهٔ حساس یا PII در لاگ/خروجی ثبت نشد و فایل‌های نشست و پیکربندی بدون تغییر ماند.
+- Trigger تکرار: تغییر تعاریف فرم‌ها/بن‌مایه‌ها، تغییر اسکیمای `form_definitions`، یا تغییر نماها و اندپوینت‌های پرتال.
