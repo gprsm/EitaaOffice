@@ -2145,3 +2145,10 @@
 - روش امن: توقف/راه‌اندازی سرور پس‌زمینه با کانفیگ LAN؛ probes واقعی — health روی 192.168.1.2:8765 برابر ok، UI ریشه 200، مسیر login از Origin LAN پاسخ 401 برای اعتبار غلط، endpointهای v3 بدون نشست 401 (گیت انسانی روی LAN حفظ شده). مهاجرت coordinator فقط با اسکریپت رسمی + پشتیبان دستی پیشین.
 - نتیجه: محصول روی LAN خصوصی در دسترس است؛ نشانی اصلی http://192.168.1.2:8765 و میان‌بر http://eitaaoffice.test (پس از اجرای setup-office-lan.bat با ادمین و استارت Apache). fail-closed بودن اعتبارسنج deployment دو بار مانع راه‌اندازی ناقص شد (remote_messenger_auth ناقص، coordinator v7) و هر دو با مسیرهای رسمی رفع شدند.
 - Trigger تکرار: تغییر IP سرور، تغییر subnet، یا ارتقای coordinator schema.
+
+#### اصلاح V-223 (2026-09-28) — بازگشت به توپولوژی مرجع کاربر (Laragon Reverse Proxy)
+
+- تصریح مالک: لاراگون از قبل در `C:\Users\mohse\laragon` نصب بود؛ وردپرس روی :80 و سامانه از مسیر `http://192.168.1.2/eitaa/` (پروکسی `/eitaa/` و `/api/` به loopback با بازنویسی Host/Origin در `etc/apache2/alias/eitaa.conf`) فعال بود.
+- تغییرِ شب پیشین به `trusted_lan_http` (bind مستقیم) با این توپولوژی ناسازگار بود و مسیر `/eitaa` را می‌شکست؛ bridge.json به `desktop_loopback` بازگردانده شد و اسکریپت‌ها/vhostهای آزمونی حذف شدند.
+- probes پس از بازگشایی: `/eitaa/` = 200، `/api/v1/health` از مسیر پروکسی = ok، loopback = 200. مهاجرت coordinator v9 و میان‌بر Startup مفید و برجا ماندند.
+- Trigger تکرار: هر تصمیم تازهٔ مالک دربارهٔ تغییر مسیر یا mode.

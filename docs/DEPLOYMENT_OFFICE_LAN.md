@@ -1,49 +1,43 @@
-# استقرار محصول دفتر روی شبکهٔ خصوصی (trusted_lan_http + Laragon)
+# استقرار محصول دفتر روی شبکهٔ خصوصی — توپولوژی مرجع (Laragon Reverse Proxy)
 
-وضعیت: `DEPLOYED_LOCAL_LAN / 2026-09-27` — مرجع عملیاتی این استقرار روی این رایانه (سرور ۱۹۲.۱۶۸.۱.۲).
+وضعیت: `DEPLOYED_LOCAL_LAN / بازنگری ۲۰۲۶-۰۹-۲۸` — این سند توپولوژی **از قبلِ کاربر** را مستند و حفظ می‌کند.
 
-## معماری
+## توپولوژی مرجع (کانالِ درستِ دسترسی از LAN)
 
 ```text
 کاربر LAN (مرورگر)
-   │  http://192.168.1.2:8765   ← مرجع اصلی (Authoritative Origin)
-   │  http://eitaaoffice.test/  ← ریدایرکت 308 از Apache لاراگون (پورت 80)
+   │  http://192.168.1.2/eitaa/   ← رابط کاربری محصول (کارتابل گزارش‌ها + داشبورد دفتر)
+   │  http://192.168.1.2/api/...  ← API (شامل /api/v3/office/*)
    ▼
-EitaaBridge HTTP API + UI  (bind: 192.168.1.2:8765، mode: trusted_lan_http)
-   ├─ AppUser login (UI: AppUserGate — /api/v2/app-auth/login)
-   ├─ کارتابل گزارش‌ها + تب «داشبورد دفتر» (/api/v3/office/*)
-   └─ پشت نشست/CSRF؛ هیچ endpoint بدون احراز هویت به جز health/login
+Apache لاراگون (C:\Users\mohse\laragon، پورت 80)
+   │  alias: etc/apache2/alias/eitaa.conf
+   │  ProxyPass /eitaa/ → http://127.0.0.1:8765/   و   /api/ → http://127.0.0.1:8765/api/
+   │  Host/Origin بازنویسی به http://127.0.0.1:8765 (ProxyPreserveHost Off)
+   ▼
+EitaaBridge HTTP API + UI  (mode: desktop_loopback، bind: 127.0.0.1:8765)
+   └─ AppUser login + صف تأیید انسانی + /api/v3/office/* — همه پشت نشست
 ```
 
-- قرارداد امنیتی: `docs/TRUSTED_LAN_HTTP_CONFIGURATION.md` (فاز ۶-A/۶-B) — Host/Origin دقیق، CIDR خصوصی، پذیرش صریح cleartext، بدون CORS عمومی.
-- چرا ریدایرکت به‌جای Proxy در Apache؟ قرارداد، Host/Origin را دقیقاً `192.168.1.2:8765` می‌خواهد و headerهای forwarded را رد می‌کند؛ ریدایرکت 308 قرارداد را سالم نگه می‌دارد و URL کوتاه می‌دهد.
+- این توپولوژی محصول را فقط روی Loopback نگه می‌دارد و مرز LAN را Apache مدیریت می‌کند؛ از دید هسته، همهٔ درخواست‌ها لوکال‌اند.
+- مسیرهای معتبر: `/eitaa/` (UI) و `/api/` (API). دقت: مسیر `/eitaaa` (سه «ا») در کانفیگ وجود ندارد؛ `/eitaa` است.
+- آزمون بازگشایی 2026-09-28: `/eitaa/` = 200، `/api/v1/health` از مسیر پروکسی = ok، loopback = ok.
 
-## کانفیگ اعمال‌شده (bridge.json → deployment)
+## سابقه: آزمون trusted_lan_http و چرا پس گرفته شد
 
-- `mode: trusted_lan_http`، `bind: 192.168.1.2:8765`
-- `allowed_hosts: ["192.168.1.2:8765"]`، `allowed_origins` همان، `allowed_private_client_cidrs: ["192.168.1.0/24"]`
-- دو acknowledgement رسمی + `bootstrap_admin_loopback_only: true` + `same_origin_only: true` + `remote_messenger_auth.enabled: false`
-- پشتیبان قبل از تغییر: `backups/bridge.json.pre-lan-*.json`
+شب ۲۰۲۶-۰۹-۲۷ deployment به `trusted_lan_http` (bind مستقیم 192.168.1.2:8765) تغییر کرد؛ چون قراردادِ Host/Origin دقیق با الگوی پروکسیِ Host-بازنویسی‌شدهٔ لاراگون ناسازگار است، مسیر `/eitaa` می‌شکست و توپولوژی کاری کاربر مقدم است. بنابراین کانفیگ به `desktop_loopback` بازگردانده شد (پشتیبان‌ها در `backups/bridge.json.pre-lan-*.json` و بازگردانی موفق با probes بالا). اسکریپت‌ها و vhostهای آزمونی حذف شدند.
 
-## مهاجرت Coordinator (لازم برای AppUser auth در سرویس پس‌زمینه)
+## چیزی که از آن آزمون مفید ماند
 
-- پایگاه `data/coordinator/coordinator.sqlite3` از نسخهٔ ۷ به ۹ با اسکریپت رسمی `upgrade_schema_script(7)` ارتقا یافت (ساخت `service_credentials`) و `CoordinatorDatabase.initialize()` سبز شد.
-- پشتیبان: `backups/coordinator.pre-v9-*.sqlite3`
+1. **مهاجرت coordinator v7→v9** با اسکریپت رسمی (`upgrade_schema_script(7)`) — برای بالاآمدن سرور پس‌زمینه با کد فعلی لازم بود؛ پشتیبان در `backups/coordinator.pre-v9-*.sqlite3`.
+2. **میان‌بر Startup** («EitaaBridge Office Server» → `EitaaBridgeBackground.vbs`): سرور پس‌زمینه بعد از ری‌استارت ویندوز خودکار بالا می‌آید تا پروکسی لاراگون همیشه مقصد زنده داشته باشد.
+3. UI تولیدی با تب «داشبورد دفتر» بیلد شده و از همان مسیر `/eitaa/` سرو می‌شود؛ `/api/v3/*` هم زیر ProxyPass `/api/` پوشش دارد.
+4. درس معماری (ADR): الگوی پروکسیِ Host-بازنویسی‌شدهٔ لاراگون با mode دسکتاپ، مسیر انتخابی این محیط است؛ فعال‌سازی `trusted_lan_http` صرفاً با bind مستقیم معنا دارد و با ProxyPreserveHost Off جمع نمی‌شود.
 
-## اجرا و پایداری
+## چک‌لیست سلامت (برای اپراتور)
 
-- سرور پس‌زمینه: `scripts/background_server.py start|status|stop` (لاگ: `runtime/logs/background-server.log`).
-- راه‌اندازی خودکار بعد از ری‌استارت ویندوز: میان‌بر «EitaaBridge Office Server» در Startup کاربر (به `EitaaBridgeBackground.vbs`).
-- لاراگون: نصب در `C:\laragon`؛ vhost آماده در `deployment/laragon/office.conf` → کپی به `C:\laragon\etc\apache2\sites-enabled\office.conf` و استارت Apache از تِی لاراگون.
-
-## گام یک‌بارمصرف با دسترسی ادمین (اسکریپت آماده: `setup-office-lan.bat`)
-
-۱. اتصال Ethernet ویندوز را Private می‌کند (الان Public است)؛
-۲. دو قانون فایروال فقط روی Private + LocalSubnet: TCP 8765 و TCP 80؛
-۳. افزودن `192.168.1.2 eitaaoffice.test` به hosts سرور.
-
-## نشانی‌های نهایی برای کاربران شبکهٔ خصوصی
-
-- اصلی: `http://192.168.1.2:8765`
-- میان‌بر (بعد از اجرای اسکریپت ادمین + استارت Apache): `http://eitaaoffice.test`
-- ورود با حساب‌های AppUser موجود؛ ساخت حساب تازه فقط از خود سرور (bootstrap محدود به loopback).
+```text
+1) background server:  scripts\background_server.py status   → running: true
+2) مسیر LAN:           http://192.168.1.2/eitaa/              → صفحهٔ ورود/UI
+3) API از LAN:         http://192.168.1.2/api/v1/health       → ok:true
+4) Apache:             تِی لاراگون / سرویس httpd روی :80
+```
