@@ -1,7 +1,7 @@
 # فهرست گزارش‌ها و اسناد دسته‌بندی‌شده
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
-تعداد کل اسناد فهرست‌شده: 189
+تعداد کل اسناد فهرست‌شده: 190
 
 
 ## گزارش فازها
@@ -205,6 +205,7 @@
 - [`CONTINUATION_LOG_2026-07-26.md`](handoffs/CONTINUATION_LOG_2026-07-26.md)
 - [`HANDOFF_2026-08-21.md`](handoffs/HANDOFF_2026-08-21.md)
 - [`HANDOFF_CLEAN_INSTALL_BUGS.md`](handoffs/HANDOFF_CLEAN_INSTALL_BUGS.md)
+- [`NEXT_CHAT_PROMPT_CULTURAL_PORTAL_F096_2026-09-28.md`](handoffs/NEXT_CHAT_PROMPT_CULTURAL_PORTAL_F096_2026-09-28.md)
 - [`NEXT_CHAT_PROMPT_HTTP_LAN_PHASE6A_2026-08-02.md`](handoffs/NEXT_CHAT_PROMPT_HTTP_LAN_PHASE6A_2026-08-02.md)
 - [`NEXT_CHAT_PROMPT_PHASE10C_PORTABILITY_2026-08-13.md`](handoffs/NEXT_CHAT_PROMPT_PHASE10C_PORTABILITY_2026-08-13.md)
 - [`STABILIZATION_PAUSE_HANDOFF_2026-08-25.md`](handoffs/STABILIZATION_PAUSE_HANDOFF_2026-08-25.md)
