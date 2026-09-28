@@ -253,3 +253,82 @@ class TestReportingFormsAndExportEndpoints:
         loaded_unlinked = store.list_wp_links()
         assert loaded_unlinked[0]["match_status"] == "unmatched"
         assert loaded_unlinked[0]["event_id"] == ""
+
+    def test_approve_candidate_with_sheet_dimensions(self, reporting_api: BridgeApplicationApi) -> None:
+        # Scan one trip candidate
+        scan_resp = reporting_api.dispatch(
+            "POST",
+            "/api/v2/reporting/scan",
+            body={
+                "messages": [
+                    ["msg-trip-1", "کانال اردوها", "برگزاری اردوی زیارتی مشهد مقدس با حضور ۴۵ نفر از خانواده ها"],
+                ]
+            },
+        )
+        assert scan_resp.status == 200
+        cand_resp = reporting_api.dispatch("GET", "/api/v2/reporting/candidates?status=pending")
+        cand_id = cand_resp.payload["candidates"][0]["candidate_id"]
+
+        # Approve with trip-specific sheet dimensions
+        approve_resp = reporting_api.dispatch(
+            "POST",
+            f"/api/v2/reporting/candidates/{cand_id}/review",
+            body={
+                "action": "approve",
+                "program_id": "trip",
+                "event_id": "evt-trip-dynamic-1",
+                "occurred_on": "2026-07-15",
+                "unit": "judicial_domain",
+                "unit_name": "سوادکوه",
+                "attendee_count": 45,
+                "dimension_facts": {
+                    "trip_type_family": 1,
+                    "insurance_count": 1,
+                    "vehicle_count": 2,
+                    "reception_count": 1,
+                },
+                "notes": "اردوی خانوادگی مشهد با وسیله نقلیه و بیمه کامل",
+            },
+        )
+        assert approve_resp.status == 200
+        assert approve_resp.payload["status"] == "approved"
+
+        # Check stored event facts
+        events_resp = reporting_api.dispatch("GET", "/api/v2/reporting/events")
+        created_evt = next(e for e in events_resp.payload["events"] if e["event_id"] == "evt-trip-dynamic-1")
+        fact_metrics = {f["metric"]: f["value"] for f in created_evt["facts"]}
+        assert fact_metrics["attendees"] == 45
+        assert fact_metrics["trip_type_family"] == 1
+        assert fact_metrics["insurance_count"] == 1
+        assert fact_metrics["vehicle_count"] == 2
+
+    def test_create_manual_event_with_sheet_dimensions(self, reporting_api: BridgeApplicationApi) -> None:
+        # Create manual contest event with specific dimensions
+        resp = reporting_api.dispatch(
+            "POST",
+            "/api/v2/reporting/events",
+            body={
+                "program_id": "contest",
+                "occurred_on": "2026-08-10",
+                "unit": "provincial_hq",
+                "unit_name": "ستاد مرکزی",
+                "attendee_count": 120,
+                "dimension_facts": {
+                    "quran_attendees": 120,
+                    "quran_staff": 1,
+                    "quran_awards": 10,
+                },
+                "notes": "مسابقات سراسری قرآن کریم مرحله استانی",
+            },
+        )
+        assert resp.status == 201
+        assert resp.payload["ok"] is True
+        evt_id = resp.payload["event_id"]
+
+        events_resp = reporting_api.dispatch("GET", "/api/v2/reporting/events")
+        created_evt = next(e for e in events_resp.payload["events"] if e["event_id"] == evt_id)
+        fact_metrics = {f["metric"]: f["value"] for f in created_evt["facts"]}
+        assert fact_metrics["attendees"] == 120
+        assert fact_metrics["quran_attendees"] == 120
+        assert fact_metrics["quran_awards"] == 10
+

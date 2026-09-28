@@ -28,6 +28,7 @@ from .indexer import DEFAULT_MONITOR_TARGETS, EitaaIntentIndexer, IndexDecision,
 from .model import (
     Fact,
     FactValueKind,
+    OccasionClass,
     ProgramId,
     ProgramKind,
     ReportedEvent,
@@ -105,6 +106,13 @@ class ReportingService:
         unit_name: str = "",
         official_present: bool | None = None,
         staff_member: str = "",
+        program_kinds: Sequence[ProgramKind | str] | None = None,
+        attendee_count: float | None = None,
+        is_ashura_pilgrimage: bool | None = None,
+        is_standalone_titled: bool = True,
+        occasion_class: OccasionClass | str | None = None,
+        dimension_facts: Mapping[str, Any] | None = None,
+        notes: str = "",
     ) -> ReportedEvent | None:
         """Approve an event candidate, creating a confirmed ReportedEvent in store."""
         if self.store is None:
@@ -113,34 +121,192 @@ class ReportingService:
         if not candidate_dict:
             return None
 
-        kinds = tuple(ProgramKind(k) for k in candidate_dict["suggested_kinds"])
-        occasion_class = (
-            OccasionClass(candidate_dict["occasion_class"])
-            if candidate_dict["occasion_class"]
-            else None
-        )
-        candidate = EventCandidate(
-            event_key=candidate_dict["event_key"],
-            suggested_kinds=kinds,
-            extracted_attendees=candidate_dict["extracted_attendees"],
-            extracted_date=candidate_dict["extracted_date"],
-            occasion_class=occasion_class,
-            is_ashura_pilgrimage=bool(candidate_dict["is_ashura_pilgrimage"]),
-            sender_hint=candidate_dict["sender_hint"] or "",
-            source_message_refs=tuple(candidate_dict["source_message_refs"]),
-            confidence_note=candidate_dict["confidence_note"] or "",
-        )
-        event = self.event_from_candidate(
-            candidate,
+        if program_kinds:
+            kinds = tuple(ProgramKind(k) if isinstance(k, str) else k for k in program_kinds)
+        else:
+            kinds = tuple(ProgramKind(k) for k in candidate_dict["suggested_kinds"])
+
+        if is_ashura_pilgrimage is not None:
+            ashura_flag = bool(is_ashura_pilgrimage)
+        else:
+            ashura_flag = bool(candidate_dict["is_ashura_pilgrimage"])
+
+        if ashura_flag:
+            occ_cls = None
+        elif occasion_class is not None:
+            occ_cls = OccasionClass(occasion_class) if isinstance(occasion_class, str) else occasion_class
+        else:
+            occ_cls = (
+                OccasionClass(candidate_dict["occasion_class"])
+                if candidate_dict.get("occasion_class")
+                else None
+            )
+
+        event = ReportedEvent(
             event_id=event_id,
+            program_kinds=kinds,
             occurred_on=occurred_on,
             unit=unit,
             unit_name=unit_name,
+            occasion_class=occ_cls,
+            is_ashura_pilgrimage=ashura_flag,
             official_present=official_present,
-            staff_member=staff_member,
+            is_standalone_titled=is_standalone_titled,
+            notes=notes,
+            created_by=staff_member,
         )
+
+        chosen_attendees = attendee_count if attendee_count is not None else candidate_dict.get("extracted_attendees")
+        source_refs = tuple(candidate_dict.get("source_message_refs") or ())
+        if chosen_attendees is not None and float(chosen_attendees) >= 0:
+            event.add_fact(
+                Fact(
+                    metric="attendees",
+                    value=float(chosen_attendees),
+                    value_kind=FactValueKind.REPORTED_BY_UNIT,
+                    source=ValueSource.MANUAL if attendee_count is not None else ValueSource.EITAA,
+                    evidence_refs=source_refs,
+                    created_by=staff_member,
+                    note="تأیید شده در کارتابل رویدادها",
+                )
+            )
+            if ashura_flag:
+                event.add_fact(
+                    Fact(
+                        metric="ashura_pilgrimage_attendees",
+                        value=float(chosen_attendees),
+                        value_kind=FactValueKind.REPORTED_BY_UNIT,
+                        source=ValueSource.MANUAL if attendee_count is not None else ValueSource.EITAA,
+                        evidence_refs=source_refs,
+                        created_by=staff_member,
+                        note="شرکت‌کنندگان زیارت عاشورا",
+                    )
+                )
+
+        if ashura_flag:
+            event.add_fact(
+                Fact(
+                    metric="ashura_pilgrimage_count",
+                    value=1.0,
+                    value_kind=FactValueKind.REPORTED_BY_UNIT,
+                    source=ValueSource.MANUAL,
+                    evidence_refs=source_refs,
+                    created_by=staff_member,
+                )
+            )
+
+        if dimension_facts:
+            for metric, val in dimension_facts.items():
+                if val is True or (isinstance(val, (int, float)) and val > 0):
+                    num_val = 1.0 if isinstance(val, bool) else float(val)
+                    event.add_fact(
+                        Fact(
+                            metric=str(metric),
+                            value=num_val,
+                            value_kind=FactValueKind.REPORTED_BY_UNIT,
+                            source=ValueSource.MANUAL,
+                            evidence_refs=source_refs,
+                            created_by=staff_member,
+                        )
+                    )
+
         self.store.save_event(event)
         self.store.approve_candidate(candidate_id, event_id=event.event_id, reviewed_by=staff_member)
+        return event
+
+    def create_manual_event(
+        self,
+        *,
+        event_id: str,
+        program_kinds: Sequence[ProgramKind | str],
+        occurred_on: date,
+        unit: UnitScope = UnitScope.PROVINCIAL_HQ,
+        unit_name: str = "",
+        official_present: bool | None = None,
+        attendee_count: float | None = None,
+        is_ashura_pilgrimage: bool = False,
+        is_standalone_titled: bool = True,
+        occasion_class: OccasionClass | str | None = None,
+        dimension_facts: Mapping[str, Any] | None = None,
+        notes: str = "",
+        staff_member: str = "",
+    ) -> ReportedEvent:
+        """Create a new confirmed ReportedEvent directly with sheet-specific dimensions."""
+        if self.store is None:
+            raise RuntimeError("Reporting store is not initialized.")
+
+        kinds = tuple(ProgramKind(k) if isinstance(k, str) else k for k in program_kinds)
+        ashura_flag = bool(is_ashura_pilgrimage)
+        if ashura_flag:
+            occ_cls = None
+        elif occasion_class is not None:
+            occ_cls = OccasionClass(occasion_class) if isinstance(occasion_class, str) else occasion_class
+        else:
+            occ_cls = None
+
+        event = ReportedEvent(
+            event_id=event_id,
+            program_kinds=kinds,
+            occurred_on=occurred_on,
+            unit=unit,
+            unit_name=unit_name,
+            occasion_class=occ_cls,
+            is_ashura_pilgrimage=ashura_flag,
+            official_present=official_present,
+            is_standalone_titled=is_standalone_titled,
+            notes=notes,
+            created_by=staff_member,
+        )
+
+        if attendee_count is not None and float(attendee_count) >= 0:
+            event.add_fact(
+                Fact(
+                    metric="attendees",
+                    value=float(attendee_count),
+                    value_kind=FactValueKind.REPORTED_BY_UNIT,
+                    source=ValueSource.MANUAL,
+                    created_by=staff_member,
+                    note="ثبت دستی در کارتابل",
+                )
+            )
+            if ashura_flag:
+                event.add_fact(
+                    Fact(
+                        metric="ashura_pilgrimage_attendees",
+                        value=float(attendee_count),
+                        value_kind=FactValueKind.REPORTED_BY_UNIT,
+                        source=ValueSource.MANUAL,
+                        created_by=staff_member,
+                        note="شرکت‌کنندگان زیارت عاشورا",
+                    )
+                )
+
+        if ashura_flag:
+            event.add_fact(
+                Fact(
+                    metric="ashura_pilgrimage_count",
+                    value=1.0,
+                    value_kind=FactValueKind.REPORTED_BY_UNIT,
+                    source=ValueSource.MANUAL,
+                    created_by=staff_member,
+                )
+            )
+
+        if dimension_facts:
+            for metric, val in dimension_facts.items():
+                if val is True or (isinstance(val, (int, float)) and val > 0):
+                    num_val = 1.0 if isinstance(val, bool) else float(val)
+                    event.add_fact(
+                        Fact(
+                            metric=str(metric),
+                            value=num_val,
+                            value_kind=FactValueKind.REPORTED_BY_UNIT,
+                            source=ValueSource.MANUAL,
+                            created_by=staff_member,
+                        )
+                    )
+
+        self.store.save_event(event)
         return event
 
     def reject_candidate(self, candidate_id: str, *, staff_member: str = "", reason: str = "") -> bool:

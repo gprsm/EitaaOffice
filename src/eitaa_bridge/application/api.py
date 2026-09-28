@@ -158,6 +158,7 @@ from ..reporting import (
     FilledForm,
     FormAnswer,
     ProgramId,
+    ProgramKind,
     ReportedEvent,
     ReportingExportError,
     ReportingService,
@@ -1604,6 +1605,8 @@ class BridgeApplicationApi:
                 )
             if selected_method == "GET" and path == "/api/v2/reporting/events":
                 return self._reporting_list_events(query)
+            if selected_method == "POST" and path == "/api/v2/reporting/events":
+                return self._reporting_create_event(payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/reporting/forms":
                 return self._reporting_list_forms()
             form_match = _REPORTING_FORM_ROUTE.fullmatch(path)
@@ -3879,6 +3882,34 @@ class BridgeApplicationApi:
             if official_present is not None:
                 official_present = bool(official_present)
 
+            program_id = payload.get("program_id") or payload.get("program_kind")
+            program_kinds = None
+            if program_id:
+                try:
+                    program_kinds = (ProgramKind(str(program_id)),)
+                except ValueError:
+                    pass
+
+            attendee_count = payload.get("attendee_count")
+            if attendee_count is not None and str(attendee_count).strip():
+                try:
+                    attendee_count = float(attendee_count)
+                except (ValueError, TypeError):
+                    attendee_count = None
+            else:
+                attendee_count = None
+
+            is_ashura_pilgrimage = payload.get("is_ashura_pilgrimage")
+            if is_ashura_pilgrimage is not None:
+                is_ashura_pilgrimage = bool(is_ashura_pilgrimage)
+
+            is_standalone_titled = bool(payload.get("is_standalone_titled", True))
+            occasion_class = payload.get("occasion_class")
+            notes = str(payload.get("notes", ""))
+            dimension_facts = payload.get("dimension_facts")
+            if not isinstance(dimension_facts, Mapping):
+                dimension_facts = None
+
             event = self._reporting_service.approve_candidate_to_event(
                 candidate_id,
                 event_id=event_id,
@@ -3887,6 +3918,13 @@ class BridgeApplicationApi:
                 unit_name=unit_name,
                 official_present=official_present,
                 staff_member=operator,
+                program_kinds=program_kinds,
+                attendee_count=attendee_count,
+                is_ashura_pilgrimage=is_ashura_pilgrimage,
+                is_standalone_titled=is_standalone_titled,
+                occasion_class=occasion_class,
+                dimension_facts=dimension_facts,
+                notes=notes,
             )
             if event is None:
                 return ApiResponse(
@@ -3934,6 +3972,93 @@ class BridgeApplicationApi:
             )
         return ApiResponse(200, {"ok": True, "suggestion": suggestion.to_dict()})
 
+
+    def _reporting_create_event(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        app_session: Any = None,
+    ) -> ApiResponse:
+        operator = (
+            app_session.principal.display_name
+            if app_session and hasattr(app_session, "principal")
+            else "central_staff"
+        )
+        event_id = str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}")
+        raw_date = payload.get("occurred_on")
+        if raw_date:
+            try:
+                occurred = date.fromisoformat(str(raw_date))
+            except ValueError:
+                occurred = date.today()
+        else:
+            occurred = date.today()
+
+        program_id = payload.get("program_id") or payload.get("program_kind") or "ceremony"
+        try:
+            program_kinds = (ProgramKind(str(program_id)),)
+        except ValueError:
+            program_kinds = (ProgramKind.CEREMONY,)
+
+        unit_str = str(payload.get("unit", "provincial_hq"))
+        unit = (
+            UnitScope(unit_str)
+            if unit_str in {u.value for u in UnitScope}
+            else UnitScope.PROVINCIAL_HQ
+        )
+        unit_name = str(payload.get("unit_name", ""))
+        official_present = payload.get("official_present")
+        if official_present is not None:
+            official_present = bool(official_present)
+
+        attendee_count = payload.get("attendee_count")
+        if attendee_count is not None and str(attendee_count).strip():
+            try:
+                attendee_count = float(attendee_count)
+            except (ValueError, TypeError):
+                attendee_count = None
+        else:
+            attendee_count = None
+
+        is_ashura_pilgrimage = bool(payload.get("is_ashura_pilgrimage", False))
+        is_standalone_titled = bool(payload.get("is_standalone_titled", True))
+        occasion_class = payload.get("occasion_class")
+        notes = str(payload.get("notes", ""))
+        dimension_facts = payload.get("dimension_facts")
+        if not isinstance(dimension_facts, Mapping):
+            dimension_facts = None
+
+        event = self._reporting_service.create_manual_event(
+            event_id=event_id,
+            program_kinds=program_kinds,
+            occurred_on=occurred,
+            unit=unit,
+            unit_name=unit_name,
+            official_present=official_present,
+            attendee_count=attendee_count,
+            is_ashura_pilgrimage=is_ashura_pilgrimage,
+            is_standalone_titled=is_standalone_titled,
+            occasion_class=occasion_class,
+            dimension_facts=dimension_facts,
+            notes=notes,
+            staff_member=operator,
+        )
+
+        return ApiResponse(
+            201,
+            {
+                "ok": True,
+                "event_id": event.event_id,
+                "event": {
+                    "event_id": event.event_id,
+                    "program_kinds": [k.value for k in event.program_kinds],
+                    "occurred_on": event.occurred_on.isoformat(),
+                    "unit": event.unit.value,
+                    "unit_name": event.unit_name,
+                    "facts_count": len(event.facts),
+                },
+            },
+        )
 
     def _reporting_list_events(self, query: Mapping[str, str]) -> ApiResponse:
         limit = int(query.get("limit", 100))

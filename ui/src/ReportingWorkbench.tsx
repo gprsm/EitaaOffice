@@ -18,12 +18,15 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  FormLabel,
   Grid,
   IconButton,
   InputLabel,
   LinearProgress,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Switch,
@@ -39,12 +42,14 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import AddCircleOutlineRounded from '@mui/icons-material/AddCircleOutlineRounded'
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded'
 import FileDownloadRounded from '@mui/icons-material/FileDownloadRounded'
+import LayersRounded from '@mui/icons-material/LayersRounded'
 import RefreshRounded from '@mui/icons-material/RefreshRounded'
 import SaveRounded from '@mui/icons-material/SaveRounded'
 import SettingsRounded from '@mui/icons-material/SettingsRounded'
@@ -150,6 +155,456 @@ const UNIT_SCOPES: Array<{ value: string; label: string }> = [
   { value: 'province_wide', label: 'استانی / مشترک' },
 ]
 
+function SheetSpecificDimensions({
+  program,
+  facts,
+  onChange,
+}: {
+  program: string
+  facts: Record<string, any>
+  onChange: (key: string, value: any) => void
+}) {
+  const setFact = (k: string, v: any) => onChange(k, v)
+  const toggleFact = (k: string) => onChange(k, facts[k] ? 0 : 1)
+
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        bgcolor: 'action.hover',
+        borderStyle: 'dashed',
+        borderColor: 'primary.main',
+      }}
+    >
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <LayersRounded fontSize="small" color="primary" />
+          <Typography variant="subtitle2" fontWeight={800} color="primary.main">
+            ابعاد و سنجه‌های اختصاصی: {PROGRAM_NAMES[program] || program}
+          </Typography>
+        </Stack>
+        <Typography variant="caption" color="text.secondary">
+          این مقادیر مستقیماً در ستون‌های تخصصی این شیت در کاربرگ و خروجی گزارش ۱۴۰۵ لحاظ خواهند شد.
+        </Typography>
+        <Divider sx={{ my: 0.5 }} />
+
+        {/* 1. TRIP */}
+        {program === 'trip' && (
+          <Stack spacing={2}>
+            <Box>
+              <FormLabel component="legend" sx={{ fontSize: '0.8rem', fontWeight: 700, mb: 0.5 }}>
+                جامعه هدف و نوع اردو:
+              </FormLabel>
+              <RadioGroup
+                row
+                value={
+                  facts.trip_type_marriage ? 'marriage' : facts.trip_type_family ? 'family' : 'staff'
+                }
+                onChange={e => {
+                  const val = e.target.value
+                  onChange('trip_type_staff', val === 'staff' ? 1 : 0)
+                  onChange('trip_type_family', val === 'family' ? 1 : 0)
+                  onChange('trip_type_marriage', val === 'marriage' ? 1 : 0)
+                }}
+              >
+                <FormControlLabel value="staff" control={<Radio size="small" />} label={<Typography variant="body2">کارکنان (اداری/قضایی)</Typography>} />
+                <FormControlLabel value="family" control={<Radio size="small" />} label={<Typography variant="body2">خانواده کارکنان</Typography>} />
+                <FormControlLabel value="marriage" control={<Radio size="small" />} label={<Typography variant="body2">فرزندآوری و ازدواج</Typography>} />
+              </RadioGroup>
+            </Box>
+
+            <Box>
+              <Typography variant="caption" fontWeight={700} color="text.secondary" gutterBottom>
+                فرایندها و الزامات اجرایی اردو:
+              </Typography>
+              <Grid container spacing={1}>
+                {[
+                  { key: 'mou_count', label: 'انعقاد تفاهم‌نامه' },
+                  { key: 'announcement_count', label: 'اطلاع‌رسانی (پوستر/گروه)' },
+                  { key: 'list_count', label: 'تنظیم لیست شرکت‌کنندگان' },
+                  { key: 'schedule_count', label: 'سین برنامه تفصیلی' },
+                  { key: 'vehicle_count', label: 'هماهنگی خودرو/اتوبوس' },
+                  { key: 'insurance_count', label: 'پوشش کامل بیمه حوادث' },
+                  { key: 'reception_count', label: 'پذیرایی' },
+                ].map(item => (
+                  <Grid size={{ xs: 12, sm: 6 }} key={item.key}>
+                    <FormControlLabel
+                      control={<Checkbox size="small" checked={Boolean(facts[item.key])} onChange={() => toggleFact(item.key)} />}
+                      label={<Typography variant="body2">{item.label}</Typography>}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          </Stack>
+        )}
+
+        {/* 2. CONTEST */}
+        {program === 'contest' && (
+          <Stack spacing={2}>
+            <Box>
+              <FormLabel component="legend" sx={{ fontSize: '0.8rem', fontWeight: 700, mb: 0.5 }}>
+                رده مسابقه:
+              </FormLabel>
+              <RadioGroup
+                row
+                value={facts.is_quran ? 'quran' : 'cultural'}
+                onChange={e => onChange('is_quran', e.target.value === 'quran')}
+              >
+                <FormControlLabel value="cultural" control={<Radio size="small" />} label={<Typography variant="body2">فرهنگی / ورزشی / هنری</Typography>} />
+                <FormControlLabel value="quran" control={<Radio size="small" />} label={<Typography variant="body2">مسابقات قرآن و عترت</Typography>} />
+              </RadioGroup>
+            </Box>
+
+            {facts.is_quran ? (
+              <Stack spacing={1.5}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد شرکت‌کنندگان مسابقات قرآنی"
+                  value={facts.quran_attendees || ''}
+                  onChange={e => setFact('quran_attendees', e.target.value ? Number(e.target.value) : 0)}
+                />
+                <Grid container spacing={1}>
+                  {[
+                    { key: 'quran_staff', label: 'تشکیل ستاد مسابقات' },
+                    { key: 'quran_announcement', label: 'اطلاع‌رسانی' },
+                    { key: 'quran_questions', label: 'طراحی سؤالات' },
+                    { key: 'quran_judging', label: 'داوری اساتید' },
+                    { key: 'quran_awards', label: 'تقدیر و جوایز' },
+                    { key: 'quran_reception', label: 'پذیرایی' },
+                  ].map(item => (
+                    <Grid size={{ xs: 12, sm: 6 }} key={item.key}>
+                      <FormControlLabel
+                        control={<Checkbox size="small" checked={Boolean(facts[item.key])} onChange={() => toggleFact(item.key)} />}
+                        label={<Typography variant="body2">{item.label}</Typography>}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Stack>
+            ) : (
+              <Stack spacing={1.5}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>رشته مسابقه</InputLabel>
+                      <Select
+                        value={facts.contest_type_artistic ? 'artistic' : facts.contest_type_sports ? 'sports' : 'literary'}
+                        label="رشته مسابقه"
+                        onChange={e => {
+                          const val = e.target.value
+                          onChange('contest_type_literary', val === 'literary' ? 1 : 0)
+                          onChange('contest_type_artistic', val === 'artistic' ? 1 : 0)
+                          onChange('contest_type_sports', val === 'sports' ? 1 : 0)
+                        }}
+                      >
+                        <MenuItem value="sports">ورزشی</MenuItem>
+                        <MenuItem value="literary">ادبی</MenuItem>
+                        <MenuItem value="artistic">هنری</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>جامعه مخاطب</InputLabel>
+                      <Select
+                        value={facts.audience_family ? 'family' : facts.audience_women ? 'women' : facts.audience_children ? 'children' : 'staff'}
+                        label="جامعه مخاطب"
+                        onChange={e => {
+                          const val = e.target.value
+                          onChange('audience_staff', val === 'staff' ? 1 : 0)
+                          onChange('audience_family', val === 'family' ? 1 : 0)
+                          onChange('audience_women', val === 'women' ? 1 : 0)
+                          onChange('audience_children', val === 'children' ? 1 : 0)
+                        }}
+                      >
+                        <MenuItem value="staff">کارکنان</MenuItem>
+                        <MenuItem value="family">خانواده</MenuItem>
+                        <MenuItem value="women">بانوان</MenuItem>
+                        <MenuItem value="children">فرزندان</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+
+                <Grid container spacing={1}>
+                  {[
+                    { key: 'staff_count', label: 'تشکیل ستاد' },
+                    { key: 'announcement_count', label: 'اطلاع‌رسانی' },
+                    { key: 'questions_count', label: 'طراحی سؤالات' },
+                    { key: 'judging_count', label: 'داوری' },
+                    { key: 'awards_count', label: 'تقدیر از برگزیدگان' },
+                    { key: 'reception_count', label: 'پذیرایی' },
+                  ].map(item => (
+                    <Grid size={{ xs: 12, sm: 6 }} key={item.key}>
+                      <FormControlLabel
+                        control={<Checkbox size="small" checked={Boolean(facts[item.key])} onChange={() => toggleFact(item.key)} />}
+                        label={<Typography variant="body2">{item.label}</Typography>}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Stack>
+            )}
+          </Stack>
+        )}
+
+        {/* 3. CEREMONIES */}
+        {program === 'ceremonies' && (
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>نوع مناسبت مراسم</InputLabel>
+                  <Select
+                    value={facts.ceremony_kind || 'religious'}
+                    label="نوع مناسبت مراسم"
+                    onChange={e => {
+                      const val = e.target.value
+                      onChange('ceremony_kind', val)
+                      onChange('ceremony_religious', val === 'religious' ? 1 : 0)
+                      onChange('ceremony_national', val === 'national' ? 1 : 0)
+                      onChange('ceremony_revolutionary', val === 'revolutionary' ? 1 : 0)
+                    }}
+                  >
+                    <MenuItem value="religious">مذهبی (اعیاد/شهادت‌ها)</MenuItem>
+                    <MenuItem value="national">ملی</MenuItem>
+                    <MenuItem value="revolutionary">انقلابی (دهه فجر و ...)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 1,
+                    borderRadius: 1.5,
+                    bgcolor: facts.is_ashura_pilgrimage ? 'secondary.50' : 'background.paper',
+                    borderColor: facts.is_ashura_pilgrimage ? 'secondary.main' : 'divider',
+                  }}
+                >
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        color="secondary"
+                        checked={Boolean(facts.is_ashura_pilgrimage)}
+                        onChange={e => onChange('is_ashura_pilgrimage', e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" fontWeight={facts.is_ashura_pilgrimage ? 700 : 400}>
+                        مراسم قرائت زیارت عاشورا (آمار مستقل طبق بند C12)
+                      </Typography>
+                    }
+                  />
+                </Paper>
+              </Grid>
+            </Grid>
+
+            <Grid container spacing={1}>
+              {[
+                { key: 'speaker_count', label: 'هماهنگی با سخنران/مداح/مجری' },
+                { key: 'space_setup_count', label: 'فضاسازی محیطی و بنر' },
+                { key: 'culture_pack_count', label: 'توزیع بسته فرهنگی' },
+                { key: 'reception_count', label: 'پذیرایی' },
+              ].map(item => (
+                <Grid size={{ xs: 12, sm: 6 }} key={item.key}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={Boolean(facts[item.key])} onChange={() => toggleFact(item.key)} />}
+                    label={<Typography variant="body2">{item.label}</Typography>}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+        )}
+
+        {/* 4. PRAYER */}
+        {program === 'prayer' && (
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد افراد نومکلف (جشن تکلیف)"
+                  value={facts.nominee_count || ''}
+                  onChange={e => setFact('nominee_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد هدایای جشن تکلیف"
+                  value={facts.gift_count || ''}
+                  onChange={e => setFact('gift_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+            </Grid>
+            <Grid container spacing={1}>
+              {[
+                { key: 'invitation_count', label: 'دعوت‌نامه و فراخوان جشن تکلیف' },
+                { key: 'space_setup_count', label: 'فضاسازی محیطی و محراب' },
+                { key: 'imam_bank_count', label: 'ثبت در بانک اطلاعات ائمه جماعات' },
+                { key: 'reception_count', label: 'پذیرایی جشن' },
+              ].map(item => (
+                <Grid size={{ xs: 12, sm: 6 }} key={item.key}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={Boolean(facts[item.key])} onChange={() => toggleFact(item.key)} />}
+                    label={<Typography variant="body2">{item.label}</Typography>}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+        )}
+
+        {/* 5. HONOR */}
+        {program === 'honor' && (
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد همکاران تقدیرشده"
+                  value={facts.honoree_count || ''}
+                  onChange={e => setFact('honoree_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>جامعه همکاران</InputLabel>
+                  <Select
+                    value={facts.audience_judicial ? 'judicial' : 'administrative'}
+                    label="جامعه همکاران"
+                    onChange={e => {
+                      const val = e.target.value
+                      onChange('audience_administrative', val === 'administrative' ? 1 : 0)
+                      onChange('audience_judicial', val === 'judicial' ? 1 : 0)
+                    }}
+                  >
+                    <MenuItem value="administrative">کادر اداری</MenuItem>
+                    <MenuItem value="judicial">کادر قضایی</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد هدایای اعطایی"
+                  value={facts.gift_count || ''}
+                  onChange={e => setFact('gift_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+            </Grid>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={facts.standalone_titled !== false}
+                  onChange={e => onChange('standalone_titled', e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  آیا مراسم مستقل و با عنوان مشخص تکریم و تجلیل برگزار شد؟ (شرط پذیرش آمار مستقل)
+                </Typography>
+              }
+            />
+          </Stack>
+        )}
+
+        {/* 6. CUSTOMER_CARE */}
+        {program === 'customer_care' && (
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد کارمندان تشویق‌شده"
+                  value={facts.honoree_count || ''}
+                  onChange={e => setFact('honoree_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>بخش کارکنان</InputLabel>
+                  <Select
+                    value={facts.audience_judicial ? 'judicial' : 'administrative'}
+                    label="بخش کارکنان"
+                    onChange={e => {
+                      const val = e.target.value
+                      onChange('audience_administrative', val === 'administrative' ? 1 : 0)
+                      onChange('audience_judicial', val === 'judicial' ? 1 : 0)
+                    }}
+                  >
+                    <MenuItem value="administrative">کادر اداری</MenuItem>
+                    <MenuItem value="judicial">کادر قضایی</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Stack>
+        )}
+
+        {/* 7. CHARTER */}
+        {program === 'charter' && (
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد تابلوهای منشور نصب‌شده"
+                  value={facts.board_count || ''}
+                  onChange={e => setFact('board_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="مکاتبات و ابلاغیه‌های اداری"
+                  value={facts.correspondence_count || ''}
+                  onChange={e => setFact('correspondence_count', e.target.value ? Number(e.target.value) : 0)}
+                />
+              </Grid>
+            </Grid>
+            <Grid container spacing={1}>
+              {[
+                { key: 'republish_count', label: 'بازنشر مفاد منشور در کانال/گروه مجازی' },
+                { key: 'other_action_count', label: 'سایر اقدامات فرهنگی و نظارتی' },
+              ].map(item => (
+                <Grid size={{ xs: 12, sm: 6 }} key={item.key}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={Boolean(facts[item.key])} onChange={() => toggleFact(item.key)} />}
+                    label={<Typography variant="body2">{item.label}</Typography>}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Stack>
+        )}
+      </Stack>
+    </Paper>
+  )
+}
+
 export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [currentTab, setCurrentTab] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
@@ -159,9 +614,10 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [candidateFilter, setCandidateFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
   const [scanning, setScanning] = useState<boolean>(false)
   const [approveDialog, setApproveDialog] = useState<CandidateItem | null>(null)
+  const [manualEventDialogOpen, setManualEventDialogOpen] = useState<boolean>(false)
   const [rejectDialog, setRejectDialog] = useState<CandidateItem | null>(null)
 
-  // Approve form state
+  // Approve & Manual event form state
   const [approveProgram, setApproveProgram] = useState<string>('ceremonies')
   const [approveAttendees, setApproveAttendees] = useState<string>('')
   const [approveOccurredOn, setApproveOccurredOn] = useState<string>(() => new Date().toISOString().slice(0, 10))
@@ -169,6 +625,8 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [approveUnitName, setApproveUnitName] = useState<string>('')
   const [approveOfficialPresent, setApproveOfficialPresent] = useState<boolean>(false)
   const [approveNotes, setApproveNotes] = useState<string>('')
+  const [dimensionFacts, setDimensionFacts] = useState<Record<string, any>>({})
+  const [submittingEvent, setSubmittingEvent] = useState<boolean>(false)
   const [rejectionReason, setRejectionReason] = useState<string>('')
   const [suggestionData, setSuggestionData] = useState<{ reasoning: string; hints: Record<string, any> } | null>(null)
   const [loadingSuggestion, setLoadingSuggestion] = useState<boolean>(false)
@@ -309,6 +767,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   // Open Approve Dialog
   const openApprove = (candidate: CandidateItem) => {
     setApproveDialog(candidate)
+    setManualEventDialogOpen(false)
     const firstProg = candidate.matched_programs[0] || 'ceremonies'
     setApproveProgram(firstProg)
     setApproveAttendees(candidate.attendee_count !== null ? String(candidate.attendee_count) : '')
@@ -317,6 +776,24 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
     setApproveOfficialPresent(false)
     setApproveNotes('')
     setSuggestionData(null)
+    setDimensionFacts({
+      is_ashura_pilgrimage: candidate.candidate_kind === 'ashura_pilgrimage',
+    })
+  }
+
+  // Open Manual Event Dialog
+  const openManualEvent = () => {
+    setApproveDialog(null)
+    setManualEventDialogOpen(true)
+    setApproveProgram('ceremonies')
+    setApproveAttendees('')
+    setApproveOccurredOn(new Date().toISOString().slice(0, 10))
+    setApproveUnit('provincial_hq')
+    setApproveUnitName('')
+    setApproveOfficialPresent(false)
+    setApproveNotes('')
+    setSuggestionData(null)
+    setDimensionFacts({})
   }
 
   // Fetch AI Suggester proposal
@@ -352,25 +829,42 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
     }
   }
 
-  // Submit Approval
-  const submitApprove = async () => {
-    if (!approveDialog) return
+  // Submit Approval or Manual Event
+  const submitEventForm = async () => {
+    if (!approveDialog && !manualEventDialogOpen) return
     try {
+      setSubmittingEvent(true)
       const attendees = approveAttendees.trim() ? Number(approveAttendees) : null
-      await api('POST', `/api/v2/reporting/candidates/${approveDialog.candidate_id}/review`, {
-        action: 'approve',
+      const payload: Record<string, any> = {
+        program_id: approveProgram,
         occurred_on: approveOccurredOn,
         unit: approveUnit,
         unit_name: approveUnitName,
         official_present: approveOfficialPresent,
         attendee_count: attendees,
+        is_ashura_pilgrimage: Boolean(dimensionFacts.is_ashura_pilgrimage),
+        is_standalone_titled: dimensionFacts.standalone_titled !== false,
+        occasion_class: dimensionFacts.occasion_class || (approveProgram === 'ceremonies' ? (dimensionFacts.ceremony_kind || 'religious') : null),
+        dimension_facts: dimensionFacts,
         notes: approveNotes,
-      })
-      toast.success('رویداد با موفقیت تأیید شد و به آمار رسمی افزوده گشت.')
-      setApproveDialog(null)
-      await loadCandidates()
+      }
+
+      if (approveDialog) {
+        payload.action = 'approve'
+        await api('POST', `/api/v2/reporting/candidates/${approveDialog.candidate_id}/review`, payload)
+        toast.success('رویداد با تمام ابعاد اختصاصی شیت با موفقیت تأیید و در آمار ثبت شد.')
+        setApproveDialog(null)
+        await loadCandidates()
+      } else {
+        await api('POST', '/api/v2/reporting/events', payload)
+        toast.success('رویداد فرهنگی جدید با ابعاد اختصاصی شیت با موفقیت ایجاد شد.')
+        setManualEventDialogOpen(false)
+      }
+      void loadEventsAndExports()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'خطا در تأیید نامزد گزارش')
+      toast.error(err instanceof Error ? err.message : 'خطا در ثبت رویداد')
+    } finally {
+      setSubmittingEvent(false)
     }
   }
 
@@ -612,6 +1106,14 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                     disabled={scanning}
                   >
                     {scanning ? 'در حال پویش خودکار گفتگوها…' : 'پویش هوشمند گفتگوها'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<AddCircleOutlineRounded />}
+                    onClick={openManualEvent}
+                  >
+                    ثبت رویداد جدید (دستی)
                   </Button>
                   <Typography variant="body2" color="text.secondary">
                     پیام‌های جدید کانال‌ها و گروه‌های تحت رصد برای کشف گزارش رویدادها تحلیل می‌شوند.
@@ -1264,12 +1766,22 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         )}
       </Box>
 
-      {/* Approve Candidate Dialog */}
-      <Dialog open={Boolean(approveDialog)} onClose={() => setApproveDialog(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800 }}>تأیید و ثبت نهایی رویداد در گزارش</DialogTitle>
+      {/* Approve Candidate or Manual Event Dialog */}
+      <Dialog
+        open={Boolean(approveDialog) || manualEventDialogOpen}
+        onClose={() => {
+          setApproveDialog(null)
+          setManualEventDialogOpen(false)
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {approveDialog ? 'تأیید و ثبت نهایی رویداد در گزارش (با ابعاد اختصاصی شیت)' : 'ثبت رویداد فرهنگی جدید در گزارش'}
+        </DialogTitle>
         <DialogContent dividers>
-          {approveDialog && (
-            <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {approveDialog && (
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Alert severity="info" sx={{ flex: 1, mr: 1, py: 0.5 }}>
                   گفتگو: <strong>{approveDialog.dialog_label}</strong> | پیام: {approveDialog.message_ref}
@@ -1285,96 +1797,131 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                   {loadingSuggestion ? 'تحلیل عامل…' : 'پیشنهاد هوشمند عامل'}
                 </Button>
               </Stack>
+            )}
 
-              {suggestionData && (
-                <Alert severity="success" icon={<AutoAwesomeRounded />} sx={{ py: 0.5 }}>
-                  <strong>پیشنهاد عامل هوشمند:</strong> {suggestionData.reasoning}
-                </Alert>
-              )}
+            {suggestionData && (
+              <Alert severity="success" icon={<AutoAwesomeRounded />} sx={{ py: 0.5 }}>
+                <strong>پیشنهاد عامل هوشمند:</strong> {suggestionData.reasoning}
+              </Alert>
+            )}
 
-              <FormControl fullWidth size="small">
-                <InputLabel>برنامه فرهنگی متناظر</InputLabel>
-                <Select
-                  value={approveProgram}
-                  label="برنامه فرهنگی متناظر"
-                  onChange={e => setApproveProgram(e.target.value)}
-                >
-                  {Object.entries(PROGRAM_NAMES).map(([id, name]) => (
-                    <MenuItem key={id} value={id}>
-                      {name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>برنامه فرهنگی متناظر</InputLabel>
+                  <Select
+                    value={approveProgram}
+                    label="برنامه فرهنگی متناظر"
+                    onChange={e => setApproveProgram(e.target.value)}
+                  >
+                    {Object.entries(PROGRAM_NAMES).map(([id, name]) => (
+                      <MenuItem key={id} value={id}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
 
-              <TextField
-                size="small"
-                fullWidth
-                label="تاریخ برگزاری رویداد (YYYY-MM-DD)"
-                value={approveOccurredOn}
-                onChange={e => setApproveOccurredOn(e.target.value)}
-              />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="تاریخ برگزاری رویداد (YYYY-MM-DD)"
+                  value={approveOccurredOn}
+                  onChange={e => setApproveOccurredOn(e.target.value)}
+                />
+              </Grid>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>دامنه واحد برگزارکننده</InputLabel>
-                <Select
-                  value={approveUnit}
-                  label="دامنه واحد برگزارکننده"
-                  onChange={e => setApproveUnit(e.target.value)}
-                >
-                  {UNIT_SCOPES.map(u => (
-                    <MenuItem key={u.value} value={u.value}>
-                      {u.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>دامنه واحد برگزارکننده</InputLabel>
+                  <Select
+                    value={approveUnit}
+                    label="دامنه واحد برگزارکننده"
+                    onChange={e => setApproveUnit(e.target.value)}
+                  >
+                    {UNIT_SCOPES.map(u => (
+                      <MenuItem key={u.value} value={u.value}>
+                        {u.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
 
-              <TextField
-                size="small"
-                fullWidth
-                label="نام دقیق واحد یا حوزه قضایی"
-                value={approveUnitName}
-                onChange={e => setApproveUnitName(e.target.value)}
-                placeholder="مثال: حوزه قضایی بابل / ستاد مرکزی ساری"
-              />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="نام دقیق واحد یا حوزه قضایی"
+                  value={approveUnitName}
+                  onChange={e => setApproveUnitName(e.target.value)}
+                  placeholder="مثال: حوزه قضایی بابل / ستاد مرکزی ساری"
+                />
+              </Grid>
 
-              <TextField
-                size="small"
-                fullWidth
-                type="number"
-                label="تعداد شرکت‌کنندگان (در صورت مشخص بودن)"
-                value={approveAttendees}
-                onChange={e => setApproveAttendees(e.target.value)}
-                placeholder="مثال: ۸۵"
-              />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد شرکت‌کنندگان (در صورت مشخص بودن)"
+                  value={approveAttendees}
+                  onChange={e => setApproveAttendees(e.target.value)}
+                  placeholder="مثال: ۸۵"
+                />
+              </Grid>
 
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={approveOfficialPresent}
-                    onChange={e => setApproveOfficialPresent(e.target.checked)}
-                  />
-                }
-                label="آیا رئیس‌کل یا بالاترین مقام استانی در مراسم حضور داشتند؟"
-              />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={approveOfficialPresent}
+                      onChange={e => setApproveOfficialPresent(e.target.checked)}
+                    />
+                  }
+                  label="حضور رئیس‌کل یا مقام استانی در مراسم"
+                />
+              </Grid>
+            </Grid>
 
-              <TextField
-                size="small"
-                fullWidth
-                multiline
-                rows={2}
-                label="یادداشت و توضیحات تکمیلی بازبین"
-                value={approveNotes}
-                onChange={e => setApproveNotes(e.target.value)}
-              />
-            </Stack>
-          )}
+            {/* DYNAMIC SHEET DIMENSIONS ACCORDING TO SELECTED PROGRAM */}
+            <SheetSpecificDimensions
+              program={approveProgram}
+              facts={dimensionFacts}
+              onChange={(k, v) => setDimensionFacts(prev => ({ ...prev, [k]: v }))}
+            />
+
+            <TextField
+              size="small"
+              fullWidth
+              multiline
+              rows={2}
+              label="یادداشت و توضیحات تکمیلی"
+              value={approveNotes}
+              onChange={e => setApproveNotes(e.target.value)}
+              placeholder="توضیحات تکمیلی یا مشاهدات..."
+            />
+          </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setApproveDialog(null)}>انصراف</Button>
-          <Button variant="contained" color="success" onClick={submitApprove}>
-            تأیید نهایی و درج در آمار
+          <Button
+            onClick={() => {
+              setApproveDialog(null)
+              setManualEventDialogOpen(false)
+            }}
+          >
+            انصراف
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={submitEventForm}
+            disabled={submittingEvent}
+            startIcon={submittingEvent ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            {approveDialog ? 'تأیید نهایی و درج در آمار' : 'ثبت رویداد جدید'}
           </Button>
         </DialogActions>
       </Dialog>

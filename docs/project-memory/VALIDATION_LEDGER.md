@@ -2164,11 +2164,30 @@
   3. `npm.cmd --prefix ui run test:observability`
   4. `npm.cmd --prefix ui run build`
   5. `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py`
-  6. `.\.venv\Scripts\python.exe scripts
-efresh_project_docs.py --check --check-links`
+  6. `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links`
 - نتیجه:
   - تمام ۶۳ آزمون اختصاصی ماژول‌های reporting و ۱۵ آزمون release packaging با موفقیت ۱۰۰٪ پاس شدند.
   - فرانت‌اند React با TypeScript بدون هیچ خطایی کامپایل و بستهٔ production ساخته شد.
   - داده‌های پایگاه عملیاتی `data/reporting/reporting.sqlite3` با واردسازی idempotent به ۲۱۹ فکت دوماهه (پوشش کامل هر ۷ بخش در P1/P2/P3)، ۷۷ شخص یکتا (کارکنان و همراهان)، ۳۹۳ رویداد، ۱۰۹ پیوند پست وردپرس و ۳۱ حوزه قضایی ارتقا یافت.
   - هیچ دادهٔ حساس یا PII به لاگ‌ها یا خروجی‌های عمومی نشت نکرد.
 - Trigger تکرار: تغییر ساختار جداول reporting، تغییر اسکیمای فرم‌های عملکرد، یا تغییر نسخه پکیج بسته‌بندی.
+
+### V-225 — پویایی فرم ثبت و بازبینی رویداد فرهنگی بر اساس ابعاد ۷ شیت کاربرگ + امکان ثبت دستی
+
+- تاریخ: 2026-09-28
+- دامنه: `src/eitaa_bridge/reporting/service.py` (`approve_candidate_to_event` و `create_manual_event` با تزریق ابعاد اختصاصی و تولید خودکار Factهای متناظر فرم‌ها)، `src/eitaa_bridge/application/api.py` (گسترش اندپوینت review بازبینی نامزد و مسیر تازهٔ `POST /api/v2/reporting/events` برای ثبت دستی)، `tests/test_reporting_api.py` (آزمون‌های اعتبارسنجی ابعاد اختصاصی شیت‌ها و ثبت دستی)، `ui/src/ReportingWorkbench.tsx` (کامپوننت `SheetSpecificDimensions` با ورودی‌های فارسی اختصاصی برای هر ۷ کاربرگ، فیلدهای پویای اردو، مسابقات، مراسم، نماز، تکریم، عفاف/مشتری‌مداری و منشور حقوق، دکمهٔ «ثبت رویداد جدید (دستی)» در Action Bar و دیالوگ مشترک ریسپانسیو).
+- سطح: UNIT + CONTRACT + UI_CONTRACT + INTEGRATION.
+- روش امن:
+  1. `.\.venv\Scripts\python.exe -m pytest tests/test_reporting_core.py tests/test_reporting_indexer.py tests/test_reporting_store.py tests/test_reporting_suggester.py tests/test_reporting_office.py tests/test_reporting_api.py -q` (۱۰۶/۱۰۶ آزمون موفق)
+  2. `npm.cmd --prefix ui run check` (بررسی خطای تایپ و TypeScript: پاس کامل بدون خطا)
+  3. `npm.cmd --prefix ui run test:observability` (آزمون‌های observability پاس کامل)
+  4. `npm.cmd --prefix ui run build` (ساخت بستهٔ نهایی فرانت‌اند موفق)
+  5. `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py` (پاس کامل)
+  6. `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links` (پاس کامل)
+- نتیجه:
+  - فرم ثبت و بازبینی رویداد در کارتابل بر اساس برنامهٔ فرهنگی انتخاب‌شده (از میان ۷ شیت کاربرگ) ابعاد دقیق و متفاوت همان شیت (نوع سفر و خودرو و بیمه برای اردو؛ سطح و موضوع و برگزیده برای مسابقه؛ سخنران، پذیرایی و فضا برای مناسبت؛ امام جماعت و قرائت قرآن و ادعیه برای نماز؛ مخاطب و هدایا برای تکریم و عفاف؛ تابلوی منشور و مکاتبات برای حقوق شهروندی) را به کاربر نمایش می‌دهد.
+  - ثبت یا تأیید رویداد بلافاصله فکت‌های مربوطه را با کلیدهای استاندارد فرم استخراج کرده و در پایگاه ذخیره می‌کند تا شیت‌های هفت‌گانه در تب دوم به طور خودکار مقداردهی شوند.
+  - امکان ثبت دستی رویداد بدون وابستگی به نامزد ایتا/بله در تب اول کارتابل افزوده شد.
+  - بدون تغییر در تنظیمات شبکه، داده‌های نشست واقعی، یا فایل‌های پیکربندی حساس.
+- Trigger تکرار: تغییر ستون‌ها یا سنجه‌های هر یک از ۷ کاربرگ عملکرد فرهنگی.
+

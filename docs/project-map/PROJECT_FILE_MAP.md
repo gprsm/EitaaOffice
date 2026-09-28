@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 390
-- اثرانگشت منبع: `57c5ca6dff6b80cb`
+- اثرانگشت منبع: `3b108633e9469e0f`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -107,7 +107,7 @@
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 49 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 23 | AI Agent Chat Gateway (chat-only surface). |
-| `src/eitaa_bridge/application/api.py` | Application | 299 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 300 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
@@ -235,7 +235,7 @@
 | `src/eitaa_bridge/reporting/registry.py` | Project | 17 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
-| `src/eitaa_bridge/reporting/service.py` | Project | 23 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
+| `src/eitaa_bridge/reporting/service.py` | Project | 24 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/reporting/store.py` | Project | 56 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
@@ -316,7 +316,7 @@
 | `tests/test_project_memory_integrity.py` | Python test | 5 | — |
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
-| `tests/test_reporting_api.py` | Python test | 11 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
+| `tests/test_reporting_api.py` | Python test | 13 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
@@ -384,7 +384,7 @@
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
-| `ui/src/ReportingWorkbench.tsx` | React UI | 15 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 19 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 6 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |
