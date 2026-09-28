@@ -87,3 +87,4 @@
 - [REPORTING_CORE_IMPLEMENTATION_2026-09-08.md](REPORTING_CORE_IMPLEMENTATION_2026-09-08.md) — هستهٔ گزارش ۱۴۰۵ پیاده‌سازی شد؛ رصد ایتا + ایندکس‌گذار intent + بله اضافه شد (ADR-53/54، F-070/071، V-190/191)
 - [گزارش بازنشانی کامل نصب سرور](../reports/features/EITAA_SERVER_FULL_RESET_REPORT_2026-09-26.md) — جایگزینی نسخهٔ محلی، حذف state و توکن‌های پیشین، و مرز پذیرش گفت‌وگوها (F-080/F-082، V-212).
 - [گزارش زیرساخت اتصال سامانهٔ آموزش/آزمون](../reports/features/EDUCATION_SYSTEM_M2M_INFRASTRUCTURE_REPORT_2026-09-27.md) — M2M محدود، resolve فقط‌خواندنی، داربست بله بات و درگاه عامل پس از اعتبارسنجی مستقل (F-083/F-084، V-213/V-214، ADR-59).
+- [دستورهای تکمیل بله و کلاینت وب](../implementation-plans/bridge-client-2026-09-28/README.md) — مأموریت مستقل بله و نه فاز sender/limits/reservation/OTP/AI/client/Live/تحویل؛ فقط `PLANNED`، نه قابلیت پیاده‌شده (F-092، V-226).
