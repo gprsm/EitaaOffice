@@ -303,6 +303,9 @@ _REPORTING_CANDIDATE_SUGGEST_ROUTE = re.compile(
 _OFFICE_NORMALIZE_REVIEW_ROUTE = re.compile(
     r"^/api/v3/office/queue/(?P<candidate_id>[a-zA-Z0-9_-]+)/review$"
 )
+_OFFICE_WP_LINK_ACTION_ROUTE = re.compile(
+    r"^/api/v3/office/wp-links/(?P<link_id>[a-zA-Z0-9_-]+)/(?P<action>link|unlink)$"
+)
 _REPORTING_FORM_ROUTE = re.compile(
     r"^/api/v2/reporting/forms/(?P<program_id>[a-zA-Z0-9_-]+)$"
 )
@@ -1627,6 +1630,13 @@ class BridgeApplicationApi:
             if selected_method == "POST" and office_review_match:
                 return self._office_review_normalization(
                     office_review_match.group("candidate_id"), payload
+                )
+            office_wp_match = _OFFICE_WP_LINK_ACTION_ROUTE.fullmatch(path)
+            if selected_method == "POST" and office_wp_match:
+                return self._office_manage_wp_link(
+                    office_wp_match.group("link_id"),
+                    office_wp_match.group("action"),
+                    payload,
                 )
             if selected_method == "GET" and path == "/api/v3/office/dossier":
                 return self._office_dossier(query)
@@ -3576,6 +3586,9 @@ class BridgeApplicationApi:
                 entity_type="section", entity_id=f"section:{section_id}", period=period
             )
             plans = self._reporting_store.list_plan_items(period=period, section=section_id)
+            if not plans and period == "1405":
+                from ..reporting.plans import ALL_PLANS_1405
+                plans = [p for p in ALL_PLANS_1405 if p.section == section_id and p.period == period]
             section_events = [
                 e for e in events
                 if any(k.value in section.get("kinds", []) for k in e.program_kinds)
@@ -3653,6 +3666,18 @@ class BridgeApplicationApi:
             fact = self._reporting_store.approve_normalization_candidate(
                 candidate_id, coded_value=coded, reviewed_by=reviewed_by,
             )
+            full_name = str(payload.get("full_name") or "").strip()
+            position = str(payload.get("position") or "").strip()
+            source_kind = str(payload.get("source_kind") or "").strip()
+            if (full_name or position or source_kind) and fact.entity_type == "unit":
+                imams = self._reporting_store.list_imams(unit_id=fact.entity_id)
+                if imams:
+                    imam = imams[0]
+                    if full_name: imam.full_name = full_name
+                    if position: imam.position = position
+                    if source_kind in {"none", "staff_cleric", "invited_external"}:
+                        imam.source_kind = source_kind
+                    self._reporting_store.save_imam(imam)
             return ApiResponse(200, {"ok": True, "fact_id": fact.fact_id})
         if action == "reject":
             self._reporting_store.reject_normalization_candidate(
@@ -3698,6 +3723,61 @@ class BridgeApplicationApi:
     # ----------------------------------------------------------------------
     # Reporting Endpoints Handlers
     # ----------------------------------------------------------------------
+
+    def _office_manage_wp_link(
+        self, link_id: str, action: str, payload: Mapping[str, Any]
+    ) -> ApiResponse:
+        if action == "unlink":
+            with self._reporting_store._connect() as conn:
+                conn.execute(
+                    "UPDATE wp_post_links SET event_id = '', match_status = 'unmatched' WHERE link_id = ?",
+                    (link_id,),
+                )
+            return ApiResponse(200, {"ok": True, "link_id": link_id, "action": "unlink"})
+        if action == "link":
+            event_id = str(payload.get("event_id") or "").strip()
+            section = str(payload.get("section") or "").strip()
+            with self._reporting_store._connect() as conn:
+                if section:
+                    conn.execute(
+                        "UPDATE wp_post_links SET section = ? WHERE link_id = ?",
+                        (section, link_id),
+                    )
+            if event_id:
+                self._reporting_store.link_wp_post_to_event(
+                    link_id, event_id, match_status="confirmed"
+                )
+            elif section:
+                link_row = None
+                with self._reporting_store._connect() as conn:
+                    row = conn.execute("SELECT * FROM wp_post_links WHERE link_id = ?", (link_id,)).fetchone()
+                    if row:
+                        link_row = dict(row)
+                if link_row:
+                    from ..reporting.office_import import _KIND_BY_SECTION
+                    from ..reporting.model import ReportedEvent, UnitScope
+                    from datetime import date
+                    import uuid as _uuid
+                    kinds = _KIND_BY_SECTION.get(section, ())
+                    pub_str = link_row.get("published_on") or ""
+                    try:
+                        occurred = date.fromisoformat(pub_str) if pub_str else date.today()
+                    except ValueError:
+                        occurred = date.today()
+                    ev_id = f"wp-manual-{_uuid.uuid4().hex[:8]}"
+                    ev = ReportedEvent(
+                        event_id=ev_id,
+                        program_kinds=kinds,
+                        occurred_on=occurred,
+                        unit=UnitScope.PROVINCIAL_HQ,
+                        notes=link_row.get("title") or "تأیید دستی بخش",
+                        created_by="manual-linking",
+                    )
+                    self._reporting_store.save_event(ev)
+                    self._reporting_store.link_wp_post_to_event(link_id, ev_id, match_status="confirmed")
+            return ApiResponse(200, {"ok": True, "link_id": link_id, "action": "link"})
+        return ApiResponse(400, {"ok": False, "error": f"unknown action: {action}"})
+
     def _reporting_get_config(self) -> ApiResponse:
         config = self._reporting_store.get_config()
         targets = [

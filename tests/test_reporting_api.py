@@ -218,3 +218,38 @@ class TestReportingFormsAndExportEndpoints:
         exports_resp = reporting_api.dispatch("GET", "/api/v2/reporting/exports")
         assert exports_resp.status == 200
         assert len(exports_resp.payload["exports"]) >= 1
+
+    def test_office_wp_link_and_unlink(self, reporting_api: BridgeApplicationApi) -> None:
+        store = reporting_api._reporting_store
+        from eitaa_bridge.reporting import WpPostLink
+        link = WpPostLink(
+            link_id="wpl-test-1",
+            post_slug="test-slug",
+            title="پست تستی",
+            section="prayer",
+            match_status="unmatched",
+        )
+        store.save_wp_link(link)
+
+        # 1. Link with section
+        resp = reporting_api.dispatch(
+            "POST",
+            "/api/v3/office/wp-links/wpl-test-1/link",
+            body={"section": "prayer"},
+        )
+        assert resp.status == 200
+        assert resp.payload["ok"] is True
+        loaded = store.list_wp_links(section="prayer")
+        assert len(loaded) == 1
+        assert loaded[0]["match_status"] == "confirmed"
+
+        # 2. Unlink
+        resp_unlink = reporting_api.dispatch(
+            "POST",
+            "/api/v3/office/wp-links/wpl-test-1/unlink",
+            body={},
+        )
+        assert resp_unlink.status == 200
+        loaded_unlinked = store.list_wp_links()
+        assert loaded_unlinked[0]["match_status"] == "unmatched"
+        assert loaded_unlinked[0]["event_id"] == ""

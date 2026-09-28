@@ -398,6 +398,17 @@ _ASSESSMENT_FIELDS: tuple[InstrumentField, ...] = (
         source_column="AA",
         normalization="note_only",
     ),
+    InstrumentField(
+        MetricDefinition(
+            key="imam_record",
+            label="ثبت مشخصات امام جماعت",
+            unit="text",
+            applies_to=frozenset({"unit", "imam"}),
+            aggregate="none",
+        ),
+        source_column="P",
+        normalization="candidate",
+    ),
 )
 
 

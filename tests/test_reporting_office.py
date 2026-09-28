@@ -242,3 +242,21 @@ class TestNarrativeForm:
         filled = prefill_form(NARRATIVE_REPORT_FORM, [shim])
         assert filled.answers["narrative_obstacles"].value == "کمبود بودجه"
         assert filled.answers["narrative_allocated_budget"].value == 120_000_000.0
+
+    def test_prefill_narrative_form_direct(self) -> None:
+        from eitaa_bridge.reporting import EntityFact
+        from eitaa_bridge.reporting.forms import prefill_narrative_form
+
+        facts = [
+            EntityFact(fact_id="n1", entity_type="section", entity_id="section:prayer",
+                       metric="program_obstacles", text_value="کمبود زمان",
+                       unit_of_measure="text"),
+            EntityFact(fact_id="n2", entity_type="section", entity_id="section:prayer",
+                       metric="allocated_budget", value=50_000_000.0,
+                       unit_of_measure="currency"),
+        ]
+        filled = prefill_narrative_form("prayer", facts, title="توسعه نماز", mandate_basis="سند تحول")
+        assert filled.answers["narrative_title"].value == "توسعه نماز"
+        assert filled.answers["narrative_mandate_basis"].value == "سند تحول"
+        assert filled.answers["narrative_obstacles"].value == "کمبود زمان"
+        assert filled.answers["narrative_allocated_budget"].value == 50_000_000.0

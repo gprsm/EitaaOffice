@@ -85,26 +85,31 @@ OFFICE_SECTIONS: tuple[SectionDefinition, ...] = (
     SectionDefinition(
         section_id="training_courses", title="برگزاری دوره و کارگاه آموزشی مصوب",
         source="visit_worksheet", visit_label="برگزاری دوره و کارگاه آموزشی مصوب",
+        kinds=("training_course",),
         notes="خانواده مهدوی، جهاد تبیین، نشست رابطین فرهنگی، اخلاق حرفه‌ای مدیران",
     ),
     SectionDefinition(
         section_id="content_production", title="تولید محتوا",
         source="visit_worksheet", visit_label="تولید محتوا",
+        kinds=("content_production",),
         notes="تیزر، فیلم کوتاه، موشن گرافی، پوستر، پیامک، سربرگ",
     ),
     SectionDefinition(
         section_id="counseling", title="ارائه خدمات مشاوره",
         source="visit_worksheet", visit_label="ارائه خدمات مشاوره",
+        kinds=("counseling",),
         notes="مشاوره ازدواج به مجردین، مشاوره تحصیلی",
     ),
     SectionDefinition(
         section_id="education_services", title="ارائه خدمات تحصیلی به فرزندان",
         source="visit_worksheet", visit_label="ارائه خدمات تحصیلی به فرزندان",
+        kinds=("education_services",),
         notes="تعامل با مراکز آموزشی، تقدیر از رتبه‌های برتر، استعدادیابی",
     ),
     SectionDefinition(
         section_id="external_collaboration", title="تعامل با متولیان فرهنگی برون سازمانی",
         source="visit_worksheet", visit_label="تعامل با متولیان فرهنگی برون سازمانی",
+        kinds=("external_collaboration",),
         notes="صداوسیما، ارشاد، اوقاف، تبلیغات، کتابخانه‌ها، حوزه‌ها",
     ),
 )

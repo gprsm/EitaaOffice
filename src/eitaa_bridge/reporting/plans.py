@@ -202,6 +202,221 @@ PRAYER_PLAN_1405: tuple[PlanItem, ...] = (
     ),
 )
 
+SECTION_PLANS_1405: tuple[PlanItem, ...] = (
+    # اردو (80401)
+    PlanItem(
+        plan_id="trip-1405-staff",
+        section="trip",
+        strategy="فرهنگی - تفریحی",
+        title="برگزاری اردوی فرهنگی زیارتی برای کارکنان",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 2, "judicial_domains": 4},
+        campaign_tag="اردوی کارکنان",
+    ),
+    PlanItem(
+        plan_id="trip-1405-family",
+        section="trip",
+        strategy="فرهنگی - تفریحی",
+        title="برگزاری اردوی خانوادگی",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 2, "judicial_domains": 4},
+        campaign_tag="اردوی خانوادگی",
+    ),
+    PlanItem(
+        plan_id="trip-1405-newlywed",
+        section="trip",
+        strategy="فرهنگی - تفریحی",
+        title="اردوی مزدوجین سال اول ازدواج",
+        plan_type="provincial_native",
+        targets={"provincial_hq": 1, "judicial_domains": 0},
+        campaign_tag="اردوی مزدوجین",
+    ),
+    # مسابقات (80402)
+    PlanItem(
+        plan_id="contest-1405-quran",
+        section="contest",
+        strategy="تبلیغی - ترویجی",
+        title="مسابقات قرآن و عترت",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 12},
+        campaign_tag="مسابقات قرآنی",
+    ),
+    PlanItem(
+        plan_id="contest-1405-sports",
+        section="contest",
+        strategy="تبلیغی - ترویجی",
+        title="مسابقات فرهنگی، ادبی و ورزشی استانی",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 8},
+        campaign_tag="مسابقات ورزشی",
+    ),
+    # مراسم مذهبی و ملی (80403)
+    PlanItem(
+        plan_id="ceremonies-1405-religious",
+        section="ceremonies",
+        strategy="تبلیغی - ترویجی",
+        title="برگزاری مراسم در مناسبت های مذهبی (محرم، صفر، فاطمیه، اعیاد)",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 12, "judicial_domains": 24},
+        campaign_tag="مراسم مذهبی",
+    ),
+    PlanItem(
+        plan_id="ceremonies-1405-national",
+        section="ceremonies",
+        strategy="تبلیغی - ترویجی",
+        title="برگزاری مراسم در مناسبت های ملی و انقلابی (دهه فجر، هفته قوه قضاییه)",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 8, "judicial_domains": 16},
+        campaign_tag="مراسم ملی",
+    ),
+    # تکریم و تجلیل (80406)
+    PlanItem(
+        plan_id="honor-1405-seniors",
+        section="honor",
+        strategy="فرهنگی - انگیزشی",
+        title="تکریم و تجلیل از مفاخر، بازنشستگان و پیشکسوتان",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 8},
+        campaign_tag="تکریم بازنشستگان",
+    ),
+    PlanItem(
+        plan_id="honor-1405-exemplary",
+        section="honor",
+        strategy="فرهنگی - انگیزشی",
+        title="تجلیل از کارمندان نمونه و خادمان فرهنگی",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 10},
+        campaign_tag="کارمند نمونه",
+    ),
+    # تشویق ارباب رجوع (80601)
+    PlanItem(
+        plan_id="customer-1405-appreciation",
+        section="customer_care",
+        strategy="فرهنگی - انگیزشی",
+        title="تشویق کارمندان دارای بالاترین رضایت ارباب رجوع",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 8},
+        campaign_tag="رضایت ارباب رجوع",
+    ),
+    # منشور اخلاقی (80202)
+    PlanItem(
+        plan_id="charter-1405-council",
+        section="charter",
+        strategy="مدیریتی - نظارتی",
+        title="اجرای منشور اخلاقی و فراهم سازی مقدمات نظارت بر اجرا",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 8},
+        campaign_tag="منشور اخلاقی",
+    ),
+    PlanItem(
+        plan_id="charter-1405-workshops",
+        section="charter",
+        strategy="آموزشی - ارتقایی",
+        title="کارگاه‌های توانمندسازی اخلاق حرفه‌ای",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 2, "judicial_domains": 4},
+        campaign_tag="اخلاق حرفه ای",
+    ),
+    # دوره‌ها و کارگاه‌های آموزشی مصوب
+    PlanItem(
+        plan_id="training-1405-managers",
+        section="training_courses",
+        strategy="آموزشی",
+        title="دوره آموزشی اخلاق حرفه‌ای و فرهنگ سازمانی ویژه مدیران",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 2, "judicial_domains": 4},
+        campaign_tag="اخلاق مدیران",
+    ),
+    PlanItem(
+        plan_id="training-1405-family",
+        section="training_courses",
+        strategy="آموزشی",
+        title="کارگاه‌های خانواده مهدوی و نشست‌های جهاد تبیین",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 8},
+        campaign_tag="خانواده مهدوی",
+    ),
+    # تولید محتوا
+    PlanItem(
+        plan_id="content-1405-media",
+        section="content_production",
+        strategy="رسانه‌ای - تبلیغی",
+        title="تولید تیزر، فیلم کوتاه، موشن‌گرافی و نماهنگ",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 6, "judicial_domains": 6},
+        campaign_tag="تولید تیزر و کلیپ",
+    ),
+    PlanItem(
+        plan_id="content-1405-graphics",
+        section="content_production",
+        strategy="رسانه‌ای - تبلیغی",
+        title="طراحی پوستر، پیامک و سربرگ نامه‌ها",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 12, "judicial_domains": 12},
+        campaign_tag="طراحی پوستر",
+    ),
+    # ارائه خدمات مشاوره
+    PlanItem(
+        plan_id="counseling-1405-marriage",
+        section="counseling",
+        strategy="حمایتی - مشاوره‌ای",
+        title="مشاوره ازدواج به مجردین",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 10, "judicial_domains": 10},
+        campaign_tag="مشاوره ازدواج",
+    ),
+    PlanItem(
+        plan_id="counseling-1405-family",
+        section="counseling",
+        strategy="حمایتی - مشاوره‌ای",
+        title="مشاوره تحصیلی و سلامت روان خانواده",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 15, "judicial_domains": 15},
+        campaign_tag="مشاوره تحصیلی",
+    ),
+    # ارائه خدمات تحصیلی به فرزندان
+    PlanItem(
+        plan_id="education-1405-honoring",
+        section="education_services",
+        strategy="حمایتی - تشویقی",
+        title="تقدیر از فرزندان حائز رتبه‌های برتر علمی و کنکور",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 2, "judicial_domains": 4},
+        campaign_tag="رتبه های برتر",
+    ),
+    PlanItem(
+        plan_id="education-1405-talent",
+        section="education_services",
+        strategy="حمایتی - تشویقی",
+        title="استعدادیابی و تعامل با مراکز آموزشی برای فرزندان",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 2, "judicial_domains": 4},
+        campaign_tag="استعدادیابی فرزندان",
+    ),
+    # تعامل با متولیان فرهنگی برون‌سازمانی
+    PlanItem(
+        plan_id="collab-1405-media",
+        section="external_collaboration",
+        strategy="تعاملی - برون‌سازمانی",
+        title="همکاری و برنامه‌های مشترک با صداوسیما",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 4, "judicial_domains": 4},
+        campaign_tag="همکاری صداوسیما",
+    ),
+    PlanItem(
+        plan_id="collab-1405-institutions",
+        section="external_collaboration",
+        strategy="تعاملی - برون‌سازمانی",
+        title="تعامل با ارشاد، اوقاف، سازمان تبلیغات، کتابخانه‌ها و حوزه‌های علمیه",
+        plan_type="central_mandated",
+        targets={"provincial_hq": 6, "judicial_domains": 10},
+        campaign_tag="تعامل با نهادها",
+    ),
+)
+
+ALL_PLANS_1405: tuple[PlanItem, ...] = PRAYER_PLAN_1405 + SECTION_PLANS_1405
+ALL_PLAN_ITEM_INDEX: dict[str, PlanItem] = {item.plan_id: item for item in ALL_PLANS_1405}
+
 PRAYER_MANDATE_1405 = Mandate(
     mandate_id="mnd-staff-agreement-1405",
     kind="circular",
@@ -218,9 +433,26 @@ def campaign_events(events: Sequence[ReportedEvent], campaign_tag: str, *, perio
     """Events tagged with a campaign (the ``ReportedEvent.campaign`` dimension).
 
     A single event may serve several campaigns; tags are ``|``-separated.
-    Period slicing is the caller's concern (store queries filter by year).
+    Also falls back to matching campaign keywords in event title/notes.
     """
-    return [e for e in events if campaign_tag and campaign_tag in _campaign_tags(e)]
+    if not campaign_tag:
+        return []
+    tag_clean = campaign_tag.strip()
+    tag_words = [w for w in tag_clean.split() if len(w) > 2]
+    result: list[ReportedEvent] = []
+    for e in events:
+        tags = _campaign_tags(e)
+        if tag_clean in tags:
+            result.append(e)
+            continue
+        notes = getattr(e, "notes", "") or ""
+        occasion = getattr(e, "occasion", "") or ""
+        text = f"{notes} {occasion}"
+        if tag_clean in text:
+            result.append(e)
+        elif tag_words and sum(1 for w in tag_words if w in text) >= max(1, len(tag_words) - 1):
+            result.append(e)
+    return result
 
 
 def _campaign_tags(event: ReportedEvent) -> tuple[str, ...]:

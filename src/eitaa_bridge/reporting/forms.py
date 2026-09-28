@@ -295,7 +295,7 @@ class FilledForm:
 
 def prefill_form(
     definition: QuestionnaireDefinition,
-    events: Sequence[ReportedEvent],
+    events: Sequence[Any],
     *,
     context: Mapping[str, str] | None = None,
 ) -> FilledForm:
@@ -311,12 +311,18 @@ def prefill_form(
     for key in ("province", "report_period", "row_scope"):
         form.set(key, context.get(key, "جمع استان" if key == "row_scope" else ""), source=ValueSource.MANUAL)
 
-    auto_answers: dict[str, list[Fact]] = {}
-    for event in events:
-        for fact in event.facts:
+    auto_answers: dict[str, list[Any]] = {}
+    for item in events:
+        facts_list = getattr(item, "facts", None)
+        if facts_list is not None and isinstance(facts_list, (list, tuple)):
+            for fact in facts_list:
+                for question in definition.questions:
+                    if question.auto_from and question.auto_from == getattr(fact, "metric", ""):
+                        auto_answers.setdefault(question.key, []).append(fact)
+        elif hasattr(item, "metric"):
             for question in definition.questions:
-                if question.auto_from and question.auto_from == fact.metric:
-                    auto_answers.setdefault(question.key, []).append(fact)
+                if question.auto_from and question.auto_from == getattr(item, "metric", ""):
+                    auto_answers.setdefault(question.key, []).append(item)
 
     for question in definition.questions:
         if question.human_gate or not question.auto_from:
@@ -324,20 +330,50 @@ def prefill_form(
         facts = auto_answers.get(question.key)
         if not facts:
             continue
-        exportable = [fact for fact in facts if fact.is_export_ready()]
+        exportable = [
+            f for f in facts
+            if (f.export_ready() if hasattr(f, "export_ready") else (f.is_export_ready() if hasattr(f, "is_export_ready") else True))
+        ]
         chosen = exportable or facts
+        first = chosen[0]
+        v_kind = getattr(first, "value_kind", FactValueKind.REPORTED_BY_UNIT)
+        v_src = getattr(first, "source", ValueSource.MANUAL)
+
         if question.qtype in {QuestionType.COUNT, QuestionType.ATTENDEES, QuestionType.CURRENCY}:
-            total = sum(fact.value for fact in chosen)
+            total = sum(float(getattr(f, "value", 0.0) or 0.0) for f in chosen)
             form.set(
                 question.key,
                 int(total) if float(total).is_integer() else total,
-                value_kind=chosen[0].value_kind,
-                source=chosen[0].source,
+                value_kind=v_kind,
+                source=v_src,
             )
         else:
-            first = chosen[0]
-            form.set(question.key, first.value, value_kind=first.value_kind, source=first.source)
+            val = getattr(first, "text_value", "") or getattr(first, "value", "")
+            form.set(question.key, val, value_kind=v_kind, source=v_src)
 
+    return form
+
+
+def prefill_narrative_form(
+    section_id: str,
+    section_facts: Sequence[Any],
+    *,
+    period: str = "1405",
+    title: str = "",
+    mandate_basis: str = "",
+    actions: str = "",
+    results: str = "",
+) -> FilledForm:
+    """Pre-fills the narrative-financial form for a section from its EntityFacts."""
+    form = prefill_form(NARRATIVE_REPORT_FORM, section_facts, context={"report_period": period})
+    if title:
+        form.set("narrative_title", title, source=ValueSource.MANUAL)
+    if mandate_basis:
+        form.set("narrative_mandate_basis", mandate_basis, source=ValueSource.MANUAL)
+    if actions:
+        form.set("narrative_actions", actions, source=ValueSource.MANUAL)
+    if results:
+        form.set("narrative_results", results, source=ValueSource.MANUAL)
     return form
 
 

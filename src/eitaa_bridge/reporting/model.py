@@ -39,6 +39,11 @@ class ProgramKind(str, Enum):
     HONOR = "honor"
     CUSTOMER_CARE = "customer_care"
     CHARTER = "charter"
+    TRAINING_COURSE = "training_course"
+    CONTENT_PRODUCTION = "content_production"
+    COUNSELING = "counseling"
+    EDUCATION_SERVICES = "education_services"
+    EXTERNAL_COLLABORATION = "external_collaboration"
 
 
 class ProgramId(str, Enum):

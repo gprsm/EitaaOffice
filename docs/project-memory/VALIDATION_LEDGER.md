@@ -2152,3 +2152,23 @@
 - تغییرِ شب پیشین به `trusted_lan_http` (bind مستقیم) با این توپولوژی ناسازگار بود و مسیر `/eitaa` را می‌شکست؛ bridge.json به `desktop_loopback` بازگردانده شد و اسکریپت‌ها/vhostهای آزمونی حذف شدند.
 - probes پس از بازگشایی: `/eitaa/` = 200، `/api/v1/health` از مسیر پروکسی = ok، loopback = 200. مهاجرت coordinator v9 و میان‌بر Startup مفید و برجا ماندند.
 - Trigger تکرار: هر تصمیم تازهٔ مالک دربارهٔ تغییر مسیر یا mode.
+
+### V-224 — اعتبارسنجی جامع فازهای ۱ تا ۵ گزارش‌گیری فرهنگی: استخراج کامل دوماهه، قرعه‌کشی، پیوند وردپرس، UI و بسته‌بندی
+
+- تاریخ: 2026-09-28
+- دامنه: `src/eitaa_bridge/reporting/model.py`, `sections.py`, `metrics.py`, `plans.py`, `store.py`, `office_import.py`, `forms.py`, `api.py`, `ui/src/OfficeDashboard.tsx`, `scripts/build_wheel_stdlib.py`, `tests/test_reporting_office.py`, `tests/test_reporting_api.py`, `tests/test_g07_release_packaging.py`.
+- سطح: UNIT + CONTRACT + UI_CONTRACT + RUNTIME_LOCAL + INTEGRATION.
+- روش امن: اجرای آزمون‌های تفصیلی بخش‌ها، آزمون‌های API و فروشل، بازسازی wheel استاندارد، اجرای آزمون‌های رابط کاربری، اجرای آزمون‌های یکپارچگی مستندات و اجرای واردسازی روی پایگاه داده عملیاتی بدون تغییر فایل‌های نشست یا داده‌های کانفیگ:
+  1. `.\.venv\Scripts\python.exe -m pytest tests/test_reporting_office.py tests/test_reporting_api.py tests/test_reporting_store.py tests/test_reporting_shell.py tests/test_g07_release_packaging.py`
+  2. `npm.cmd --prefix ui run check`
+  3. `npm.cmd --prefix ui run test:observability`
+  4. `npm.cmd --prefix ui run build`
+  5. `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py`
+  6. `.\.venv\Scripts\python.exe scripts
+efresh_project_docs.py --check --check-links`
+- نتیجه:
+  - تمام ۶۳ آزمون اختصاصی ماژول‌های reporting و ۱۵ آزمون release packaging با موفقیت ۱۰۰٪ پاس شدند.
+  - فرانت‌اند React با TypeScript بدون هیچ خطایی کامپایل و بستهٔ production ساخته شد.
+  - داده‌های پایگاه عملیاتی `data/reporting/reporting.sqlite3` با واردسازی idempotent به ۲۱۹ فکت دوماهه (پوشش کامل هر ۷ بخش در P1/P2/P3)، ۷۷ شخص یکتا (کارکنان و همراهان)، ۳۹۳ رویداد، ۱۰۹ پیوند پست وردپرس و ۳۱ حوزه قضایی ارتقا یافت.
+  - هیچ دادهٔ حساس یا PII به لاگ‌ها یا خروجی‌های عمومی نشت نکرد.
+- Trigger تکرار: تغییر ساختار جداول reporting، تغییر اسکیمای فرم‌های عملکرد، یا تغییر نسخه پکیج بسته‌بندی.

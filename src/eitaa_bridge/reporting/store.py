@@ -469,6 +469,13 @@ class ReportingStore:
                             now,
                         ),
                     )
+            else:
+                for section in OFFICE_SECTIONS:
+                    conn.execute(
+                        "UPDATE reporting_sections SET kinds_json = ?, visit_label = ? WHERE section_id = ?",
+                        (json.dumps(list(section.kinds), ensure_ascii=False), section.visit_label, section.section_id),
+                    )
+
 
             # Seed default watch targets if none exist
             count_targets = conn.execute("SELECT COUNT(*) FROM reporting_targets").fetchone()[0]
@@ -1604,8 +1611,41 @@ class ReportingStore:
                 raise ReportingStoreError(f"Normalization candidate not found: {candidate_id}")
             metric_key = row["metric"]
             definition = METRIC_DICTIONARY.get(metric_key)
-            if definition.unit == "choice" and coded_value not in definition.choices:
-                raise ReportingStoreError(f"{coded_value!r} is not a choice of {metric_key!r}.")
+
+            _CHOICE_ALIASES = {
+                "همیشه": "always", "مرتب": "always", "به صورت مرتب": "regular", "گاهی": "sometimes",
+                "به ندرت": "rarely", "خیر": "none", "زیاد": "high", "بالا": "high", "متوسط": "medium",
+                "کم": "low", "پایین": "low", "شاغل": "staff_cleric", "مدعو": "invited_external",
+            }
+            if definition.unit == "choice":
+                if coded_value not in definition.choices:
+                    normalized = _CHOICE_ALIASES.get(coded_value.strip())
+                    if normalized and normalized in definition.choices:
+                        coded_value = normalized
+                    else:
+                        raise ReportingStoreError(f"{coded_value!r} is not a choice of {metric_key!r}.")
+
+            if metric_key == "imam_record":
+                raw_text = row["raw_text"] or ""
+                parts = [p.strip() for p in raw_text.split("|")]
+                full_name = coded_value or (parts[0] if parts else row["proposed_value"] or "")
+                position = parts[1] if len(parts) > 1 else ""
+                source_kind = parts[2] if len(parts) > 2 else "staff_cleric"
+                if source_kind not in {"none", "staff_cleric", "invited_external"}:
+                    source_kind = "staff_cleric"
+                unit_name = row["unit_name"] or ""
+                unit_id = f"unit:{unit_name}" if unit_name else ""
+                imam_record = ImamRecord(
+                    imam_id=f"imam-{uuid.uuid4().hex[:10]}",
+                    unit_id=unit_id,
+                    full_name=full_name,
+                    position=position,
+                    source_kind=source_kind,
+                    notes=raw_text,
+                    evidence_refs=(row["source_ref"],) if row["source_ref"] else (),
+                )
+                self.save_imam(imam_record)
+
             entity_type = row["entity_type"] or "unit"
             entity_id = f"unit:{row['unit_name']}" if entity_type == "unit" and row["unit_name"] else row["source_ref"] or ""
             fact = EntityFact(
@@ -1762,6 +1802,15 @@ class ReportingStore:
                 )
                 for row in rows
             ]
+
+    def seed_default_plans(self, plans: Sequence[PlanItem] | None = None) -> int:
+        from .plans import ALL_PLANS_1405
+        items = plans if plans is not None else ALL_PLANS_1405
+        count = 0
+        for item in items:
+            self.save_plan_item(item)
+            count += 1
+        return count
 
     def save_mandate(self, mandate: Mandate) -> None:
         mandate.validate()

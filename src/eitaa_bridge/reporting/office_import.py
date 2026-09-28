@@ -39,7 +39,7 @@ import openpyxl
 
 from .metrics import METRIC_DICTIONARY
 from .model import Fact, FactValueKind, ProgramKind, ReportedEvent, UnitScope, ValueSource
-from .registry import EntityFact, PersonRecord
+from .registry import EntityFact, PersonRecord, UnitRecord
 from .sections import SECTIONS_BY_CODE, SECTIONS_BY_ID
 from .store import ReportingStore
 from .synthetic import event_has_survey, generate_survey
@@ -179,39 +179,43 @@ def import_bimonthly_workbook(
             continue
         section = SECTIONS_BY_ID[section_id]
 
-        # 1) collect label→metric for every header cell in rows 1..6
-        label_metric: dict[str, str] = {}
-        for row in sheet.iter_rows(min_row=1, max_row=6):
-            for cell in row:
-                if cell.value is None:
-                    continue
-                label = str(cell.value).replace("\n", " ").strip()
-                if not label or len(label) > 60:
-                    continue
-                metric = _metric_for_label(label)
-                if metric:
-                    label_metric.setdefault(label, metric)
+        # Map merged cells so each cell in a merged range gets the top-left value
+        merged_map: dict[tuple[int, int], Any] = {}
+        for rng in sheet.merged_cells.ranges:
+            min_col, min_row, max_col, max_row = rng.bounds
+            top_val = sheet.cell(min_row, min_col).value
+            for r in range(min_row, max_row + 1):
+                for c in range(min_col, max_col + 1):
+                    merged_map[(r, c)] = top_val
 
-        # 2) read value cells from row 7 downward (most sheets fill row 5-8)
-        for row in sheet.iter_rows(min_row=7, max_row=sheet.max_row):
-            for cell in row:
+        # 1) collect column-to-metric mappings across header rows 1..7
+        col_metrics: dict[int, tuple[str, int]] = {}
+        for col_idx in range(1, sheet.max_column + 1):
+            for r in range(1, 8):
+                val = sheet.cell(r, col_idx).value
+                if val is None and (r, col_idx) in merged_map:
+                    val = merged_map[(r, col_idx)]
+                if val is not None:
+                    label = str(val).replace("\n", " ").strip()
+                    if 0 < len(label) <= 80:
+                        metric = _metric_for_label(label)
+                        if metric:
+                            col_metrics[col_idx] = (metric, r)
+
+        # 2) read value cells from row 4 downward
+        for r in range(4, sheet.max_row + 1):
+            # Skip rows containing long explanatory guidance text
+            first_val = sheet.cell(r, 1).value or sheet.cell(r, 2).value or ""
+            if len(str(first_val).strip()) > 70:
+                continue
+            for col_idx, (metric, header_row) in col_metrics.items():
+                if r <= header_row:
+                    continue
+                cell = sheet.cell(r, col_idx)
                 if cell.value is None:
                     continue
                 raw = str(cell.value).strip()
                 if not raw:
-                    continue
-                # find the metric for this column via the label band above
-                column = cell.column_letter
-                metric = None
-                for header_row in range(max(1, cell.row - 4), cell.row):
-                    header_value = sheet[f"{column}{header_row}"].value
-                    if header_value is None:
-                        continue
-                    header_label = str(header_value).replace("\n", " ").strip()
-                    metric = _metric_for_label(header_label)
-                    if metric:
-                        break
-                if metric is None:
                     continue
                 if _is_pending(raw):
                     result.pending_cells.append(f"{file_name}!{sheet.title}!{cell.coordinate}")
@@ -269,7 +273,38 @@ _KIND_BY_SECTION: dict[str, tuple[ProgramKind, ...]] = {
     "honor": (ProgramKind.HONOR,),
     "customer_care": (ProgramKind.CUSTOMER_CARE,),
     "charter": (ProgramKind.CHARTER,),
+    "training_courses": (ProgramKind.TRAINING_COURSE,),
+    "training": (ProgramKind.TRAINING_COURSE,),
+    "content_production": (ProgramKind.CONTENT_PRODUCTION,),
+    "production": (ProgramKind.CONTENT_PRODUCTION,),
+    "counseling": (ProgramKind.COUNSELING,),
+    "education_services": (ProgramKind.EDUCATION_SERVICES,),
+    "education": (ProgramKind.EDUCATION_SERVICES,),
+    "external_collaboration": (ProgramKind.EXTERNAL_COLLABORATION,),
+    "collaboration": (ProgramKind.EXTERNAL_COLLABORATION,),
 }
+
+
+def _detect_unit(title: str, body: str, units: Sequence[UnitRecord]) -> tuple[UnitScope, str]:
+    text = f"{title} {body}"
+    for u in sorted(units, key=lambda x: len(x.name), reverse=True):
+        if u.name in text:
+            return UnitScope.JUDICIAL_DOMAIN, u.name
+        clean_token = (
+            u.name.replace("دادگستری شهرستان", "")
+            .replace("دادگستری", "")
+            .replace("حوزه قضایی بخش", "")
+            .replace("حوزه قضایی", "")
+            .replace("دادگاه عمومی بخش", "")
+            .replace("دادگاه عمومی", "")
+            .replace("دادگاه بخش", "")
+            .replace("بخش", "")
+            .replace("شهرستان", "")
+            .strip()
+        )
+        if len(clean_token) >= 3 and clean_token in text:
+            return UnitScope.JUDICIAL_DOMAIN, u.name
+    return UnitScope.PROVINCIAL_HQ, "دادگستری کل"
 
 
 class CorpusImportResult:
@@ -294,6 +329,7 @@ def import_report_corpus(
     root = Path(corpus_root)
     seen_slugs: set[str] = set()
     posts = sorted(root.rglob("post.html"))
+    units = store.list_units()
     for post_path in posts:
         result.posts += 1
         parsed = parse_post_bundle(post_path)
@@ -330,12 +366,14 @@ def import_report_corpus(
             result.unmatched += 1
             continue
 
+        unit_scope, unit_name = _detect_unit(parsed["title"] or "", parsed["body"] or "", units)
         event_id = f"wp-{uuid.uuid5(uuid.NAMESPACE_URL, slug).hex[:12]}"
         event = ReportedEvent(
             event_id=event_id,
             program_kinds=kinds,
             occurred_on=occurred,
-            unit=UnitScope.PROVINCIAL_HQ,
+            unit=unit_scope,
+            unit_name=unit_name,
             occasion="",
             notes=parsed["title"] or slug,
             created_by=imported_by,
@@ -505,6 +543,129 @@ def _import_trip_participants(
     result.files.append(path.name)
 
 
+def _import_lottery_excel(
+    store: ReportingStore,
+    path: Path,
+    result: PersonnelImportResult,
+    *,
+    event_title: str,
+    event_date_jalali: str,
+    section_id: str,
+) -> None:
+    """Import Mashhad/Karbala lottery workbooks, linking family companions."""
+    from .wp_links import extract_jalali_date
+
+    workbook = openpyxl.load_workbook(path, data_only=True)
+    sheet = workbook.active
+    records: list[PersonRecord] = []
+    prev_employee_personnel = ""
+
+    for r in range(2, sheet.max_row + 1):
+        row_vals = [sheet.cell(r, c).value for c in range(1, sheet.max_column + 1)]
+        if not any(v is not None for v in row_vals):
+            continue
+
+        c1 = str(row_vals[0] or "").strip()
+        c2 = str(row_vals[1] or "").strip() if len(row_vals) > 1 else ""
+        c3 = str(row_vals[2] or "").strip() if len(row_vals) > 2 else ""
+        c4 = str(row_vals[3] or "").strip() if len(row_vals) > 3 else ""
+        c5 = str(row_vals[4] or "").strip() if len(row_vals) > 4 else ""
+        c6 = str(row_vals[5] or "").strip() if len(row_vals) > 5 else ""
+        c7 = str(row_vals[6] or "").strip() if len(row_vals) > 6 else ""
+
+        full_name, national_id, personnel_no, phone, position, city, trip_target = "", "", "", "", "", "", ""
+        if c1.isdigit():
+            full_name = c2
+            national_id = c3 if c3.isdigit() and len(c3) >= 8 else ""
+            personnel_no = c4 if c4.isdigit() else ""
+            raw_phone = c5.replace("-", "").replace(" ", "")
+            if raw_phone.isdigit():
+                phone = f"0{raw_phone}" if len(raw_phone) == 10 and raw_phone.startswith("9") else raw_phone
+            position = c6
+            trip_target = c7
+        else:
+            if c1 and c2:
+                full_name = f"{c1} {c2}".strip()
+                national_id = c3 if c3.isdigit() and len(c3) >= 8 else ""
+                personnel_no = c4 if c4.isdigit() else ""
+                position = c5
+                raw_phone = c6.replace("-", "").replace(" ", "")
+                if raw_phone.isdigit():
+                    phone = f"0{raw_phone}" if len(raw_phone) == 10 and raw_phone.startswith("9") else raw_phone
+                city = c7
+                trip_target = "مشهد"
+
+        if not full_name:
+            continue
+
+        is_family = ("همسر" in position or "فرزند" in position or "همسر" in full_name or "فرزند" in full_name)
+        if is_family:
+            rel = "spouse" if "همسر" in (position + full_name) else "child"
+            rel_pers = prev_employee_personnel or "staff-companion"
+            rec = PersonRecord(
+                person_id=_person_id("family", full_name, rel_pers),
+                kind="family",
+                full_name=full_name,
+                national_id=national_id,
+                phone=phone,
+                relation=rel,
+                related_personnel_no=rel_pers,
+                source=ValueSource.LEGACY_IMPORT,
+                notes=f"همراه سفر زیارتی {trip_target}; سمت/توضیح: {position}; شهر: {city}".strip(),
+                evidence_refs=(f"personnel:{path.name}!ردیف-{r}",),
+            )
+        else:
+            rec = PersonRecord(
+                person_id=_person_id("employee", full_name, personnel_no),
+                kind="employee",
+                full_name=full_name,
+                personnel_no=personnel_no,
+                national_id=national_id,
+                phone=phone,
+                source=ValueSource.LEGACY_IMPORT,
+                notes=f"منتخب قرعه‌کشی سفر زیارتی {trip_target}; سمت: {position}; شهر: {city}".strip(),
+                evidence_refs=(f"personnel:{path.name}!ردیف-{r}",),
+            )
+            if personnel_no:
+                prev_employee_personnel = personnel_no
+
+        rec.validate()
+        store.save_person(rec)
+        records.append(rec)
+
+    occurred = extract_jalali_date(event_date_jalali)
+    if records and occurred is not None:
+        kinds = _KIND_BY_SECTION.get(section_id, ())
+        if kinds:
+            event_id = f"prs-{uuid.uuid5(uuid.NAMESPACE_URL, str(path)).hex[:12]}"
+            store.save_event(
+                ReportedEvent(
+                    event_id=event_id,
+                    program_kinds=kinds,
+                    occurred_on=occurred,
+                    unit=UnitScope.PROVINCIAL_HQ,
+                    notes=f"{event_title} ({path.stem})",
+                    created_by="personnel-import",
+                )
+            )
+            event = store.get_event(event_id)
+            if event is not None:
+                event.add_fact(
+                    Fact(
+                        metric="attendees",
+                        value=float(len(records)),
+                        value_kind=FactValueKind.REPORTED_BY_UNIT,
+                        source=ValueSource.LEGACY_IMPORT,
+                        note=f"تعداد از فهرست قرعه‌کشی: {path.name}",
+                    )
+                )
+                store.save_event(event)
+            result.events += 1
+
+    result.persons += len(records)
+    result.files.append(path.name)
+
+
 def import_personnel_files(
     store: ReportingStore, report_root: str | Path
 ) -> PersonnelImportResult:
@@ -528,7 +689,7 @@ def import_personnel_files(
     mashhad_dir = root / "مشهد"
     if mashhad_dir.exists():
         for path in sorted(mashhad_dir.glob("*.xlsx")):
-            _import_trip_participants(
+            _import_lottery_excel(
                 store, path, result,
                 event_title="سفر زیارتی مشهد مقدس/کربلا — فهرست منتخبین قرعه‌کشی",
                 event_date_jalali="1405/05/15",
