@@ -2191,3 +2191,27 @@
   - بدون تغییر در تنظیمات شبکه، داده‌های نشست واقعی، یا فایل‌های پیکربندی حساس.
 - Trigger تکرار: تغییر ستون‌ها یا سنجه‌های هر یک از ۷ کاربرگ عملکرد فرهنگی.
 
+### V-226 — استقرار وب‌فونت ایران‌سنس و سقف زمانی (Timeout) امن در فرآیندهای پس‌زمینه سامانه گزارش‌ها
+
+- تاریخ: 2026-09-28
+- دامنه: `c:\Users\mohse\laragon\www\cultural-portal` (`assets/fonts/`, `assets/css/portal.css`, `assets/js/portal.js`, `includes/EitaaBridgeClient.php`), `c:\Users\mohse\laragon\www\cultural-reports` (`fonts/`, `index.php`), `src/eitaa_bridge/reporting/monitor.py`, `service.py`, `scripts/export_cultural_report.py`.
+- سطح: UI + INTEGRATION + UNIT + RUNTIME_PROCESS.
+- روش امن:
+  1. استقرار فایل‌های فونت `IRANSansWeb-Regular.woff2` و `IRANSansWeb-Bold.woff2` در لایه وب بدون تغییر فایل‌های اصلی ایتا.
+  2. تست اجرای PHP با متد `EitaaBridgeClient::triggerExcelExport()` و اسکریپت `scripts/export_cultural_report.py` با پارامتر تایم‌اوت (`proc_open` و کنترل فرآیند در ویندوز): صدور موفقیت‌آمیز اکسل رسمی در ۲۳ کیلوبایت بدون خطا و ثبت زمان اجرای زیر ۳ ثانیه.
+  3. اجرای آزمون‌های هسته پایتون:
+     `.\.venv\Scripts\python.exe -m pytest tests/test_reporting_core.py tests/test_reporting_indexer.py tests/test_reporting_store.py tests/test_reporting_api.py tests/test_reporting_suggester.py tests/test_reporting_office.py tests/test_reporting_shell.py -q` (۱۰۸/۱۰۸ آزمون موفق)
+  4. بررسی‌های استاتیک و قراردادهای تایپ:
+     `npm.cmd --prefix ui run check`
+     `npm.cmd --prefix ui run test:observability`
+     `npm.cmd --prefix ui run test:reporting-ui`
+  5. بازخوانی فایل‌های پرتال وب در PHP CLI و بررسی عدم وجود خطای نگارشی یا امنیتی.
+  6. کنترل صحت حافظه و لینک‌های مستندات:
+     `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py`
+     `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links`
+- نتیجه:
+  - فونت ایران‌سنس به‌طور کامل روی تمامی عناصر پرتال گزارش‌ها (عناوین، دکمه‌ها، جدول‌ها و فرم‌ها) فعال شد.
+  - فرآیندهای پس‌زمینه دیگر تا ابد اجرا نمی‌شوند؛ در لایه سیستم‌عامل (PHP)، فرانت‌اند (JavaScript fetchWithTimeout) و پویشگر ایتا (monitor timeout) مهلت زمانی قطعی (۱۵ الی ۴۵ ثانیه) تضمین شد.
+  - کدهای سامانه جامع مدیریت و پایش گزارش‌های فرهنگی برای کاربر تفکیک و مستندسازی گردید.
+- Trigger تکرار: تغییر استقرار وب‌سرور یا اضافه شدن سرویس‌های پس‌زمینهٔ طولانی‌مدت جدید.
+

@@ -46,14 +46,18 @@ import AddCircleOutlineRounded from '@mui/icons-material/AddCircleOutlineRounded
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded'
 import FileDownloadRounded from '@mui/icons-material/FileDownloadRounded'
 import LayersRounded from '@mui/icons-material/LayersRounded'
+import MenuBookRounded from '@mui/icons-material/MenuBookRounded'
+import PolicyRounded from '@mui/icons-material/PolicyRounded'
 import RefreshRounded from '@mui/icons-material/RefreshRounded'
 import SaveRounded from '@mui/icons-material/SaveRounded'
 import SettingsRounded from '@mui/icons-material/SettingsRounded'
 import SummarizeRounded from '@mui/icons-material/SummarizeRounded'
+import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded'
 import { api, ApiError } from './lib/api'
 import OfficeDashboard from './OfficeDashboard'
@@ -93,10 +97,37 @@ export interface FormQuestion {
 
 export interface FormSummary {
   program_id: string
+  program_code?: string
   title: string
+  operational_description?: string
+  monitoring_criteria?: string[]
+  policy_framework?: string
   questions: FormQuestion[]
   unresolved_star: string[]
   unresolved_human_gate: string[]
+}
+
+export interface MandateItem {
+  mandate_id: string
+  program_code: string
+  kind: string
+  title: string
+  number: string
+  issued_on: string
+  document_ref: string
+  notes: string
+}
+
+export const MANDATE_KIND_LABELS: Record<string, string> = {
+  circular: 'بخشنامه',
+  directive: 'دستورالعمل',
+  guideline: 'شیوه‌نامه',
+  correspondence: 'مکاتبه اداری',
+  resolution: 'مصوبه',
+  agreement: 'تفاهم‌نامه',
+  policy: 'سیاست کلی',
+  transformation_doc: 'سند تحول',
+  law: 'قانون / آیین‌نامه',
 }
 
 export interface EventFact {
@@ -138,14 +169,15 @@ export interface ExportAuditItem {
   unresolved_star_count?: number
 }
 
-const PROGRAM_NAMES: Record<string, string> = {
-  trip: 'اردو (۸۰۴۰۱)',
-  contest: 'مسابقات (۸۰۴۰۲)',
-  ceremonies: 'مراسم مذهبی، ملی و انقلابی (۸۰۴۰۳)',
-  prayer: 'ترویج فرهنگ اقامه نماز (۸۰۵۰۱)',
-  honor: 'تکریم و تجلیل (۸۰۴۰۶)',
-  customer_care: 'تشویق ارباب رجوع (۸۰۶۰۱)',
-  charter: 'منشور اخلاقی (۸۰۲۰۲)',
+export const PROGRAM_NAMES: Record<string, string> = {
+  trip: '80401 - اردو',
+  contest: '80402 - مسابقات',
+  ceremonies: '80403 - مراسم مذهبی، ملی و انقلابی',
+  prayer: '80501 - ترویج و توسعه فرهنگ اقامه نماز',
+  honor: '80406 - تکریم و تجلیل',
+  customer_care: '80601 - تشویق ارباب رجوع',
+  charter: '80202 - منشور اخلاقی',
+  narrative: '80000 - قالب گزارش عملکرد (روایی-مالی)',
 }
 
 const UNIT_SCOPES: Array<{ value: string; label: string }> = [
@@ -637,6 +669,23 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [formAnswers, setFormAnswers] = useState<Record<string, any>>({})
   const [savingForm, setSavingForm] = useState<boolean>(false)
 
+  // Mandates state
+  const [mandates, setMandates] = useState<MandateItem[]>([])
+  const [loadingMandates, setLoadingMandates] = useState<boolean>(false)
+  const [newMandateOpen, setNewMandateOpen] = useState<boolean>(false)
+  const [allMandatesDialogOpen, setAllMandatesDialogOpen] = useState<boolean>(false)
+  const [allMandatesList, setAllMandatesList] = useState<MandateItem[]>([])
+  const [loadingAllMandates, setLoadingAllMandates] = useState<boolean>(false)
+
+  // New mandate form state
+  const [mandateFormKind, setMandateFormKind] = useState<string>('circular')
+  const [mandateFormTitle, setMandateFormTitle] = useState<string>('')
+  const [mandateFormNumber, setMandateFormNumber] = useState<string>('')
+  const [mandateFormIssuedOn, setMandateFormIssuedOn] = useState<string>('')
+  const [mandateFormDocRef, setMandateFormDocRef] = useState<string>('')
+  const [mandateFormNotes, setMandateFormNotes] = useState<string>('')
+  const [savingMandate, setSavingMandate] = useState<boolean>(false)
+
   // Aggregated Preview & Export state
   const [events, setEvents] = useState<ReportedEventItem[]>([])
   const [exportsList, setExportsList] = useState<ExportAuditItem[]>([])
@@ -669,10 +718,100 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Fetch mandates for current program code
+  const loadMandatesForForm = async (code: string) => {
+    if (!code) {
+      setMandates([])
+      return
+    }
+    try {
+      setLoadingMandates(true)
+      const res = await api<{ ok: boolean; mandates: MandateItem[] }>(
+        'GET',
+        `/api/v2/reporting/mandates?program_code=${encodeURIComponent(code)}`,
+      )
+      setMandates(res.mandates || [])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در دریافت مستندات ابلاغی برنامه')
+    } finally {
+      setLoadingMandates(false)
+    }
+  }
+
+  // Fetch all mandates across all programs
+  const loadAllMandates = async () => {
+    try {
+      setLoadingAllMandates(true)
+      const res = await api<{ ok: boolean; mandates: MandateItem[] }>(
+        'GET',
+        '/api/v2/reporting/mandates',
+      )
+      setAllMandatesList(res.mandates || [])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در دریافت کل مستندات ابلاغی')
+    } finally {
+      setLoadingAllMandates(false)
+    }
+  }
+
+  // Submit new mandate
+  const handleSaveMandate = async () => {
+    if (!mandateFormTitle.trim()) {
+      toast.error('عنوان مستند ابلاغی الزامی است')
+      return
+    }
+    const currentCode = forms[selectedFormIndex]?.program_code || ''
+    if (!currentCode) {
+      toast.error('کد برنامه نامشخص است')
+      return
+    }
+    try {
+      setSavingMandate(true)
+      await api('POST', '/api/v2/reporting/mandates', {
+        program_code: currentCode,
+        kind: mandateFormKind,
+        title: mandateFormTitle.trim(),
+        number: mandateFormNumber.trim(),
+        issued_on: mandateFormIssuedOn.trim(),
+        document_ref: mandateFormDocRef.trim(),
+        notes: mandateFormNotes.trim(),
+      })
+      toast.success('مستند ابلاغی با موفقیت ثبت شد')
+      setNewMandateOpen(false)
+      setMandateFormTitle('')
+      setMandateFormNumber('')
+      setMandateFormIssuedOn('')
+      setMandateFormDocRef('')
+      setMandateFormNotes('')
+      await loadMandatesForForm(currentCode)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در ذخیره مستند ابلاغی')
+    } finally {
+      setSavingMandate(false)
+    }
+  }
+
+  // Delete mandate
+  const handleDeleteMandate = async (mandateId: string) => {
+    try {
+      await api('DELETE', `/api/v2/reporting/mandates/${mandateId}`)
+      toast.success('مستند ابلاغی حذف شد')
+      const currentCode = forms[selectedFormIndex]?.program_code || ''
+      if (currentCode) {
+        await loadMandatesForForm(currentCode)
+      }
+      if (allMandatesDialogOpen) {
+        await loadAllMandates()
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در حذف مستند ابلاغی')
+    }
+  }
+
   // Fetch forms
   const loadForms = async () => {
     try {
-      const res = await api<{ ok: boolean; forms: FormSummary[] }>('GET', '/api/v2/reporting/forms')
+      const res = await api<{ ok: boolean; forms: FormSummary[] }>('GET', '/api/v2/reporting/forms?all=1')
       setForms(res.forms || [])
       if (res.forms && res.forms[selectedFormIndex]) {
         const initialAnswers: Record<string, any> = {}
@@ -682,6 +821,9 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           }
         }
         setFormAnswers(initialAnswers)
+        if (res.forms[selectedFormIndex].program_code) {
+          void loadMandatesForForm(res.forms[selectedFormIndex].program_code!)
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در دریافت کاربرگ‌ها')
@@ -734,6 +876,9 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         }
       }
       setFormAnswers(answers)
+      if (forms[selectedFormIndex].program_code) {
+        void loadMandatesForForm(forms[selectedFormIndex].program_code!)
+      }
     }
   }, [selectedFormIndex, forms])
 
@@ -1277,12 +1422,12 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         {/* ================= TAB 1: کاربرگ‌ها و فرم‌های هفت‌گانه ================= */}
         {currentTab === 1 && (
           <Grid container spacing={3}>
-            {/* Sidebar list of 7 forms */}
+            {/* Sidebar list of 8 forms */}
             <Grid size={{ xs: 12, md: 3.5 }}>
               <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <Box sx={{ p: 2, bgcolor: 'action.hover', borderBottom: 1, borderColor: 'divider' }}>
                   <Typography variant="subtitle2" fontWeight={800}>
-                    برنامه‌های هفت‌گانه فرهنگی ۱۴۰۵
+                    کاربرگ‌های عملیاتی فرهنگی (۸ گانه)
                   </Typography>
                 </Box>
                 <Stack divider={<Divider />}>
@@ -1331,7 +1476,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                           {selectedForm.title}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          شناسه سیستمی: {selectedForm.program_id} | تعداد کل فیلدها: {selectedForm.questions.length}
+                          کد عملیاتی: {selectedForm.program_code || selectedForm.program_id} | شناسه سیستمی: {selectedForm.program_id} | تعداد کل فیلدها: {selectedForm.questions.length}
                         </Typography>
                       </Box>
                       <Button
@@ -1350,6 +1495,192 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                         <strong>توجه:</strong> {selectedForm.unresolved_star.length} فیلد الزامی دارای علامت ستاره (*) در این فرم هنوز خالی هستند. صدور نهایی اکسل بدون تکمیل این فیلدها متوقف خواهد شد.
                       </Alert>
                     )}
+
+                    {/* Operational Description & Mandates Registry Card */}
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        borderRadius: 2,
+                        bgcolor: 'background.default',
+                        borderColor: 'primary.light',
+                      }}
+                    >
+                      <CardContent sx={{ pb: 1.5 }}>
+                        <Stack spacing={2}>
+                          {/* Program Header with Code badge & Policy framework */}
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Chip
+                                label={`کد برنامه: ${selectedForm.program_code || selectedForm.program_id}`}
+                                color="primary"
+                                sx={{ fontWeight: 800, fontSize: '0.85rem' }}
+                              />
+                              <Typography variant="subtitle1" fontWeight={800} color="primary.main">
+                                شرح عملیاتی و موازین پایش برنامه
+                              </Typography>
+                            </Stack>
+                            {selectedForm.policy_framework && (
+                              <Chip
+                                icon={<PolicyRounded fontSize="small" />}
+                                label={selectedForm.policy_framework}
+                                variant="outlined"
+                                color="secondary"
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                              />
+                            )}
+                          </Stack>
+
+                          {/* Operational Description */}
+                          {selectedForm.operational_description && (
+                            <Box
+                              sx={{
+                                p: 1.75,
+                                bgcolor: 'action.hover',
+                                borderRadius: 1.5,
+                                borderRight: 4,
+                                borderColor: 'primary.main',
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ lineHeight: 1.8, color: 'text.primary', fontWeight: 500 }}>
+                                {selectedForm.operational_description}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* Monitoring criteria */}
+                          {selectedForm.monitoring_criteria && selectedForm.monitoring_criteria.length > 0 && (
+                            <Box>
+                              <Typography variant="caption" fontWeight={800} color="text.secondary" gutterBottom display="block">
+                                موازین و شاخص‌های نظارتی و پایش برنامه:
+                              </Typography>
+                              <Grid container spacing={1}>
+                                {selectedForm.monitoring_criteria.map((crit, idx) => (
+                                  <Grid size={{ xs: 12, md: 6 }} key={idx}>
+                                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                                      <CheckCircleOutlineRounded fontSize="small" color="success" sx={{ mt: 0.2, flexShrink: 0 }} />
+                                      <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                                        {crit}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                ))}
+                              </Grid>
+                            </Box>
+                          )}
+
+                          <Divider sx={{ my: 0.5 }} />
+
+                          {/* Mandates and Upstream Documents Header */}
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <MenuBookRounded color="primary" fontSize="small" />
+                              <Typography variant="subtitle2" fontWeight={800}>
+                                مستندات ابلاغی و اسناد بالادستی (کد {selectedForm.program_code || selectedForm.program_id})
+                              </Typography>
+                              <Badge badgeContent={mandates.length} color="primary" sx={{ ml: 1 }} />
+                            </Stack>
+                            <Stack direction="row" spacing={1}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                startIcon={<VisibilityRounded />}
+                                onClick={() => {
+                                  void loadAllMandates()
+                                  setAllMandatesDialogOpen(true)
+                                }}
+                              >
+                                دید تجمیعی اسناد بالادستی
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="secondary"
+                                startIcon={<AddCircleOutlineRounded />}
+                                onClick={() => setNewMandateOpen(true)}
+                              >
+                                ثبت مستند ابلاغی جدید
+                              </Button>
+                            </Stack>
+                          </Stack>
+
+                          {/* Mandates Table / List */}
+                          {loadingMandates ? (
+                            <LinearProgress sx={{ my: 1, borderRadius: 1 }} />
+                          ) : mandates.length === 0 ? (
+                            <Alert severity="info" variant="outlined" sx={{ py: 0.75 }}>
+                              هیچ مستند ابلاغی یا بخشنامه‌ای برای این کد برنامه ثبت نشده است. با دکمه «ثبت مستند ابلاغی جدید» می‌توانید مصوبات و بخشنامه‌های مربوطه را ضمیمه کنید.
+                            </Alert>
+                          ) : (
+                            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
+                              <Table size="small">
+                                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                                  <TableRow>
+                                    <TableCell sx={{ fontWeight: 800, width: '15%' }}>نوع سند</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, width: '35%' }}>عنوان و شرح مصوبه/ابلاغ</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, width: '20%' }}>شماره / تاریخ صدور</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, width: '20%' }}>مرجع ابلاغ / پیوست</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, width: '10%' }} align="center">عملیات</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {mandates.map(m => (
+                                    <TableRow key={m.mandate_id} hover>
+                                      <TableCell>
+                                        <Chip
+                                          size="small"
+                                          label={MANDATE_KIND_LABELS[m.kind] || m.kind}
+                                          color="primary"
+                                          variant="outlined"
+                                          sx={{ height: 22, fontSize: '0.7rem' }}
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" fontWeight={700}>
+                                          {m.title}
+                                        </Typography>
+                                        {m.notes && (
+                                          <Typography variant="caption" color="text.secondary" display="block">
+                                            {m.notes}
+                                          </Typography>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="caption" display="block" fontWeight={600}>
+                                          {m.number ? `شماره: ${m.number}` : 'فاقد شماره'}
+                                        </Typography>
+                                        {m.issued_on && (
+                                          <Typography variant="caption" color="text.secondary" display="block">
+                                            تاریخ: {m.issued_on}
+                                          </Typography>
+                                        )}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="caption" color="text.secondary">
+                                          {m.document_ref || '---'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="center">
+                                        <Tooltip title="حذف مستند ابلاغی">
+                                          <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => handleDeleteMandate(m.mandate_id)}
+                                          >
+                                            <DeleteOutlineRounded fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </TableContainer>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
 
                     <Divider />
 
@@ -1950,6 +2281,238 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           <Button onClick={() => setRejectDialog(null)}>انصراف</Button>
           <Button variant="contained" color="error" onClick={submitReject}>
             رد گزارش
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog for Adding New Mandate */}
+      <Dialog
+        open={newMandateOpen}
+        onClose={() => setNewMandateOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          ثبت مستند ابلاغی جدید
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                کد و عنوان برنامه متناظر:
+              </Typography>
+              <Typography variant="subtitle2" fontWeight={800} color="primary.main">
+                {selectedForm ? `${selectedForm.program_code || selectedForm.program_id} - ${selectedForm.title}` : '---'}
+              </Typography>
+            </Box>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>نوع سند ابلاغی</InputLabel>
+              <Select
+                value={mandateFormKind}
+                label="نوع سند ابلاغی"
+                onChange={e => setMandateFormKind(e.target.value)}
+              >
+                {Object.entries(MANDATE_KIND_LABELS).map(([k, label]) => (
+                  <MenuItem key={k} value={k}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              size="small"
+              fullWidth
+              required
+              label="عنوان مستند ابلاغی / بخشنامه"
+              value={mandateFormTitle}
+              onChange={e => setMandateFormTitle(e.target.value)}
+              placeholder="مثال: دستورالعمل اجرایی برنامه‌های فرهنگی و مذهبی سال ۱۴۰۵"
+            />
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="شماره ابلاغ / نامه"
+                  value={mandateFormNumber}
+                  onChange={e => setMandateFormNumber(e.target.value)}
+                  placeholder="مثال: ۱۴۰۵/ف/۱۰۲"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="تاریخ صدور / ابلاغ"
+                  value={mandateFormIssuedOn}
+                  onChange={e => setMandateFormIssuedOn(e.target.value)}
+                  placeholder="مثال: ۱۴۰۲/۰۳/۱۵"
+                />
+              </Grid>
+            </Grid>
+
+            <TextField
+              size="small"
+              fullWidth
+              label="مرجع صادرکننده یا کد پیوست"
+              value={mandateFormDocRef}
+              onChange={e => setMandateFormDocRef(e.target.value)}
+              placeholder="مثال: معاونت منابع انسانی و امور فرهنگی / ستاد مرکزی"
+            />
+
+            <TextField
+              size="small"
+              fullWidth
+              multiline
+              rows={3}
+              label="مفاد کلیدی و توضیحات"
+              value={mandateFormNotes}
+              onChange={e => setMandateFormNotes(e.target.value)}
+              placeholder="شرح تکالیف ابلاغی، جامعه هدف و الزامات گزارش‌دهی"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setNewMandateOpen(false)}>
+            انصراف
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSaveMandate}
+            disabled={savingMandate}
+            startIcon={savingMandate ? <CircularProgress size={18} color="inherit" /> : <SaveRounded />}
+          >
+            {savingMandate ? 'در حال ثبت…' : 'ثبت و ذخیره مستند'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog for Consolidated View of All Mandates */}
+      <Dialog
+        open={allMandatesDialogOpen}
+        onClose={() => setAllMandatesDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <MenuBookRounded color="primary" />
+            <Typography variant="h6" fontWeight={800}>
+              سامانه تجمیعی اسناد بالادستی و مستندات ابلاغی کل برنامه‌ها
+            </Typography>
+          </Stack>
+          <IconButton size="small" onClick={() => setAllMandatesDialogOpen(false)}>
+            <CloseRounded />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {loadingAllMandates ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                در حال بارگذاری کل مستندات ابلاغی…
+              </Typography>
+            </Box>
+          ) : allMandatesList.length === 0 ? (
+            <Alert severity="info">هیچ مستند ابلاغی در سامانه ثبت نشده است.</Alert>
+          ) : (
+            <Stack spacing={3}>
+              {/* Group by program_code */}
+              {Array.from(new Set(allMandatesList.map(m => m.program_code || 'other'))).map(pCode => {
+                const groupMandates = allMandatesList.filter(m => (m.program_code || 'other') === pCode)
+                const matchingForm = forms.find(f => (f.program_code || f.program_id) === pCode)
+                const groupTitle = matchingForm?.title || PROGRAM_NAMES[pCode] || `کد برنامه ${pCode}`
+
+                return (
+                  <Paper key={pCode} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Stack spacing={1.5}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip label={pCode} color="primary" size="small" sx={{ fontWeight: 800 }} />
+                          <Typography variant="subtitle2" fontWeight={800}>
+                            {groupTitle}
+                          </Typography>
+                        </Stack>
+                        <Chip label={`${groupMandates.length} مستند`} size="small" variant="outlined" />
+                      </Stack>
+                      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
+                        <Table size="small">
+                          <TableHead sx={{ bgcolor: 'action.hover' }}>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 700, width: '15%' }}>نوع</TableCell>
+                              <TableCell sx={{ fontWeight: 700, width: '35%' }}>عنوان و شرح</TableCell>
+                              <TableCell sx={{ fontWeight: 700, width: '20%' }}>شماره / تاریخ</TableCell>
+                              <TableCell sx={{ fontWeight: 700, width: '20%' }}>مرجع ابلاغ</TableCell>
+                              <TableCell sx={{ fontWeight: 700, width: '10%' }} align="center">حذف</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {groupMandates.map(m => (
+                              <TableRow key={m.mandate_id} hover>
+                                <TableCell>
+                                  <Chip
+                                    size="small"
+                                    label={MANDATE_KIND_LABELS[m.kind] || m.kind}
+                                    color="primary"
+                                    variant="outlined"
+                                    sx={{ height: 20, fontSize: '0.65rem' }}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {m.title}
+                                  </Typography>
+                                  {m.notes && (
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      {m.notes}
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="caption" display="block">
+                                    {m.number || 'فاقد شماره'}
+                                  </Typography>
+                                  {m.issued_on && (
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                      {m.issued_on}
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {m.document_ref || '---'}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Tooltip title="حذف مستند">
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => handleDeleteMandate(m.mandate_id)}
+                                    >
+                                      <DeleteOutlineRounded fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Stack>
+                  </Paper>
+                )
+              })}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setAllMandatesDialogOpen(false)} variant="contained">
+            بستن
           </Button>
         </DialogActions>
       </Dialog>

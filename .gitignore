@@ -81,3 +81,4 @@ artifacts/*.index
 /-_*1405.xlsx
 artifacts/ux01_commit_snapshot/
 artifacts/ux01_commit_snapshot.zip
+gui-test-screenshots/

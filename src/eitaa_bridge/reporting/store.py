@@ -328,6 +328,7 @@ class ReportingStore:
                     issued_on TEXT NOT NULL DEFAULT '',
                     document_ref TEXT NOT NULL DEFAULT '',
                     notes TEXT,
+                    program_code TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
 
@@ -434,6 +435,38 @@ class ReportingStore:
             plan_columns = {row[1] for row in conn.execute("PRAGMA table_info(program_plans)")}
             if plan_columns and "action_class" not in plan_columns:
                 conn.execute("ALTER TABLE program_plans ADD COLUMN action_class TEXT NOT NULL DEFAULT ''")
+
+            # Migration: ensure program_code exists on mandates
+            mandate_columns = {row[1] for row in conn.execute("PRAGMA table_info(mandates)")}
+            if mandate_columns and "program_code" not in mandate_columns:
+                conn.execute("ALTER TABLE mandates ADD COLUMN program_code TEXT NOT NULL DEFAULT ''")
+
+            # Seed canonical mandates if empty
+            count_mandates = conn.execute("SELECT COUNT(*) FROM mandates").fetchone()[0]
+            if count_mandates == 0:
+                from .plans import CANONICAL_MANDATES
+                now_mnd = _utc_now()
+                for mandate in CANONICAL_MANDATES:
+                    mandate.validate()
+                    conn.execute(
+                        """
+                        INSERT INTO mandates (
+                            mandate_id, kind, title, number, issued_on, document_ref, notes, program_code, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(mandate_id) DO NOTHING
+                        """,
+                        (
+                            mandate.mandate_id,
+                            mandate.kind,
+                            mandate.title,
+                            mandate.number,
+                            mandate.issued_on,
+                            mandate.document_ref,
+                            mandate.notes,
+                            mandate.program_code,
+                            now_mnd,
+                        ),
+                    )
 
             # Seed schema version if not recorded
             cur = conn.execute("SELECT version FROM reporting_schema WHERE version = ?", (REPORTING_SCHEMA_VERSION,))
@@ -1006,7 +1039,8 @@ class ReportingStore:
     def save_filled_form(self, form: FilledForm, *, updated_by: str = "") -> None:
         now = _utc_now()
         program_id_str = form.program_id.value if hasattr(form.program_id, "value") else str(form.program_id)
-        title = FORMS_BY_PROGRAM[program_id_str].title if program_id_str in FORMS_BY_PROGRAM else program_id_str
+        from .forms import EXTENDED_FORMS_BY_PROGRAM
+        title = EXTENDED_FORMS_BY_PROGRAM[program_id_str].title if program_id_str in EXTENDED_FORMS_BY_PROGRAM else program_id_str
 
         answers_dict: dict[str, Any] = {}
         for k, ans in form.answers.items():
@@ -1077,8 +1111,10 @@ class ReportingStore:
                 else:
                     answers[k] = FormAnswer(question_key=k, value=raw)
 
+            raw_pid = row["program_id"]
+            prog_id = ProgramId(raw_pid) if raw_pid in {p.value for p in ProgramId} else raw_pid
             return FilledForm(
-                program_id=ProgramId(row["program_id"]),
+                program_id=prog_id,
                 answers=answers,
             )
 
@@ -1089,7 +1125,8 @@ class ReportingStore:
             for row in rows:
                 form = self.get_filled_form(row["program_id"])
                 if form:
-                    result[form.program_id.value] = form
+                    key = form.program_id.value if hasattr(form.program_id, "value") else str(form.program_id)
+                    result[key] = form
             return result
 
     # ----------------------------------------------------------------------
@@ -1818,11 +1855,17 @@ class ReportingStore:
         with self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO mandates (mandate_id, kind, title, number, issued_on, document_ref, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO mandates (
+                    mandate_id, kind, title, number, issued_on, document_ref, notes, program_code, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(mandate_id) DO UPDATE SET
-                    kind = excluded.kind, title = excluded.title, number = excluded.number,
-                    issued_on = excluded.issued_on, document_ref = excluded.document_ref, notes = excluded.notes
+                    kind = excluded.kind,
+                    title = excluded.title,
+                    number = excluded.number,
+                    issued_on = excluded.issued_on,
+                    document_ref = excluded.document_ref,
+                    notes = excluded.notes,
+                    program_code = excluded.program_code
                 """,
                 (
                     mandate.mandate_id,
@@ -1832,13 +1875,20 @@ class ReportingStore:
                     mandate.issued_on,
                     mandate.document_ref,
                     mandate.notes,
+                    mandate.program_code,
                     now,
                 ),
             )
 
-    def list_mandates(self) -> list[Mandate]:
+    def list_mandates(self, *, program_code: str | None = None) -> list[Mandate]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM mandates ORDER BY created_at").fetchall()
+            if program_code:
+                rows = conn.execute(
+                    "SELECT * FROM mandates WHERE program_code = ? ORDER BY created_at",
+                    (program_code,),
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM mandates ORDER BY program_code, created_at").fetchall()
             return [
                 Mandate(
                     mandate_id=row["mandate_id"],
@@ -1848,9 +1898,15 @@ class ReportingStore:
                     issued_on=row["issued_on"] or "",
                     document_ref=row["document_ref"] or "",
                     notes=row["notes"] or "",
+                    program_code=row["program_code"] if "program_code" in row.keys() else "",
                 )
                 for row in rows
             ]
+
+    def delete_mandate(self, mandate_id: str) -> bool:
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM mandates WHERE mandate_id = ?", (mandate_id,))
+            return cursor.rowcount > 0
 
     # ----------------------------------------------------------------------
     # Section Registry (data-driven report axes, F-088 section 4)

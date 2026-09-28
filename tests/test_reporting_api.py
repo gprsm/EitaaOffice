@@ -332,3 +332,81 @@ class TestReportingFormsAndExportEndpoints:
         assert fact_metrics["quran_attendees"] == 120
         assert fact_metrics["quran_awards"] == 10
 
+    def test_forms_operational_description_and_program_codes(self, reporting_api: BridgeApplicationApi) -> None:
+        resp = reporting_api.dispatch("GET", "/api/v2/reporting/forms")
+        assert resp.status == 200
+        forms = resp.payload["forms"]
+        trip = next(f for f in forms if f["program_id"] == "trip")
+        assert trip["program_code"] == "80401"
+        assert trip["title"] == "80401 - اردو"
+        assert "برگزاری اردوهای فرهنگی" in trip["operational_description"]
+        assert len(trip["monitoring_criteria"]) >= 3
+        assert "سند تحول" in trip["policy_framework"] or "رفاهی" in trip["policy_framework"]
+
+    def test_mandate_crud_endpoints(self, reporting_api: BridgeApplicationApi) -> None:
+        # 1. List initial canonical mandates
+        resp = reporting_api.dispatch("GET", "/api/v2/reporting/mandates")
+        assert resp.status == 200
+        mandates = resp.payload["mandates"]
+        assert len(mandates) >= 8
+        trip_mnd = next(m for m in mandates if m["program_code"] == "80401")
+        assert "اردو" in trip_mnd["title"]
+
+        # 2. Filter by program_code
+        filtered = reporting_api.dispatch("GET", "/api/v2/reporting/mandates?program_code=80401")
+        assert filtered.status == 200
+        assert all(m["program_code"] == "80401" for m in filtered.payload["mandates"])
+
+        # 3. Create a custom mandate
+        create_resp = reporting_api.dispatch(
+            "POST",
+            "/api/v2/reporting/mandates",
+            body={
+                "program_code": "80401",
+                "kind": "circular",
+                "title": "بخشنامه جدید استانی اردوهای پاییزه",
+                "number": "۱۴۰۵/ب/۱۰",
+                "issued_on": "۱۴۰۵/۰۷/۰۱",
+                "document_ref": "دبیرخانه ستاد فرهنگی",
+                "notes": "الزام برگزاری اردوی یک‌روزه کوهنوردی",
+            },
+        )
+        assert create_resp.status == 201
+        new_id = create_resp.payload["mandate"]["mandate_id"]
+
+        # 4. Verify in list
+        filtered2 = reporting_api.dispatch("GET", "/api/v2/reporting/mandates?program_code=80401")
+        assert any(m["mandate_id"] == new_id for m in filtered2.payload["mandates"])
+
+        # 5. Delete mandate
+        del_resp = reporting_api.dispatch("DELETE", f"/api/v2/reporting/mandates/{new_id}")
+        assert del_resp.status == 200
+        assert del_resp.payload["ok"] is True
+
+    def test_extended_forms_and_narrative_form_crud(self, reporting_api: BridgeApplicationApi) -> None:
+        # 1. List with ?all=1 returns 8 forms including 80000 narrative
+        resp = reporting_api.dispatch("GET", "/api/v2/reporting/forms?all=1")
+        assert resp.status == 200
+        forms = resp.payload["forms"]
+        assert len(forms) == 8
+        narrative = next(f for f in forms if f["program_code"] == "80000")
+        assert narrative["program_id"] == "narrative"
+        assert "گزارش عملکرد" in narrative["title"]
+
+        # 2. Save narrative form
+        save_resp = reporting_api.dispatch(
+            "PUT",
+            "/api/v2/reporting/forms/narrative",
+            body={"answers": {"narrative_title": "اقدام تحولی نمونه", "narrative_allocated_budget": 50000000}},
+        )
+        assert save_resp.status == 200
+        assert save_resp.payload["ok"] is True
+
+        # 3. Get narrative form
+        get_resp = reporting_api.dispatch("GET", "/api/v2/reporting/forms/narrative")
+        assert get_resp.status == 200
+        q_map = {q["key"]: q["current_value"] for q in get_resp.payload["form"]["questions"]}
+        assert q_map["narrative_title"] == "اقدام تحولی نمونه"
+        assert q_map["narrative_allocated_budget"] == 50000000
+
+

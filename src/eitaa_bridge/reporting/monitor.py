@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import time
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .eitaa_extraction import EventCandidate
@@ -113,12 +114,15 @@ class EitaaReportMonitor:
             collected.append((ref, dialog_hint, text))
         return collected
 
-    def scan_once(self, core: Any, *, limit_per_dialog: int = 50) -> MonitorResult:
+    def scan_once(self, core: Any, *, limit_per_dialog: int = 50, timeout_seconds: float = 30.0) -> MonitorResult:
         result = MonitorResult()
         seen_refs: set[str] = set()
+        start_time = time.monotonic()
         for config in self.watch_configs:
             if not config.enabled:
                 continue
+            if time.monotonic() - start_time >= timeout_seconds:
+                break
             try:
                 batch = self._iter_messages(core, config, limit_per_dialog)
             except AttributeError:
@@ -126,6 +130,8 @@ class EitaaReportMonitor:
                 # bootstrap): monitoring abstains instead of guessing.
                 continue
             for ref, dialog, text in batch:
+                if time.monotonic() - start_time >= timeout_seconds:
+                    break
                 if ref in seen_refs:
                     continue  # same message matched by two watch configs
                 seen_refs.add(ref)
@@ -143,11 +149,14 @@ class EitaaReportMonitor:
                     result.informational += 1
         return result
 
-    def scan_texts(self, messages: Sequence[tuple[str, str, str]]) -> MonitorResult:
+    def scan_texts(self, messages: Sequence[tuple[str, str, str]], *, timeout_seconds: float = 30.0) -> MonitorResult:
         """Classify an explicit batch of ``(ref, dialog_label, text)`` tuples."""
 
         result = MonitorResult()
+        start_time = time.monotonic()
         for ref, dialog, text in messages:
+            if time.monotonic() - start_time >= timeout_seconds:
+                break
             decision = self.indexer.classify(text, message_ref=ref, dialog_label=dialog)
             result.decisions.append(decision)
             result.scanned += 1

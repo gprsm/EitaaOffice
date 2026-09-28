@@ -310,6 +310,9 @@ _OFFICE_WP_LINK_ACTION_ROUTE = re.compile(
 _REPORTING_FORM_ROUTE = re.compile(
     r"^/api/v2/reporting/forms/(?P<program_id>[a-zA-Z0-9_-]+)$"
 )
+_REPORTING_MANDATE_ROUTE = re.compile(
+    r"^/api/v2/reporting/mandates/(?P<mandate_id>[a-zA-Z0-9_-]+)$"
+)
 _SAFE_LOG_ROUTE_SEGMENT = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 _SAFE_CLIENT_ERROR_TYPE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,80}$")
 _CLIENT_DIAGNOSTIC_EVENTS = frozenset(
@@ -1608,7 +1611,7 @@ class BridgeApplicationApi:
             if selected_method == "POST" and path == "/api/v2/reporting/events":
                 return self._reporting_create_event(payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/reporting/forms":
-                return self._reporting_list_forms()
+                return self._reporting_list_forms(query)
             form_match = _REPORTING_FORM_ROUTE.fullmatch(path)
             if selected_method == "GET" and form_match:
                 return self._reporting_get_form(form_match.group("program_id"))
@@ -1618,6 +1621,13 @@ class BridgeApplicationApi:
                     payload,
                     app_session=app_session,
                 )
+            if selected_method == "GET" and path == "/api/v2/reporting/mandates":
+                return self._reporting_list_mandates(query)
+            if selected_method == "POST" and path == "/api/v2/reporting/mandates":
+                return self._reporting_create_mandate(payload)
+            mandate_match = _REPORTING_MANDATE_ROUTE.fullmatch(path)
+            if selected_method == "DELETE" and mandate_match:
+                return self._reporting_delete_mandate(mandate_match.group("mandate_id"))
             if selected_method == "POST" and path == "/api/v2/reporting/export":
                 return self._reporting_export(payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/reporting/exports":
@@ -4091,12 +4101,20 @@ class BridgeApplicationApi:
             )
         return ApiResponse(200, {"ok": True, "events": serialized})
 
-    def _reporting_list_forms(self) -> ApiResponse:
-        definitions = self._reporting_service.definitions()
+    def _reporting_list_forms(self, query: Mapping[str, Any] | None = None) -> ApiResponse:
+        include_all = False
+        if query:
+            raw_all = query.get("all")
+            raw_narrative = query.get("include_narrative")
+            val_all = raw_all[0] if isinstance(raw_all, (list, tuple)) else str(raw_all or "")
+            val_narrative = raw_narrative[0] if isinstance(raw_narrative, (list, tuple)) else str(raw_narrative or "")
+            include_all = val_all in ("true", "1") or val_narrative in ("true", "1")
+        definitions = self._reporting_service.definitions(include_narrative=include_all)
         saved = self._reporting_service.load_filled_forms()
         forms_list = []
         for defn in definitions:
-            f = saved.get(defn.program_id.value)
+            prog_id = "narrative" if defn.program_code == "80000" else defn.program_id.value
+            f = saved.get(prog_id)
             questions_data = [
                 {
                     "key": q.key,
@@ -4114,8 +4132,12 @@ class BridgeApplicationApi:
             ]
             forms_list.append(
                 {
-                    "program_id": defn.program_id.value,
+                    "program_id": prog_id,
+                    "program_code": defn.program_code,
                     "title": defn.title,
+                    "operational_description": defn.operational_description,
+                    "monitoring_criteria": list(defn.monitoring_criteria),
+                    "policy_framework": defn.policy_framework,
                     "questions": questions_data,
                     "unresolved_star": (
                         list(f.unresolved_star_keys(defn)) if f else list(defn.star_keys())
@@ -4130,11 +4152,12 @@ class BridgeApplicationApi:
         return ApiResponse(200, {"ok": True, "forms": forms_list})
 
     def _reporting_get_form(self, program_id: str) -> ApiResponse:
-        if program_id not in FORMS_BY_PROGRAM:
+        from ..reporting.forms import EXTENDED_FORMS_BY_PROGRAM
+        if program_id not in EXTENDED_FORMS_BY_PROGRAM:
             return ApiResponse(
                 404, {"ok": False, "error": {"message": f"Unknown program {program_id!r}"}}
             )
-        defn = FORMS_BY_PROGRAM[program_id]
+        defn = EXTENDED_FORMS_BY_PROGRAM[program_id]
         saved = self._reporting_service.load_filled_forms()
         f = saved.get(program_id)
         questions_data = [
@@ -4158,7 +4181,11 @@ class BridgeApplicationApi:
                 "ok": True,
                 "form": {
                     "program_id": defn.program_id.value,
+                    "program_code": defn.program_code,
                     "title": defn.title,
+                    "operational_description": defn.operational_description,
+                    "monitoring_criteria": list(defn.monitoring_criteria),
+                    "policy_framework": defn.policy_framework,
                     "questions": questions_data,
                     "unresolved_star": (
                         list(f.unresolved_star_keys(defn))
@@ -4174,6 +4201,90 @@ class BridgeApplicationApi:
             },
         )
 
+    def _reporting_list_mandates(self, query: Mapping[str, Any] | None = None) -> ApiResponse:
+        program_code = None
+        if query and "program_code" in query:
+            raw = query["program_code"]
+            program_code = raw[0] if isinstance(raw, (list, tuple)) else str(raw)
+        mandates = self._reporting_service.list_mandates(program_code=program_code)
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "mandates": [
+                    {
+                        "mandate_id": m.mandate_id,
+                        "program_code": m.program_code,
+                        "kind": m.kind,
+                        "title": m.title,
+                        "number": m.number,
+                        "issued_on": m.issued_on,
+                        "document_ref": m.document_ref,
+                        "notes": m.notes,
+                    }
+                    for m in mandates
+                ],
+            },
+        )
+
+    def _reporting_create_mandate(self, payload: Any) -> ApiResponse:
+        from ..reporting.plans import Mandate
+        import uuid
+
+        if not isinstance(payload, dict):
+            return ApiResponse(400, {"ok": False, "error": {"message": "Invalid payload; object expected"}})
+
+        title = str(payload.get("title", "")).strip()
+        if not title:
+            return ApiResponse(400, {"ok": False, "error": {"message": "Title is required"}})
+
+        kind = str(payload.get("kind", "circular")).strip()
+        mandate_id = str(payload.get("mandate_id", "")).strip() or f"mnd-{uuid.uuid4().hex[:8]}"
+        program_code = str(payload.get("program_code", "")).strip()
+        number = str(payload.get("number", "")).strip()
+        issued_on = str(payload.get("issued_on", "")).strip()
+        document_ref = str(payload.get("document_ref", "")).strip()
+        notes = str(payload.get("notes", "")).strip()
+
+        mandate = Mandate(
+            mandate_id=mandate_id,
+            program_code=program_code,
+            kind=kind,
+            title=title,
+            number=number,
+            issued_on=issued_on,
+            document_ref=document_ref,
+            notes=notes,
+        )
+        try:
+            self._reporting_service.save_mandate(mandate)
+        except Exception as exc:
+            return ApiResponse(400, {"ok": False, "error": {"message": str(exc)}})
+
+        return ApiResponse(
+            201,
+            {
+                "ok": True,
+                "mandate": {
+                    "mandate_id": mandate.mandate_id,
+                    "program_code": mandate.program_code,
+                    "kind": mandate.kind,
+                    "title": mandate.title,
+                    "number": mandate.number,
+                    "issued_on": mandate.issued_on,
+                    "document_ref": mandate.document_ref,
+                    "notes": mandate.notes,
+                },
+            },
+        )
+
+    def _reporting_delete_mandate(self, mandate_id: str) -> ApiResponse:
+        deleted = self._reporting_service.delete_mandate(mandate_id)
+        if not deleted:
+            return ApiResponse(404, {"ok": False, "error": {"message": f"Mandate {mandate_id!r} not found"}})
+        return ApiResponse(200, {"ok": True, "deleted": mandate_id})
+
+
     def _reporting_save_form(
         self,
         program_id: str,
@@ -4181,13 +4292,14 @@ class BridgeApplicationApi:
         *,
         app_session: Any = None,
     ) -> ApiResponse:
-        if program_id not in FORMS_BY_PROGRAM:
+        from ..reporting.forms import EXTENDED_FORMS_BY_PROGRAM
+        if program_id not in EXTENDED_FORMS_BY_PROGRAM:
             return ApiResponse(
                 404, {"ok": False, "error": {"message": f"Unknown program {program_id!r}"}}
             )
-        defn = FORMS_BY_PROGRAM[program_id]
+        defn = EXTENDED_FORMS_BY_PROGRAM[program_id]
         answers_raw = payload.get("answers") or {}
-        form = FilledForm(program_id=defn.program_id)
+        form = FilledForm(program_id=defn.program_id if program_id != "narrative" else "narrative")
         operator = (
             app_session.principal.display_name
             if app_session and hasattr(app_session, "principal")

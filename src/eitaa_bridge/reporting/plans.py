@@ -30,21 +30,120 @@ TARGET_SCOPES = frozenset({"provincial_hq", "judicial_domains"})
 PLAN_ACTION_CLASSES = frozenset({"", "transformation_doc", "inherent_duty", "outstanding"})
 
 
+MANDATE_KINDS = frozenset({
+    "circular",
+    "correspondence",
+    "law",
+    "policy",
+    "transformation_doc",
+    "directive",
+    "agreement",
+    "guideline",
+    "resolution",
+})
+
+
 @dataclass(slots=True)
 class Mandate:
     mandate_id: str
-    kind: str  # circular | correspondence | law | policy | transformation_doc
+    kind: str  # circular | correspondence | law | policy | transformation_doc | directive | agreement | guideline | resolution
     title: str
     number: str = ""
     issued_on: str = ""  # jalali date as printed on the document, e.g. "۱۵/۱/۱۴۰۰"
     document_ref: str = ""
     notes: str = ""
+    program_code: str = ""  # operational program code (e.g. 80401, 80402, 80403, 80501, 80406, 80601, 80202, 80000)
 
     def validate(self) -> None:
         if not self.mandate_id.strip() or not self.title.strip():
             raise ValueError("Mandate id and title cannot be empty.")
-        if self.kind not in {"circular", "correspondence", "law", "policy", "transformation_doc"}:
+        if self.kind not in MANDATE_KINDS:
             raise ValueError(f"Unknown mandate kind: {self.kind!r}")
+
+
+CANONICAL_MANDATES: tuple[Mandate, ...] = (
+    Mandate(
+        mandate_id="mnd-80401-trip-circular",
+        program_code="80401",
+        kind="circular",
+        title="بخشنامه جامع اعزام و ساماندهی اردوهای زیارتی، سیاحتی و خانوادگی کارکنان قوه قضاییه",
+        number="۱۴۰۱/۴/۲۰",
+        issued_on="۱۴۰۱/۰۴/۲۰",
+        document_ref="دستورالعمل اداره‌کل رفاه و سلامت قوه قضاییه",
+        notes="مبنای ضوابط اعزام اردوهای کارکنان، خانوادگی و تشویقی مزدوجین/فرزندآوری با اولویت اماکن زیارتی مشهد مقدس و شمال کشور.",
+    ),
+    Mandate(
+        mandate_id="mnd-80402-contest-guideline",
+        program_code="80402",
+        kind="guideline",
+        title="شیوه‌نامه اجرایی مسابقات سراسری قرآن و عترت و المپیادهای فرهنگی-ورزشی کارکنان و خانواده‌ها",
+        number="۹۰۰۰/۳۱۴۰",
+        issued_on="۱۴۰۲/۰۷/۱۰",
+        document_ref="معاونت منابع انسانی و امور فرهنگی قوه قضاییه",
+        notes="ضوابط برگزاری مسابقات در رشته‌های حفظ، قرائت، ترتیل، مفاهیم، مسابقات کتابخوانی و رشته‌های ورزشی مصوب.",
+    ),
+    Mandate(
+        mandate_id="mnd-80403-ceremony-directive",
+        program_code="80403",
+        kind="directive",
+        title="شیوه‌نامه تعظیم شعائر دینی، اعیاد مذهبی، ایام‌الله ملی و انقلابی و بزرگداشت ایام سوگواری",
+        number="۹۰/۴۴۰۲",
+        issued_on="۱۴۰۳/۰۲/۱۵",
+        document_ref="ستاد مناسبت‌های استانی دادگستری کل",
+        notes="دستورالعمل فضاسازی، برپایی ایستگاه صلواتی و موکب، هماهنگی سخنران/مداح و تفکیک آمار هفتگی زیارت عاشورا.",
+    ),
+    Mandate(
+        mandate_id="mnd-80501-prayer-agreement",
+        program_code="80501",
+        kind="agreement",
+        title="توافق‌نامه مشترک استانی ترویج و توسعه فرهنگ اقامه نماز (طرح بومی‌سازی ۱۴۰۵)",
+        number="۱۱۱۷۱۷/۰۱/۱",
+        issued_on="۱۴۰۵/۰۱/۱۵",
+        document_ref="ستاد اقامه نماز استان مازندران و دادگستری کل",
+        notes="بر مبنای آیین‌نامه ترویج فرهنگ اقامه نماز مصوب هیئت وزیران، تمهید نمازخانه‌ها، ائمه جماعت راتب و رویش جوانه‌ها.",
+    ),
+    Mandate(
+        mandate_id="mnd-80406-honor-directive",
+        program_code="80406",
+        kind="directive",
+        title="دستورالعمل تکریم و بزرگداشت مفاخر، ایثارگران، بازنشستگان و کارکنان خدوم دستگاه قضایی",
+        number="ماده ۳۳",
+        issued_on="۱۴۰۰/۰۶/۱۵",
+        document_ref="آیین‌نامه رفاهی قوه قضاییه",
+        notes="الزام برگزاری آیین مستقل تجلیل با حضور رئیس‌کل دادگستری و تفکیک جامعه مخاطب اداری و قضایی.",
+    ),
+    Mandate(
+        mandate_id="mnd-80601-customer-care-policy",
+        program_code="80601",
+        kind="policy",
+        title="دستورالعمل پایش رضایت‌مندی مراجعان، تکریم ارباب رجوع و سازوکار تشویق ادواری کارکنان",
+        number="۹۰۰۰/۷۱۲۰",
+        issued_on="۱۴۰۲/۰۹/۰۱",
+        document_ref="راهکار راهبردی فصل دوم سند تحول و تعالی قضایی",
+        notes="تشویق کارکنان برتر بر اساس صندوق‌های نظرسنجی و گزارش‌های میز خدمت در حضور بالاترین مقام استانی.",
+    ),
+    Mandate(
+        mandate_id="mnd-80202-charter-law",
+        program_code="80202",
+        kind="law",
+        title="منشور اخلاقی و رفتاری کارگزاران قضایی و نظام نظارت بر حقوق شهروندی و سلامت اداری",
+        number="۹۰۰۰/۲۸۸۱/۱۰۰",
+        issued_on="۱۳۹۹/۰۵/۲۲",
+        document_ref="ابلاغیه ریاست محترم قوه قضاییه",
+        notes="نصب تابلوهای راهنمای منشور در ورودی کلیه شعب و دوایر، بازنشر پیام‌های صیانتی و پایش مکاتبات توجیهی.",
+    ),
+    Mandate(
+        mandate_id="mnd-80000-narrative-doc",
+        program_code="80000",
+        kind="transformation_doc",
+        title="نظام‌نامه پایش و ارزیابی عملکرد برنامه‌ای، روایی و اعتباری دادگستری مبتنی بر سند تحول",
+        number="سند تحول",
+        issued_on="۱۴۰۳/۰۱/۰۱",
+        document_ref="سند تحول و تعالی قوه قضاییه",
+        notes="قالب گزارش عملکرد روایی-مالی در تفکیک اقدامات تحولی، وظایف ذاتی و اقدامات شاخص با ارقام تخصیص و هزینه‌کرد.",
+    ),
+)
+
 
 
 @dataclass(slots=True)

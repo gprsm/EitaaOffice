@@ -36,6 +36,7 @@ from .model import (
     ValueSource,
 )
 from .monitor import EitaaReportMonitor, MonitorResult
+from .plans import Mandate
 from .rules import CountingRuleEngine, RULES_VERSION
 from .store import ReportingStore
 
@@ -75,14 +76,14 @@ class ReportingService:
                 self.store.save_candidate(candidate, dialog_label=dialog_label)
         return result
 
-    def scan_provider_once(self, core: Any, *, limit_per_dialog: int = 50) -> MonitorResult:
-        """Scan configured dialogs through a live ``eitaa_core`` runtime."""
+    def scan_provider_once(self, core: Any, *, limit_per_dialog: int = 50, timeout_seconds: float = 30.0) -> MonitorResult:
+        """Scan configured dialogs through a live ``eitaa_core`` runtime with safety timeout."""
 
-        return self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog)
+        return self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog, timeout_seconds=timeout_seconds)
 
-    def scan_and_record_provider(self, core: Any, *, limit_per_dialog: int = 50) -> MonitorResult:
-        """Scan configured dialogs via live runtime and persist decisions into store."""
-        result = self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog)
+    def scan_and_record_provider(self, core: Any, *, limit_per_dialog: int = 50, timeout_seconds: float = 30.0) -> MonitorResult:
+        """Scan configured dialogs via live runtime and persist decisions into store with safety timeout."""
+        result = self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog, timeout_seconds=timeout_seconds)
         if self.store is not None:
             for decision in result.decisions:
                 self.store.record_decision(decision)
@@ -362,7 +363,10 @@ class ReportingService:
         definition = FORMS_BY_PROGRAM[program_id.value]
         return prefill_form(definition, events, context=context)
 
-    def definitions(self) -> tuple[QuestionnaireDefinition, ...]:
+    def definitions(self, *, include_narrative: bool = False) -> tuple[QuestionnaireDefinition, ...]:
+        if include_narrative:
+            from .forms import EXTENDED_FORMS
+            return EXTENDED_FORMS
         return ALL_FORMS
 
     def aggregate(self, events: Sequence[ReportedEvent]) -> dict[str, ProgramReport]:
@@ -496,4 +500,21 @@ class ReportingService:
             existing_attendees=attendees,
             dialog_label=label,
         )
+
+    # -- Mandates (اسناد بالادستی و مستندات ابلاغی) ----------------------------
+    def list_mandates(self, *, program_code: str | None = None) -> list[Mandate]:
+        if self.store is None:
+            return []
+        return self.store.list_mandates(program_code=program_code)
+
+    def save_mandate(self, mandate: Mandate) -> None:
+        if self.store is None:
+            raise RuntimeError("Reporting store is not initialized.")
+        self.store.save_mandate(mandate)
+
+    def delete_mandate(self, mandate_id: str) -> bool:
+        if self.store is None:
+            raise RuntimeError("Reporting store is not initialized.")
+        return self.store.delete_mandate(mandate_id)
+
 

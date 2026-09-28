@@ -62,6 +62,10 @@ class QuestionnaireDefinition:
     title: str
     questions: tuple[Question, ...]
     version: str = QUESTIONNAIRE_VERSION
+    program_code: str = ""
+    operational_description: str = ""
+    monitoring_criteria: tuple[str, ...] = ()
+    policy_framework: str = ""
 
     def validate(self) -> None:
         keys = [question.key for question in self.questions]
@@ -96,7 +100,21 @@ def _standard_trailer() -> tuple[Question, ...]:
 
 TRIP_FORM = QuestionnaireDefinition(
     program_id=ProgramId.TRIP,
-    title="فرم اردو — کد 80401",
+    program_code="80401",
+    title="80401 - اردو",
+    operational_description=(
+        "برگزاری اردوهای فرهنگی، زیارتی، سیاحتی و تفریحی با هدف ارتقای نشاط معنوی، همبستگی سازمانی "
+        "و تحکیم بنیان خانواده کارکنان دستگاه قضایی در سه سطح اختصاصی: ۱) کارکنان، ۲) خانوادگی، "
+        "و ۳) ویژه مزدوجین سال اول و فرزندآوری در راستای قانون حمایت از خانواده و جوانی جمعیت."
+    ),
+    monitoring_criteria=(
+        "ثبت دقیق تعداد نفرات و سرانه هزینه به تفکیک همکاران و اعضای خانواده",
+        "الزام اخذ بیمه‌نامه حوادث معتبر پیش از حرکت و هماهنگی رسمی خودرویی/حمل‌ونقل",
+        "تدوین و تأیید سین تفصیلی برنامه فرهنگی، زیارتی و پذیرایی",
+        "تفکیک شفاف سه نوع اردو: کارکنان، خانوادگی، و نومزدوجین/فرزندآوری",
+        "اجرای نظرسنجی اثربخشی و مستندسازی تصویری کامل جهت الحاق به پیوست گزارش",
+    ),
+    policy_framework="بخشنامه جامع رفاهی قوه قضاییه و راهکار ارتقای نشاط معنوی و سلامت خانواده سند تحول قضایی",
     questions=(
         *_common_header(),
         Question(key="trip_count", label="تعداد اردو", qtype=QuestionType.COUNT, star=True, auto_from="trip_count"),
@@ -117,7 +135,21 @@ TRIP_FORM = QuestionnaireDefinition(
 
 CONTEST_FORM = QuestionnaireDefinition(
     program_id=ProgramId.CONTEST,
-    title="فرم مسابقات — کد 80402",
+    program_code="80402",
+    title="80402 - مسابقات",
+    operational_description=(
+        "برنامه‌ریزی و اجرای مسابقات قرآنی (شامل رشته‌های حفظ، قرائت تحقیق و ترتیل، مفاهیم و اذان)، "
+        "مسابقات فرهنگی، کتابخوانی، ادبی و هنری، و رقابت‌های ورزشی استانی جهت اشاعه الگوهای اخلاقی، "
+        "سلامت جسمانی و معرفت دینی در ۴ گروه مخاطب: شاغلین، همسران، بانوان و فرزندان."
+    ),
+    monitoring_criteria=(
+        "تشکیل ستاد اجرایی مسابقات و ثبت احکام داوران رسمی و تخصصی",
+        "تفکیک جدول مسابقات قرآنی از مسابقات فرهنگی، هنری، ادبی و ورزشی",
+        "ثبت مشخصات و فهرست کامل شرکت‌کنندگان و تقدیر رسمی از برگزیدگان با اهدای جوایز",
+        "پوشش متوازن چهار گروه مخاطب (کارکنان، همسران، بانوان شاغل و فرزندان)",
+        "مستندسازی سؤالات آزمون، برگه‌های داوری و گزارش تصویری آیین اختتامیه",
+    ),
+    policy_framework="شیوه‌نامه اجرایی مسابقات سراسری قرآن و عترت و المپیاد فرهنگی-ورزشی معاونت منابع انسانی و امور فرهنگی",
     questions=(
         *_common_header(),
         Question(key="quran_attendees", label="مسابقات قرآنی — تعداد شرکت‌کنندگان", qtype=QuestionType.ATTENDEES, star=True, auto_from="quran_attendees"),
@@ -151,7 +183,20 @@ CONTEST_FORM = QuestionnaireDefinition(
 
 CEREMONIES_FORM = QuestionnaireDefinition(
     program_id=ProgramId.CEREMONIES,
-    title="فرم مراسم مذهبی، ملی و انقلابی — کد 80403",
+    program_code="80403",
+    title="80403 - مراسم مذهبی، ملی و انقلابی",
+    operational_description=(
+        "احیا و تعظیم شعائر الهی، اعیاد اسلامی، وفیات و شهادت ائمه اطهار (ع)، و ایام‌الله ملی و انقلابی "
+        "(دهه فجر، هفته قوه قضاییه، هفته دفاع مقدس) در دادگستری کل، دادسراها و دادگاه‌های بخش سراسر استان "
+        "از طریق سخنرانی تبیینی، سوگواری، مدیحه‌سرایی، فضاسازی محیطی، برپایی موکب و ایستگاه صلواتی و توزیع بسته‌های فرهنگی."
+    ),
+    monitoring_criteria=(
+        "تفکیک ماهیت برگزاری رویداد به سه رده مشخص: مذهبی، ملی، و انقلابی",
+        "قاعده عدم اختلاط آمار زیارت عاشورا: مراسم هفتگی قرائت زیارت عاشورا و ادعیه به عنوان سنجه مستقل استانی در پیوست جداگانه گزارش شده و در سرجمع مراسم‌ها شمرده نمی‌شود",
+        "ثبت هماهنگی با سخنران، مداح یا کارشناس برجسته و رعایت سقف هزینه‌های مصوب",
+        "فضاسازی محیطی، تبلیغات و نشر آموزه‌های دینی و بصیرتی متناسب با مناسبت",
+    ),
+    policy_framework="دستورالعمل ستاد تعظیم شعائر و مناسبت‌های انقلابی و اهداف فرهنگی-تربیتی سند تحول قضایی",
     questions=(
         *_common_header(),
         Question(key="ceremony_national", label="تعداد مراسم — ملی", qtype=QuestionType.COUNT, star=True, auto_from="ceremony_national"),
@@ -172,7 +217,21 @@ CEREMONIES_FORM = QuestionnaireDefinition(
 
 PRAYER_FORM = QuestionnaireDefinition(
     program_id=ProgramId.PRAYER,
-    title="فرم ترویج و توسعه فرهنگ اقامه نماز — کد 80501",
+    program_code="80501",
+    title="80501 - ترویج و توسعه فرهنگ اقامه نماز",
+    operational_description=(
+        "اجرای برنامه بومی‌سازی مشترک با ستاد اقامه نماز استان، تمهید، تجهیز و بهداشت نمازخانه‌ها در دادگستری کل، "
+        "حوزه‌های قضایی شهرستان‌ها و دادگاه‌های بخش، ساماندهی و استقرار ائمه جماعت راتب، برگزاری مستمر نماز جماعت اول وقت، "
+        "برگزاری جشن تکلیف فرزندان نومکلف (رویش جوانه‌ها)، آموزش احکام و اسرار نماز و برگزاری فصلی جلسات شورای اقامه نماز."
+    ),
+    monitoring_criteria=(
+        "تشکیل منظم جلسات فصلی شورای اقامه نماز به ریاست رئیس‌کل یا قائم‌مقام و پیگیری مصوبات",
+        "پایش استمرار نماز جماعت اول وقت و نظرسنجی فصلی از کیفیت اقامه نماز و بیان احکام",
+        "ثبت و به‌روزرسانی بانک اطلاعات و حق‌القدم ائمه جماعت در کلیه حوزه‌ها",
+        "تکمیل بانک اطلاعات نومکلفین و اجرای آیین رویش جوانه‌ها همراه با اهدای بسته تشویقی",
+        "ارزیابی و نظارت میدانی بر بهداشت و تجهیزات نمازخانه‌ها",
+    ),
+    policy_framework="آیین‌نامه ترویج فرهنگ اقامه نماز مصوب هیئت وزیران و بخشنامه ۱۱۱۷۱۷/۰۱/۱ طرح بومی‌سازی ستاد اقامه نماز",
     questions=(
         *_common_header(),
         Question(key="staff", label="تشکیل ستاد", qtype=QuestionType.COUNT, star=True, auto_from="staff_count"),
@@ -191,7 +250,19 @@ PRAYER_FORM = QuestionnaireDefinition(
 
 HONOR_FORM = QuestionnaireDefinition(
     program_id=ProgramId.HONOR,
-    title="فرم تکریم و تجلیل — کد 80406",
+    program_code="80406",
+    title="80406 - تکریم و تجلیل",
+    operational_description=(
+        "ارج نهادن به زحمات و خدمات برجسته کارکنان اداری و قضایی، خانواده معظم شهدا و ایثارگران، بازنشستگان، "
+        "برگزیدگان مسابقات و نخبگان استانی از طریق برگزاری آیین‌های مستقل تجلیل و اهدای لوح تقدیر و هدایای مادی و معنوی مصوب."
+    ),
+    monitoring_criteria=(
+        "شرط الزامی پذیرش آمار: مراسم باید مستقل و با عنوان اختصاصی تکریم و تجلیل برگزار شده باشد",
+        "گیت انسانی نظارت: ثبت و احراز حضور رئیس‌کل دادگستری یا بالاترین مقام قضایی استان در مراسم",
+        "تفکیک دقیق تقدیرشدگان به تفکیک کادر اداری و کادر قضایی",
+        "ثبت اسامی و پرونده پرسنلی تقدیرشدگان جهت جلوگیری از اعمال جوایز تکراری غیرمصوب",
+    ),
+    policy_framework="ماده ۳۳ آیین‌نامه رفاهی قوه قضاییه و دستورالعمل تکریم مفاخر و ایثارگران دستگاه قضایی",
     questions=(
         *_common_header(),
         Question(key="ceremony_count", label="تعداد مراسم", qtype=QuestionType.COUNT, star=True, auto_from="ceremony_count"),
@@ -210,7 +281,20 @@ HONOR_FORM = QuestionnaireDefinition(
 
 CUSTOMER_CARE_FORM = QuestionnaireDefinition(
     program_id=ProgramId.CUSTOMER_CARE,
-    title="فرم تشویق ارباب رجوع — کد 80601",
+    program_code="80601",
+    title="80601 - تشویق ارباب رجوع",
+    operational_description=(
+        "ترویج فرهنگ تکریم مراجعان، اخلاق حرفه‌ای و پاسخگویی به موقع در شعب، دوایر و دفاتر دادگستری سراسر استان؛ "
+        "شناسایی و تشویق کارمندانی که بر اساس ارزیابی‌های محسوس و نامحسوس، صندوق‌های نظرسنجی و گزارش‌های میز خدمت، "
+        "بالاترین میزان رضایت مراجعان را کسب نموده‌اند."
+    ),
+    monitoring_criteria=(
+        "اتکای پیشنهاد تشویق به گزارش‌های عینی نظرسنجی مراجعان و ارزیابی هیئت صیانت",
+        "شرط حضور رئیس‌کل یا بالاترین مقام استانی در جلسه ابلاغ و اهدای تشویق‌ها",
+        "تفکیک کارکنان تشویق‌شده بر حسب رده‌های شغلی اداری و قضایی",
+        "درج مراتب تشویق در پرونده اداری و پرتال عملکرد سازمانی",
+    ),
+    policy_framework="تکالیف فصل دوم سند تحول و تعالی قوه قضاییه در ارتقای پاسخگویی و احترام به کرامت مراجعان",
     questions=(
         *_common_header(),
         Question(key="ceremony_count", label="تعداد مراسم", qtype=QuestionType.COUNT, star=True, auto_from="ceremony_count"),
@@ -228,7 +312,20 @@ CUSTOMER_CARE_FORM = QuestionnaireDefinition(
 
 CHARTER_FORM = QuestionnaireDefinition(
     program_id=ProgramId.CHARTER,
-    title="فرم منشور اخلاقی — کد 80202",
+    program_code="80202",
+    title="80202 - منشور اخلاقی",
+    operational_description=(
+        "پیاده‌سازی منشور اخلاقی و رفتاری کارگزاران قضایی و موازین سلامت نظام اداری در محیط خدمت؛ "
+        "نصب تابلوهای راهنمای مراجعان و منشور حقوق شهروندی در ورودی کلیه مراجع قضایی، بازنشر پیام‌های فرهنگی و صیانتی "
+        "در بسترهای ارتباطی و فضای مجازی، و انجام اقدامات نظارتی و ترویجی جهت صیانت از شأن دادگستری."
+    ),
+    monitoring_criteria=(
+        "ممیزی و پایش تعداد تابلوهای منشور نصب‌شده در ساختمان‌های قضایی استان",
+        "پایش استمرار بازنشر محتوای منشور و آموزه‌های رفتاری در کانال‌ها و پیام‌رسان‌ها",
+        "شمارش مکاتبات صیانتی، ابلاغیه‌ها و توصیه‌نامه‌های اخلاقی ارسال‌شده به واحدها",
+        "برگزاری کارگاه‌های توجیهی اخلاق حرفه‌ای برای نیروهای جدیدالورود و مدیران دفاتر",
+    ),
+    policy_framework="منشور اخلاقی مصوب ریاست قوه قضاییه و مصوبات هیئت ارتقای سلامت نظام اداری",
     questions=(
         *_common_header(),
         Question(key="correspondence", label="مکاتبات", qtype=QuestionType.COUNT, star=True, auto_from="correspondence_count"),
@@ -269,7 +366,7 @@ class FormAnswer:
 
 @dataclass(slots=True)
 class FilledForm:
-    program_id: ProgramId
+    program_id: ProgramId | str
     answers: dict[str, FormAnswer] = field(default_factory=dict)
     version: str = QUESTIONNAIRE_VERSION
 
@@ -406,10 +503,31 @@ def _narrative_questions() -> tuple[Question, ...]:
 
 
 NARRATIVE_REPORT_FORM = QuestionnaireDefinition(
-    program_id=ProgramId.PRAYER,  # placeholder program id; the narrative form
-    # is instantiated per section at render time (sections are data, program
-    # ids are the legacy enum — F-088 §4).
-    title="قالب گزارش عملکرد (روایی-مالی) — پرکاربرگ هر بخش و دوره",
+    program_id=ProgramId.PRAYER,  # placeholder program id; instantiated per section at render time
+    program_code="80000",
+    title="80000 - قالب گزارش عملکرد (روایی-مالی)",
+    operational_description=(
+        "قالب جامع گزارش عملکرد دوره‌ای و سالانه بر اساس تکالیف سند تحول و تعالی قوه قضاییه، وظایف ذاتی و اقدامات شاخص؛ "
+        "تجمیع اعتبارات مصوب، هزینه‌کرد واقعی، موانع اجرایی و پیشنهادات سیاستی جهت انعکاس به مراجع نظارتی و برنامه‌ریزی استان و کشور."
+    ),
+    monitoring_criteria=(
+        "دسته‌بندی سه‌گانه اقدامات: ۱) راهکارهای سند تحول، ۲) وظایف ذاتی، ۳) اقدامات شاخص و فوق‌العاده",
+        "تطبیق دقیق ارقام مالی اعتبارات تخصیصی با هزینه‌کرد واقعی بر اساس اسناد پرداخت",
+        "ثبت موانع عینی اجرایی و ارائه حداقل یک پیشنهاد عملیاتی اصلاحی برای هر بخش",
+        "ضمیمه‌سازی مستندات معتبر، تصاویر، بازتاب رسانه‌ای و لینک‌های مرتبط",
+    ),
+    policy_framework="نظام‌نامه جامع پایش و ارزیابی عملکرد برنامه‌ای، روایی و اعتباری دادگستری",
     questions=_narrative_questions(),
     version=NARRATIVE_FORM_VERSION,
 )
+
+EXTENDED_FORMS: tuple[QuestionnaireDefinition, ...] = (
+    *ALL_FORMS,
+    NARRATIVE_REPORT_FORM,
+)
+
+EXTENDED_FORMS_BY_PROGRAM: dict[str, QuestionnaireDefinition] = {
+    **FORMS_BY_PROGRAM,
+    "narrative": NARRATIVE_REPORT_FORM,
+}
+
