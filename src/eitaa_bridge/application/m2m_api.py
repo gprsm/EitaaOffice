@@ -37,8 +37,8 @@ _AGENT_MAX_MESSAGE_CHARS = 4096
 _AGENT_MAX_ID_CHARS = 128
 _AGENT_MESSAGE_ID = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 _IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
-_DIALOG_REFERENCE = re.compile(r"^(?P<peer_type>user|chat|channel):(?P<peer_id>[0-9]{1,20})$")
-_PEER_KIND_BY_TYPE = {"user": "private", "chat": "group", "channel": "channel"}
+_DIALOG_REFERENCE = re.compile(r"^(?:(?P<provider>bale):)?(?P<peer_type>user|chat|group|channel):(?P<peer_id>[0-9]{1,20})$")
+_PEER_KIND_BY_TYPE = {"user": "private", "chat": "group", "group": "group", "channel": "channel"}
 
 ResolveHandler = Callable[[list[Mapping[str, Any]], str], list[dict[str, Any]]]
 
@@ -280,7 +280,7 @@ async def handle_send_text(
         requested_provider = body.get("provider")
         if requested_provider is not None:
             requested_provider = str(requested_provider).strip()
-        _validate_provider(service_auth_context, coordinator, messenger_account_id, requested_provider)
+        account_provider = _validate_provider(service_auth_context, coordinator, messenger_account_id, requested_provider)
 
         message_type = str(body.get("message_type", "")).strip()
         if message_type not in ("otp", "notice"):
@@ -301,7 +301,11 @@ async def handle_send_text(
 
         if peer_kind == "dialog":
             dialog_match = _DIALOG_REFERENCE.fullmatch(peer_value)
-            if dialog_match is None:
+            if dialog_match is None or (
+                (account_provider == "bale") != (dialog_match.group("provider") == "bale")
+            ) or (account_provider != "bale" and dialog_match.group("peer_type") == "group") or (
+                account_provider == "bale" and dialog_match.group("peer_type") == "chat"
+            ):
                 return ApiResponse(400, {
                     "ok": False,
                     "error": "validation_error",
@@ -309,7 +313,7 @@ async def handle_send_text(
                     "code": "m2m_peer_reference_invalid",
                 })
             peer_ref = ProviderPeerReference(
-                opaque_reference=dialog_match.group("peer_type") + ":" + dialog_match.group("peer_id"),
+                opaque_reference=peer_value,
                 kind=_PEER_KIND_BY_TYPE[dialog_match.group("peer_type")],
             )
         elif peer_kind in ("phone", "username"):
@@ -429,7 +433,7 @@ def handle_message_status(
         statement = (
             "SELECT outcome, result_reference, updated_at, messenger_account_id "
             "FROM provider_operation_receipts "
-            "WHERE idempotency_key=? AND service_credential_id=?"
+            "WHERE operation IN ('messages.send_text','messages.send_media') AND idempotency_key=? AND service_credential_id=?"
         )
         params: list[Any] = [
             idempotency_key,
@@ -482,6 +486,8 @@ async def dispatch_m2m(
                 derived = re.sub(r"[^A-Za-z0-9._:-]", "0", str(request_id or ""))
                 payload["idempotency_key"] = (f"compat_{derived}"[:32]).ljust(16, "0")
         return await handle_send_text(payload, service_auth_context, orchestrator, coordinator, request_id)
+    elif method == "POST" and path == "/api/v2/m2m/recipients/prepare":
+        return await handle_prepare_recipient(body or {}, service_auth_context, orchestrator, coordinator, request_id)
     elif method == "POST" and path == "/api/v2/m2m/recipients/resolve":
         return handle_resolve_recipients(body or {}, service_auth_context, coordinator, resolve_handler)
 
@@ -494,3 +500,39 @@ async def dispatch_m2m(
         return await handle_agent_health()
 
     return ApiResponse(404, {"ok": False, "error": "not_found"})
+
+
+async def handle_prepare_recipient(body, service_auth_context, orchestrator, coordinator, request_id):
+    """Explicit contact import primitive; never issues or sends an OTP itself."""
+    from ..providers.contracts import ProviderContactUpsertRequest, SensitiveProviderValue
+    from ..errors import BridgeError
+    try:
+        _check_scope(service_auth_context, "contacts.import")
+        account_id = str(body.get("messenger_account_id") or "")
+        _check_account_allowed(service_auth_context, account_id)
+        provider = _validate_provider(service_auth_context, coordinator, account_id, body.get("provider"))
+        if set(body) - {"messenger_account_id", "provider", "phone", "display_name", "idempotency_key", "confirm"}:
+            raise ProviderExtensionError("Unsupported prepare fields.", code="m2m_fields_rejected")
+        if body.get("confirm") is not True:
+            raise ProviderExtensionError("Confirm contact import.", code="m2m_confirm_required")
+        phone = str(body.get("phone") or "")
+        if not re.fullmatch(r"\+[1-9][0-9]{7,14}", phone):
+            raise ProviderExtensionError("Canonical phone required.", code="m2m_phone_invalid")
+        if orchestrator is None:
+            raise ProviderExtensionError("Provider unavailable.", code="provider_operation_not_implemented")
+        receipt = await orchestrator.upsert_contact(actor=_get_actor(service_auth_context),
+            messenger_account_id=account_id, correlation_id=request_id,
+            deadline_unix_ms=int(time.time() * 1000) + 90_000,
+            request=ProviderContactUpsertRequest(SensitiveProviderValue.from_text(phone),
+                str(body.get("display_name") or ""), str(body.get("idempotency_key") or "")))
+        reference = receipt.contact_reference
+        if provider == "eitaa" and reference.startswith("contact:"):
+            reference = "user:" + reference.removeprefix("contact:")
+        return ApiResponse(200, {"ok": True, "status": "matched", "created": receipt.created,
+            "messenger_account_id": account_id, "provider": provider,
+            "peer_reference": {"kind": "dialog", "value": reference}})
+    except ProviderExtensionError as exc:
+        return _error_response(exc)
+    except BridgeError as exc:
+        return ApiResponse(400, {"ok": False, "status": "unresolved", "peer_reference": None,
+            "error": {"error_code": exc.code, "message": "Contact preparation did not complete."}})

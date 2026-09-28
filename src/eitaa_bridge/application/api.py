@@ -407,6 +407,8 @@ class BridgeApplicationApi:
                 else:
                     try:
                         selected_runtime = runtime_registry.resolve_v1()
+                        if selected_runtime.runtime_record is not None and selected_runtime.runtime_record.provider != "eitaa":
+                            selected_runtime = None
                     except EitaaRuntimeError as exc:
                         if exc.code != "eitaa_runtime_account_not_runnable":
                             raise
@@ -506,6 +508,7 @@ class BridgeApplicationApi:
         eitaa_provider = self._provider_registry.registration("eitaa").manifest.provider
         self._provider_application_adapter_factories = {
             eitaa_provider: self._create_eitaa_application_adapter,
+            "bale": self._create_bale_application_adapter,
         }
         self._provider_orchestrator = ProviderApplicationOrchestrator(
             authorize_account=self._authorize_provider_operation_account,
@@ -1635,6 +1638,17 @@ class BridgeApplicationApi:
                     action=worker_match.group("action"),
                     request_id=request_id,
                 )
+            extension_match = re.fullmatch(r"/api/v2/messenger-accounts/([0-9a-fA-F-]{36})/(contacts/remove|messages/send-media|contacts/search|media/content)", path)
+            if extension_match and selected_method == "POST":
+                from .bale_product_api import dispatch_product_extension
+                return ApiResponse(200, dispatch_product_extension(self, app_session,
+                    extension_match.group(1), extension_match.group(2), payload, request_id))
+            bale_auth_match = re.fullmatch(r"/api/v2/messenger-accounts/([0-9a-fA-F-]{36})/auth/(status|start|code|password|cancel|restore|logout)", path)
+            if bale_auth_match and selected_method == ("GET" if bale_auth_match.group(2) == "status" else "POST"):
+                from .bale_product_api import dispatch_bale_auth
+                return ApiResponse(200, dispatch_bale_auth(
+                    self, app_session, bale_auth_match.group(1), bale_auth_match.group(2), payload, request_id,
+                ))
             dialog_query_match = _MESSENGER_ACCOUNT_DIALOG_QUERY_ROUTE.fullmatch(path)
             if selected_method == "POST" and dialog_query_match:
                 return self._provider_dialog_query(
@@ -1731,6 +1745,8 @@ class BridgeApplicationApi:
                     selected_runtime = self._runtime_registry.runtime_for_account(
                         selected_account_id
                     )
+                    if selected_runtime.runtime_record.provider != "eitaa":
+                        raise ProviderExtensionError("Use the account-scoped provider API.", code="provider_v1_route_unsupported")
                     self._request_runtime.set(selected_runtime)
                     if (
                         isinstance(selected_runtime, EitaaProcessRuntime)
@@ -2113,7 +2129,7 @@ class BridgeApplicationApi:
         return ServiceCredentialService(self._coordinator)
 
     _M2M_CREDENTIAL_SCOPES = frozenset(
-        {"messages.send", "messages.status", "contacts.resolve", "agent.chat"}
+        {"messages.send", "messages.status", "contacts.resolve", "contacts.import", "agent.chat"}
     )
 
     def _validate_service_credential_fences(
@@ -2224,6 +2240,18 @@ class BridgeApplicationApi:
         # Read-only peek: resolve must never start a worker/runtime as a side
         # effect; an account without a live runtime resolves as unsupported.
         runtime = self._runtime_registry.peek_runtime_for_account(messenger_account_id)
+        from .bale_runtime import BaleAccountRuntime
+        if isinstance(runtime, BaleAccountRuntime):
+            normalized = []
+            for recipient in recipients:
+                item = dict(recipient)
+                if item.get("kind") == "phone":
+                    try:
+                        item["value"] = normalize_phone(str(item["value"]))
+                    except ValueError:
+                        item["value"] = ""
+                normalized.append(item)
+            return list(runtime.request("bale.provider.recipients.resolve", {"recipients": normalized}, timeout_seconds=90)["results"])
         catalog = getattr(runtime, "dialog_catalog", None) if runtime is not None else None
         catalog_available = (
             runtime is not None
@@ -2418,6 +2446,19 @@ class BridgeApplicationApi:
                 list_contacts=self._eitaa_provider_contacts,
                 upsert_contact=self._eitaa_provider_contact_upsert,
             ),
+        )
+
+    def _create_bale_application_adapter(self, account: ProviderAccountContext) -> Any:
+        from .bale_provider_adapter import BaleProviderApplicationAdapter
+        from .bale_runtime import BaleAccountRuntime, BaleRuntimeBackend, BaleVaultSessionStore
+
+        runtime = self._runtime_registry.runtime_for_account(account.messenger_account_id)
+        if not isinstance(runtime, BaleAccountRuntime) or runtime.runtime_record.provider != "bale":
+            raise ProviderExtensionError("Bale runtime scope changed.", code="provider_extension_scope_invalid")
+        return BaleProviderApplicationAdapter(
+            account, BaleVaultSessionStore(runtime),
+            self._provider_registry.registration("bale").manifest,
+            backend_factory=lambda: BaleRuntimeBackend(runtime),
         )
 
     @contextmanager
@@ -3120,6 +3161,7 @@ class BridgeApplicationApi:
                         "peer_kind": item.peer.kind,
                         "title": item.title,
                         "unread_count": item.unread_count,
+                        **({"last_text": item.last_text} if item.last_text is not None else {}),
                     }
                     for item in page.dialogs
                 ],
@@ -3173,6 +3215,7 @@ class BridgeApplicationApi:
                 "messages": [
                     {
                         "message_reference": item.message_reference,
+                        **({"media_reference": item.media_reference} if item.media_reference is not None else {}),
                         "peer_reference": item.peer.opaque_reference,
                         "peer_kind": item.peer.kind,
                         "sender_reference": item.sender_reference,
@@ -4104,28 +4147,28 @@ class BridgeApplicationApi:
                 code="messenger_account_onboarding_fields_rejected",
                 safe_context={"rejected_fields": rejected_keys},
             )
-        
+
         provider_value = payload.get("provider")
         phone_value = payload.get("phone")
-        
+
         if not isinstance(provider_value, str):
             raise CompositionValidationError(
                 "Account onboarding provider field is invalid.",
                 code="messenger_account_onboarding_identity_fields_invalid",
             )
-        
+
         if phone_value is None:
             raise CompositionValidationError(
                 "Account onboarding requires a phone identity field.",
                 code="messenger_account_onboarding_identity_fields_invalid",
             )
-            
+
         if phone_value is not None and not isinstance(phone_value, str):
             raise CompositionValidationError(
                 "Account onboarding identity fields are invalid.",
                 code="messenger_account_onboarding_identity_fields_invalid",
             )
-            
+
         if payload.get("label") is not None and not isinstance(payload.get("label"), str):
             raise CompositionValidationError(
                 "Account onboarding label is invalid.",

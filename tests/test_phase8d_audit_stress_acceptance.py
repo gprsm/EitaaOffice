@@ -144,7 +144,7 @@ def test_schema4_upgrades_through_correlated_leases_to_current_schema(tmp_path):
         )
     CoordinatorDatabase(path).initialize()
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION == 9
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION == 10
         assert connection.execute(
             "SELECT checksum FROM schema_migrations WHERE version=5"
         ).fetchone()[0] == SCHEMA_CHECKSUMS[5]

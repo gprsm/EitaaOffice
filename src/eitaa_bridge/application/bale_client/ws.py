@@ -197,7 +197,7 @@ class BaleWebSocket:
         try:
             async for message in self.socket:
                 if isinstance(message, str):
-                    self.log.warning("Ignoring text WebSocket frame: %r", message[:200])
+                    self.log.warning("bale_ws_text_frame_ignored")
                     continue
                 await self._handle_frame(bytes(message))
         except asyncio.CancelledError:
@@ -206,11 +206,11 @@ class BaleWebSocket:
             if exc.code == 4401:
                 self.last_error = SessionExpired("Bale rejected or expired the access_token (close 4401)")
             else:
-                self.last_error = ProtocolError(f"WebSocket closed: code={exc.code} reason={exc.reason}")
-            self.log.error("%s", self.last_error)
+                self.last_error = ProtocolError("WebSocket closed")
+            self.log.error("bale_ws_connection_closed")
         except BaseException as exc:
             self.last_error = exc
-            self.log.exception("WebSocket reader failed")
+            self.log.error("bale_ws_reader_failed")
         finally:
             self._closed_event.set()
             for future in list(self._pending.values()):
@@ -263,7 +263,7 @@ class BaleWebSocket:
                     self.log.debug("Update subscription #%s rotated", request_id)
                     self._schedule_resubscribe()
                 else:
-                    self.log.warning("Update subscription failed: %s", error)
+                    self.log.warning("bale_update_subscription_failed")
                     self._schedule_resubscribe(delay=2.0)
                 return
             future = self._pending.get(request_id)
@@ -287,7 +287,7 @@ class BaleWebSocket:
         try:
             fields = parse_fields(data)
         except Exception:
-            return RpcError(-1, f"Malformed RPC error: {data.hex()}")
+            return RpcError(-1, "Malformed RPC error")
         code = int(get_first(fields, 1, 0))
         raw_message = get_first(fields, 2, b"")
         message = raw_message.decode("utf-8", errors="replace") if isinstance(raw_message, bytes) else str(raw_message)
@@ -320,7 +320,7 @@ class BaleWebSocket:
                     if asyncio.iscoroutine(result):
                         asyncio.create_task(result)
                 except Exception:
-                    self.log.exception("Update handler failed")
+                    self.log.error("bale_update_handler_failed")
 
     def _schedule_resubscribe(self, delay: float = 0.05) -> None:
         if not self.connected:
@@ -344,7 +344,7 @@ class BaleWebSocket:
         except asyncio.CancelledError:
             raise
         except Exception:
-            self.log.exception("Ping loop failed")
+            self.log.error("bale_ping_failed")
 
     async def _presence_loop(self) -> None:
         try:
@@ -352,7 +352,7 @@ class BaleWebSocket:
                 try:
                     await self.set_online(True)
                 except Exception:
-                    self.log.debug("SetOnline failed", exc_info=True)
+                    self.log.debug("bale_presence_failed")
                 await asyncio.sleep(self.config.presence_interval)
         except asyncio.CancelledError:
             raise

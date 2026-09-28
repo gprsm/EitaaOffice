@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 369
-- اثرانگشت منبع: `ad91690698620353`
+- تعداد فایل‌های نقشه: 377
+- اثرانگشت منبع: `fdce1ead6b0e1bd7`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -104,11 +104,12 @@
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
-| `src/eitaa_bridge/application/account_runtime.py` | Application | 49 | Account-scoped Eitaa runtime and fail-closed registry. |
+| `src/eitaa_bridge/application/account_runtime.py` | Application | 50 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 30 | AI Agent Chat Gateway (chat-only surface). |
-| `src/eitaa_bridge/application/api.py` | Application | 279 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 280 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/bale_account_owner.py` | Application | 28 | Account-owned Bale connection on one persistent asyncio loop. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
-| `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 51 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
@@ -124,7 +125,10 @@
 | `src/eitaa_bridge/application/bale_client/vault.py` | Application | 7 | — |
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
-| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 18 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
+| `src/eitaa_bridge/application/bale_product_api.py` | Application | 2 | Account-scoped product auth for the Bale worker; no legacy Eitaa state. |
+| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 24 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
+| `src/eitaa_bridge/application/bale_provider_worker.py` | Application | 10 | Bounded account-owned Bale worker operations for in-process and Child hosts. |
+| `src/eitaa_bridge/application/bale_runtime.py` | Application | 34 | Account runtime and bounded parent-side proxy for Bale personal accounts. |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
@@ -133,11 +137,11 @@
 | `src/eitaa_bridge/application/eitaa_provider_runtime_operations.py` | Application | 24 | Bounded Eitaa application operations owned by one account runtime. |
 | `src/eitaa_bridge/application/eitaa_provider_worker.py` | Application | 13 | Dedicated Child-process host for one Eitaa MessengerAccount runtime. |
 | `src/eitaa_bridge/application/fake_provider_worker.py` | Application | 5 | Provider-neutral fake worker used to prove the Phase 7 IPC boundary. |
-| `src/eitaa_bridge/application/m2m_api.py` | Application | 12 | Machine-to-machine API surface for the education/exam system integration. |
+| `src/eitaa_bridge/application/m2m_api.py` | Application | 13 | Machine-to-machine API surface for the education/exam system integration. |
 | `src/eitaa_bridge/application/process_runtime.py` | Application | 40 | Parent-side control proxy for one account-owned Eitaa Child process. |
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
-| `src/eitaa_bridge/application/provider_orchestration.py` | Application | 31 | Provider-neutral application orchestration for bounded messaging operations. |
+| `src/eitaa_bridge/application/provider_orchestration.py` | Application | 34 | Provider-neutral application orchestration for bounded messaging operations. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -204,12 +208,12 @@
 | `src/eitaa_bridge/licensing.py` | Project | 40 | Offline, device-bound activation for packaged Eitaa Bridge installations. |
 | `src/eitaa_bridge/providers/__init__.py` | Project | 0 | Public, provider-neutral extension contracts and the built-in registry. |
 | `src/eitaa_bridge/providers/bale/__init__.py` | Project | 0 | Disabled Bale extension slot; contains no endpoint or protocol implementation. |
-| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Bale personal provider registration (owner-authorized path). |
+| `src/eitaa_bridge/providers/bale/slot.py` | Project | 1 | Bale personal provider: account-owned runtime and product API (ADR-60). |
 | `src/eitaa_bridge/providers/bale_bot/__init__.py` | Project | 0 | — |
 | `src/eitaa_bridge/providers/bale_bot/adapter.py` | Project | 13 | Bale Bot Provider Adapter (official Bot API, scaffold). |
 | `src/eitaa_bridge/providers/bale_bot/errors.py` | Project | 1 | Error mapping for Bale Bot API. |
 | `src/eitaa_bridge/providers/bale_bot/manifest.py` | Project | 0 | — |
-| `src/eitaa_bridge/providers/contracts.py` | Project | 88 | Versioned, bounded contracts for authorized messaging-provider extensions. |
+| `src/eitaa_bridge/providers/contracts.py` | Project | 96 | Versioned, bounded contracts for authorized messaging-provider extensions. |
 | `src/eitaa_bridge/providers/eitaa/__init__.py` | Project | 0 | Eitaa provider integration behind the public provider contract. |
 | `src/eitaa_bridge/providers/eitaa/application_adapter.py` | Project | 16 | Compatibility adapter that keeps Eitaa translation outside orchestration. |
 | `src/eitaa_bridge/providers/fake/__init__.py` | Project | 0 | Offline provider used only for shared contract and isolation tests. |
@@ -229,6 +233,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/service.py` | Project | 13 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/version.py` | Project | 0 | — |
+| `tests/bale_ui_preview.py` | Python test | 1 | Opt-in local acceptance fixture. Never connects to a messaging provider. |
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
 | `tests/test_account_runtime.py` | Python test | 12 | — |
@@ -240,7 +245,9 @@
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
 | `tests/test_bale_bot_adapter.py` | Python test | 13 | Offline tests for the Bale Bot scaffold adapter and its fail-closed status. |
 | `tests/test_bale_branch_api.py` | Python test | 60 | Offline tests for the Bale branch modular API (Phase 1). |
+| `tests/test_bale_main_product.py` | Python test | 40 | Main application acceptance with a stateful offline provider, not source regex. |
 | `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
+| `tests/test_bale_product_integration.py` | Python test | 16 | Offline regression for Bale's product boundary; no provider network access. |
 | `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |
@@ -269,7 +276,7 @@
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
 | `tests/test_linux_identity_protection.py` | Python test | 4 | — |
-| `tests/test_m2m_endpoints.py` | Python test | 42 | Tests for the M2M API endpoints (honest contract). |
+| `tests/test_m2m_endpoints.py` | Python test | 43 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
 | `tests/test_multi_account_lab.py` | Python test | 3 | — |
 | `tests/test_mvp6_operations.py` | Python test | 23 | — |
@@ -335,10 +342,11 @@
 | `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 69 | — |
+| `ui/src/App.tsx` | React UI | 70 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |
+| `ui/src/BaleWorkspace.tsx` | React UI | 10 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |

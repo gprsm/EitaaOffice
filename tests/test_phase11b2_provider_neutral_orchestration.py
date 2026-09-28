@@ -173,7 +173,7 @@ def test_fake_dialog_history_and_send_share_one_ordered_orchestrator(tmp_path):
             )
         )
         assert dialogs.dialogs[0].peer == peer
-        assert harness.events == ["authorize", "context", "capability", "adapter"]
+        assert harness.events == ["authorize", "context", "capability", "adapter", "context"]
 
         harness.events.clear()
         history = asyncio.run(
@@ -186,7 +186,7 @@ def test_fake_dialog_history_and_send_share_one_ordered_orchestrator(tmp_path):
             )
         )
         assert history.messages[0].peer == peer
-        assert harness.events == ["authorize", "context", "capability", "adapter"]
+        assert harness.events == ["authorize", "context", "capability", "adapter", "context"]
 
         harness.events.clear()
         receipt = asyncio.run(
@@ -199,7 +199,7 @@ def test_fake_dialog_history_and_send_share_one_ordered_orchestrator(tmp_path):
             )
         )
         assert receipt.status is ProviderSendStatus.SUCCEEDED
-        assert harness.events == ["authorize", "context", "capability", "adapter"]
+        assert harness.events == ["authorize", "context", "capability", "adapter", "context"]
     finally:
         harness.close()
 

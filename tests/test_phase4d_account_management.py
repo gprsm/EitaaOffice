@@ -229,12 +229,12 @@ def test_api_lists_starts_selects_isolates_and_stops_accounts(
         bale_payload = listed.payload["provider_adapters"]["bale"]
         assert bale_payload["provider"] == "bale"
         assert bale_payload["configured"] is True
-        assert bale_payload["runtime_enabled"] is False
-        assert bale_payload["onboarding_enabled"] is False
+        assert bale_payload["runtime_enabled"] is True
+        assert bale_payload["onboarding_enabled"] is True
         assert bale_payload["auth_steps"] == ["identity", "challenge", "second_factor_optional"]
-        assert bale_payload["implementation_state"] == "implemented"
+        assert bale_payload["implementation_state"] == "contract_verified"
         assert len(bale_payload["capabilities"]) > 0
-        assert bale_payload["reason_code"] == "provider_onboarding_wiring_pending"
+        assert bale_payload.get("reason_code") is None
 
         for account_id in (first.messenger_account_id, second_id):
             started = api.dispatch(

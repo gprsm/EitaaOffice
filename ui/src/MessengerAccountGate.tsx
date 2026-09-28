@@ -368,7 +368,7 @@ export function MessengerAccountManagementPanel() {
       <Box>
         <Typography variant="h6">حساب‌های پیام‌رسان</Typography>
         <Typography variant="body2" color="text.secondary">
-          هر شماره یک PhoneAccount است و می‌تواند حساب‌های مستقل ایتا و بله داشته باشد. اتصال بله هنوز پیکربندی نشده است.
+          هر شماره یک PhoneAccount است و می‌تواند حساب‌های مستقل ایتا و بله داشته باشد. نشست و مخاطبین هر حساب مستقل هستند.
         </Typography>
       </Box>
       {!state.featureEnabled && <Alert severity="info">
@@ -410,7 +410,7 @@ function AccountCard(props: {
       <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
         <Box>
           <Typography fontWeight={700}>{account.label || props.descriptor?.display_name || account.provider}</Typography>
-          <Stack direction="row" gap={0.75} alignItems="center"><Box sx={{ display: 'grid', placeItems: 'center', width: 16, height: 16, borderRadius: '50%', bgcolor: '#f26522', color: 'white', fontSize: 10, fontWeight: 'bold' }}>e</Box><Typography variant="body2" dir="ltr">{account.phone_hint}</Typography></Stack>
+          <Stack direction="row" gap={0.75} alignItems="center"><Box sx={{ display: 'grid', placeItems: 'center', width: 16, height: 16, borderRadius: '50%', bgcolor: account.provider === 'bale' ? '#16a085' : '#f26522', color: 'white', fontSize: 10, fontWeight: 'bold' }}>{account.provider === 'bale' ? 'ب' : 'e'}</Box><Typography variant="body2" dir="ltr">{account.phone_hint}</Typography></Stack>
         </Box>
         <Stack direction="row" gap={0.75} flexWrap="wrap" justifyContent="flex-end">
           <Chip size="small" label={props.descriptor?.display_name || account.provider} />

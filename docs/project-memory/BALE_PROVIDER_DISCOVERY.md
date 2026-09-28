@@ -1,7 +1,7 @@
 # حافظهٔ Discovery پیام‌رسان بله
 
-آخرین بازبینی: ۲۰۲۶-۰۹-۲۷  
-وضعیت: `HISTORICAL_DISCOVERY / CURRENT_CONTRACT_F-086_PERSONAL_AUTHORIZED / BALE_BOT_SCAFFOLD_COEXISTS`  
+آخرین بازبینی: ۲۰۲۶-۰۹-۲۷
+وضعیت: `HISTORICAL_DISCOVERY / CURRENT_CONTRACT_F-086_PERSONAL_AUTHORIZED / BALE_BOT_SCAFFOLD_COEXISTS`
 سطح شاهد: `STATIC LOCAL SOURCE REVIEW + CURRENT PRIMARY WEB SOURCES`
 
 > اصلاح دامنه در 2026-08-25: کاربر فصل‌های متأخر قرارداد توسعهٔ Bale را تصمیم محصولی جاری اعلام کرده و بازگردانی سایر قراردادهای متأخر را نخواسته است. این تصمیم تناقض تاریخی فصل‌های قدیمی و متأخر این سند را برای G-01 نیازمند همسان‌سازی می‌کند؛ در برنامهٔ تثبیت جاری هیچ قابلیت تازهٔ Bale توسعه نمی‌یابد و runtime شکسته فقط fail-closed و اصلاح می‌شود. مجوزهای عملیاتی Live مندرج در تاریخچه، جای تأیید همان لحظه برای Login/OTP/Session/Send/Capture را نمی‌گیرند.
@@ -133,6 +133,8 @@
 
 
 ## فصل ۱۰ — بازیابی تصمیم تاریخی 2026-08-21
+
+> به‌روزرسانی اجرای 2026-09-28 (F-092/V-228): یکپارچه‌سازی محصولی بله شخصی (B0 تا B6) به‌طور کامل در برنامهٔ اصلی اجرا شد؛ متدهای مخاطب، احراز هویت، پیام‌ها، رسانه، روت‌های M2M، رابط کاربری BaleWorkspace و پروسس ورکر در هر دو پروفایل in-process و child_process پیاده و با ۱۸ آزمون یکپارچگی و فول‌سوییت ۹۲۰ تستی پذیرفته شدند. اسلات بله با CONTRACT_VERIFIED، runtime_enabled=True و onboarding_enabled=True فعال گردید. اجرای Live عملیاتی نیازمند مجوز صریح مالک در زمان اجرا است.
 
 - وضعیت: `RECOVERED_FROM_PARTIAL_EVIDENCE / HISTORICAL / SUPERSEDED_BY_F-046`
 - متن اصلی این بخش دچار U+FFFD، علامت سؤال جایگزین و control character شده بود؛ متن لفظ‌به‌لفظ قابل‌بازیابی نیست و از خود سند حدس زده نشده است.

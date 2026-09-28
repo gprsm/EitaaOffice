@@ -352,6 +352,17 @@ class BaleApi:
             "users": matches,
         }
 
+    async def lookup_contact_by_phone(self, phone_number: str | int) -> list[dict[str, Any]]:
+        """Read-only exact phone query; never use the free-text local fallback."""
+        from .codecs_ext import build_search_contacts_by_phone
+        self._require_ws()
+        response = await self._rpc("users", "SearchContacts", build_search_contacts_by_phone(_normalize_phone(phone_number)))
+        records = decode_users(response)
+        if records:
+            return [{"peer": {"id": record.id, "type": 1}} for record in records if record.id > 0]
+        return [{"peer": {"id": item.peer.id, "type": int(item.peer.type)}}
+                for item in decode_contact_summaries(response) if item.peer.id > 0]
+
     async def add_contact(
         self,
         user_id: int | str,
@@ -514,6 +525,7 @@ class BaleApi:
         user_id: int | str,
         message_id: int,
         destination_dir: str | Path,
+        *, max_bytes: int = 512 * 1024,
     ) -> dict[str, Any]:
         """Download the document/photo attached to a history message.
 
@@ -528,9 +540,12 @@ class BaleApi:
                 f"No downloadable document found for message {message_id}",
                 code="bale_media_not_found",
             )
+        if target.document.size > max_bytes:
+            raise BaleApiError("Media exceeds download limit", code="bale_media_too_large")
         destination = Path(destination_dir)
         destination.mkdir(parents=True, exist_ok=True)
-        out_path = destination / (target.document.name or f"bale_{message_id}")
+        # Provider-supplied names are not filesystem paths.
+        out_path = destination / f"{secrets.token_hex(16)}.download"
         saved = await self._client.download_file(target.document, out_path)
         return {
             "message_id": message_id,
@@ -538,6 +553,7 @@ class BaleApi:
             "name": target.document.name,
             "size": target.document.size,
             "media_kind": classify_media(target.document),
+            "mime_type": target.document.mime_type,
         }
 
     # ------------------------------- internals -------------------------------

@@ -42,6 +42,10 @@ type AccountSummary = {
   provider: string
   label: string | null
   phone_hint: string
+  auth_state?: string
+  lifecycle_state?: string
+  desired_worker_state?: string
+  worker?: { runtime_state: string } | null
 }
 
 type CredentialListResponse = { ok: true; credentials: ServiceCredential[] }
@@ -50,6 +54,8 @@ type TokenResponse = { ok: true; token: string; credential?: ServiceCredential }
 const SCOPE_LABELS: Record<string, string> = {
   'messages.send': 'ارسال پیام',
   'contacts.resolve': 'بررسی مخاطبین',
+  'contacts.import': 'افزودن مخاطب با نام برای OTP',
+  'messages.status': 'وضعیت ارسال',
   'agent.chat': 'چت نماینده هوشمند'
 }
 
@@ -149,7 +155,8 @@ export const ServiceAccountSettingsPanel = () => {
       }
       return <Chip label={fallbackLabel} color="warning" size="small" />
     }
-    return <Chip label={readyLabel} color="success" size="small" />
+    const ready = accounts.some(account => account.provider === provider && account.auth_state === 'authenticated' && account.lifecycle_state === 'active' && account.desired_worker_state === 'running' && account.worker?.runtime_state === 'ready')
+    return <Chip label={ready ? readyLabel : pendingLabel} color={ready ? 'success' : 'info'} size="small" />
   }
 
   return (
@@ -164,7 +171,7 @@ export const ServiceAccountSettingsPanel = () => {
             <Typography variant="h6" gutterBottom>وضعیت سیستم</Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {chipFor('eitaa', 'ارسال ایتا: حساب فعال ندارد', 'ارسال ایتا: فعال', 'ارسال ایتا: در حال اتصال')}
-              {chipFor('bale', 'ارسال بله: پیکربندی نشده', 'ارسال بله (شخصی): فعال', 'بله شخصی: مجاز — اتصال خودکار در فاز بعد')}
+              {chipFor('bale', 'ارسال بله: پیکربندی نشده', 'ارسال بله (شخصی): فعال', 'بله شخصی: ورود حساب لازم است')}
               <Chip label="نماینده هوشمند: حالت آزمایشی" color="info" size="small" />
             </Box>
           </CardContent>

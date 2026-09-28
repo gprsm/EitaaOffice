@@ -284,7 +284,7 @@ def test_schema9_binds_service_receipts_and_keeps_legacy_conservative(tmp_path):
     database.initialize()
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 9
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 10
         columns = {
             row[1]
             for row in connection.execute("PRAGMA table_info(provider_operation_receipts)")

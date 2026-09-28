@@ -397,7 +397,8 @@ class TestBaleApiFacade:
         result = asyncio.run(api.read_message_media(4242, 55, destination))
         assert result["message_id"] == 55
         assert result["media_kind"] == "photo"
-        assert (destination / "photo.png").read_bytes() == b"fake-image-bytes"
+        assert Path(result["path"]).parent == destination
+        assert Path(result["path"]).read_bytes() == b"fake-image-bytes"
 
     def test_read_message_media_missing_document_raises(self, tmp_path: Path) -> None:
         api = _make_api(tmp_path)

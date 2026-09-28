@@ -12,7 +12,7 @@ from ...errors import CoordinatorSchemaError
 from .store import CoordinatorDatabase
 
 
-_OPERATIONS = frozenset({"messages.send_text", "contacts.upsert"})
+_OPERATIONS = frozenset({"messages.send_text", "messages.send_media", "contacts.upsert", "contacts.remove"})
 _OUTCOMES = frozenset({"in_progress", "succeeded", "uncertain"})
 _IDEMPOTENCY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -247,7 +247,7 @@ class ProviderOperationReceiptStore:
                 "The provider receipt reason is invalid.",
                 code="provider_receipt_result_invalid",
             )
-        if selected_operation == "messages.send_text":
+        if selected_operation in {"messages.send_text", "messages.send_media"}:
             if contact_created is not None or (
                 selected_outcome == "succeeded" and reference is None
             ):

@@ -114,27 +114,23 @@ class _ContractAdapter:
         return None
 
 
-def test_default_registry_exposes_capabilities_but_keeps_bale_fail_closed():
+def test_default_registry_exposes_offline_verified_bale_product():
     catalog = provider_adapter_catalog()
     assert set(catalog) == {"eitaa", "bale"}
     assert catalog["eitaa"].implementation_state == "live_accepted"
     assert "dialogs.read" in catalog["eitaa"].capabilities
-    assert catalog["bale"].implementation_state == "implemented"
-    assert len(catalog["bale"].capabilities) > 0  # owner-authorized path, F-086
+    assert catalog["bale"].implementation_state == "contract_verified"
     assert catalog["bale"].configured is True
-    assert catalog["bale"].runtime_enabled is False
-    assert catalog["bale"].onboarding_enabled is False
-    assert catalog["bale"].reason_code == "provider_onboarding_wiring_pending"
-    with pytest.raises(ProviderExtensionError) as adapter_rejected:
-        default_provider_registry().create_adapter(
-            "bale",
-            _account("bale"),
-            InMemoryProviderSessionStore(),
-        )
-    assert adapter_rejected.value.code == "provider_onboarding_wiring_pending"
+    assert catalog["bale"].runtime_enabled is True
+    assert catalog["bale"].onboarding_enabled is True
+    assert catalog["bale"].reason_code is None
+    adapter = default_provider_registry().create_adapter("bale", _account("bale"), InMemoryProviderSessionStore())
+    with pytest.raises(ProviderExtensionError) as unowned:
+        adapter._get_backend()
+    assert unowned.value.code == "provider_account_runtime_unavailable"
     with pytest.raises(ProviderExtensionError) as rejected:
         default_provider_registry().create_worker("bale", str(uuid4()), None)
-    assert rejected.value.code == "provider_worker_not_configured"
+    assert rejected.value.code == "bale_worker_config_required"
 
 
 def test_manifest_requires_authorization_and_contract_verification():
@@ -292,7 +288,7 @@ def test_bale_slot_has_no_transport_dynamic_loader_or_endpoint_literal(capsys):
         secret_file="missing-secret-file",
     ) == 2
     captured = capsys.readouterr()
-    assert "provider_worker_not_configured" in captured.err
+    assert "bale_worker_config_required" in captured.err
     assert "missing-secret-file" not in captured.err
 
 

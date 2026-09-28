@@ -36,7 +36,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _INTEGRATION_KEY = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 _PROVIDER_ID = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
 _MAX_SELF_SERVICE_MESSENGER_ACCOUNTS = 20
-_AUTH_AUDIT_ACTION = re.compile(r"^eitaa\.auth\.[a-z0-9_.-]{1,80}$")
+_AUTH_AUDIT_ACTION = re.compile(r"^(?:eitaa|bale)\.auth\.[a-z0-9_.-]{1,80}$")
 _AUTH_STATES = frozenset(
     {"absent", "challenge_pending", "authenticated", "expired", "revoked", "invalid"}
 )

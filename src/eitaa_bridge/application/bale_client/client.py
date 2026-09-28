@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from dataclasses import asdict, is_dataclass
@@ -64,8 +65,7 @@ class BaleClient:
         self.passphrase = passphrase
         self.session = session
         self.vault = SessionVault(self.config.vault_path)
-        self._configure_logging()
-        self.log = logging.getLogger("bale_personal_client")
+        self.log = self._configure_logging()
         self.http = httpx.AsyncClient(
             follow_redirects=True,
             timeout=httpx.Timeout(60.0),
@@ -82,10 +82,14 @@ class BaleClient:
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         await self.close()
 
-    def _configure_logging(self) -> None:
-        root = logging.getLogger("bale_personal_client")
+    def _configure_logging(self) -> logging.Logger:
+        # An account's WebSocket logger must never inherit a FileHandler from
+        # another account that was opened earlier in the same process.
+        digest = hashlib.sha256(str(self.config.log_path.resolve()).encode("utf-8")).hexdigest()[:16]
+        root = logging.getLogger(f"bale_personal_client.account_{digest}")
+        root.propagate = False
         if root.handlers:
-            return
+            return root
         self.config.log_path.parent.mkdir(parents=True, exist_ok=True)
         root.setLevel(logging.DEBUG)
         formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
@@ -93,6 +97,7 @@ class BaleClient:
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
         root.addHandler(file_handler)
+        return root
 
     async def close(self) -> None:
         if self.ws:

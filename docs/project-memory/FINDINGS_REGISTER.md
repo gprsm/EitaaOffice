@@ -1,6 +1,6 @@
 # دفتر یافته‌ها و تصمیم‌های مهندسی
 
-آخرین بازبینی: ۲۰۲۶-۰۸-۲۶  
+آخرین بازبینی: ۲۰۲۶-۰۸-۲۶
 قاعده: هیچ یافتهٔ مادی نباید فقط در Chat بماند.
 
 ## فصل ۱ — یافته‌های فعال
@@ -1231,7 +1231,7 @@
 
 ### F-092 — برنامهٔ تکمیل بله و اتصال وب با فرستنده، محدودیت، OTP و AI
 
-- وضعیت: `OPEN / PLANNED / INSTRUCTIONS_READY / IMPLEMENTATION_NOT_STARTED`
+- وضعیت: `OPEN / BALE_OFFLINE_COMPLETE / WEB_PHASES_PLANNED / LIVE_PENDING_INPUT` (به‌روزرسانی 2026-09-28، V-228)
 - تاریخ: 2026-09-28
 - Trigger: درخواست مالک برای دو بستهٔ دستور فنی ثبت‌شده در پروژه، با مأموریت کامل بله پیش از فازهای اتصال وب؛ این نوبت توسعهٔ محصول یا اجرای Live درخواست نشده است.
 - شاهد آغاز: checkout محلی `c513cdf3`؛ tracked change اولیه صفر و untrackedهای قبلی محفوظ. آداپتور Bale Personal هنوز contact list/upsert عمومی کامل ندارد، worker factory غایب و runtime/onboarding خاموش‌اند؛ façade مستقل روش‌های مخاطب دارد. V-194/V-195 شاهد تاریخی بعضی مسیرها هستند و افزودن/حذف مخاطب عمومی را اثبات نمی‌کنند. این بررسی ایستا برای تعیین دامنهٔ دستور است، نه پذیرش Live تازه.
@@ -1239,3 +1239,5 @@
 - اقدام: [دستور اول بله](../implementation-plans/bridge-client-2026-09-28/BALE_FULL_PRODUCT_INTEGRATION.md) و [برنامهٔ نه‌فازی](../implementation-plans/bridge-client-2026-09-28/WEB_CLIENT_PROGRAM.md) اجرا شوند. هر فاز acceptance ID، گزارش، handoff و gate مستقل دارد؛ وضعیت فقط با شاهد واقعی تغییر کند. آماده‌بودن ابزار offline جایگزین Live نیست و unknown/uncertain ارسال مجدد خودکار نمی‌سازد.
 - حدود: این نوبت فقط Markdown و خروجی generator تغییر کرده؛ operational config، source، نشست، تماس Provider/AI و استقرار دست‌نخورده‌اند. F-090/F-091 بسته با شواهد قبلی باقی می‌مانند؛ F-092 با ساخت دستور بسته نمی‌شود.
 - مرجع: [فهرست بسته](../implementation-plans/bridge-client-2026-09-28/README.md)، [دفتر اجرا](../implementation-plans/bridge-client-2026-09-28/EXECUTION_STATUS.md)، V-226، F-086/ADR-60 و قرارداد M2M نسخهٔ 1.4.1.
+- ادامهٔ BALE-PRODUCT در 2026-09-28 (V-227): B0 inventory و REDهای contact protocol، برخورد نوع peer و parser M2M ثبت شد. adapter اکنون contact list و import با matched منفرد را به DTO محدود نگاشت می‌کند، reference typed را حفظ می‌کند، گروه را در مسیر فقط‌خصوصی رد می‌کند و `random_id` را submission می‌نامد. مالک loop/کلید/vault/log مستقل هر حساب با Fake دوحسابی و restart آزموده شده، اما هنوز به Registry و worker واقعی/API auth/UI متصل نیست. ساخت پیش‌فرض shared vault در adapter fail-closed شد و passphrase از auth DTO بیرون رفت. کلاینت logger حساب‌محور شد و لاگ‌های خام WebSocket محدود شدند. runtime/onboarding طبق واقعیت False مانده؛ contact remove، resolve واقعی بله، receive، media و Pilot هنوز اجرا نشده‌اند. این milestone پایان BALE-A01 تا A08 نیست و نشر Git مشمول مجوز پایان سناریو نمی‌شود.
+- تکمیل BALE-PRODUCT در 2026-09-28 (V-228): کل مأموریت B0 تا B6 بله در لایه‌های هسته، رانتایم، کارخانهٔ پروسس، آداپتور، API و UI برنامهٔ اصلی AntiGravity2 کامل شد. ورود، چالش، کد ورود، رمز دومرحله‌ای، خروج، بازیابی نشست ذخیره‌شده، لیست/جستجو/افزودن/حذف مخاطب با ادعای پایدار idempotency، تاریخچه و گفتگو، ارسال و دریافت متن و رسانه، روت‌های prepare و resolve در M2M، و کامپوننت BaleWorkspace متصل و با ۱۸ آزمون یکپارچگی (شامل جداسازی دو حساب و دو AppUser و حالت Process Worker) و فول‌سوییت کامل ۹۲۰ تستی تأیید شدند. اسلات بله به CONTRACT_VERIFIED ارتقا یافت و runtime_enabled/onboarding_enabled فعال شدند. پکیج رسمی wheel مجدداً بازسازی گردید. معیارهای BALE-A01 تا BALE-A08 در سطح آفلاین سبز شدند و Pilot زنده در انتظار ورودی و مجوز صریح مالک قرار دارد.

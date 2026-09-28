@@ -24,6 +24,8 @@ from ..providers.contracts import (
     ProviderContactMutationReceipt,
     ProviderContactPage,
     ProviderContactUpsertRequest,
+    ProviderContactRemoveRequest,
+    ProviderContactRemovalAdapter,
     ProviderDialogPage,
     ProviderMessagePage,
     ProviderMediaAdapter,
@@ -34,6 +36,8 @@ from ..providers.contracts import (
     ProviderSendReceipt,
     ProviderSendStatus,
     ProviderSendTextRequest,
+    ProviderSendMediaRequest,
+    ProviderMediaSendAdapter,
 )
 
 
@@ -794,6 +798,63 @@ class ProviderApplicationOrchestrator:
             invoke=invoke,
         )
 
+    async def _extension_mutation(self, *, actor, messenger_account_id, correlation_id,
+                                  deadline_unix_ms, request, operation, capability,
+                                  protocol, method, fingerprint, expected_type):
+        """Version 2 mutations use the same durable claims and authorization order."""
+        async def invoke(adapter, context):
+            if not isinstance(adapter, protocol):
+                raise ProviderExtensionError("Unsupported provider mutation.", code="provider_operation_not_implemented")
+            if self._receipt_store is None:
+                raise ProviderExtensionError("Persistent receipt storage required.", code="provider_receipt_store_required")
+            args = dict(messenger_account_id=messenger_account_id,
+                        actor_app_user_id=actor.app_user_id, operation=operation,
+                        idempotency_key=request.idempotency_key,
+                        request_fingerprint=fingerprint, service_credential_id=actor.service_credential_id)
+            claim = self._receipt_store.claim(**args, actor_global_role=actor.global_role,
+                                              claim_deadline_unix_ms=context.deadline_unix_ms)
+            if not claim.claimed:
+                record = claim.receipt
+                self._require_idempotency_match(
+                    stored_actor=record.actor_app_user_id, stored_fingerprint=record.request_fingerprint,
+                    stored_service_credential_id=record.service_credential_id,
+                    actor=actor, request_fingerprint=fingerprint)
+                if record.outcome == "in_progress":
+                    if record.claim_deadline_unix_ms >= int(time.time() * 1000):
+                        raise ProviderExtensionError("Mutation in progress.", code="provider_operation_duplicate_in_progress")
+                    record = self._receipt_store.complete(**args, outcome="uncertain", result_reference=None,
+                        contact_created=None, safe_reason_code="provider_operation_previous_attempt_incomplete")
+                return (self._send_receipt_from_record(record) if expected_type is ProviderSendReceipt
+                        else self._contact_receipt_from_record(record))
+            # Claim survives failure, cancellation or a process crash. A replay never
+            # repeats an external mutation whose result might have been lost.
+            receipt = await getattr(adapter, method)(context, request)
+            send = isinstance(receipt, ProviderSendReceipt)
+            self._receipt_store.complete(**args,
+                outcome=receipt.status.value if send else "succeeded",
+                result_reference=receipt.message_reference if send else receipt.contact_reference,
+                contact_created=None if send else receipt.created,
+                safe_reason_code=receipt.safe_reason_code if send else None)
+            return receipt
+        return await self._execute(actor=actor, messenger_account_id=messenger_account_id,
+            correlation_id=correlation_id, deadline_unix_ms=deadline_unix_ms,
+            operation=operation, capability=capability, expected_type=expected_type, invoke=invoke)
+
+    async def remove_contact(self, *, request: ProviderContactRemoveRequest, **kwargs):
+        return await self._extension_mutation(**kwargs, request=request,
+            operation="contacts.remove", capability=ProviderCapability.CONTACTS_WRITE,
+            protocol=ProviderContactRemovalAdapter, method="remove_contact",
+            fingerprint=_request_fingerprint(b"contacts.remove", request.contact_reference.encode()),
+            expected_type=ProviderContactMutationReceipt)
+
+    async def send_media(self, *, request: ProviderSendMediaRequest, **kwargs):
+        return await self._extension_mutation(**kwargs, request=request,
+            operation="messages.send_media", capability=ProviderCapability.MEDIA_SEND,
+            protocol=ProviderMediaSendAdapter, method="send_media",
+            fingerprint=_request_fingerprint(b"messages.send_media", request.peer.opaque_reference.encode(),
+                request.peer.kind.encode(), request.filename.encode(), request.data, request.caption.encode()),
+            expected_type=ProviderSendReceipt)
+
     async def _execute(
         self,
         *,
@@ -858,6 +919,9 @@ class ProviderApplicationOrchestrator:
                 },
             )
             result = await invoke(adapter, context)
+            current = self._resolve_account_context(messenger_account_id)
+            if current.session_generation != account.session_generation or current.provider != account.provider:
+                raise ProviderExtensionError("The account changed during the operation.", code="provider_extension_scope_invalid")
             if not isinstance(result, expected_type):
                 raise ProviderExtensionError(
                     "The provider adapter returned an invalid result.",
