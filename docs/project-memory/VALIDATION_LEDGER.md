@@ -2215,3 +2215,23 @@
   - کدهای سامانه جامع مدیریت و پایش گزارش‌های فرهنگی برای کاربر تفکیک و مستندسازی گردید.
 - Trigger تکرار: تغییر استقرار وب‌سرور یا اضافه شدن سرویس‌های پس‌زمینهٔ طولانی‌مدت جدید.
 
+### V-227 — استانداردسازی کدهای رسمی برنامه‌ها، کارت شرح عملیاتی و موازین پایش، و رجیستری اسناد بالادستی و مستندات ابلاغی
+
+- تاریخ: 2026-09-28
+- دامنه: `src/eitaa_bridge/reporting/forms.py` (`QuestionnaireDefinition` با فیلدهای `program_code`، `operational_description`، `monitoring_criteria`، `policy_framework`، تعاریف رسمی هر ۸ فرم، و `EXTENDED_FORMS_BY_PROGRAM`), `src/eitaa_bridge/reporting/plans.py` (`Mandate` با فیلد `program_code` و پایگاه `CANONICAL_MANDATES`), `src/eitaa_bridge/reporting/store.py` (اسکیما، ذخیره، فیلتر و حذف `mandates` و پشتیبانی از ذخیره فرم روایی ۸۰۰۰۰), `src/eitaa_bridge/application/api.py` (اندپوینت‌های CRUD اسناد بالادستی `/api/v2/reporting/mandates` و سریال‌سازی فیلدهای جدید در فرم‌ها), `tests/test_reporting_api.py`, `ui/src/ReportingWorkbench.tsx` (نمایش کدهای رسمی نظیر ۸۰۴۰۱ - اردو، کارت شرح عملیاتی و سنجه‌های نظارتی، جدول مستندات ابلاغی ذیل هر فرم، دیالوگ ثبت مستند ابلاغی جدید، و دیالوگ دید تجمیعی کلیه اسناد بالادستی), `dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl`.
+- سطح: UNIT + CONTRACT + UI_CONTRACT + INTEGRATION.
+- روش امن:
+  1. `.\.venv\Scripts\python.exe -m pytest tests/test_reporting_api.py tests/test_reporting_core.py tests/test_reporting_store.py tests/test_g07_release_packaging.py -q` (۷۲/۷۲ آزمون سبز).
+  2. `.\.venv\Scripts\python.exe scripts\build_wheel_stdlib.py --root . --output-dir dist --force` (انطباق ۱۰۰٪ wheel توزیع با سورس کد).
+  3. `npm.cmd --prefix ui run check` (تست تایپ‌اسکریپت و بدون خطای استاتیک).
+  4. `npm.cmd --prefix ui run test:observability` (آزمون‌های ناظر و قراردادهای UI سبز).
+  5. `npm.cmd --prefix ui run build` (ساخت باندل رسمی فرانت‌اند موفق).
+  6. `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py` (صحت کامل پروتکل مستندات).
+  7. `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links` (بررسی جامع و به‌روزرسانی نمایه‌ها).
+- نتیجه:
+  - کدهای عملیاتی رسمی پنج‌رقمی (مانند ۸۰۴۰۱ - اردو، ۸۰۴۰۲ - مسابقات، ...) جایگزین کلیه ارجاعات پیشین شدند.
+  - بخش «شرح عملیاتی و موازین پایش برنامه» در بالای هر کاربرگ به همراه شاخص‌های دقیق پایش و چارچوب سیاستی به شکل استاندارد نمایش داده می‌شود.
+  - امکان ثبت، ویرایش و حذف بخشنامه‌ها و دستورالعمل‌های ابلاغی ذیل هر کد برنامه، به همراه مشاهده تجمیعی کلیه اسناد بالادستی به تفکیک کد برنامه در کل سازمان عملیاتی شد.
+  - هیچ دادهٔ حساس، رمز، کلید یا PII نشت پیدا نکرد و فایل‌های نشست و پیکربندی بدون تغییر محافظت شدند.
+- Trigger تکرار: تغییر تعاریف کد برنامه‌های بودجه‌ای یا اضافه شدن فیلدهای جدید به اسناد بالادستی.
+
