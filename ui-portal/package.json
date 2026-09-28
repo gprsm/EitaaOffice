@@ -1,0 +1,33 @@
+{
+  "name": "eitaa-cultural-portal-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "React/MUI frontend for the cultural reports portal (F-097) — replaces the legacy PHP views",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b --pretty false && vite build && node scripts/deploy-to-portal.mjs",
+    "check": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@emotion/cache": "11.14.0",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@mui/icons-material": "7.3.11",
+    "@mui/material": "7.3.11",
+    "@mui/x-date-pickers": "8.5.0",
+    "date-fns-jalali": "^4.1.0-0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "stylis": "^4.3.6",
+    "stylis-plugin-rtl": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.8",
+    "@types/stylis": "^4.2.7",
+    "@vitejs/plugin-react": "^4.5.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  }
+}
