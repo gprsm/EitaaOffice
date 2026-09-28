@@ -2270,3 +2270,16 @@
   6. API بازه‌ای: `get_kpis&date_from=2026-07-23&date_to=2026-09-22` = ۲۸۶ رویداد (مطابق UI)؛ fallback نسخهٔ PHP (`?legacy=1&tab=worksheets`) سالم.
 - نتیجه: دورهٔ زمانی واحد سراسری (پیش‌فرض + سفارشی با دیت‌پیکر جلالی) در همهٔ صفحات گزارش‌دهی و خروجی اکسل حاکم است؛ فرانت متریال ریسپانسیو جایگزین CSS دست‌ساز شد؛ هیچ دادهٔ عملیاتی تغییر نکرد و PII ثبت نشد.
 - Trigger تکرار: تغییر باندل SPA، API پرتال یا پیش‌فرض‌های دوره.
+
+### V-230 — تکمیل فازهای ۳ و ۴ پرتال: فیلتر ردهٔ مراسم، شمار واقعی وردپرس، git محلی پرتال، هارنس دائمی و سند توپولوژی
+
+- تاریخ: 2026-09-28
+- دامنه: `cultural-portal/api/index.php`, `cultural-portal/includes/WordPressBridge.php`, `EitaaBridge/scripts/test_cultural_portal_harness.php` (جدید), `EitaaBridge/docs/PORTAL_DEPLOYMENT_TOPOLOGY.md` (جدید), مخزن محلی پرتال (`cultural-portal/.git`).
+- سطح: CONTRACT + RUNTIME_LOCAL + PROCESS.
+- روش امن:
+  1. `php -l` روی فایل‌های تغییر یافته — بدون خطا.
+  2. تأیید زنده API: `get_events&program_code=80403&occasion_class=religious` → ۱۱۷ رویداد، همه religious (فیلتر ردهٔ مراسم سرتاسری)؛ `get_wp_posts` → `total=133` واقعی به‌جای null (صفحه‌بندی/پایان فهرست قطعی).
+  3. هارنس دائمی `php scripts/test_cultural_portal_harness.php` — ۲۶/۲۶ بررسی سبز روی کپی موقت پایگاه (ثبت رویداد + نگاشت دسته←فکت + الصاق متن + occasion_class + فیلتر رده + مستندات ابلاغی + ثبت/حذف سند). پایگاه عملیاتی هرگز نوشته نمی‌شود؛ مسیر با env `EITAA_REPORTING_DB` بازنویسی‌پذیر.
+  4. مخزن محلی پرتال: `git init` + baseline commit (SPA مستقر + بک‌اند + views قدیمی)؛ `uploads/` و `screenshots/` gitignored؛ بدون remote؛ درخت کاری تمیز.
+- نتیجه: فاز ۳ و ۴ دستور پیگیری به‌طور کامل بسته شد؛ تغییرات بعدی پرتال از این پس در مخزن محلی آن قابل ردیابی است و آزمون عملکردی پرتال مسیر پایدار و مستند دارد.
+- Trigger تکرار: هر تغییر در قرارداد API پرتال، WordPressBridge یا هارنس.
