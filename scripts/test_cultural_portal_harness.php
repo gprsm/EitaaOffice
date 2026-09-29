@@ -114,6 +114,27 @@ $newMandate = ReportingService::createMandate([
 ]);
 check(ReportingService::deleteMandate($newMandate), 'ثبت/حذف مستند ابلاغی روی کپی');
 
+// ---- ۷) جریان ویرایش: upsert/حذف فکت با updateEvent (فاز ۱ دستور) ---------
+ReportingService::updateEvent($eventId, [
+    'dim_honor_retirees_count' => '7',   // تغییر مقدار موجود
+    'dim_gift_count' => '0',             // حذف فکت
+    'dim_honor_legends_count' => '2',    // افزودن فکت تازه
+    'occasion_class' => 'national',      // مراسم نیست ولی ستون آزاد است
+]);
+$factsUpd = ReportingService::getEventFactsByEvent([$eventId])[$eventId] ?? [];
+check((float)($factsUpd['honor_retirees_count']['value'] ?? 0) === 7.0, 'ویرایش: فکت موجود به ۷ به‌روزرسانی شد');
+check(!isset($factsUpd['gift_count']), 'ویرایش: فکت صفر حذف شد');
+check((float)($factsUpd['honor_legends_count']['value'] ?? 0) === 2.0, 'ویرایش: فکت تازه افزوده شد');
+$rowUpd = ReportingService::getEventById($eventId);
+check(($rowUpd['occasion_class'] ?? '') === 'national', 'ویرایش: ردهٔ مناسبت به‌روزرسانی شد');
+ReportingService::updateEvent($ev2, ['occasion_class' => 'religious']);
+$rowUpd2 = ReportingService::getEventById($ev2);
+check(($rowUpd2['occasion_class'] ?? '') === 'religious', 'ویرایش مراسم: ردهٔ national به religious تغییر کرد');
+// اعتبارسنجی: مقدار نامعتبر رد می‌شود
+ReportingService::updateEvent($ev2, ['occasion_class' => 'bogus']);
+$rowUpd3 = ReportingService::getEventById($ev2);
+check(($rowUpd3['occasion_class'] ?? '') === 'religious', 'ویرایش: مقدار نامعتبر رده نادیده گرفته شد');
+
 // ---- پاکسازی کپی موقت -----------------------------------------------------
 @unlink($tempDb);
 @unlink($tempDb . '-wal');

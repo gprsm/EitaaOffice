@@ -12,6 +12,8 @@ import { usePeriod } from '../components/PeriodPicker'
 import { faCode, faNum } from '../periods'
 import { ChipCode, VisitChip } from './DashboardPage'
 import { EventEntryDialog } from '../dialogs/EventEntryDialog'
+import { NewMandateDialog } from '../dialogs/NewMandateDialog'
+import { api as apiClient, MANDATE_KINDS, type Mandate } from '../api'
 import type { PageProps } from '../App'
 
 /** کارتابل رویدادها — فیلترها + دورهٔ مشترک + ستون‌های اختصاصی شیت (F-097) */
@@ -39,7 +41,10 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
   const [error, setError] = useState('')
 
   const [entryOpen, setEntryOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [sheetMandates, setSheetMandates] = useState<Mandate[]>([])
+  const [mandateDialogOpen, setMandateDialogOpen] = useState(false)
 
   useEffect(() => {
     api.sheets(periodCtx.range).then(setSheets).catch(() => setSheets([]))
@@ -79,6 +84,16 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
   const selectedSheet = sheets?.find((s) => s.code === program) ?? null
   const selectedTopic = topics?.find((t) => t.ref === program) ?? null
   const dimensionColumns = selectedSheet ? sheetDimensionColumns(selectedSheet) : []
+
+  // مستندات ابلاغی شیت انتخاب‌شده (کارت شیت)
+  useEffect(() => {
+    if (!program) { setSheetMandates([]); return }
+    let alive = true
+    apiClient.sheetMeta(program)
+      .then((meta) => { if (alive) setSheetMandates(meta.mandates ?? []) })
+      .catch(() => { if (alive) setSheetMandates([]) })
+    return () => { alive = false }
+  }, [program, refreshKey])
 
   // سنجه‌های اختصاصی شیت از تعاریف فرم (spec) — هم‌مصدر با فرم ثبت
   const [dimColumns, setDimColumns] = useState<{ metric: string; label: string }[]>([])
@@ -125,7 +140,8 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
             </TableCell></TableRow>
           )}
           {rows.map((ev) => (
-            <EventRow key={ev.event_id} ev={ev} columns={columns} isMobile={isMobile} />
+            <EventRow key={ev.event_id} ev={ev} columns={columns} isMobile={isMobile}
+              onEdit={() => { setEditId(ev.event_id); setEntryOpen(true) }} />
           ))}
         </TableBody>
       </Table>
@@ -230,6 +246,51 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
                 ))}
               </Box>
             )}
+            {/* مستندات ابلاغی همان شیت */}
+            <Box sx={{ borderTop: '1px dashed #dbe4ee', pt: 1.2, mt: 0.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2">
+                  مستندات ابلاغی این برنامه ({faNum(sheetMandates.length)} سند)
+                </Typography>
+                <Button size="small" variant="outlined" onClick={() => setMandateDialogOpen(true)}>
+                  ثبت مستند ابلاغی
+                </Button>
+              </Box>
+              {sheetMandates.length === 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  هنوز سند ابلاغی برای این کد برنامه ثبت نشده است.
+                </Typography>
+              ) : (
+                <Table size="small" aria-label="مستندات ابلاغی شیت">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>نوع سند</TableCell>
+                      <TableCell>عنوان</TableCell>
+                      <TableCell>شماره</TableCell>
+                      <TableCell>تاریخ ابلاغ</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sheetMandates.map((md) => (
+                      <TableRow key={md.mandate_id} hover>
+                        <TableCell><Chip size="small" color="primary" variant="outlined"
+                          label={MANDATE_KINDS[md.kind] ?? md.kind} /></TableCell>
+                        <TableCell>
+                          <strong>{md.title}</strong>
+                          {md.notes && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {md.notes.slice(0, 110)}{md.notes.length > 110 ? '…' : ''}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell><code>{md.number || '—'}</code></TableCell>
+                        <TableCell style={{ whiteSpace: 'nowrap' }}>{md.issued_on || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Box>
           </CardContent>
         </Card>
       )}
@@ -265,11 +326,23 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
       <EventEntryDialog
         open={entryOpen}
         initialRef={program}
-        onClose={() => setEntryOpen(false)}
+        editEventId={editId}
+        onClose={() => { setEntryOpen(false); setEditId(null) }}
         onSaved={() => {
           setEntryOpen(false)
-          notify('رویداد فرهنگی جدید در کارتابل ثبت شد', 'success')
+          setEditId(null)
+          notify(editId ? 'تغییرات رویداد ذخیره شد' : 'رویداد فرهنگی جدید در کارتابل ثبت شد', 'success')
           setPage(0)
+          setRefreshKey((k) => k + 1)
+        }}
+      />
+      <NewMandateDialog
+        open={mandateDialogOpen}
+        initialProgram={program || '80401'}
+        onClose={() => setMandateDialogOpen(false)}
+        onSaved={(title) => {
+          setMandateDialogOpen(false)
+          notify(`سند «${title}» ثبت شد`, 'success')
           setRefreshKey((k) => k + 1)
         }}
       />
@@ -277,7 +350,7 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
   )
 }
 
-function EventRow({ ev, columns, isMobile }: { ev: PortalEvent; columns: { metric: string; label: string }[]; isMobile: boolean }) {
+function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns: { metric: string; label: string }[]; isMobile: boolean; onEdit: () => void }) {
   const attendees = ev.attendees_count
   return (
     <TableRow hover>
@@ -316,7 +389,12 @@ function EventRow({ ev, columns, isMobile }: { ev: PortalEvent; columns: { metri
       })}
       <TableCell align="center">{ev.media_count > 0 ? faNum(ev.media_count) : '—'}</TableCell>
       <TableCell align="center">
-        <code style={{ fontSize: 10, direction: 'ltr' }}>{ev.event_id}</code>
+        <Button size="small" variant="outlined" onClick={onEdit} sx={{ minWidth: 0, px: 1 }}>
+          ویرایش
+        </Button>
+        <Typography variant="caption" sx={{ display: 'block', direction: 'ltr', fontSize: 9.5, color: 'text.disabled' }}>
+          {ev.event_id}
+        </Typography>
       </TableCell>
     </TableRow>
   )

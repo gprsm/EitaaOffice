@@ -176,6 +176,10 @@ export const api = {
   },
   eventDetail: (eventId: string) =>
     request<PortalEvent & { media_items: unknown[] }>({ action: 'get_event_detail', event_id: eventId }),
+  sheetMeta: (programCode: string) =>
+    request<{ program_code: string; title: string; monitoring_criteria: string[]; questions: EntryField[]; mandates: Mandate[] }>(
+      { action: 'get_sheet_meta', program_code: programCode },
+    ),
   districts: (range: Range, search: string, limit: number, offset: number) => {
     const p: Record<string, string> = { action: 'get_districts', ...rangeIso(range), limit: String(limit), offset: String(offset) }
     if (search) p.search = search
