@@ -213,11 +213,18 @@ export const api = {
     if (evidence) fd.append('evidence_file', evidence)
     return request<{ event_id: string }>({}, 'POST', fd, 30000)
   },
-  updateEvent: (eventId: string, payload: Record<string, string>) => {
+  updateEvent: (eventId: string, payload: Record<string, string>, evidence?: File | null) => {
     const fd = new FormData()
     fd.append('action', 'update_event')
     fd.append('event_id', eventId)
     for (const [k, v] of Object.entries(payload)) fd.append(k, v)
+    if (evidence) fd.append('evidence_file', evidence)
+    return request<null>({}, 'POST', fd, 30000)
+  },
+  deleteEvent: (eventId: string) => {
+    const fd = new FormData()
+    fd.append('action', 'delete_event')
+    fd.append('event_id', eventId)
     return request<null>({}, 'POST', fd, 20000)
   },
   triggerExcel: (fromJalali: string, toJalali: string) => {
@@ -239,6 +246,15 @@ export const api = {
     fd.append('post_id', String(postId))
     fd.append('status', status)
     return request<null>({}, 'POST', fd, 20000)
+  },
+  updateWpContent: (postId: number, content: string, title?: string, status?: string) => {
+    const fd = new FormData()
+    fd.append('action', 'update_wp_post_content')
+    fd.append('post_id', String(postId))
+    fd.append('content', content)
+    if (title) fd.append('title', title)
+    if (status) fd.append('status', status)
+    return request<null>({}, 'POST', fd, 25000)
   },
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControl, FormControlLabel, FormHelperText, Grid, InputLabel, LinearProgress, MenuItem,
@@ -45,9 +45,10 @@ export function EventEntryDialog({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [programRef, setProgramRef] = useState(initialRef)
+  const [programRef, setProgramRef] = useState(initialRef || '80401')
   const [activeTab, setActiveTab] = useState(0)
   const [spec, setSpec] = useState<EntryFormSpec | null>(null)
+  const [specLoading, setSpecLoading] = useState(false)
   const [specError, setSpecError] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -61,64 +62,68 @@ export function EventEntryDialog({
   const [hadReception, setHadReception] = useState(false)
   const [notes, setNotes] = useState('')
   const [evidence, setEvidence] = useState<File | null>(null)
+  const loadedEventRef = useRef<PortalEvent | null>(null)
 
-const inferProgramRef = (ev: PortalEvent): string => {
-  if (ev.program_code) return ev.program_code
-  if (Number(ev.is_ashura_pilgrimage) === 1) return '80403-A'
-  try {
-    const kinds = JSON.parse(ev.program_kinds_json || '[]')
-    const k = Array.isArray(kinds) ? kinds[0] : ''
-    const map: Record<string, string> = {
-      trip: '80401',
-      contest: '80402',
-      ceremony: '80403',
-      prayer: '80501',
-      honor: '80406',
-      customer_care: '80601',
-      charter: '80202',
-      training_course: 'training_courses',
-      content_production: 'content_production',
-      counseling: 'counseling',
-      education_services: 'education_services',
-      external_collaboration: 'external_collaboration',
+  const inferProgramRef = (ev: PortalEvent): string => {
+    if (ev.program_code) return ev.program_code
+    if (Number(ev.is_ashura_pilgrimage) === 1) return '80403-A'
+    try {
+      const kinds = JSON.parse(ev.program_kinds_json || '[]')
+      const k = Array.isArray(kinds) ? kinds[0] : ''
+      const map: Record<string, string> = {
+        trip: '80401',
+        contest: '80402',
+        ceremony: '80403',
+        prayer: '80501',
+        honor: '80406',
+        customer_care: '80601',
+        charter: '80202',
+        training_course: 'training_courses',
+        content_production: 'content_production',
+        counseling: 'counseling',
+        education_services: 'education_services',
+        external_collaboration: 'external_collaboration',
+      }
+      return map[k] || '80403'
+    } catch {
+      return '80403'
     }
-    return map[k] || '80403'
-  } catch {
-    return '80403'
   }
-}
 
+  // ۱. چرخه بارگذاری اولیه: هنگام باز یا بسته شدن دیالوگ
   useEffect(() => {
-    if (open) {
-      setProgramRef(initialRef)
+    if (!open) {
+      setSpec(null)
+      setSpecLoading(false)
+      setSpecError('')
+      setValues({})
+      setError('')
+      setOccasion('')
+      setAttendees('')
+      setAttendeesKind('verified')
+      setOfficialPresent(false)
+      setHadReception(false)
+      setNotes('')
+      setEvidence(null)
+      setDate(todayJalali())
       setActiveTab(0)
+      loadedEventRef.current = null
+      return
     }
-  }, [open, initialRef])
 
-  // بارگذاری spec فرم اختصاصی + prefill در حالت ویرایش
-  useEffect(() => {
-    if (!open) { setSpec(null); return }
-    if (!programRef && !editEventId) { setSpec(null); return }
-    setSpec(null)
-    setSpecError('')
-    setValues({})
-    setError('')
-    const load = async () => {
-      try {
-        let currentRef = programRef
-        let ev: PortalEvent | null = null
-        if (editEventId) {
-          ev = await api.eventDetail(editEventId)
-          if (!currentRef) {
-            currentRef = inferProgramRef(ev)
-            setProgramRef(currentRef)
-          }
-        }
-        if (!currentRef) return
+    let alive = true
 
-        const s = await api.entryFormSpec(currentRef)
-        setSpec(s)
-        if (ev) {
+    if (editEventId) {
+      setBusy(true)
+      setSpecLoading(true)
+      setError('')
+      setSpecError('')
+
+      // تنها یک درخواست برای eventDetail و سپس بارگذاری spec متناظر بدون race condition و بدون درخواست تکراری
+      api.eventDetail(editEventId)
+        .then(async (ev) => {
+          if (!alive) return
+          loadedEventRef.current = ev
           setOccasion(ev.occasion || '')
           setAttendees(ev.attendees_count !== null && ev.attendees_count !== undefined ? String(Math.round(ev.attendees_count)) : '')
           setAttendeesKind(ev.attendees_value_kind === 'estimated' ? 'estimated' : 'verified')
@@ -127,78 +132,203 @@ const inferProgramRef = (ev: PortalEvent): string => {
           setNotes(ev.notes || '')
           const j = /^(\d{4})-(\d{2})-(\d{2})/.exec(ev.occurred_on || '')
           if (j) setDate(gregorianToJalali(Number(j[1]), Number(j[2]), Number(j[3])))
-          // prefill ابعاد عددی + بازسازی انتخاب‌های دسته از فکت‌ها
-          const pre: Record<string, string> = {}
+
+          const ref = inferProgramRef(ev)
+          setProgramRef(ref)
+
+          try {
+            const s = await api.entryFormSpec(ref)
+            if (!alive) return
+            setSpec(s)
+            const pre: Record<string, string> = {}
+            for (const section of s.sections) {
+              for (const field of section.fields) {
+                if (field.t === 'occasion_class') {
+                  pre[field.n] = ev.occasion_class || 'standard'
+                } else if (field.t === 'number' && field.n.startsWith('dim_')) {
+                  const v = ev.facts?.[field.n.slice(4)]?.value
+                  if (v !== undefined && v > 0) pre[field.n] = String(Math.round(v))
+                } else if (field.t === 'select' && field.cn?.startsWith('selcount_')) {
+                  const chosen = field.o?.find((o) => o.m && (ev.facts?.[o.m]?.value ?? 0) > 0)
+                  if (chosen && chosen.m) {
+                    pre[field.n] = chosen.v
+                    pre[field.cn] = String(Math.round(ev.facts[chosen.m].value))
+                  }
+                }
+              }
+            }
+            setValues(pre)
+          } catch (specErr) {
+            if (alive) setSpecError(specErr instanceof Error ? specErr.message : 'خطا در دریافت فرم اختصاصی')
+          }
+        })
+        .catch((err) => {
+          if (alive) setError(err instanceof Error ? err.message : 'خطا در بارگذاری جزئیات رویداد')
+        })
+        .finally(() => {
+          if (alive) {
+            setBusy(false)
+            setSpecLoading(false)
+          }
+        })
+    } else {
+      loadedEventRef.current = null
+      const targetRef = initialRef || '80401'
+      setProgramRef(targetRef)
+      setOccasion('')
+      setAttendees('')
+      setAttendeesKind('verified')
+      setOfficialPresent(false)
+      setHadReception(false)
+      setNotes('')
+      setEvidence(null)
+      setDate(todayJalali())
+      setActiveTab(0)
+      setValues({})
+      setError('')
+      setSpecError('')
+
+      setSpecLoading(true)
+      api.entryFormSpec(targetRef)
+        .then((s) => {
+          if (!alive) return
+          setSpec(s)
+        })
+        .catch((err) => {
+          if (alive) setSpecError(err instanceof Error ? err.message : 'خطا در دریافت فرم اختصاصی')
+        })
+        .finally(() => {
+          if (alive) setSpecLoading(false)
+        })
+    }
+
+    return () => { alive = false }
+  }, [open, editEventId, initialRef])
+
+  // ۲. مدیریت تغییر محور برنامه: حفظ ورودی‌های کاربر و بارگذاری spec جدید بدون درخواست مجدد رویداد
+  const handleProgramRefChange = async (newRef: string) => {
+    if (newRef === programRef) return
+    setProgramRef(newRef)
+    setSpecLoading(true)
+    setSpecError('')
+
+    try {
+      const s = await api.entryFormSpec(newRef)
+      setSpec(s)
+
+      // حفظ ورودی‌های قبلی کاربر و در صورت وجود رویداد اولیه، پر کردن فیلدهای جدید خالی از فکت‌های ذخیره‌شده
+      setValues((prev) => {
+        const next = { ...prev }
+        if (loadedEventRef.current) {
+          const ev = loadedEventRef.current
           for (const section of s.sections) {
             for (const field of section.fields) {
-              if (field.t === 'occasion_class') {
-                pre[field.n] = ev.occasion_class || 'standard'
-              } else if (field.t === 'number' && field.n.startsWith('dim_')) {
+              if (field.t === 'occasion_class' && !next[field.n]) {
+                next[field.n] = ev.occasion_class || 'standard'
+              } else if (field.t === 'number' && field.n.startsWith('dim_') && !next[field.n]) {
                 const v = ev.facts?.[field.n.slice(4)]?.value
-                if (v !== undefined && v > 0) pre[field.n] = String(Math.round(v))
-              } else if (field.t === 'select' && field.cn?.startsWith('selcount_')) {
+                if (v !== undefined && v > 0) next[field.n] = String(Math.round(v))
+              } else if (field.t === 'select' && field.cn?.startsWith('selcount_') && !next[field.n]) {
                 const chosen = field.o?.find((o) => o.m && (ev.facts?.[o.m]?.value ?? 0) > 0)
                 if (chosen && chosen.m) {
-                  pre[field.n] = chosen.v
-                  pre[field.cn] = String(Math.round(ev.facts[chosen.m].value))
+                  next[field.n] = chosen.v
+                  if (!next[field.cn]) next[field.cn] = String(Math.round(ev.facts[chosen.m].value))
                 }
               }
             }
           }
-          setValues(pre)
-        } else {
-          setOccasion('')
-          setAttendees('')
-          setOfficialPresent(false)
-          setHadReception(false)
-          setNotes('')
-          setDate(todayJalali())
         }
-      } catch (err) {
-        setSpecError(err instanceof Error ? err.message : 'خطا در دریافت فرم اختصاصی')
-      }
+        return next
+      })
+    } catch (err) {
+      setSpecError(err instanceof Error ? err.message : 'خطا در بارگذاری فرم اختصاصی محور جدید')
+    } finally {
+      setSpecLoading(false)
     }
-    void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, programRef, editEventId])
+  }
 
   const setField = (name: string, value: string) => setValues((v) => ({ ...v, [name]: value }))
 
   const payload = useMemo(() => {
+    // تاریخ شمسی با ارقام استاندارد انگلیسی برای تضمین پارس و اعتبارسنجی قطعی در سرور
+    const formattedDate = `${date[0]}/${String(date[1]).padStart(2, '0')}/${String(date[2]).padStart(2, '0')}`
+
     const data: Record<string, string> = {
       program_kind: programRef,
-      occasion,
-      occurred_on: jalaliLabel(date),
+      occasion: occasion.trim(),
+      occurred_on: formattedDate,
       attendees_value_kind: attendeesKind,
-      notes,
+      notes: notes.trim(),
       official_present: officialPresent ? '1' : '0',
       had_reception: hadReception ? '1' : '0',
     }
-    if (attendees) data.attendees_count = attendees
+
+    if (attendees.trim()) {
+      data.attendees_count = attendees.trim()
+    }
+
+    // پرچم زیارت عاشورا برای محور 80403-A یا تغییر از آن در حالت ویرایش
+    if (programRef === '80403-A') {
+      data.is_ashura_pilgrimage = '1'
+    } else if (editEventId) {
+      data.is_ashura_pilgrimage = '0'
+    }
+
+    // مقدار پیش‌فرض occasion_class در صورت لزوم
+    if (values.occasion_class) {
+      data.occasion_class = values.occasion_class
+    } else if (programRef === '80403') {
+      data.occasion_class = 'standard'
+    }
+
     if (!spec) return data
 
     for (const section of spec.sections) {
       for (const field of section.fields) {
         const value = (values[field.n] ?? '').trim()
+
         if (field.t === 'occasion_class') {
-          if (value) data.occasion_class = value
+          data.occasion_class = value || 'standard'
           continue
         }
+
         if (field.t === 'select' && field.cn?.startsWith('selcount_')) {
-          // گزینهٔ دسته‌دار: عدد → dim_<metric گزینهٔ فعال>
+          // گزینهٔ دسته‌دار مسابقات: عدد → dim_<metric گزینهٔ فعال>
           const chosen = field.o?.find((o) => o.v === value)
-          if (chosen?.m && field.cn) {
-            const countVal = (values[field.cn] ?? '').trim()
-            if (countVal && Number(countVal) > 0) data[`dim_${chosen.m}`] = countVal
+          const countVal = (values[field.cn] ?? '').trim()
+          if (field.o) {
+            for (const opt of field.o) {
+              if (opt.m) {
+                if (chosen && opt.m === chosen.m && countVal && Number(countVal) > 0) {
+                  data[`dim_${opt.m}`] = countVal
+                } else if (editEventId) {
+                  // در حالت ویرایش، در صورت تغییر رده، رده قبلی صفر فرستاده شود تا حذف گردد
+                  data[`dim_${opt.m}`] = '0'
+                }
+              }
+            }
           }
           if (value) data[field.n] = value
           continue
         }
-        if (value !== '') data[field.n] = value
+
+        if (field.t === 'number' && field.n.startsWith('dim_')) {
+          if (value !== '') {
+            data[field.n] = value
+          } else if (editEventId) {
+            // در حالت ویرایش، در صورت خالی‌شدن سنجه توسط کاربر مقدار 0 فرستاده شود تا فکت در دیتابیس پاک شود
+            data[field.n] = '0'
+          }
+          continue
+        }
+
+        if (value !== '') {
+          data[field.n] = value
+        }
       }
     }
     return data
-  }, [programRef, occasion, date, attendees, attendeesKind, officialPresent, hadReception, notes, spec, values])
+  }, [programRef, occasion, date, attendees, attendeesKind, officialPresent, hadReception, notes, spec, values, editEventId])
 
   const filledMetricsCount = useMemo(() => {
     return Object.entries(values).filter(([k, v]) => k.startsWith('dim_') && Number(v) > 0).length
@@ -214,7 +344,7 @@ const inferProgramRef = (ev: PortalEvent): string => {
     setError('')
     try {
       if (editEventId) {
-        await api.updateEvent(editEventId, payload)
+        await api.updateEvent(editEventId, payload, evidence)
         onSaved()
       } else {
         await api.createEvent(payload, evidence)
@@ -288,12 +418,12 @@ const inferProgramRef = (ev: PortalEvent): string => {
           {activeTab === 0 && (
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl size="small" fullWidth required disabled={!!editEventId}>
+                <FormControl size="small" fullWidth required>
                   <InputLabel>محور گزارش / کاربرگ</InputLabel>
                   <Select
                     label="محور گزارش / کاربرگ"
                     value={programRef}
-                    onChange={(e) => setProgramRef(e.target.value)}
+                    onChange={(e) => handleProgramRefChange(e.target.value)}
                   >
                     <MenuItem value="80401">۸۰۴۰۱ — اردو</MenuItem>
                     <MenuItem value="80402">۸۰۴۰۲ — مسابقات</MenuItem>
@@ -309,7 +439,11 @@ const inferProgramRef = (ev: PortalEvent): string => {
                     <MenuItem value="education_services">ردیف ۸ کاربرگ بازدید — خدمات تحصیلی فرزندان</MenuItem>
                     <MenuItem value="external_collaboration">ردیف ۹ کاربرگ بازدید — تعامل برون‌سازمانی</MenuItem>
                   </Select>
-                  {editEventId && <FormHelperText>محور رویداد موجود قابل تغییر نیست</FormHelperText>}
+                  {editEventId && (
+                    <FormHelperText sx={{ color: 'primary.main' }}>
+                      با تغییر محور، سنجه‌های تخصصی متناسب با محور جدید بارگذاری و ذخیره می‌شوند
+                    </FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
 
@@ -367,7 +501,7 @@ const inferProgramRef = (ev: PortalEvent): string => {
           {activeTab === 1 && (
             <Box>
               {specError && <Alert severity="error" sx={{ mb: 2 }}>{specError}</Alert>}
-              {!spec && !specError && programRef && <LinearProgress sx={{ my: 2 }} />}
+              {(specLoading || (!spec && !specError && programRef)) && <LinearProgress sx={{ my: 2 }} />}
               {spec && (
                 <Box>
                   <Alert severity="info" variant="outlined" sx={{ mb: 2.5 }}>
@@ -460,24 +594,31 @@ const inferProgramRef = (ev: PortalEvent): string => {
                 />
               </Grid>
 
-              {!editEventId && (
-                <Grid size={{ xs: 12 }}>
-                  <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} fullWidth sx={{ py: 1.5 }}>
-                    پیوست مستندات یا تصویر رویداد (اختیاری)
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*,.pdf,.docx"
-                      onChange={(e) => setEvidence(e.target.files?.[0] ?? null)}
-                    />
-                  </Button>
-                  {evidence && (
-                    <FormHelperText sx={{ mt: 1, color: 'success.main', fontWeight: 700 }}>
+              <Grid size={{ xs: 12 }}>
+                <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} fullWidth sx={{ py: 1.5 }}>
+                  {editEventId ? 'پیوست فاکتور هزینه، فهرست افراد یا تصویر تکمیلی' : 'پیوست مستندات، فاکتور هزینه یا تصویر رویداد (اختیاری)'}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*,.pdf,.docx,.xlsx,.xls"
+                    onChange={(e) => setEvidence(e.target.files?.[0] ?? null)}
+                  />
+                </Button>
+                {evidence ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1, p: 1, bgcolor: '#f0fdf4', borderRadius: 1.5, border: '1px solid #bbf7d0' }}>
+                    <FormHelperText sx={{ m: 0, color: 'success.main', fontWeight: 700 }}>
                       فایل انتخاب‌شده: {evidence.name} ({(evidence.size / 1024).toFixed(1)} کیلوبایت)
                     </FormHelperText>
-                  )}
-                </Grid>
-              )}
+                    <Button size="small" color="error" onClick={() => setEvidence(null)} sx={{ minWidth: 0, px: 1, py: 0.2 }}>
+                      حذف پیوست
+                    </Button>
+                  </Box>
+                ) : (
+                  <FormHelperText sx={{ mt: 0.5, color: 'text.secondary' }}>
+                    پشتیبانی از انواع اسناد: فاکتور هزینه (PDF)، لیست اکسل شرکت‌کنندگان (.xlsx) و تصاویر مستند
+                  </FormHelperText>
+                )}
+              </Grid>
             </Grid>
           )}
         </DialogContent>

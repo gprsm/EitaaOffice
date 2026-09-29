@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel,
-  MenuItem, Paper, Select, Skeleton, Table, TableBody, TableCell, TableHead,
-  TableContainer, TablePagination, TableRow, TextField, Typography, useMediaQuery,
-  useTheme,
+  Alert, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent,
+  DialogTitle, FormControl, Grid, IconButton, InputLabel, MenuItem, Paper, Select,
+  Skeleton, Table, TableBody, TableCell, TableHead, TableContainer, TablePagination,
+  TableRow, TextField, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import FilterAltIcon from '@mui/icons-material/FilterAlt'
 import AddCircleIcon from '@mui/icons-material/AddCircle'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { api, PROGRAM_REFS, type PortalEvent, type ProgramSheet, type VisitTopic } from '../api'
 import { usePeriod } from '../components/PeriodPicker'
 import { faCode, faDate, faNum } from '../periods'
@@ -45,6 +47,37 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [sheetMandates, setSheetMandates] = useState<Mandate[]>([])
   const [mandateDialogOpen, setMandateDialogOpen] = useState(false)
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [deletingOccasion, setDeletingOccasion] = useState('')
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
+  const handleDeleteRequest = (eventId: string, occasion: string) => {
+    setDeletingEventId(eventId)
+    setDeletingOccasion(occasion)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteEvent = async () => {
+    if (!deletingEventId) return
+    setDeleteBusy(true)
+    try {
+      await api.deleteEvent(deletingEventId)
+      notify('رویداد با موفقیت حذف شد', 'success')
+      setDeleteConfirmOpen(false)
+      setDeletingEventId(null)
+      if (rows.length === 1 && page > 0) {
+        setPage((p) => p - 1)
+      } else {
+        setRefreshKey((k) => k + 1)
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'خطا در حذف رویداد', 'error')
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
 
   useEffect(() => {
     api.sheets(periodCtx.range).then(setSheets).catch(() => setSheets([]))
@@ -128,6 +161,7 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
           ev={ev}
           columns={columns}
           onEdit={() => { setEditId(ev.event_id); setEntryOpen(true) }}
+          onDelete={handleDeleteRequest}
         />
       ))}
     </Box>
@@ -141,11 +175,25 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
             <TableCell>مناسبت / رویداد</TableCell>
             <TableCell align="center">شرکت‌کنندگان</TableCell>
             {columns.map((c) => (
-              <TableCell key={c.metric} align="center" sx={{ background: '#f1f5f9', fontSize: 10.5 }}>
+              <TableCell
+                key={c.metric}
+                align="center"
+                sx={{
+                  background: '#f1f5f9',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  minWidth: 90,
+                  maxWidth: 130,
+                  px: 1,
+                  py: 1.2,
+                  lineHeight: 1.4,
+                  borderLeft: '1px solid #e2e8f0',
+                }}
+              >
                 {c.label}
               </TableCell>
             ))}
-            <TableCell align="center">رسانه</TableCell>
+            <TableCell align="center" sx={{ minWidth: 65 }}>رسانه</TableCell>
             <TableCell
               align="center"
               sx={{
@@ -153,9 +201,10 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
                 left: 0,
                 background: '#f8fafc',
                 zIndex: 3,
-                minWidth: 85,
-                boxShadow: '2px 0 6px -2px rgba(0,0,0,0.12)',
-                borderRight: '1px solid #e2e8f0',
+                minWidth: 125,
+                boxShadow: '-3px 0 8px -2px rgba(0,0,0,0.12)',
+                borderRight: '1px solid #cbd5e1',
+                fontWeight: 700,
               }}
             >
               عملیات
@@ -175,7 +224,8 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
           )}
           {rows.map((ev) => (
             <EventRow key={ev.event_id} ev={ev} columns={columns} isMobile={false}
-              onEdit={() => { setEditId(ev.event_id); setEntryOpen(true) }} />
+              onEdit={() => { setEditId(ev.event_id); setEntryOpen(true) }}
+              onDelete={handleDeleteRequest} />
           ))}
         </TableBody>
       </Table>
@@ -380,6 +430,58 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
           setRefreshKey((k) => k + 1)
         }}
       />
+
+      {/* دیالوگ تأیید حذف رویداد */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !deleteBusy && setDeleteConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DeleteOutlineIcon color="error" />
+          تأیید حذف رویداد فرهنگی
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ lineHeight: 1.9, mt: 0.5 }}>
+            آیا از حذف رویداد <strong>«{deletingOccasion}»</strong> اطمینان دارید؟
+          </Typography>
+          <Box sx={{ mt: 1, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">شناسه رویداد:</Typography>
+            <Chip size="small" label={deletingEventId} sx={{ fontFamily: 'monospace', fontSize: 10.5 }} />
+          </Box>
+          <Typography
+            variant="caption"
+            color="error.dark"
+            sx={{
+              display: 'block',
+              mt: 1.5,
+              lineHeight: 1.7,
+              background: '#fef2f2',
+              p: 1.2,
+              borderRadius: 1.5,
+              border: '1px dashed #fca5a5',
+            }}
+          >
+            توجه: با حذف این رویداد، کلیه سنجه‌ها و فکت‌های متصل به آن حذف شده و در کارنامه و اکسل دوره منعکس نخواهد شد.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, justifyContent: 'space-between' }}>
+          <Button onClick={() => setDeleteConfirmOpen(false)} disabled={deleteBusy} color="inherit">
+            انصراف
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDeleteEvent}
+            disabled={deleteBusy}
+            startIcon={<DeleteOutlineIcon />}
+            sx={{ fontWeight: 700 }}
+          >
+            {deleteBusy ? 'در حال حذف...' : 'تأیید و حذف قطعی'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
@@ -441,19 +543,30 @@ function NotesCell({ notes, onOpenEdit }: { notes: string; onOpenEdit: () => voi
   )
 }
 
-function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns: { metric: string; label: string }[]; isMobile: boolean; onEdit: () => void }) {
+function EventRow({
+  ev, columns, isMobile, onEdit, onDelete,
+}: {
+  ev: PortalEvent
+  columns: { metric: string; label: string }[]
+  isMobile: boolean
+  onEdit: () => void
+  onDelete: (eventId: string, occasion: string) => void
+}) {
   const attendees = ev.attendees_count
+  const title = ev.occasion || 'برنامه فرهنگی'
+
   return (
     <TableRow hover>
       <TableCell sx={{ whiteSpace: 'nowrap' }}><code>{faDate(ev.occurred_on)}</code></TableCell>
       <TableCell><strong>{ev.unit_name || 'دادگستری کل مازندران'}</strong></TableCell>
-      <TableCell sx={{ maxWidth: isMobile ? 200 : 340 }}>
+      <TableCell sx={{ maxWidth: isMobile ? 220 : 380, minWidth: 260 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
           <Typography
             component="span"
             onClick={onEdit}
             sx={{
-              fontWeight: 700,
+              fontWeight: 800,
+              fontSize: 14,
               cursor: 'pointer',
               color: 'primary.main',
               display: 'inline-flex',
@@ -463,13 +576,37 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
             }}
             title="کلیک برای مشاهده کامل محتوا و ویرایش گزارش"
           >
-            {ev.occasion || 'برنامه فرهنگی'}
+            {title}
           </Typography>
-          {Number(ev.is_ashura_pilgrimage) === 1 && <Chip size="small" label="زیارت عاشورا" sx={{ mr: 1 }} />}
+          {Number(ev.is_ashura_pilgrimage) === 1 && <Chip size="small" label="زیارت عاشورا" sx={{ mr: 0.5 }} />}
         </Box>
         {ev.notes && (
           <NotesCell notes={ev.notes} onOpenEdit={onEdit} />
         )}
+
+        {/* دکمه‌های اقدام سریع و مستقیم — همیشه در دید کامل کاربر بدون نیاز به اسکرول افقی */}
+        <Box sx={{ display: 'flex', gap: 1, mt: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="primary"
+            startIcon={<EditIcon sx={{ fontSize: '14px !important' }} />}
+            onClick={onEdit}
+            sx={{ py: 0.35, px: 1.2, fontSize: 11.5, fontWeight: 700, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+          >
+            اصلاح رویداد
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteOutlineIcon sx={{ fontSize: '14px !important' }} />}
+            onClick={() => onDelete(ev.event_id, title)}
+            sx={{ py: 0.35, px: 1, fontSize: 11.5, fontWeight: 700, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+          >
+            حذف
+          </Button>
+        </Box>
       </TableCell>
       <TableCell align="center">
         {attendees !== null && attendees !== undefined ? (
@@ -484,7 +621,11 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
       {columns.map((c) => {
         const v = ev.facts?.[c.metric]?.value ?? 0
         return (
-          <TableCell key={c.metric} align="center">
+          <TableCell
+            key={c.metric}
+            align="center"
+            sx={{ minWidth: 90, maxWidth: 130, px: 1, borderLeft: '1px solid #f1f5f9' }}
+          >
             {v > 0 ? (
               <Chip size="small" variant={v > 1 ? 'filled' : 'outlined'}
                 color={v > 1 ? 'primary' : 'success'}
@@ -493,7 +634,7 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
           </TableCell>
         )
       })}
-      <TableCell align="center">{ev.media_count > 0 ? faNum(ev.media_count) : '—'}</TableCell>
+      <TableCell align="center" sx={{ minWidth: 65 }}>{ev.media_count > 0 ? faNum(ev.media_count) : '—'}</TableCell>
       <TableCell
         align="center"
         sx={{
@@ -501,53 +642,89 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
           left: 0,
           background: '#ffffff',
           zIndex: 2,
-          minWidth: 85,
-          boxShadow: '2px 0 6px -2px rgba(0,0,0,0.12)',
-          borderRight: '1px solid #f1f5f9',
+          minWidth: 125,
+          boxShadow: '-3px 0 8px -2px rgba(0,0,0,0.12)',
+          borderRight: '1px solid #e2e8f0',
+          py: 1,
         }}
       >
-        <Button
-          size="small"
-          variant="contained"
-          onClick={onEdit}
-          sx={{ minWidth: 0, px: 1.5, py: 0.4, fontSize: 11.5, fontWeight: 700 }}
-        >
-          ویرایش
-        </Button>
-        <Typography variant="caption" sx={{ display: 'block', direction: 'ltr', fontSize: 9.5, color: 'text.disabled', mt: 0.3 }}>
-          {ev.event_id}
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', gap: 0.6, alignItems: 'center' }}>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              onClick={onEdit}
+              startIcon={<EditIcon sx={{ fontSize: '13px !important' }} />}
+              sx={{ minWidth: 0, px: 1.2, py: 0.35, fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap' }}
+            >
+              اصلاح رویداد
+            </Button>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDelete(ev.event_id, title)}
+              title="حذف رویداد"
+              sx={{ p: 0.45, border: '1px solid #fee2e2', borderRadius: 1 }}
+            >
+              <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Box>
+          <Typography variant="caption" sx={{ display: 'block', direction: 'ltr', fontSize: 9.5, color: 'text.disabled' }}>
+            {ev.event_id}
+          </Typography>
+        </Box>
       </TableCell>
     </TableRow>
   )
 }
 
 function MobileEventCard({
-  ev, columns, onEdit,
-}: { ev: PortalEvent; columns: { metric: string; label: string }[]; onEdit: () => void }) {
+  ev, columns, onEdit, onDelete,
+}: {
+  ev: PortalEvent
+  columns: { metric: string; label: string }[]
+  onEdit: () => void
+  onDelete: (eventId: string, occasion: string) => void
+}) {
   const attendees = ev.attendees_count
+  const title = ev.occasion || 'برنامه فرهنگی'
   const activeMetrics = columns.filter((c) => (ev.facts?.[c.metric]?.value ?? 0) > 0)
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 2, background: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 14 }}>
-              {ev.occasion || 'برنامه فرهنگی'}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.2 }}>
+          <Box sx={{ flex: 1, minWidth: 160 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 14.5 }}>
+              {title}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.3 }}>
               {ev.unit_name || 'دادگستری کل مازندران'}
             </Typography>
           </Box>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={onEdit}
-            sx={{ minWidth: 55, py: 0.3, px: 1, fontSize: 12, fontWeight: 700, borderRadius: 1.5 }}
-          >
-            ویرایش
-          </Button>
+          <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center', flexShrink: 0 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="primary"
+              onClick={onEdit}
+              startIcon={<EditIcon sx={{ fontSize: '14px !important' }} />}
+              sx={{ py: 0.35, px: 1.2, fontSize: 11.5, fontWeight: 700, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+            >
+              اصلاح رویداد
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={() => onDelete(ev.event_id, title)}
+              startIcon={<DeleteOutlineIcon sx={{ fontSize: '14px !important' }} />}
+              sx={{ py: 0.35, px: 1, fontSize: 11.5, fontWeight: 700, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+            >
+              حذف
+            </Button>
+          </Box>
         </Box>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center', mb: 1 }}>
