@@ -57,6 +57,7 @@ export interface EventFact {
 
 export interface PortalEvent {
   event_id: string
+  program_code?: string
   program_kinds_json: string
   occurred_on: string
   unit_name: string

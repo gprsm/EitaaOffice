@@ -110,9 +110,30 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
 
   const columns = program === '' ? [] : dimColumns
 
-  const table = (
+  const table = isMobile ? (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {loading && rows.length === 0 && (
+        Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} variant="rounded" height={100} sx={{ borderRadius: 2 }} />
+        ))
+      )}
+      {!loading && rows.length === 0 && (
+        <Paper sx={{ p: 4, textAlign: 'center', color: 'text.secondary', borderRadius: 2 }}>
+          رویدادی در این دوره و فیلترها یافت نشد.
+        </Paper>
+      )}
+      {rows.map((ev) => (
+        <MobileEventCard
+          key={ev.event_id}
+          ev={ev}
+          columns={columns}
+          onEdit={() => { setEditId(ev.event_id); setEntryOpen(true) }}
+        />
+      ))}
+    </Box>
+  ) : (
     <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-      <Table size="small" sx={{ minWidth: isMobile ? 640 : 900 }}>
+      <Table size="small" sx={{ minWidth: 900 }}>
         <TableHead>
           <TableRow>
             <TableCell>تاریخ</TableCell>
@@ -125,7 +146,20 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
               </TableCell>
             ))}
             <TableCell align="center">رسانه</TableCell>
-            <TableCell align="center">عملیات</TableCell>
+            <TableCell
+              align="center"
+              sx={{
+                position: 'sticky',
+                left: 0,
+                background: '#f8fafc',
+                zIndex: 3,
+                minWidth: 85,
+                boxShadow: '2px 0 6px -2px rgba(0,0,0,0.12)',
+                borderRight: '1px solid #e2e8f0',
+              }}
+            >
+              عملیات
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -140,7 +174,7 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
             </TableCell></TableRow>
           )}
           {rows.map((ev) => (
-            <EventRow key={ev.event_id} ev={ev} columns={columns} isMobile={isMobile}
+            <EventRow key={ev.event_id} ev={ev} columns={columns} isMobile={false}
               onEdit={() => { setEditId(ev.event_id); setEntryOpen(true) }} />
           ))}
         </TableBody>
@@ -350,6 +384,63 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
   )
 }
 
+function NotesCell({ notes, onOpenEdit }: { notes: string; onOpenEdit: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = notes.length > 90
+
+  return (
+    <Box sx={{ mt: 0.4 }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{
+          display: 'block',
+          lineHeight: 1.5,
+          whiteSpace: expanded ? 'pre-wrap' : 'normal',
+          cursor: isLong ? 'pointer' : 'default',
+        }}
+        onClick={() => isLong && setExpanded(!expanded)}
+        title={isLong ? (expanded ? 'بستن متن کامل' : 'کلیک برای نمایش کامل متن در جدول') : ''}
+      >
+        {expanded || !isLong ? notes : `${notes.slice(0, 90)}…`}
+      </Typography>
+      {isLong && (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.2 }}>
+          <Typography
+            component="span"
+            variant="caption"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              fontSize: 10,
+              color: 'primary.main',
+              cursor: 'pointer',
+              userSelect: 'none',
+              fontWeight: 700,
+              '&:hover': { textDecoration: 'underline' },
+            }}
+          >
+            {expanded ? '▲ بستن متن' : '▼ نمایش کامل متن'}
+          </Typography>
+          <Typography
+            component="span"
+            variant="caption"
+            onClick={onOpenEdit}
+            sx={{
+              fontSize: 10,
+              color: 'text.secondary',
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover': { color: 'primary.main', textDecoration: 'underline' },
+            }}
+          >
+            (ویرایش / اصلاح)
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns: { metric: string; label: string }[]; isMobile: boolean; onEdit: () => void }) {
   const attendees = ev.attendees_count
   return (
@@ -357,12 +448,27 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
       <TableCell sx={{ whiteSpace: 'nowrap' }}><code>{faNum(ev.occurred_on)}</code></TableCell>
       <TableCell><strong>{ev.unit_name || 'دادگستری کل مازندران'}</strong></TableCell>
       <TableCell sx={{ maxWidth: isMobile ? 200 : 340 }}>
-        <strong>{ev.occasion || 'برنامه فرهنگی'}</strong>
-        {Number(ev.is_ashura_pilgrimage) === 1 && <Chip size="small" label="زیارت عاشورا" sx={{ mr: 1 }} />}
-        {ev.notes && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3, whiteSpace: 'normal' }}>
-            {ev.notes.slice(0, 90)}{ev.notes.length > 90 ? '…' : ''}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+          <Typography
+            component="span"
+            onClick={onEdit}
+            sx={{
+              fontWeight: 700,
+              cursor: 'pointer',
+              color: 'primary.main',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              '&:hover': { textDecoration: 'underline', color: 'primary.dark' },
+            }}
+            title="کلیک برای مشاهده کامل محتوا و ویرایش گزارش"
+          >
+            {ev.occasion || 'برنامه فرهنگی'}
           </Typography>
+          {Number(ev.is_ashura_pilgrimage) === 1 && <Chip size="small" label="زیارت عاشورا" sx={{ mr: 1 }} />}
+        </Box>
+        {ev.notes && (
+          <NotesCell notes={ev.notes} onOpenEdit={onEdit} />
         )}
       </TableCell>
       <TableCell align="center">
@@ -388,15 +494,106 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
         )
       })}
       <TableCell align="center">{ev.media_count > 0 ? faNum(ev.media_count) : '—'}</TableCell>
-      <TableCell align="center">
-        <Button size="small" variant="outlined" onClick={onEdit} sx={{ minWidth: 0, px: 1 }}>
+      <TableCell
+        align="center"
+        sx={{
+          position: 'sticky',
+          left: 0,
+          background: '#ffffff',
+          zIndex: 2,
+          minWidth: 85,
+          boxShadow: '2px 0 6px -2px rgba(0,0,0,0.12)',
+          borderRight: '1px solid #f1f5f9',
+        }}
+      >
+        <Button
+          size="small"
+          variant="contained"
+          onClick={onEdit}
+          sx={{ minWidth: 0, px: 1.5, py: 0.4, fontSize: 11.5, fontWeight: 700 }}
+        >
           ویرایش
         </Button>
-        <Typography variant="caption" sx={{ display: 'block', direction: 'ltr', fontSize: 9.5, color: 'text.disabled' }}>
+        <Typography variant="caption" sx={{ display: 'block', direction: 'ltr', fontSize: 9.5, color: 'text.disabled', mt: 0.3 }}>
           {ev.event_id}
         </Typography>
       </TableCell>
     </TableRow>
+  )
+}
+
+function MobileEventCard({
+  ev, columns, onEdit,
+}: { ev: PortalEvent; columns: { metric: string; label: string }[]; onEdit: () => void }) {
+  const attendees = ev.attendees_count
+  const activeMetrics = columns.filter((c) => (ev.facts?.[c.metric]?.value ?? 0) > 0)
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2, background: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 14 }}>
+              {ev.occasion || 'برنامه فرهنگی'}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.3 }}>
+              {ev.unit_name || 'دادگستری کل مازندران'}
+            </Typography>
+          </Box>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onEdit}
+            sx={{ minWidth: 55, py: 0.3, px: 1, fontSize: 12, fontWeight: 700, borderRadius: 1.5 }}
+          >
+            ویرایش
+          </Button>
+        </Box>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center', mb: 1 }}>
+          <Chip size="small" label={faNum(ev.occurred_on)} variant="outlined" sx={{ fontSize: 11.5 }} />
+          {attendees !== null && attendees !== undefined && (
+            <Chip
+              size="small"
+              color={ev.attendees_value_kind === 'estimated' ? 'warning' : 'primary'}
+              variant="outlined"
+              label={`${faNum(attendees)} نفر${ev.attendees_value_kind === 'estimated' ? ' (تخمینی)' : ''}`}
+              sx={{ fontSize: 11.5 }}
+            />
+          )}
+          {Number(ev.is_ashura_pilgrimage) === 1 && (
+            <Chip size="small" label="زیارت عاشورا" color="info" sx={{ fontSize: 11.5 }} />
+          )}
+          {ev.media_count > 0 && (
+            <Chip size="small" label={`${faNum(ev.media_count)} رسانه`} variant="outlined" sx={{ fontSize: 11 }} />
+          )}
+        </Box>
+
+        {ev.notes && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, lineHeight: 1.6 }}>
+            {ev.notes.slice(0, 110)}{ev.notes.length > 110 ? '…' : ''}
+          </Typography>
+        )}
+
+        {activeMetrics.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6, pt: 1, borderTop: '1px dashed #e2e8f0' }}>
+            {activeMetrics.map((c) => {
+              const v = ev.facts?.[c.metric]?.value ?? 0
+              return (
+                <Chip
+                  key={c.metric}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  label={`${c.label}: ${faNum(Math.round(v))}`}
+                  sx={{ fontSize: 11, background: '#f0fdf4' }}
+                />
+              )
+            })}
+          </Box>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

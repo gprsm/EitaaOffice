@@ -100,6 +100,22 @@ check(($row['occasion_class'] ?? '') === 'national', 'ردهٔ مناسبت nati
 $facts2 = ReportingService::getEventFactsByEvent([$ev2])[$ev2] ?? [];
 check((float)($facts2['culture_pack_count']['value'] ?? 0) === 25.0, 'فکت بستهٔ فرهنگی');
 
+// ---- ۴-ب) سنجه‌های تفکیکی کاربرگ سفر استانی (نماز و تولید محتوا) -----------
+$evPrayer = ReportingService::createManualEvent([
+    'program_kind' => 'prayer',
+    'unit_name'    => 'دادگستری آزمون هارنس',
+    'occurred_on'  => '2026-08-12',
+    'occasion'     => 'طرح خادمیاری و جشن نومکلفان',
+    'dim_prayer_congregation_count' => '45',
+    'dim_khademiari_mosque_count'   => '4',
+    'dim_khademiari_honoree_count'  => '8',
+    'dim_nominee_count'             => '15',
+]);
+$prayerFacts = ReportingService::getEventFactsByEvent([$evPrayer])[$evPrayer] ?? [];
+check((float)($prayerFacts['prayer_congregation_count']['value'] ?? 0) === 45.0, 'فکت سنجه نماز جماعت کاربرگ سفر استانی');
+check((float)($prayerFacts['khademiari_mosque_count']['value'] ?? 0) === 4.0, 'فکت طرح خادمیاری (نمازخانه‌ها)');
+check((float)($prayerFacts['nominee_count']['value'] ?? 0) === 15.0, 'فکت جشن نومکلفان (نومکلفین)');
+
 // ---- ۵) فیلتر ردهٔ مراسم در پرس‌وجوی رویدادها (فاز ۳) ---------------------
 $relig = ReportingService::getEvents(['occasion_class' => 'religious'], 5, 0);
 check(empty(array_filter($relig, fn($r) => $r['occasion_class'] !== 'religious')), 'فیلتر occasion_class=religious در getEvents');

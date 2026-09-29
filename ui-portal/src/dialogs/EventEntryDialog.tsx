@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, FormHelperText, Grid, InputLabel, LinearProgress, MenuItem,
-  Select, TextField, Typography,
+  FormControl, FormControlLabel, FormHelperText, Grid, InputLabel, LinearProgress, MenuItem,
+  Select, Switch, Tab, Tabs, TextField, Typography,
 } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFnsJalali } from '@mui/x-date-pickers/AdapterDateFnsJalali'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { faIR } from 'date-fns-jalali/locale'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
+import EventNoteIcon from '@mui/icons-material/EventNote'
+import TuneIcon from '@mui/icons-material/Tune'
+import AssignmentIcon from '@mui/icons-material/Assignment'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { api, type EntryField, type EntryFormSpec, type PortalEvent } from '../api'
 import { faNum, gregorianToJalali, jalaliToGregorian } from '../periods'
 
@@ -26,10 +31,10 @@ const jalaliLabel = (j: [number, number, number]): string =>
   `${faNum(j[0])}/${faNum(String(j[1]).padStart(2, '0'))}/${faNum(String(j[2]).padStart(2, '0'))}`
 
 /**
- * فرم ثبت/ویرایش رویداد — بخش‌ها و فیلدها دقیقاً از مشخصات فرم اختصاصی برنامه
- * (get_entry_form&format=json) رندر می‌شود؛ سنجه‌های عددی فکت می‌سازند و
- * گزینه‌های دسته با data-metric به همان فکت نگاشت می‌شوند (F-096/F-097/V-231).
- * حالت ویرایش: prefill از get_event_detail و ذخیره با update_event.
+ * فرم ثبت/ویرایش رویداد با ساختار تب‌دار و مرحله‌ای (Wizard-Tabs):
+ *  - تب ۱: مشخصات رویداد و زمان‌بندی (عنوان، تاریخ شمسی، مخاطبان)
+ *  - تب ۲: سنجه‌ها و اقلام تخصصی برنامه (مشتق از spec فرم کاربرگ سفر استانی)
+ *  - تب ۳: تمهیدات، عوامل اجرایی و مستندات (پذیرایی، حضور مسئولان، پیوست، یادداشت)
  */
 export function EventEntryDialog({
   open, initialRef, editEventId = null, onClose, onSaved,
@@ -41,6 +46,7 @@ export function EventEntryDialog({
   onSaved: () => void
 }) {
   const [programRef, setProgramRef] = useState(initialRef)
+  const [activeTab, setActiveTab] = useState(0)
   const [spec, setSpec] = useState<EntryFormSpec | null>(null)
   const [specError, setSpecError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -56,23 +62,63 @@ export function EventEntryDialog({
   const [notes, setNotes] = useState('')
   const [evidence, setEvidence] = useState<File | null>(null)
 
+const inferProgramRef = (ev: PortalEvent): string => {
+  if (ev.program_code) return ev.program_code
+  if (Number(ev.is_ashura_pilgrimage) === 1) return '80403-A'
+  try {
+    const kinds = JSON.parse(ev.program_kinds_json || '[]')
+    const k = Array.isArray(kinds) ? kinds[0] : ''
+    const map: Record<string, string> = {
+      trip: '80401',
+      contest: '80402',
+      ceremony: '80403',
+      prayer: '80501',
+      honor: '80406',
+      customer_care: '80601',
+      charter: '80202',
+      training_course: 'training_courses',
+      content_production: 'content_production',
+      counseling: 'counseling',
+      education_services: 'education_services',
+      external_collaboration: 'external_collaboration',
+    }
+    return map[k] || '80403'
+  } catch {
+    return '80403'
+  }
+}
+
   useEffect(() => {
-    if (open) setProgramRef(initialRef)
+    if (open) {
+      setProgramRef(initialRef)
+      setActiveTab(0)
+    }
   }, [open, initialRef])
 
   // بارگذاری spec فرم اختصاصی + prefill در حالت ویرایش
   useEffect(() => {
-    if (!open || !programRef) { setSpec(null); return }
+    if (!open) { setSpec(null); return }
+    if (!programRef && !editEventId) { setSpec(null); return }
     setSpec(null)
     setSpecError('')
     setValues({})
     setError('')
     const load = async () => {
       try {
-        const s = await api.entryFormSpec(programRef)
-        setSpec(s)
+        let currentRef = programRef
+        let ev: PortalEvent | null = null
         if (editEventId) {
-          const ev: PortalEvent = await api.eventDetail(editEventId)
+          ev = await api.eventDetail(editEventId)
+          if (!currentRef) {
+            currentRef = inferProgramRef(ev)
+            setProgramRef(currentRef)
+          }
+        }
+        if (!currentRef) return
+
+        const s = await api.entryFormSpec(currentRef)
+        setSpec(s)
+        if (ev) {
           setOccasion(ev.occasion || '')
           setAttendees(ev.attendees_count !== null && ev.attendees_count !== undefined ? String(Math.round(ev.attendees_count)) : '')
           setAttendeesKind(ev.attendees_value_kind === 'estimated' ? 'estimated' : 'verified')
@@ -154,8 +200,16 @@ export function EventEntryDialog({
     return data
   }, [programRef, occasion, date, attendees, attendeesKind, officialPresent, hadReception, notes, spec, values])
 
+  const filledMetricsCount = useMemo(() => {
+    return Object.entries(values).filter(([k, v]) => k.startsWith('dim_') && Number(v) > 0).length
+  }, [values])
+
   const submit = async () => {
-    if (!occasion.trim()) { setError('عنوان یا مناسبت برنامه الزامی است'); return }
+    if (!occasion.trim()) {
+      setActiveTab(0)
+      setError('عنوان یا مناسبت برنامه الزامی است (تب ۱)')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -176,124 +230,295 @@ export function EventEntryDialog({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFnsJalali} adapterLocale={faIR}>
       <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="md" fullWidth scroll="paper">
-        <DialogTitle>
-          {editEventId ? 'ویرایش رویداد فرهنگی' : 'ثبت رویداد فرهنگی جدید'}
-          {spec && <Chip size="small" sx={{ mr: 1.5 }} color="primary" variant="outlined"
-            label={spec.row_label ? `${spec.row_label} — ${spec.name}` : spec.name} />}
-          {editEventId && <Chip size="small" sx={{ mr: 1 }} color="warning" variant="outlined" label="حالت ویرایش" />}
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                {editEventId ? 'ویرایش رویداد فرهنگی' : 'ثبت رویداد فرهنگی جدید'}
+              </Typography>
+              {editEventId && <Chip size="small" color="warning" variant="outlined" label="حالت ویرایش" />}
+            </Box>
+            {spec && (
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={spec.row_label ? `${spec.row_label} — ${spec.name}` : spec.name}
+              />
+            )}
+          </Box>
         </DialogTitle>
-        <DialogContent dividers>
+
+        {/* نوار تب‌های مرحله‌ای */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+          <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)}>
+            <Tab
+              icon={<EventNoteIcon />}
+              iconPosition="start"
+              label="۱. مشخصات رویداد"
+              sx={{ minHeight: 48, fontWeight: 700 }}
+            />
+            <Tab
+              icon={<TuneIcon />}
+              iconPosition="start"
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                  <span>۲. سنجه‌های برنامه</span>
+                  {filledMetricsCount > 0 && (
+                    <Chip size="small" label={faNum(filledMetricsCount)} color="primary" sx={{ height: 18, fontSize: 10.5 }} />
+                  )}
+                </Box>
+              }
+              sx={{ minHeight: 48, fontWeight: 700 }}
+            />
+            <Tab
+              icon={<AssignmentIcon />}
+              iconPosition="start"
+              label="۳. تمهیدات و پیوست‌ها"
+              sx={{ minHeight: 48, fontWeight: 700 }}
+            />
+          </Tabs>
+        </Box>
+
+        <DialogContent dividers sx={{ py: 2.5 }}>
           {busy && <LinearProgress sx={{ mb: 2 }} />}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          {/* فیلدهای مشترک */}
-          <Grid container spacing={1.5} sx={{ mb: 2 }}>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl size="small" fullWidth required disabled={!!editEventId}>
-                <InputLabel>محور گزارش / کاربرگ</InputLabel>
-                <Select label="محور گزارش / کاربرگ" value={programRef}
-                  onChange={(e) => setProgramRef(e.target.value)}>
-                  <MenuItem value="80401">۸۰۴۰۱ — اردو</MenuItem>
-                  <MenuItem value="80402">۸۰۴۰۲ — مسابقات</MenuItem>
-                  <MenuItem value="80403">۸۰۴۰۳ — مراسم مذهبی</MenuItem>
-                  <MenuItem value="80501">۸۰۵۰۱ — اقامه نماز</MenuItem>
-                  <MenuItem value="80406">۸۰۴۰۶ — تکریم و تجلیل</MenuItem>
-                  <MenuItem value="80601">۸۰۶۰۱ — تشویق ارباب رجوع</MenuItem>
-                  <MenuItem value="80202">۸۰۲۰۲ — منشور اخلاقی</MenuItem>
-                  <MenuItem value="80403-A">پیوست ۸۰۴۰۳ — ضمیمه زیارت عاشورا</MenuItem>
-                  <MenuItem value="training_courses">ردیف ۲ کاربرگ بازدید — دوره و کارگاه آموزشی</MenuItem>
-                  <MenuItem value="content_production">ردیف ۴ کاربرگ بازدید — تولید محتوا</MenuItem>
-                  <MenuItem value="counseling">ردیف ۶ کاربرگ بازدید — خدمات مشاوره</MenuItem>
-                  <MenuItem value="education_services">ردیف ۸ کاربرگ بازدید — خدمات تحصیلی فرزندان</MenuItem>
-                  <MenuItem value="external_collaboration">ردیف ۹ کاربرگ بازدید — تعامل برون‌سازمانی</MenuItem>
-                </Select>
-                {editEventId && <FormHelperText>محور رویداد موجود قابل تغییر نیست</FormHelperText>}
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <DatePicker
-                label="تاریخ برگزاری (شمسی)"
-                value={jalaliToDate(date)}
-                onChange={(d) => { if (d) setDate(dateToJalali(d as Date)) }}
-                slotProps={{ textField: { size: 'small', fullWidth: true } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField size="small" fullWidth required label="عنوان یا مناسبت برنامه"
-                value={occasion} onChange={(e) => setOccasion(e.target.value)} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField size="small" fullWidth type="number" label="تعداد شرکت‌کنندگان"
-                value={attendees} onChange={(e) => setAttendees(e.target.value)} inputProps={{ min: 0 }} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl size="small" fullWidth>
-                <InputLabel>نوع آمار مخاطب</InputLabel>
-                <Select label="نوع آمار مخاطب" value={attendeesKind}
-                  onChange={(e) => setAttendeesKind(e.target.value)}>
-                  <MenuItem value="verified">قطعی و مستند</MenuItem>
-                  <MenuItem value="estimated">تخمینی</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+          {/* تب ۱: مشخصات رویداد و زمان‌بندی */}
+          {activeTab === 0 && (
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl size="small" fullWidth required disabled={!!editEventId}>
+                  <InputLabel>محور گزارش / کاربرگ</InputLabel>
+                  <Select
+                    label="محور گزارش / کاربرگ"
+                    value={programRef}
+                    onChange={(e) => setProgramRef(e.target.value)}
+                  >
+                    <MenuItem value="80401">۸۰۴۰۱ — اردو</MenuItem>
+                    <MenuItem value="80402">۸۰۴۰۲ — مسابقات</MenuItem>
+                    <MenuItem value="80403">۸۰۴۰۳ — مراسم مذهبی</MenuItem>
+                    <MenuItem value="80501">۸۰۵۰۱ — اقامه نماز</MenuItem>
+                    <MenuItem value="80406">۸۰۴۰۶ — تکریم و تجلیل</MenuItem>
+                    <MenuItem value="80601">۸۰۶۰۱ — تشویق ارباب رجوع</MenuItem>
+                    <MenuItem value="80202">۸۰۲۰۲ — منشور اخلاقی</MenuItem>
+                    <MenuItem value="80403-A">پیوست ۸۰۴۰۳ — ضمیمه زیارت عاشورا</MenuItem>
+                    <MenuItem value="training_courses">ردیف ۲ کاربرگ بازدید — دوره و کارگاه آموزشی</MenuItem>
+                    <MenuItem value="content_production">ردیف ۴ کاربرگ بازدید — تولید محتوا</MenuItem>
+                    <MenuItem value="counseling">ردیف ۶ کاربرگ بازدید — خدمات مشاوره</MenuItem>
+                    <MenuItem value="education_services">ردیف ۸ کاربرگ بازدید — خدمات تحصیلی فرزندان</MenuItem>
+                    <MenuItem value="external_collaboration">ردیف ۹ کاربرگ بازدید — تعامل برون‌سازمانی</MenuItem>
+                  </Select>
+                  {editEventId && <FormHelperText>محور رویداد موجود قابل تغییر نیست</FormHelperText>}
+                </FormControl>
+              </Grid>
 
-          {/* فرم اختصاصی برنامه */}
-          {specError && <Alert severity="error" sx={{ mb: 2 }}>{specError}</Alert>}
-          {!spec && !specError && programRef && <LinearProgress sx={{ my: 2 }} />}
-          {spec && (
-            <Box sx={{ mb: 1 }}>
-              <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-                <strong>{spec.row_label ? `${spec.row_label} — ` : ''}{spec.name}:</strong> {spec.intro}
-              </Alert>
-              {spec.sections.map((section) => (
-                <Box key={section.title} sx={{ mb: 2.5 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                    <Box component="span" aria-hidden>▪</Box> {section.title}
-                  </Typography>
-                  {section.hint && (
-                    <FormHelperText sx={{ mb: 1, mt: 0 }}>{section.hint}</FormHelperText>
-                  )}
-                  <Grid container spacing={1.5}>
-                    {section.fields.map((field) => (
-                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={field.n}>
-                        <EntryFieldInput field={field} value={values[field.n] ?? ''} onChange={(v) => setField(field.n, v)} />
-                        {field.cn && field.cl && (
-                          <TextField size="small" fullWidth type="number" sx={{ mt: 1 }}
-                            label={field.cl} placeholder="۱"
-                            value={values[field.cn] ?? ''}
-                            onChange={(e) => setField(field.cn!, e.target.value)} />
-                        )}
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <DatePicker
+                  label="تاریخ برگزاری (شمسی)"
+                  value={jalaliToDate(date)}
+                  onChange={(d) => { if (d) setDate(dateToJalali(d as Date)) }}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  required
+                  label="عنوان یا مناسبت برنامه"
+                  placeholder="مثال: آیین تجلیل از نخبگان قرآنی / کارگاه سبک زندگی اسلامی"
+                  value={occasion}
+                  onChange={(e) => setOccasion(e.target.value)}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  type="number"
+                  label="تعداد کل شرکت‌کنندگان / مخاطبان"
+                  value={attendees}
+                  onChange={(e) => setAttendees(e.target.value)}
+                  inputProps={{ min: 0 }}
+                  placeholder="مثال: ۱۲۰"
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>نوع آمار مخاطب</InputLabel>
+                  <Select
+                    label="نوع آمار مخاطب"
+                    value={attendeesKind}
+                    onChange={(e) => setAttendeesKind(e.target.value)}
+                  >
+                    <MenuItem value="verified">قطعی و مستند (با لیست حضور)</MenuItem>
+                    <MenuItem value="estimated">تخمینی / برآوردی</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* تب ۲: سنجه‌ها و اقلام تخصصی برنامه */}
+          {activeTab === 1 && (
+            <Box>
+              {specError && <Alert severity="error" sx={{ mb: 2 }}>{specError}</Alert>}
+              {!spec && !specError && programRef && <LinearProgress sx={{ my: 2 }} />}
+              {spec && (
+                <Box>
+                  <Alert severity="info" variant="outlined" sx={{ mb: 2.5 }}>
+                    <strong>{spec.row_label ? `${spec.row_label} — ` : ''}{spec.name}:</strong> {spec.intro}
+                  </Alert>
+
+                  {spec.sections.map((section) => (
+                    <Box key={section.title} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 0.8, display: 'flex', alignItems: 'center', gap: 0.8, color: 'primary.main', fontWeight: 800 }}>
+                        <Box component="span" aria-hidden>▪</Box> {section.title}
+                      </Typography>
+                      {section.hint && (
+                        <FormHelperText sx={{ mb: 1.2, mt: 0 }}>{section.hint}</FormHelperText>
+                      )}
+                      <Grid container spacing={1.8}>
+                        {section.fields.map((field) => (
+                          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={field.n}>
+                            <EntryFieldInput
+                              field={field}
+                              value={values[field.n] ?? ''}
+                              onChange={(v) => setField(field.n, v)}
+                            />
+                            {field.cn && field.cl && (
+                              <TextField
+                                size="small"
+                                fullWidth
+                                type="number"
+                                sx={{ mt: 1 }}
+                                label={field.cl}
+                                placeholder="۱"
+                                value={values[field.cn] ?? ''}
+                                onChange={(e) => setField(field.cn!, e.target.value)}
+                              />
+                            )}
+                          </Grid>
+                        ))}
                       </Grid>
-                    ))}
-                  </Grid>
+                    </Box>
+                  ))}
                 </Box>
-              ))}
+              )}
             </Box>
           )}
 
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12 }}>
-              <TextField size="small" fullWidth multiline rows={2} label="توضیحات و گزارش تکمیلی"
-                value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </Grid>
-            {!editEventId && (
+          {/* تب ۳: تمهیدات، عوامل اجرایی و مستندات */}
+          {activeTab === 2 && (
+            <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} fullWidth>
-                  پیوست تصویر یا سند (اختیاری)
-                  <input type="file" hidden accept="image/*,.pdf,.docx"
-                    onChange={(e) => setEvidence(e.target.files?.[0] ?? null)} />
-                </Button>
-                {evidence && <FormHelperText>{evidence.name}</FormHelperText>}
+                <Box sx={{ border: '1px solid #e2e8f0', p: 1.5, borderRadius: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={officialPresent}
+                        onChange={(e) => setOfficialPresent(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="حضور مسئولان قضایی (رئیس کل / دادستان / معاونان)"
+                  />
+                  <FormHelperText>در ارزیابی‌های کیفی کارنامه موثر است</FormHelperText>
+                </Box>
               </Grid>
-            )}
-          </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Box sx={{ border: '1px solid #e2e8f0', p: 1.5, borderRadius: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={hadReception}
+                        onChange={(e) => setHadReception(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="پذیرایی / تدارکات انجام شده است"
+                  />
+                  <FormHelperText>ثبت تمهیدات برگزاری مراسم یا رویداد</FormHelperText>
+                </Box>
+              </Grid>
+
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  label="توضیحات و گزارش تکمیلی رویداد"
+                  placeholder="نکات مهم، بازخوردها، مصوبات یا جزئیات عملیاتی برنامه..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </Grid>
+
+              {!editEventId && (
+                <Grid size={{ xs: 12 }}>
+                  <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} fullWidth sx={{ py: 1.5 }}>
+                    پیوست مستندات یا تصویر رویداد (اختیاری)
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*,.pdf,.docx"
+                      onChange={(e) => setEvidence(e.target.files?.[0] ?? null)}
+                    />
+                  </Button>
+                  {evidence && (
+                    <FormHelperText sx={{ mt: 1, color: 'success.main', fontWeight: 700 }}>
+                      فایل انتخاب‌شده: {evidence.name} ({(evidence.size / 1024).toFixed(1)} کیلوبایت)
+                    </FormHelperText>
+                  )}
+                </Grid>
+              )}
+            </Grid>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose} disabled={busy}>انصراف</Button>
-          <Button onClick={submit} variant="contained" disabled={busy || !programRef}>
-            {editEventId ? 'ذخیره تغییرات' : 'ثبت نهایی رویداد'}
-          </Button>
+
+        <DialogActions sx={{ px: 2.5, py: 1.5, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button onClick={onClose} disabled={busy} color="inherit">
+              انصراف
+            </Button>
+            {activeTab > 0 && (
+              <Button
+                startIcon={<ArrowForwardIcon />}
+                onClick={() => setActiveTab((t) => t - 1)}
+                disabled={busy}
+              >
+                مرحله قبل
+              </Button>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {activeTab < 2 ? (
+              <Button
+                variant="outlined"
+                endIcon={<ArrowBackIcon />}
+                onClick={() => setActiveTab((t) => t + 1)}
+              >
+                مرحله بعد
+              </Button>
+            ) : null}
+
+            <Button
+              onClick={submit}
+              variant="contained"
+              disabled={busy || !programRef}
+              color="primary"
+              sx={{ fontWeight: 800 }}
+            >
+              {editEventId ? 'ذخیره تغییرات' : 'ثبت نهایی رویداد'}
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </LocalizationProvider>
