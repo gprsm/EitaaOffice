@@ -9,7 +9,7 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt'
 import AddCircleIcon from '@mui/icons-material/AddCircle'
 import { api, PROGRAM_REFS, type PortalEvent, type ProgramSheet, type VisitTopic } from '../api'
 import { usePeriod } from '../components/PeriodPicker'
-import { faCode, faNum } from '../periods'
+import { faCode, faDate, faNum } from '../periods'
 import { ChipCode, VisitChip } from './DashboardPage'
 import { EventEntryDialog } from '../dialogs/EventEntryDialog'
 import { NewMandateDialog } from '../dialogs/NewMandateDialog'
@@ -318,7 +318,7 @@ export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
                           )}
                         </TableCell>
                         <TableCell><code>{md.number || '—'}</code></TableCell>
-                        <TableCell style={{ whiteSpace: 'nowrap' }}>{md.issued_on || '—'}</TableCell>
+                        <TableCell style={{ whiteSpace: 'nowrap' }}>{faDate(md.issued_on)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -445,7 +445,7 @@ function EventRow({ ev, columns, isMobile, onEdit }: { ev: PortalEvent; columns:
   const attendees = ev.attendees_count
   return (
     <TableRow hover>
-      <TableCell sx={{ whiteSpace: 'nowrap' }}><code>{faNum(ev.occurred_on)}</code></TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}><code>{faDate(ev.occurred_on)}</code></TableCell>
       <TableCell><strong>{ev.unit_name || 'دادگستری کل مازندران'}</strong></TableCell>
       <TableCell sx={{ maxWidth: isMobile ? 200 : 340 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
@@ -551,7 +551,7 @@ function MobileEventCard({
         </Box>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center', mb: 1 }}>
-          <Chip size="small" label={faNum(ev.occurred_on)} variant="outlined" sx={{ fontSize: 11.5 }} />
+          <Chip size="small" label={faDate(ev.occurred_on)} variant="outlined" sx={{ fontSize: 11.5 }} />
           {attendees !== null && attendees !== undefined && (
             <Chip
               size="small"

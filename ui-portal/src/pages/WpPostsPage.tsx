@@ -6,7 +6,7 @@ import {
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PublicIcon from '@mui/icons-material/Public'
 import { api, type WpPost } from '../api'
-import { faNum } from '../periods'
+import { faDate, faNum } from '../periods'
 
 /** کارتابل بسته‌های خبری وردپرس (F-097) */
 export default function WpPostsPage({ notify }: { notify: (text: string, severity?: 'success' | 'error' | 'info') => void }) {
@@ -60,7 +60,7 @@ export default function WpPostsPage({ notify }: { notify: (text: string, severit
                 <TableCell sx={{ maxWidth: 360 }}>
                   <strong>{p.post_title}</strong>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {faNum(p.post_date.slice(0, 10))}
+                    ثبت: {faDate(p.post_date)}
                   </Typography>
                 </TableCell>
                 <TableCell sx={{ maxWidth: 200 }}>

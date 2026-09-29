@@ -3,6 +3,8 @@
  * مرجع واحد همهٔ نقاط گزارش‌دهی سامانه — خروجی همیشه جفت ISO میلادی + برچسب فارسی.
  */
 
+import { JalaliDate } from './jalaliDate'
+
 export type Jalali = [number, number, number] // سال/ماه/روز
 
 export interface PeriodSelection {
@@ -72,9 +74,11 @@ export function gregorianToJalali(gy: number, gm: number, gd: number): Jalali {
     days = (days - 1) % 365
   }
   const jm = days < 186 ? 1 + Math.floor(days / 31) : 7 + Math.floor((days - 186) / 30)
-  const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 31)
+  const jd = 1 + (days < 186 ? days % 31 : (days - 186) % 30)
   return [jy, jm, jd]
 }
+
+export { JalaliDate } from './jalaliDate'
 
 export const faNum = (v: number | string): string =>
   String(v).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)])
@@ -95,9 +99,8 @@ export function isoToJalali(iso: string): Jalali | null {
 }
 
 /** نمایش شمسی یک تاریخ ISO (۱۴۰۵/۰۵/۰۱) */
-export function faDate(iso: string | null | undefined): string {
-  const j = iso ? isoToJalali(iso) : null
-  return j ? faNum(`${j[0]}/${String(j[1]).padStart(2, '0')}/${String(j[2]).padStart(2, '0')}`) : '—'
+export function faDate(iso: string | number | Date | null | undefined): string {
+  return JalaliDate.format(iso)
 }
 
 export interface PeriodPreset {

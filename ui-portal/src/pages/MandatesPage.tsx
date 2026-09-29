@@ -8,7 +8,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddCircleIcon from '@mui/icons-material/AddCircle'
 import { api, MANDATE_KINDS, type Mandate } from '../api'
-import { faCode, faNum } from '../periods'
+import { faCode, faDate, faNum } from '../periods'
 import { ChipCode, VisitChip } from './DashboardPage'
 import type { PageProps } from '../App'
 
@@ -120,7 +120,7 @@ export default function MandatesPage({ notify }: PageProps) {
                     )}
                   </TableCell>
                   <TableCell><code>{md.number || '—'}</code></TableCell>
-                  <TableCell style={{ whiteSpace: 'nowrap' }}>{md.issued_on || '—'}</TableCell>
+                  <TableCell style={{ whiteSpace: 'nowrap' }}>{faDate(md.issued_on)}</TableCell>
                   <TableCell sx={{ fontSize: 11.5 }}>{md.document_ref || '—'}</TableCell>
                   <TableCell align="center">
                     <IconButton size="small" color="error" onClick={() => remove(md.mandate_id)} aria-label="حذف سند">
