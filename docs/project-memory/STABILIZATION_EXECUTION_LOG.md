@@ -4073,3 +4073,232 @@ docs: {F-068: CLOSED_CODE_AND_REAL_INSTALL_VERIFIED, F-069: CLOSED, docs_checks:
 live_effect: {install_localappdata: "1 نصب آزمایشی کامل حین E2E؛ پس از آن کامل حذف شد", provider: 0, login_otp: 0, send: 0, wordpress: 0}
 output_summary: F-068 با commit گزینشی دو مرحله‌ای، suite کامل 699/699 و نصب تمیز واقعی مسیر مشتری بسته شد؛ بستهٔ rev2 آمادهٔ تحویل نهایی است.
 ```
+
+## UX-WP-AVATAR-R02 — WordPress اختیاری، نقش گفتگو و صف اولویت‌دار آواتار
+
+### UX-WP-AVATAR-R02-S01 — RED، پیاده‌سازی و regression
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S01
+event: WORDPRESS_OPT_IN_ROLE_GATE_AND_AVATAR_PRIORITY_IMPLEMENTATION
+started_at: 2026-08-27T18:00:00+03:30
+ended_at: 2026-08-27T20:05:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: SOURCE_TEST_BUILD
+red:
+  dialog_role_module: FAIL_EXPECTED_MISSING
+  queue_promotion: FAIL_EXPECTED_MISSING
+  wordpress_setting_contract: FAIL_EXPECTED_MISSING
+contract:
+  wordpress: {default_visible: false, taxonomy_requires_visible_and_active_site_credentials: true}
+  community: {dialog_types: [group, channel], active_required: true, roles: [owner, admin], unknown_fail_closed: true}
+  eitaa_priority: {active_messages: 10, active_avatar: 40, avatar: 50, background: 70, avatar_background: 80, provider_session_serial: true}
+  avatar_cache: {max_bytes: 8388608, formats: [jpeg, png, gif, webp], corrupt_cache_repaired: true}
+targeted: {direct_role_catalog_api: 7/7, related_backend_ui: 56/56, phase9_workspace: 19/19, grouped: 29/29, scroll: 10/10, typescript: PASS}
+backend_full_partitions: [207, 97, 105, 61, 42, 152]
+backend_full: {passed: 664, failed: 0, errors: 0, skipped: 0}
+ui_full: {canonical_runners: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+privacy: {raw_tl_or_peer_logged: false, live_data_read: false}
+external_effect: controlled_test_and_ui_dist_artifacts_only
+output_summary: WordPress opt-in، دروازهٔ نقش fail-closed و صف آواتار اولویت‌دار با regression کامل سبز شدند.
+```
+
+### UX-WP-AVATAR-R02-S02 — wheel، بستهٔ deterministic و fresh install
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S02
+event: DETERMINISTIC_WHEEL_PACKAGE_FRESH_INSTALL_AND_DOCUMENTATION
+started_at: 2026-08-27T20:05:00+03:30
+ended_at: 2026-08-27T20:27:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: PACKAGE_OFFLINE_INSTALL_DOCUMENT
+wheel: {worktree_builds: 2, worktree_byte_identical: true, worktree_sha256: f2c3872d4985c26e77877262991739cd65a7ebcfd35c9b642612ee158cea5be9, git_candidate_lf_sha256: 23cd95cfbb9ac47e9ca057406e2008eba16854d03adfa159e9ce628fdf534b51, git_ignored_release_artifact: true}
+candidate_archive: {files: 283, content_set: 702bd412fca521092c5927e2cec4257ea5f23edf62525df4debd52a28a8c155d, count: 2, byte_identical: true, sha256: 307d00b82fb1ff0ec30d5c05b2c55a18b23726901b35e2301ce5c0cda520cc00, internal_privacy_verifier: PASS, parallel_index_files: 0}
+fresh_install_attempt_a: {result: TEST_COMMAND_ERROR, reason: vendor_runtime_find_links_omitted, product_change: 0}
+fresh_install_attempt_b: {result: CANDIDATE_ARCHIVE_DEPENDENCY_ERROR, files: 277, reason: git_ignored_runtime_wheelhouse_absent_from_clone_staging, product_change: 0}
+fresh_install_retry: {runtime_wheelhouse_staged_only: true, runtime_wheels_git_ignored: true, network: 0, pip_no_index: true, wheelhouses: [dist, vendor, vendor/runtime], install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS}
+isolated_candidate_checks: {pytest_attempt_a: ENV_HOST_TEMP_PERMISSION, pytest_retry_with_workspace_basetemp: 101/101, phase9: 19/19, grouped_attempt_a: ENV_WRONG_CWD_AND_NPM_ABSENT, grouped_retry_from_ui_with_read_only_typescript: 29/29, product_change_for_retries: 0}
+documentation_scope: [F-061, V-181, V-182, ADR-47, baseline, specification, structure, handoff, feature_report, execution_log]
+operational_effect: controlled_archive_extract_and_fresh_venv_artifacts_only
+next_action: refresh_and_document_checks_then_isolated_git_publication
+output_summary: artifactها deterministic/privacy-safe و نصب آفلاین سبز؛ انتشار باید کار موازی ایندکس را خارج نگه دارد.
+```
+
+### UX-WP-AVATAR-R02-S03 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-WP-AVATAR-R02-S03
+event: ISOLATED_SCENARIO_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-27T20:45:00+03:30
+ended_at: 2026-08-27T21:05:00+03:30
+run_id: UX-WP-AVATAR-R02
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+isolation: {temporary_clone: true, root_branch: codex/stabilization-g09, root_head: 95624acfdf50bdb7b34f683da3c33fb99981c1a7, root_index_changed: false, parallel_index_work_included: false}
+candidate: {files: 34, high_confidence_secret_hits: 0, full_iran_phone_hits: 0, operational_paths: 0, workbook_or_index_files: 0, ignored_artifacts_staged: 0}
+commit: {hash: c1f71ac94b1643495e022b121f99b15f69fe0dfa, parent: 50f4224664cf3f4b7871c129988f934828fe8bc2, subject: "feat(ui): gate WordPress and prioritize dialog avatars"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: c1f71ac94b1643495e022b121f99b15f69fe0dfa, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+approval_retry: {first_ls_remote_review_timeout: true, external_effect: 0, second_read_only_retry: PASS}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی سناریو بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
+```
+
+## UX-COMMUNITY-ROLLBACK-R03 — بازگردانی دسترسی عملیات گفتگو
+
+### UX-COMMUNITY-ROLLBACK-R03-S01 — RED، مقایسهٔ pre-image و پیاده‌سازی
+
+```yaml
+event_id: UX-COMMUNITY-ROLLBACK-R03-S01
+event: CONVERSATION_OPERATIONS_UI_ROLE_GATE_ROLLBACK
+started_at: 2026-08-28T05:40:00+03:30
+ended_at: 2026-08-28T06:03:30+03:30
+run_id: UX-COMMUNITY-ROLLBACK-R03
+actor: codex
+action_kind: USER_REQUESTED_SOURCE_TEST_DOCUMENT
+trigger: user_reported_false_negative_and_requested_previous_behavior
+red: {role_gate_removal_contract: 2_failed, exact_pre_r02_behavior_contract: 2_failed}
+preimage_contract: {surface_always_openable: true, group_or_channel_default: members, personal_or_no_dialog_default: numbers, member_management_requires_group_or_channel: true}
+implementation: {community_gate_helper_removed: true, community_enabled_prop_removed: true, header_navigation_enabled: true, composer_toggle_enabled: true, role_metadata_deleted: false}
+targeted_green: 4/4
+typescript_root_toolchain: PASS
+candidate_typescript_attempt: {result: TOOLCHAIN_NOT_LOCAL, reason: tsc_not_recognized, product_change: 0}
+wordpress_or_avatar_source_changed: false
+live_or_provider_effect: 0
+private_data_read_or_logged: false
+next_action: full_ui_backend_document_package_validation
+output_summary: سطح عملیات گفتگو دقیقاً به رفتار پیش از R02 بازگشت؛ role hint دیگر UI را قفل نمی‌کند.
+```
+
+### UX-COMMUNITY-ROLLBACK-R03-S02 — regression، build، package و fresh-install
+
+```yaml
+event_id: UX-COMMUNITY-ROLLBACK-R03-S02
+event: COMMUNITY_ROLLBACK_FULL_ACCEPTANCE_AND_OFFLINE_PACKAGE
+started_at: 2026-08-28T06:03:30+03:30
+ended_at: 2026-08-28T06:20:00+03:30
+run_id: UX-COMMUNITY-ROLLBACK-R03
+actor: codex
+action_kind: FULL_TEST_BUILD_PACKAGE_OFFLINE_INSTALL
+backend_attempt_a: {passed: 662, failed: 2, reasons: [stale_candidate_wheel_one_mismatch, candidate_ui_dist_absent], product_change: 0}
+artifact_repair: {wheel_rebuilt_from_candidate: true, ui_files_normalized_equal: 65/65, candidate_finalizer_run: true}
+backend_targeted_retry: 2/2
+backend_full_final: 664/664
+ui: {canonical_runners: PASS, typescript: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+wheel: {sha256: 22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40, source_parity: PASS}
+package: {files: 283, dry_run: PASS, two_archives_byte_identical: true, sha256: 588c9ee7e60004f6150e860d8ed01cb67c52795026f5101165a7195b3fc1f330, content_set: 30d671a536a8a7df3b29056bdb1bc7272edd5b35afea03bef659f8b17f7b2f53, privacy_path_hash_verifier: PASS}
+fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103, entrypoints: 4}
+environment_retries: [candidate_tsc_missing_node_modules, hash_table_parser_error, wildcard_literal_copy_error, copied_runtime_patch_line_endings]
+product_change_for_retries: 0
+operational_or_live_effect: 0
+next_action: final_document_checks_and_isolated_git_publication
+output_summary: بازگردانی UI با full regression، build و نصب تازهٔ آفلاین پذیرفته شد.
+```
+
+### UX-COMMUNITY-ROLLBACK-R03-S03 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-COMMUNITY-ROLLBACK-R03-S03
+event: ISOLATED_COMMUNITY_ROLLBACK_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-28T06:20:00+03:30
+ended_at: 2026-08-28T06:22:34+03:30
+run_id: UX-COMMUNITY-ROLLBACK-R03
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+candidate: {files: 19, high_confidence_secret_hits: 0, full_iran_phone_hits: 0, operational_or_index_paths: 0, artifacts_staged: 0}
+commit: {hash: 19751ae7188f4f67d41212ba8a521d1776b7547f, parent: 854f6cf769cfd7b27a98db9facb0f645eace1abd, subject: "fix(ui): restore conversation operations access"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: 19751ae7188f4f67d41212ba8a521d1776b7547f, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+isolation: {parallel_index_work_included: false, root_index_changed: false, reset_checkout_clean: 0}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی بازگردانی بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
+```
+
+## UX-MESSAGE-HEADER-MOSAIC-R04 — هدر مخاطب و موزاییک پویای تصاویر
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S01 — تحلیل شاهد، RED و پیاده‌سازی
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S01
+event: MESSAGE_HEADER_CONTACT_AND_DYNAMIC_MEDIA_MOSAIC
+started_at: 2026-08-28T06:49:15+03:30
+ended_at: 2026-08-28T07:12:00+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: USER_REQUESTED_SOURCE_TEST_DOCUMENT
+visual_evidence: {kind: user_screenshot, persisted_or_committed: false, observed_pattern: five_tiles_with_large_dead_interrow_space}
+root_cause: {fixed_gallery_container_ratio: true, explicit_grid_rows: true, tiles_not_filling_row_height: true, group_count_exposed_in_header: true}
+red: 3_failed
+implementation: {group_count_hidden: true, contact_blue_bold: true, noncontact_neutral_regular: true, accessible_info_indicator: true, self_indicator: false, outer_gallery_ratio_removed: true, tile_based_responsive_grid: true, five_item_wide_layout: 3_plus_2, five_item_compact_layout: 2_plus_2_plus_1}
+grouping_or_persistence_changed: false
+live_or_provider_effect: 0
+private_evidence_logged: false
+next_action: related_and_full_regression_build
+output_summary: شمارنده حذف، وضعیت مخاطب روشن و gallery از قاب ثابت به موزاییک پاسخ‌گو تبدیل شد.
+```
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S02 — پذیرش کامل کد و build
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S02
+event: MESSAGE_HEADER_MOSAIC_FULL_AUTOMATED_ACCEPTANCE
+started_at: 2026-08-28T07:12:00+03:30
+ended_at: 2026-08-28T07:27:00+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: FULL_TEST_AND_UI_BUILD
+related_python: 45/45
+ui: {canonical_runners: PASS, scroll: 10/10, grouped_media: 29/29, typescript: PASS, build: PASS, modules: 1016, historical_large_chunk_warning: true}
+candidate_full_backend: 666/666
+environment_retry: {attempt: stale_test_node_name, tests_executed: 0, product_change: 0, retry_file_scope: 45/45}
+candidate_root_source_equivalence: normalized_diff_zero
+operational_or_live_effect: 0
+next_action: document_checks_offline_package_fresh_install
+output_summary: کد سناریو با full regression و build تولیدی پذیرفته شد.
+```
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S03 — package و نصب تازهٔ آفلاین
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S03
+event: MESSAGE_HEADER_MOSAIC_OFFLINE_PACKAGE_AND_FRESH_INSTALL
+started_at: 2026-08-28T07:27:00+03:30
+ended_at: 2026-08-28T07:39:00+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: DETERMINISTIC_PACKAGE_PRIVACY_VERIFY_OFFLINE_INSTALL
+wheel: {sha256: 22825e54807f9c49f3b93256ffea9570be65a948131d920118be2e7741739e40, source_parity: PASS}
+package: {files: 283, dry_run: PASS, archives_byte_identical: true, sha256: 5e3a54c7bd166b610370f4694cfcaad81d2849d5c5f282c2d8ba2996930642bd, content_set: a8bcc5385e80826858985c7c9afc8edc7e20af9cf2497c570082eb7f4fde0e90, privacy_path_hash_verifier: PASS}
+fresh_install: {network: 0, pip_no_index: true, install: PASS, runtime_checker: PASS, pip_check: PASS, isolated_import: PASS, event_catalog_count: 103, entrypoints: 4}
+environment_retries: [literal_wildcard_copy_nonterminating_error, byte_hash_line_endings_false_negative, verifier_inline_quoting_syntax_error]
+product_change_for_retries: 0
+artifacts_staged: 0
+operational_or_live_effect: 0
+next_action: final_document_checks_isolated_commit_push
+output_summary: snapshot با package deterministic و fresh-install کاملاً آفلاین پذیرفته شد.
+```
+
+### UX-MESSAGE-HEADER-MOSAIC-R04-S04 — commit اصلی، push و حفاظت main
+
+```yaml
+event_id: UX-MESSAGE-HEADER-MOSAIC-R04-S04
+event: ISOLATED_MESSAGE_HEADER_MOSAIC_COMMIT_PUSH_AND_MAIN_PROTECTION
+started_at: 2026-08-28T07:34:00+03:30
+ended_at: 2026-08-28T07:37:42+03:30
+run_id: UX-MESSAGE-HEADER-MOSAIC-R04
+actor: codex
+action_kind: USER_AUTHORIZED_GIT_PUBLICATION
+candidate: {files: 15, high_confidence_secret_or_full_phone_hits: 0, personal_absolute_path_hits: 0, operational_or_index_paths: 0, artifacts_staged: 0}
+precommit_retry: {attempt_a: trailing_whitespace_in_report_header, commit_created: false, push: false, repair: remove_two_markdown_trailing_spaces, product_change: 0, retry_diff_check: PASS}
+commit: {hash: eabaf8911b1b78088cbd4def04eb9ab211e751cd, parent: d19ca4a0b1ccc8421d5685563307640b436357d2, subject: "fix(ui): clarify senders and balance media mosaics"}
+push: {branch: codex/message-avatar-grouping, force: false, result: PASS}
+remote_verify: {working_branch: eabaf8911b1b78088cbd4def04eb9ab211e751cd, main_before: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, main_after: a4df3ecf2bcd4ab658c5361afdc287444694fcd2, equal_local_remote: true}
+isolation: {parallel_index_work_included: false, root_index_changed: false, reset_checkout_clean: 0}
+excluded_actions: [main_push_or_merge, force_push, ref_delete, provider_operation, login_otp, message_send, wordpress_or_member_mutation, operational_data_write]
+next_action: documentation_closure_commit_fast_forward_push_and_final_remote_verify
+output_summary: commit اصلی سناریو بدون work ایندکس منتشر و ثابت‌ماندن main تأیید شد.
+```

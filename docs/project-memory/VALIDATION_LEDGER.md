@@ -1524,6 +1524,19 @@
 - کنترل اسناد: ترتیب ADR-44..46 اصلاح شد؛ refresh نقشهٔ فایل/نماد، memory integrity، generated-doc freshness، Markdown link و `git diff --check` همگی exit code صفر داشتند. هشدار line-ending فقط اطلاع‌رسان بود.
 - Trigger ابطال: تغییر تصمیم کاربر دربارهٔ کاربران، کانال دریافت شهرستان، محل استقرار، مرجع تأیید یا مجوز Agent/API.
 
+### V-180 — انتشار ایزولهٔ سناریوی پیام/آواتار و حفاظت main
+
+- تاریخ: 2026-08-27
+- سطح: `GITHUB DEDICATED WORKING-BRANCH PUSH / REMOTE HASH / MAIN PROTECTION`
+- Run: `UX-MESSAGE-AVATAR-R01`
+- علت پرش شناسه: V-171/V-172 و دنبالهٔ نزدیک آن‌ها هم‌زمان برای work ایندکس استفاده شدند؛ V-180 عمداً برای حذف احتمال collision بیشتر رزرو شد.
+- candidate دقیق=22 فایل؛ high-confidence secret hit در changed diff=0، operational root file=0 و workbook/artifact/index-work file=0. commit با temp index و worktree ایزوله ساخته شد؛ index و شاخهٔ فعال work اصلی تغییر نکردند.
+- commit اصلی=`97022f36b8ce7bda7547af9bfcea117e4fb85fef` با parent=`95624acf...` و subject=`feat(ui): group messages and isolate avatar loading`.
+- push عادی شاخهٔ تازهٔ `codex/message-avatar-grouping` PASS؛ remote hash دقیقاً برابر commit اصلی بود. GitHub main پیش و پس از push برابر `a4df3ecf2bcd4ab658c5361afdc287444694fcd2` و بدون تغییر ماند.
+- force-push/main push/merge/ref deletion=0؛ Provider/message/login/OTP/WordPress/data action=0.
+- commit closure فقط همین ثبت انتشار و mapهای تولیدشده را fast-forward می‌کند؛ hash نهایی آن در تحویل گفتگو و remote verify ثبت می‌شود.
+
+
 ### V-181 — RED و پذیرش هدفمند WordPress/role/avatar priority
 
 - تاریخ: 2026-08-27
