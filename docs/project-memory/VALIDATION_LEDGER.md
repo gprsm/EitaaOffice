@@ -2391,3 +2391,17 @@
 
 
 
+
+### V-237 — سنجش و تأیید تدوین مستند جامع سامانه گزارش، یکپارچه‌سازی تمام فورک‌های کامیت در شاخهٔ main و انتشار کامل در مخازن گیت‌هاب
+
+- تاریخ: 2026-09-30
+- دامنه: `docs/REPORTING_SYSTEM_COMPREHENSIVE_GUIDE_2026-09-30.md`, `scripts/remediate_and_sync_all.php`, `docs/project-memory/VALIDATION_LEDGER.md`, شاخه‌های `Bale`, `main`, `bale_integration_status`, `codex/message-avatar-grouping`, `codex/backup-pycharm-f4464ef`.
+- سطح: DOCUMENTATION + GIT_CONSOLIDATION + PUBLICATION + FULL_REGRESSION.
+- روش امن و نتایج:
+  1. **تدوین مستند جامع:** ساخت `docs/REPORTING_SYSTEM_COMPREHENSIVE_GUIDE_2026-09-30.md` بر پایهٔ کاوش مستقیم کد (`src/eitaa_bridge/reporting/`, `ui/src/`, `ui-portal/src/`) و اسناد حافظهٔ پروژه؛ پوشش کامل ۱۴ بخش: خط زمانی F-051..F-102، شش ژانر چارچوب گزارش، هفت شیت رسمی + ضمیمهٔ زیارت عاشورا با مختصات سلول‌ها، هشت فرم هسته + ۱۳ فرم پرتال، ۲۲ جدول پایگاه، ۱۷ حکم مصوب، ۳۴ برنامه، ۵۶ سنجهٔ کاربرگ، محتوای خبری ۱۸ بستهٔ وردپرس (۹۲۸–۹۴۵)، گردش کار هشت‌گامی تولید گزارش و فهرست کامل APIها.
+  2. **کنترل پیش از ادغام:** پاکسازی اسکن فایل `scripts/remediate_and_sync_all.php` (فاقد توکن/رمز — نگاشت دادهٔ عملیاتی صرف)؛ سنجش حجم یکتای شاخهٔ `codex/backup-pycharm-f4464ef` (۱۱.۵ مگابایت)؛ بررسی stash/tag (خالی) و worktree معطل (فقط رکورد prunable).
+  3. **رگرسیون کامل پیش از انتشار:** اجرای `pytest -q` روی کل مجموعه با ۱۰۰٪ موفقیت (صفر خطا، یک skip استاندارد)؛ اجرای `npm --prefix ui run check` (tsc بدون خطا) و `npm --prefix ui run test:observability` با موفقیت.
+  4. **یکپارچه‌سازی شاخه‌ها:** ادغام fast-forward شاخهٔ `Bale` (۳۸ کامیت پیشرو) در `main`؛ ادغام `codex/message-avatar-grouping` و `bale_integration_status` با حل تداخل کد و اسناد؛ ادغام تاریخی `codex/backup-pycharm-f4464ef` با استراتژی ours برای جلوگیری از ورود آرتیفکت‌های scratch به درخت محصول؛ سه شاخهٔ کاملاً مندرج (`backup-local-reporting-line`, `codex/stabilization-g09`, `stabilization`) به‌طور خودکار در `main` پوشش داده شدند.
+  5. **انتشار:** push همهٔ شاخه‌ها و `main` به `origin` (EitaaDesktop) و همگام‌سازی `office` (EitaaOffice) طبق رویهٔ push دوگانه.
+- نتیجه: تاریخچهٔ کاملاً یکپارچه در `main`، مستند جامع سامانه گزارش منتشر و کل زنجیرهٔ اعتبار (کد، سند، داده) تأیید شد.
+- Trigger تکرار: هر ادغام شاخه‌ای جدید، تغییر چارچوب‌های گزارش یا فرم‌ها (به‌روزرسانی مستند جامع)، یا پوش بعدی.
