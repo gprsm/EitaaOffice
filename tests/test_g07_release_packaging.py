@@ -313,6 +313,8 @@ def test_release_ships_owner_authorized_bale_personal_client_again() -> None:
     assert "src/eitaa_bridge/application/bale_provider_adapter.py" in selected
 
     wheel_path = root / "dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl"
+    if not wheel_path.exists():
+        build_wheel(root, root / "dist", force=True)
     with ZipFile(wheel_path) as wheel:
         names = wheel.namelist()
         metadata = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/METADATA")

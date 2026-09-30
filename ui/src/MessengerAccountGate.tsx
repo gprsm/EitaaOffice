@@ -31,7 +31,7 @@ import {
 import { api, setSelectedMessengerAccountId } from './lib/api'
 import { AppUserLogoutButton, useAppUser } from './AppUserGate'
 import { LoginSurface } from './LoginExperience'
-import { AuthBrandPill } from './AuthBrand'
+import { AuthBrandPill, ProviderBrandBadge } from './AuthBrand'
 
 export type MessengerAccount = {
   messenger_account_id: string
@@ -353,7 +353,10 @@ export function MessengerAccountMenuControl() {
         value={account.messenger_account_id}
         disabled={!isRunnable(account, state.providerAdapters)}
       >
-        {account.label || providerLabel(account.provider, state.providerAdapters)} — {account.phone_hint}
+        <Stack direction="row" gap={1} alignItems="center">
+          <ProviderBrandBadge provider={account.provider} size={16} />
+          <span>{account.label || providerLabel(account.provider, state.providerAdapters)} — {account.phone_hint}</span>
+        </Stack>
       </MenuItem>)}
     </Select>
   </FormControl>
@@ -368,7 +371,7 @@ export function MessengerAccountManagementPanel() {
       <Box>
         <Typography variant="h6">حساب‌های پیام‌رسان</Typography>
         <Typography variant="body2" color="text.secondary">
-          هر شماره یک PhoneAccount است و می‌تواند حساب‌های مستقل ایتا و بله داشته باشد. اتصال بله هنوز پیکربندی نشده است.
+          هر شماره یک PhoneAccount است و می‌تواند حساب‌های مستقل ایتا و بله داشته باشد.
         </Typography>
       </Box>
       {!state.featureEnabled && <Alert severity="info">
@@ -410,7 +413,7 @@ function AccountCard(props: {
       <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
         <Box>
           <Typography fontWeight={700}>{account.label || props.descriptor?.display_name || account.provider}</Typography>
-          <Stack direction="row" gap={0.75} alignItems="center"><Box sx={{ display: 'grid', placeItems: 'center', width: 16, height: 16, borderRadius: '50%', bgcolor: '#f26522', color: 'white', fontSize: 10, fontWeight: 'bold' }}>e</Box><Typography variant="body2" dir="ltr">{account.phone_hint}</Typography></Stack>
+          <Stack direction="row" gap={0.75} alignItems="center"><ProviderBrandBadge provider={account.provider} size={16} /><Typography variant="body2" dir="ltr">{account.phone_hint}</Typography></Stack>
         </Box>
         <Stack direction="row" gap={0.75} flexWrap="wrap" justifyContent="flex-end">
           <Chip size="small" label={props.descriptor?.display_name || account.provider} />
