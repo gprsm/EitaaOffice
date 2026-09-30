@@ -19,12 +19,20 @@ import MandatesPage from './pages/MandatesPage'
 import DistrictsPage from './pages/DistrictsPage'
 import WpPostsPage from './pages/WpPostsPage'
 import SystemBridgePage from './pages/SystemBridgePage'
+import SheetEventsPage from './pages/SheetEventsPage'
 
 type Toast = { text: string; severity: 'success' | 'error' | 'info' } | null
+
+export interface RouteState {
+  tab: string
+  params: Record<string, string>
+}
 
 export interface PageProps {
   notify: (text: string, severity?: Toast extends null ? never : 'success' | 'error' | 'info') => void
   openExcelDialog: () => void
+  navigateTo?: (path: string) => void
+  params?: Record<string, string>
 }
 
 const NAV = [
@@ -36,14 +44,42 @@ const NAV = [
   { id: 'bridge', label: 'پل ایتا و وردپرس', icon: <HubIcon />, el: SystemBridgePage },
 ] as const
 
-// مسیریابی با hash — تب‌ها نشانه‌گذاری و اشتراک‌پذیر می‌شوند (#/worksheets)
-const initialTab = (): string => {
-  const h = window.location.hash.replace(/^#\/?/, '')
-  return NAV.some((n) => n.id === h) ? h : 'dashboard'
+// مسیریابی با hash — تب‌ها و صفحات عمیق شیت نشانه‌گذاری و اشتراک‌پذیر می‌شوند (#/sheet/80401)
+export const parseHashRoute = (hash: string): RouteState => {
+  const clean = hash.replace(/^#\/?/, '')
+  const [path, queryString] = clean.split('?')
+  const params: Record<string, string> = {}
+  if (queryString) {
+    new URLSearchParams(queryString).forEach((v, k) => {
+      params[k] = v
+    })
+  }
+
+  const segments = path.split('/').filter(Boolean)
+  const root = segments[0] || 'dashboard'
+
+  if (root === 'sheet' && segments[1]) {
+    return {
+      tab: 'sheet',
+      params: { ...params, code: decodeURIComponent(segments[1]) },
+    }
+  }
+
+  if (root === 'sheet') {
+    return {
+      tab: 'sheet',
+      params,
+    }
+  }
+
+  return {
+    tab: root,
+    params,
+  }
 }
 
 export default function App() {
-  const [tab, setTabState] = useState<string>(initialTab)
+  const [route, setRoute] = useState<RouteState>(() => parseHashRoute(window.location.hash))
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [excelOpen, setExcelOpen] = useState(false)
   const [toast, setToast] = useState<Toast>(null)
@@ -52,27 +88,46 @@ export default function App() {
 
   useEffect(() => {
     const onHash = () => {
-      const h = window.location.hash.replace(/^#\/?/, '')
-      if (NAV.some((n) => n.id === h)) setTabState(h)
+      setRoute(parseHashRoute(window.location.hash))
     }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
   const notify = (text: string, severity: 'success' | 'error' | 'info' = 'success') => setToast({ text, severity })
-  const setTab = (id: string) => {
-    setTabState(id)
-    window.location.hash = `/${id}`
+  const navigateTo = (path: string) => {
+    const clean = path.replace(/^#?\/?/, '')
+    window.location.hash = `/${clean}`
   }
-  const pageProps: PageProps = { notify, openExcelDialog: () => setExcelOpen(true) }
+  const setTab = (id: string) => {
+    navigateTo(id)
+  }
+  const pageProps: PageProps = {
+    notify,
+    openExcelDialog: () => setExcelOpen(true),
+    navigateTo,
+    params: route.params,
+  }
 
-  const active = NAV.find((n) => n.id === tab) ?? NAV[0]
-  const ActivePage = active.el as (props: PageProps) => ReactNode
+  let ActivePage: (props: PageProps) => ReactNode
+  if (route.tab === 'sheet') {
+    ActivePage = SheetEventsPage as (props: PageProps) => ReactNode
+  } else {
+    const active = NAV.find((n) => n.id === route.tab) ?? NAV[0]
+    ActivePage = active.el as (props: PageProps) => ReactNode
+  }
+
+  const isNavActive = (id: string) => {
+    if (route.tab === 'sheet') {
+      return id === 'dashboard'
+    }
+    return route.tab === id
+  }
 
   const navList = (
     <List sx={{ minWidth: 230 }} onClick={() => isMobile && setDrawerOpen(false)}>
       {NAV.map((n) => (
-        <ListItemButton key={n.id} selected={n.id === tab} onClick={() => setTab(n.id)}>
+        <ListItemButton key={n.id} selected={isNavActive(n.id)} onClick={() => setTab(n.id)}>
           <ListItemIcon>{n.icon}</ListItemIcon>
           <ListItemText primary={n.label} />
         </ListItemButton>
@@ -111,7 +166,7 @@ export default function App() {
           <Box component="nav" sx={{ borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
             <Box sx={{ display: 'flex', gap: 0.5, px: 2, overflowX: 'auto' }}>
               {NAV.map((n) => (
-                <NavItem key={n.id} label={n.label} icon={n.icon} active={n.id === tab} onClick={() => setTab(n.id)} />
+                <NavItem key={n.id} label={n.label} icon={n.icon} active={isNavActive(n.id)} onClick={() => setTab(n.id)} />
               ))}
             </Box>
           </Box>

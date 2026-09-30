@@ -19,12 +19,19 @@ import { api as apiClient, MANDATE_KINDS, type Mandate } from '../api'
 import type { PageProps } from '../App'
 
 /** کارتابل رویدادها — فیلترها + دورهٔ مشترک + ستون‌های اختصاصی شیت (F-097) */
-export default function WorksheetsPage({ notify, openExcelDialog }: PageProps) {
+export default function WorksheetsPage({ notify, openExcelDialog, params }: PageProps) {
   const periodCtx = usePeriod()
   const muiTheme = useTheme()
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'))
 
-  const [program, setProgram] = useState('')
+  const [program, setProgram] = useState(params?.program || '')
+
+  useEffect(() => {
+    if (params?.program !== undefined && params.program !== program) {
+      setProgram(params.program)
+    }
+  }, [params?.program])
+
   const [unit, setUnit] = useState('')
   const [search, setSearch] = useState('')
   const [valueKind, setValueKind] = useState('')

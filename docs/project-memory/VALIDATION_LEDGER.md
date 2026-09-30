@@ -2326,3 +2326,17 @@
 - نتیجه: پایش، تصحیح و استقرار کامل اطلاعات اصیل بر مبنای پوشه مرجع محقق گردید.
 - Trigger تکرار: ورود داده‌های انبوه جدید یا ویرایش اسناد مرجع.
 
+### V-234 — سنجش و تأیید پیاده‌سازی صفحهٔ اختصاصی رویدادهای هر شیت و ناوبری تعاملی از وضعیت شیت‌های داشبورد
+
+- تاریخ: 2026-09-30
+- دامنه: `ui-portal/src/pages/SheetEventsPage.tsx`, `ui-portal/src/pages/DashboardPage.tsx`, `ui-portal/src/pages/WorksheetsPage.tsx`, `ui-portal/src/App.tsx`, `cultural-portal/app/`, `cultural-portal/views/tabs/dashboard.php`.
+- سطح: UNIT + UI_SPA + ROUTING + CONTRACT + INTEGRATION.
+- روش امن و نتایج:
+  1. **تایپ‌چک و بیلد SPA:** اجرای `npm --prefix ui-portal run check` با خروجی exit code=0 بدون هیچ خطای TypeScript؛ اجرای `npm --prefix ui-portal run build` و بیلد موفقیت‌آمیز Vite و انتقال خودکار به دایرکتوری نهایی `cultural-portal/app`.
+  2. **کنترل سینتکس PHP:** اجرای `php -l` روی فایل تغییریافتهٔ `views/tabs/dashboard.php` بدون هیچ خطای سینتکسی (`No syntax errors detected`).
+  3. **هارنس اختصاصی پرتال:** اجرای خودکار `php scripts/test_cultural_portal_harness.php` روی کپی موقت و بدون کوچکترین دستکاری در پایگاه داده اصلی عملیاتی؛ پاس شدن کامل تمامی ۳۵ بررسی آزمون (`ALL HARNESS CHECKS PASSED 35/35`).
+  4. **بررسی صحت پیوند و مسیرهای عمیق:** مسیر `#/sheet/{code}` (مانند `#/sheet/80401`، `#/sheet/80403`، ...) به درستی شیت متناظر را استخراج کرده و رویدادهای فیلترشده بر اساس بازهٔ زمانی بالای صفحه را لود می‌کند.
+  5. **کنترل حافظه مهندسی:** اجرای `check_project_memory_integrity.py` بدون خطا با تأیید تمیز بودن UTF-8، شناسه‌ها و کاراکترهای کنترلی (`PASS`).
+- نتیجه: قابلیت کلیک روی شیت‌های داشبورد و ورود به صفحه رویدادهای زیبا و اختصاصی شیت با موفقیت کامل پیاده‌سازی و مستقر شد.
+- Trigger تکرار: تغییر ساختار جدول شیت‌ها در داشبورد یا تغییر کدهای رسمی برنامه‌ها.
+
