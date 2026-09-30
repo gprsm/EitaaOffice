@@ -30,13 +30,25 @@ export const portalTheme = createTheme({
         '@font-face': [
           {
             fontFamily: 'IRANSansWeb',
-            src: "url('../assets/fonts/IRANSansWeb-Regular.woff2') format('woff2')",
+            src: "url('/cultural-portal/assets/fonts/IRANSansWeb-Regular.woff2') format('woff2'), url('/cultural-portal/app/fonts/IRANSansWeb-Regular.woff2') format('woff2'), url('./fonts/IRANSansWeb-Regular.woff2') format('woff2')",
             fontWeight: 400,
             fontDisplay: 'swap',
           },
           {
             fontFamily: 'IRANSansWeb',
-            src: "url('../assets/fonts/IRANSansWeb-Bold.woff2') format('woff2')",
+            src: "url('/cultural-portal/assets/fonts/IRANSansWeb-Bold.woff2') format('woff2'), url('/cultural-portal/app/fonts/IRANSansWeb-Bold.woff2') format('woff2'), url('./fonts/IRANSansWeb-Bold.woff2') format('woff2')",
+            fontWeight: 700,
+            fontDisplay: 'swap',
+          },
+          {
+            fontFamily: 'IRANSans',
+            src: "url('/cultural-portal/assets/fonts/IRANSansWeb-Regular.woff2') format('woff2'), url('/cultural-portal/app/fonts/IRANSansWeb-Regular.woff2') format('woff2'), url('./fonts/IRANSansWeb-Regular.woff2') format('woff2')",
+            fontWeight: 400,
+            fontDisplay: 'swap',
+          },
+          {
+            fontFamily: 'IRANSans',
+            src: "url('/cultural-portal/assets/fonts/IRANSansWeb-Bold.woff2') format('woff2'), url('/cultural-portal/app/fonts/IRANSansWeb-Bold.woff2') format('woff2'), url('./fonts/IRANSansWeb-Bold.woff2') format('woff2')",
             fontWeight: 700,
             fontDisplay: 'swap',
           },
