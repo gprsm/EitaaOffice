@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "c31bc1060461af41",
+  "source_fingerprint": "483c53f00498ac5f",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -5807,6 +5807,53 @@
           "name": "BaleProviderApplicationAdapter.close",
           "kind": "method",
           "line": 352
+        }
+      ]
+    },
+    {
+      "path": "src/eitaa_bridge/application/bale_provider_worker.py",
+      "role": "Application",
+      "summary": "Dedicated worker process / adapter for one Bale MessengerAccount runtime.",
+      "symbols": [
+        {
+          "name": "_canonical_uuid4",
+          "kind": "function",
+          "line": 18
+        },
+        {
+          "name": "BaleProviderProcessWorker",
+          "kind": "class",
+          "line": 36
+        },
+        {
+          "name": "BaleProviderProcessWorker.__init__",
+          "kind": "method",
+          "line": 41
+        },
+        {
+          "name": "BaleProviderProcessWorker._ensure_api",
+          "kind": "method",
+          "line": 59
+        },
+        {
+          "name": "BaleProviderProcessWorker.dispatch",
+          "kind": "method",
+          "line": 66
+        },
+        {
+          "name": "BaleProviderProcessWorker._dispatch_operation",
+          "kind": "method",
+          "line": 134
+        },
+        {
+          "name": "BaleProviderProcessWorker._run_async",
+          "kind": "method",
+          "line": 190
+        },
+        {
+          "name": "BaleProviderProcessWorker.close",
+          "kind": "method",
+          "line": 205
         }
       ]
     },
@@ -15958,6 +16005,38 @@
       ]
     },
     {
+      "path": "tests/test_bale_provider_worker.py",
+      "role": "Python test",
+      "summary": "Tests for BaleProviderProcessWorker IPC operations.",
+      "symbols": [
+        {
+          "name": "_envelope",
+          "kind": "function",
+          "line": 16
+        },
+        {
+          "name": "test_bale_worker_hello_and_health",
+          "kind": "function",
+          "line": 31
+        },
+        {
+          "name": "test_bale_worker_scope_mismatch",
+          "kind": "function",
+          "line": 50
+        },
+        {
+          "name": "test_bale_worker_operational_dispatch",
+          "kind": "function",
+          "line": 61
+        },
+        {
+          "name": "test_bale_worker_stop",
+          "kind": "function",
+          "line": 87
+        }
+      ]
+    },
+    {
       "path": "tests/test_bearer_and_app_user_auth_boundary.py",
       "role": "Python test",
       "summary": "",
@@ -17379,7 +17458,7 @@
         {
           "name": "test_stdlib_wheel_builder_is_deterministic_and_uses_canonical_contract",
           "kind": "function",
-          "line": 326
+          "line": 328
         }
       ]
     },
@@ -22673,14 +22752,19 @@
       "summary": "",
       "symbols": [
         {
-          "name": "AuthBrandPill",
+          "name": "ProviderBrandBadge",
           "kind": "script symbol",
           "line": 2
         },
         {
+          "name": "AuthBrandPill",
+          "kind": "script symbol",
+          "line": 35
+        },
+        {
           "name": "AuthBrandMark",
           "kind": "script symbol",
-          "line": 37
+          "line": 79
         }
       ]
     },
@@ -23492,42 +23576,42 @@
         {
           "name": "MessengerAccountManagementPanel",
           "kind": "script symbol",
-          "line": 361
+          "line": 364
         },
         {
           "name": "AccountCard",
           "kind": "script symbol",
-          "line": 395
+          "line": 398
         },
         {
           "name": "AddMessengerAccountButton",
           "kind": "script symbol",
-          "line": 448
+          "line": 451
         },
         {
           "name": "close",
           "kind": "script symbol",
-          "line": 458
+          "line": 461
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 466
+          "line": 469
         },
         {
           "name": "providerLabel",
           "kind": "script symbol",
-          "line": 540
+          "line": 543
         },
         {
           "name": "roleLabel",
           "kind": "script symbol",
-          "line": 545
+          "line": 548
         },
         {
           "name": "authLabel",
           "kind": "script symbol",
-          "line": 548
+          "line": 551
         }
       ]
     },

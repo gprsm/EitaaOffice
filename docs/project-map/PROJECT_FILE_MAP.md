@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 391
-- اثرانگشت منبع: `c31bc1060461af41`
+- تعداد فایل‌های نقشه: 393
+- اثرانگشت منبع: `483c53f00498ac5f`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -127,6 +127,7 @@
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
 | `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 18 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
+| `src/eitaa_bridge/application/bale_provider_worker.py` | Application | 8 | Dedicated worker process / adapter for one Bale MessengerAccount runtime. |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
@@ -255,6 +256,7 @@
 | `tests/test_bale_bot_adapter.py` | Python test | 13 | Offline tests for the Bale Bot scaffold adapter and its fail-closed status. |
 | `tests/test_bale_branch_api.py` | Python test | 60 | Offline tests for the Bale branch modular API (Phase 1). |
 | `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
+| `tests/test_bale_provider_worker.py` | Python test | 5 | Tests for BaleProviderProcessWorker IPC operations. |
 | `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |
@@ -358,7 +360,7 @@
 | `ui/src/App.tsx` | React UI | 69 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
-| `ui/src/AuthBrand.tsx` | React UI | 2 | — |
+| `ui/src/AuthBrand.tsx` | React UI | 3 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
