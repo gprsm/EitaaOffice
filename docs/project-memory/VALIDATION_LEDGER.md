@@ -2418,3 +2418,15 @@
   5. **انتشار:** push همهٔ شاخه‌ها و `main` به `origin` (EitaaDesktop) و همگام‌سازی `office` (EitaaOffice) طبق رویهٔ push دوگانه.
 - نتیجه: تاریخچهٔ کاملاً یکپارچه در `main`، مستند جامع سامانه گزارش منتشر و کل زنجیرهٔ اعتبار (کد، سند، داده) تأیید شد.
 - Trigger تکرار: هر ادغام شاخه‌ای جدید، تغییر چارچوب‌های گزارش یا فرم‌ها (به‌روزرسانی مستند جامع)، یا پوش بعدی.
+
+### V-238 — سنجش و تأیید پیوند کار گمشدهٔ موزاییک رسانه از فورک ریموت و تکمیل یکپارچه‌سازی تاریخ
+
+- تاریخ: 2026-09-30
+- دامنه: `ui/src/MessageContentCard.tsx`, `ui/src/App.tsx`, `ui/src/ChatHeader.tsx`, `ui/src/WorkspaceNavigation.tsx`, `ui/src/lib/avatarLoader.ts`, `ui/src/lib/avatarQueue.mjs`, `docs/reports/features/*_2026-08-28.md`, شاخهٔ `origin/codex/message-avatar-grouping`.
+- سطح: GIT_CONSOLIDATION + UI_FEATURE_GRAFT + FULL_REGRESSION.
+- روش امن و نتایج:
+  1. **کشف کار مغفول:** پس از push اولیه مشخص شد نوک ریموتِ `codex/message-avatar-grouping` (کامیت 0c80aa6b) جلوتر از نوک محلی است و ۶ کامیت واقعی UI (تزئین و موازنهٔ گالری رسانه با `galleryColumnSpan/galleryTileAspectRatio`، شفاف‌سازی فرستنده، بازگردانی دسترسی عملیات گفتگو، اولویت آواتار وردپرس) فقط در فورک ریموت وجود داشت و به خط Bale/main نرسیده بود.
+  2. **ادغام معنایی:** merge به main با حفظ کامل محتوا؛ ۴ هانک کد متداخل به سمت HEAD (دیالوگ کارگاه گزارش و بلوک رسانهٔ قابل‌پخش) و کدهای غیرمتداخل ویژگی‌ها به‌صورت خودکار ادغام شد؛ فایل‌های `ChatHeader.tsx` و `WorkspaceNavigation.tsx` و `avatarQueue` به‌روز شدند؛ رکورد تاریخی V-180 از شاخه بازگردانی و پیش از V-181 در Ledger درج شد.
+  3. **رگرسیون کامل:** ۱۰۸ آزمون UI/API (material_ui_repair, ui_repair, ui2_scroll_repair, ui3_dialog_operations, dialog_catalog, dialog_permissions, application_api, worker_ipc) سبز؛ `npm --prefix ui run check` بدون خطا؛ `test:observability` سبز؛ `pytest -q` کامل سبز.
+- نتیجه: هیچ فورک کامیت باقیمانده نیست (همهٔ شاخه‌های محلی و ریموت در main یکپارچه) و ویژگی‌های گمشدهٔ UI به محصول بازگشت.
+- Trigger تکرار: هر ادغام فورک ریموت جدید یا تفاوت نوک شاخهٔ محلی/ریموت.
