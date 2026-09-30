@@ -88,6 +88,31 @@ def test_401_is_authentication_error(config_file, tmp_path):
     assert error.value.code == "wordpress_http_401"
 
 
+def test_400_with_forbidden_status_detail_is_authentication_error(config_file, tmp_path):
+    response_payload = {
+        "code": "rest_invalid_param",
+        "message": "Invalid parameter(s): status",
+        "data": {
+            "status": 400,
+            "params": {"status": "Status is forbidden."},
+            "details": {
+                "status": {
+                    "code": "rest_forbidden_status",
+                    "message": "Status is forbidden.",
+                    "data": {"status": 401},
+                }
+            },
+        },
+    }
+    wp, _, _ = client(config_file, [FakeResponse(400, response_payload)], tmp_path)
+    with pytest.raises(WordPressAuthenticationError) as error:
+        wp.find_posts_by_slug("eitaa-test-post")
+    assert error.value.code == "wordpress_http_401"
+    assert error.value.safe_context["status"] == 401
+    assert error.value.safe_context["wordpress_error_code"] == "rest_invalid_param"
+    assert error.value.safe_context["rejected_fields"] == ["status"]
+
+
 def test_non_transient_http_error_is_safe(config_file, tmp_path):
     wp, _, diagnostics = client(
         config_file,

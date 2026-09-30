@@ -2340,3 +2340,54 @@
 - نتیجه: قابلیت کلیک روی شیت‌های داشبورد و ورود به صفحه رویدادهای زیبا و اختصاصی شیت با موفقیت کامل پیاده‌سازی و مستقر شد.
 - Trigger تکرار: تغییر ساختار جدول شیت‌ها در داشبورد یا تغییر کدهای رسمی برنامه‌ها.
 
+### V-235 — سنجش و تأیید پالایش ۵۳ پست قالبی، استقرار ۱۸ بسته خبری غنی مرداد و شهریور ۱۴۰۵ در وضعیت در انتظار بررسی (pending) و همگام‌سازی کامل با سامانه گزارش
+
+- تاریخ: 2026-09-30
+- دامنه: `wp_farhangi_posts`, `wp_farhangi_term_relationships`, `data/reporting/reporting.sqlite3`, `scripts/remediate_and_sync_all.php`, `scripts/export_cultural_report.py`.
+- سطح: DATA_CURATION + WP_REMEDIATION + CONTRACT + REPORT_EXPORT + REGRESSION.
+- روش امن و نتایج:
+  1. **کنترل وردپرس:**
+     - انتقال ۵۳ پست قالبی (از جمله ۲۰۵۷، ۲۱۸۶، ۲۳۴۲، ۲۳۸۸، ۲۳۹۵) با محتوای یک‌خطی و شورت‌کد نامعتبر `[gallery]` به زباله‌دان (`post_status = 'trash'`).
+     - اصلاح و غنی‌سازی ۱۸ بسته خبری (۹۲۸ تا ۹۴۵) با متون فاخر چندصفحه‌ای، تنظیم وضعیت قطعی به در انتظار بررسی (`post_status = 'pending'`) بدون انتشار مستقیم.
+     - تصحیح آدرس تمامی ۷۷ تصویر محلی ایتا (`/wp-content/uploads/2026/09/eitaa_1405_*.jpg`) در قالب گالری تگ‌های ریسپانسیو وب و حذف کامل آدرس‌های هاردکدشده IP و localhost.
+     - الصاق ۳ تا ۵ دسته‌بندی رسمی و ۴ تا ۵ برچسب معتبر به تک‌تک ۱۸ پست و تنظیم تصویر شاخص (`_thumbnail_id`).
+  2. **کنترل پایگاه داده گزارش‌گیری (`reporting.sqlite3`):**
+     - ارتقای شمار رویدادهای تاییدشده به ۳۴ رویداد در `reported_events` (شامل ۱۸ رویداد اختصاصی مرداد و شهریور ۱۴۰۵).
+     - ثبت فکت‌های عددی در `event_facts` به مجموع ۸۵ رکورد.
+     - ثبت و تطبیق ۱۸ پیوند قطعی در `wp_post_links` با وضعیت `confirmed` و ضریب ۱.۰.
+  3. **کنترل خروجی اکسل رسمی:**
+     - اجرای `scripts/export_cultural_report.py` با بازه زمانی ۲۲ ژوئیه تا ۲۲ سپتامبر ۲۰۲۶ (مرداد و شهریور ۱۴۰۵).
+     - تولید موفق فایل‌های `گزارش_فرهنگی_2026-07-22_تا_2026-09-22.xlsx` و `گزارش_فرهنگی_مرداد_شهریور_۱۴۰۵.xlsx` با هر ۸ شیت رسمی مصوب (اردو، مسابقات، مراسم، نماز، تکریم، ارباب رجوع، منشور، ضمیمه زیارت عاشورا).
+  4. **هارنس پرتال فرهنگی:** اجرای خودکار `php scripts/test_cultural_portal_harness.php` با نتیجهٔ ۱۰۰٪ موفق (`ALL HARNESS CHECKS PASSED 35/35`).
+  5. **سنجش جامع رگرسیون:**
+     - اجرای `pytest -q` روی کل پروژه و پاس شدن تمامی تست‌ها با exit code=0.
+     - اجرای `npm --prefix ui run check` و `npm --prefix ui run test:observability` با موفقیت کامل.
+     - اجرای `check_project_memory_integrity.py` بدون کوچکترین خطای انکودینگ یا شناسه‌ای.
+- نتیجه: اصلاح، تطبیق، بارگذاری تصاویر و استقرار سامانه گزارش با موفقیت ۱۰۰٪ تایید شد.
+- Trigger تکرار: هرگونه تغییر در پایگاه وردپرس یا خروجی کاربرگ استانی.
+
+### V-236 — سنجش و تأیید رفع خطای رد پارامترهای وردپرس، تفکیک رخدادهای rest_forbidden_status به عنوان خطای احراز هویت و برقراری ارتباط معتبر REST API
+
+- تاریخ: 2026-09-30
+- دامنه: `src/eitaa_bridge/infrastructure/wordpress/client.py`, `tests/test_wordpress_client.py`, `.env`, `Laragon WordPress REST API`.
+- سطح: AUTHENTICATION + WP_CLIENT_CONTRACT + UNIT_TEST + LIVE_ENVIRONMENT_VERIFIED.
+- روش امن و نتایج:
+  1. **کنترل و ارتقای کلاینت پایتون:**
+     - افزودن منطق تشخیص `rest_forbidden_status` (یا کد وضعیت ۴۰۱ در جزئیات پارامترهای ردشده) در متد `_safe_wp_error_details`.
+     - صدور استثنای `WordPressAuthenticationError` با کد `wordpress_http_401` و تفکیک شفاف آن از خطاهای ساختار محتوا (`WordPressHttpError`).
+     - افزودن آزمون واحد اختصاصی `test_400_with_forbidden_status_detail_is_authentication_error` در `tests/test_wordpress_client.py` و پاس شدن ۳۱/۳۱ تست این فایل.
+     - بازتولید باینری wheel با `scripts/build_wheel_stdlib.py` و پاس شدن آزمون برابری سورس `test_bundled_bridge_wheel_matches_current_source_tree`.
+  2. **کنترل زندهٔ اعتبارنامه و وردپرس:**
+     - با اجازه صریح کاربر، ایجاد یک رمز عبور برنامه استاندارد (Application Password) برای کاربر مدیر `akhoondian` در وردپرس محلی لارگون.
+     - پشتیبان‌گیری از `.env` در `.env.bak` و به‌روزرسانی امن مقدار `EITAA_BRIDGE_WP_SITE_APP_PASSWORD`.
+     - اجرای آزمون اتصال رسمی `eitaa-bridge wp test` با خروجی ۱۰۰٪ موفق (`authenticated: true`, `can_edit_posts: true`, `can_publish_posts: true`, `can_upload_files: true`).
+     - تست استعلام و جستجوی اسلاگ با `find_posts_by_slug` بدون دریافت هیچ‌گونه خطای ۴۰۰ یا ۴۰۱.
+  3. **کنترل سلامت کل سیستم:**
+     - اجرای کامل `npm --prefix ui run check` (تایپ‌اسکریپت و کلاینت UI بدون خطا).
+     - اجرای `npm --prefix ui run test:observability` با موفقیت کامل.
+     - اجرای `check_project_memory_integrity.py` و تأیید یکپارچگی مستندات.
+- نتیجه: ارتباط احراز هویت REST API به طور پایدار برقرار شد و خطای انتقال آلبوم و پست‌های ایتا به طور کامل برطرف گردید.
+- Trigger تکرار: باطل شدن رمز عبور برنامه کاربر در وردپرس یا تغییر نام کاربر وردپرس.
+
+
+

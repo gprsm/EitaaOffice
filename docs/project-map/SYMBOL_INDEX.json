@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "a4046016b12d1080",
+  "source_fingerprint": "c31bc1060461af41",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -11254,37 +11254,37 @@
         {
           "name": "WordPressClient._ambiguous_write_error",
           "kind": "method",
-          "line": 814
+          "line": 827
         },
         {
           "name": "WordPressClient._parse_data",
           "kind": "method",
-          "line": 843
+          "line": 856
         },
         {
           "name": "WordPressClient._safe_wp_error_details",
           "kind": "method",
-          "line": 855
+          "line": 868
         },
         {
           "name": "WordPressClient._safe_wp_error_code",
           "kind": "method",
-          "line": 879
+          "line": 902
         },
         {
           "name": "WordPressClient._retry_delay",
           "kind": "method",
-          "line": 890
+          "line": 913
         },
         {
           "name": "WordPressClient._emit",
           "kind": "method",
-          "line": 898
+          "line": 921
         },
         {
           "name": "WordPressClient._debug_file",
           "kind": "method",
-          "line": 902
+          "line": 925
         }
       ]
     },
@@ -21659,134 +21659,139 @@
           "line": 84
         },
         {
-          "name": "test_non_transient_http_error_is_safe",
+          "name": "test_400_with_forbidden_status_detail_is_authentication_error",
           "kind": "function",
           "line": 91
         },
         {
+          "name": "test_non_transient_http_error_is_safe",
+          "kind": "function",
+          "line": 116
+        },
+        {
           "name": "test_safe_get_transient_error_retries",
-          "kind": "function",
-          "line": 103
-        },
-        {
-          "name": "test_safe_get_network_error_retries_then_fails",
-          "kind": "function",
-          "line": 117
-        },
-        {
-          "name": "test_post_transient_status_is_not_retried",
           "kind": "function",
           "line": 128
         },
         {
-          "name": "test_post_network_error_is_not_retried",
+          "name": "test_safe_get_network_error_retries_then_fails",
           "kind": "function",
           "line": 142
         },
         {
-          "name": "test_post_success_with_non_json_response_is_ambiguous",
+          "name": "test_post_transient_status_is_not_retried",
           "kind": "function",
           "line": 153
         },
         {
-          "name": "test_post_success_without_post_identity_is_ambiguous",
-          "kind": "function",
-          "line": 160
-        },
-        {
-          "name": "test_non_json_get_success_is_rejected",
+          "name": "test_post_network_error_is_not_retried",
           "kind": "function",
           "line": 167
         },
         {
-          "name": "media_payload",
+          "name": "test_post_success_with_non_json_response_is_ambiguous",
           "kind": "function",
-          "line": 173
+          "line": 178
         },
         {
-          "name": "test_connection_reports_upload_permission",
+          "name": "test_post_success_without_post_identity_is_ambiguous",
           "kind": "function",
           "line": 185
         },
         {
+          "name": "test_non_json_get_success_is_rejected",
+          "kind": "function",
+          "line": 192
+        },
+        {
+          "name": "media_payload",
+          "kind": "function",
+          "line": 198
+        },
+        {
+          "name": "test_connection_reports_upload_permission",
+          "kind": "function",
+          "line": 210
+        },
+        {
           "name": "test_upload_media_uses_single_multipart_post",
           "kind": "function",
-          "line": 194
+          "line": 219
         },
         {
           "name": "test_upload_media_accepts_explicit_mime_type",
           "kind": "function",
-          "line": 225
+          "line": 250
         },
         {
           "name": "test_upload_media_unknown_mime_is_rejected_before_network",
           "kind": "function",
-          "line": 236
+          "line": 261
         },
         {
           "name": "test_upload_media_missing_file_is_typed",
           "kind": "function",
-          "line": 247
+          "line": 272
         },
         {
           "name": "test_upload_media_transient_status_is_not_retried",
           "kind": "function",
-          "line": 256
+          "line": 281
         },
         {
           "name": "test_upload_success_without_media_identity_is_ambiguous",
           "kind": "function",
-          "line": 269
+          "line": 294
         },
         {
           "name": "test_get_media_is_safe_get",
           "kind": "function",
-          "line": 277
+          "line": 302
         },
         {
           "name": "test_draft_can_set_existing_featured_media",
           "kind": "function",
-          "line": 285
+          "line": 310
         },
         {
           "name": "test_find_posts_by_slug_uses_authenticated_safe_collection_get",
           "kind": "function",
-          "line": 296
+          "line": 321
         },
         {
           "name": "test_find_media_by_slug_uses_collection_get",
           "kind": "function",
-          "line": 315
+          "line": 340
         },
         {
           "name": "test_upload_media_can_send_deterministic_slug",
           "kind": "function",
-          "line": 327
+          "line": 352
         },
         {
           "name": "test_update_post_preserves_remote_status_and_can_clear_featured_media",
           "kind": "function",
-          "line": 335
+          "line": 360
         },
         {
           "name": "test_update_post_network_error_is_ambiguous_and_not_retried",
           "kind": "function",
-          "line": 366
+          "line": 391
         },
         {
           "name": "test_update_post_can_explicitly_restore_trash_to_draft",
           "kind": "function",
-          "line": 377
+          "line": 402
         },
         {
           "name": "test_create_post_can_request_publish_status",
           "kind": "function",
-          "line": 406
+          "line": 431
         },
         {
           "name": "test_create_post_rejects_unsupported_status",
           "kind": "function",
-          "line": 422
+          "line": 447
         }
       ]
     },

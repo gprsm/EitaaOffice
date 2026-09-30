@@ -784,6 +784,19 @@ class WordPressClient:
                     )
             wp_details = self._safe_wp_error_details(response)
             wp_code = wp_details.get("wordpress_error_code")
+            if wp_details.pop("auth_forbidden", False):
+                raise WordPressAuthenticationError(
+                    "WordPress rejected the configured credentials or permissions.",
+                    safe_context={
+                        "site_key": self.site.site_key,
+                        "status": 401,
+                        "method": method,
+                        "path": path,
+                        **wp_details,
+                    },
+                    debug_file=self._debug_file("wordpress"),
+                    code="wordpress_http_401",
+                )
             message = (
                 "WordPress rejected one or more post, taxonomy, or media parameters."
                 if wp_code == "rest_invalid_param"
@@ -873,6 +886,16 @@ class WordPressClient:
                 result["rejected_fields"] = sorted(str(key)[:128] for key in params.keys())[:50]
             elif isinstance(params, (list, tuple)):
                 result["rejected_fields"] = [str(item)[:128] for item in params[:50]]
+            nested_details = details.get("details")
+            if isinstance(nested_details, dict):
+                for item in nested_details.values():
+                    if isinstance(item, dict):
+                        item_code = item.get("code")
+                        item_data = item.get("data")
+                        item_status = item_data.get("status") if isinstance(item_data, dict) else None
+                        if item_code == "rest_forbidden_status" or item_status in {401, 403}:
+                            result["auth_forbidden"] = True
+                            break
         return result
 
     @staticmethod

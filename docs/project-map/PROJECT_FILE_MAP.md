@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 391
-- اثرانگشت منبع: `a4046016b12d1080`
+- اثرانگشت منبع: `c31bc1060461af41`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -336,7 +336,7 @@
 | `tests/test_ui33_usage_reading_position.py` | Python test | 7 | — |
 | `tests/test_ui3_dialog_operations.py` | Python test | 6 | — |
 | `tests/test_ui_repair.py` | Python test | 10 | — |
-| `tests/test_wordpress_client.py` | Python test | 33 | — |
+| `tests/test_wordpress_client.py` | Python test | 34 | — |
 | `tests/test_wordpress_taxonomies.py` | Python test | 5 | — |
 | `ui/electron/main.cjs` | Electron shell | 24 | — |
 | `ui/electron/observability.cjs` | Electron shell | 6 | — |
