@@ -396,6 +396,98 @@ class AccountExecutionPolicyService:
             "last_error_code": str(row["last_error_code"]) if row["last_error_code"] else None,
         }
 
+    def read_only_snapshot(
+        self,
+        *,
+        messenger_account_id: str,
+        operation_scope: str,
+        now: datetime | None = None,
+        cost: float = 1.0,
+    ) -> dict[str, object] | None:
+        """Honest no-write snapshot of one (account, operation) limit.
+
+        Computes the token refill up to ``now`` without acquiring, without
+        mutating any row (``_state_row`` never runs), without touching the
+        circuit state and without any worker/network call. A missing row
+        means no local limit has ever been applied — reported as ``None``
+        and never as unlimited capacity. This is a snapshot only: a later
+        real acquire can still refuse (preflight race) or the provider can
+        refuse for its own reasons.
+        """
+        account_id = _uuid(
+            messenger_account_id, code="execution_policy_account_invalid"
+        )
+        operation = self._operation(operation_scope)
+        selected_now = _utc(now)
+        if not 0 < cost <= self.default_capacity:
+            raise CoordinatorSchemaError(
+                "The execution-policy token cost is invalid.",
+                code="execution_policy_cost_invalid",
+            )
+        with self.database._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM account_execution_limits
+                WHERE messenger_account_id=? AND operation_scope=?
+                """,
+                (account_id, operation),
+            ).fetchone()
+        if row is None:
+            return None
+        available = min(
+            float(row["capacity"]),
+            float(row["available_tokens"])
+            + max(
+                0.0,
+                (selected_now - _parse(str(row["last_refill_at"]))).total_seconds(),
+            )
+            * float(row["refill_per_second"]),
+        )
+        retry_not_before = _parse(row["retry_not_before"])
+        circuit_until = _parse(row["circuit_open_until"])
+        circuit_state = str(row["circuit_state"])
+        blocked_reason: str | None = None
+        retry_after_ms: int | None = None
+        if circuit_state == "open":
+            effective_until = max(
+                item for item in (circuit_until, retry_not_before) if item is not None
+            )
+            if effective_until > selected_now:
+                blocked_reason = "circuit_open"
+                retry_after_ms = self._milliseconds(effective_until - selected_now)
+        elif circuit_state == "half_open":
+            blocked_reason = "half_open_probe_in_progress"
+            retry_after_ms = 1000
+        elif retry_not_before is not None and retry_not_before > selected_now:
+            blocked_reason = "retry_after"
+            retry_after_ms = self._milliseconds(retry_not_before - selected_now)
+        elif available < cost:
+            blocked_reason = "rate_limited"
+            retry_after_ms = max(
+                1,
+                math.ceil((cost - available) / float(row["refill_per_second"]) * 1000),
+            )
+        return {
+            "messenger_account_id": account_id,
+            "provider": str(row["provider"]),
+            "operation_scope": operation,
+            "available_tokens": available,
+            "capacity": int(row["capacity"]),
+            "circuit_state": circuit_state,
+            "blocked_reason": blocked_reason,
+            "retry_after_ms": retry_after_ms,
+            "retry_not_before": (
+                str(row["retry_not_before"]) if row["retry_not_before"] else None
+            ),
+            "last_error_class": (
+                str(row["last_error_class"]) if row["last_error_class"] else None
+            ),
+            "last_error_code": (
+                str(row["last_error_code"]) if row["last_error_code"] else None
+            ),
+            "updated_at": str(row["updated_at"]),
+        }
+
     def _record(
         self,
         *,

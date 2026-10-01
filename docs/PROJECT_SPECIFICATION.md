@@ -12,7 +12,7 @@ Eitaa Bridge یک نرم‌افزار local-first با رابط دسکتاپ/و�
 - حساب‌های موجود در UI قابل انتخاب و تعویض‌اند.
 - Phase 11-0 ساخت حساب جدید ایتا را با API اتمیک/idempotent، مالکیت AppUser، هویت رمزگذاری‌شده و فرم خصوصی UI فراهم کرده و با Fake/Contract/Adversarial پذیرفته شده است.
 - ورود مرحله‌ای حساب تازه پس از Start همان حساب از Auth flow حساب‌محور موجود انجام می‌شود؛ Pilot واقعی حساب دوم هنوز عمداً اجرا نشده است.
-- قرارداد توسعه‌ای متأخر Bale طبق F-086/ADR-60 و مأموریت BALE-PRODUCT اتصال درجه‌یک محصول را کامل کرده است؛ وضعیت ثبت `contract_verified`، با `configured=true`، `runtime_enabled=true` و `onboarding_enabled=true`، و factoryهای آداپتور و worker متصل‌اند. این وضعیت آفلاین تأیید شده و با پذیرش Live متمایز است.
+- مسیر Bale طبق F-086/ADR-60 در API/UI اصلی متصل است؛ `contract_verified` با configured/runtime/onboarding=true و factoryهای adapter/worker. F-093/V-230 نقص Child media را اصلاح کرد؛ پذیرش مرورگر و Pilot زنده هنوز باز است و از build یا gate آفلاین استنتاج نمی‌شود.
 - WordPress integration اختیاری است و انتشار واقعی نیازمند تأیید لحظه‌ای است.
 - Phase 10 و Phase 11-0 در دامنهٔ تاریخی خود پذیرفته شده‌اند. Phase 11-A یک Discovery تاریخی است؛ قرارداد متأخر F-046 تصمیم محصولی جاری را ثبت می‌کند. این تغییر به معنی پذیرش Live یا حذف دروازهٔ تأیید همان لحظه نیست.
 - Phase 11-B0 زیرساخت عمومی Provider Extension را ایجاد کرد؛ G-02 فعال‌سازی شکستهٔ Bale را مهار و descriptor/UI fixture را با وضعیت غیرقابل‌اجرا همسو کرد.

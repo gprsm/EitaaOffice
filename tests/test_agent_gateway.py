@@ -411,7 +411,7 @@ def _install_store(store):
 class _BarrierAdapter:
     """Counts real adapter invocations; blocks until released."""
 
-    is_test_adapter = False
+    is_test_adapter = True
 
     def __init__(self, reply="agent-reply"):
         self.calls = 0
@@ -524,7 +524,7 @@ def test_f090_expired_session_is_invisible_on_read_and_never_reaches_agent():
     seen_histories = []
 
     class RecordingAdapter:
-        is_test_adapter = False
+        is_test_adapter = True
 
         async def chat(self, message, session_id, context, *, history):
             seen_histories.append(list(history))
@@ -585,7 +585,7 @@ def test_f090_replay_preserves_stored_is_test_response_across_adapter_swap():
     agent_gateway.session_store = _fresh_store()
     try:
         class FakeRealAdapter:
-            is_test_adapter = False
+            is_test_adapter = True
 
             async def chat(self, message, session_id, context, *, history):
                 return AgentChatResponse(response="real-answer", session_id=session_id, is_test_response=False)
@@ -702,7 +702,7 @@ def test_f090_waiter_times_out_then_replays_once_first_completes():
     agent_gateway.AGENT_INFLIGHT_WAIT_SECONDS = 0.2
 
     class SlowAdapter:
-        is_test_adapter = False
+        is_test_adapter = True
 
         async def chat(self, message, session_id, context, *, history):
             await asyncio.sleep(0.6)
@@ -841,7 +841,7 @@ def test_f090_first_attempt_failure_releases_waiter_with_same_error():
     previous_store = agent_gateway.session_store
 
     class DownAdapter:
-        is_test_adapter = False
+        is_test_adapter = True
 
         async def chat(self, message, session_id, context, *, history):
             import httpx
@@ -895,7 +895,7 @@ class _GatedAdapter:
     """Counts real adapter invocations; while gated, the call blocks until
     the test releases it, so the store state can change mid-adapter-run."""
 
-    is_test_adapter = False
+    is_test_adapter = True
 
     def __init__(self, reply="late-reply"):
         self.calls = 0

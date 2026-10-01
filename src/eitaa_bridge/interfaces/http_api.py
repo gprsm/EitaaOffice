@@ -1054,8 +1054,11 @@ class _ApiHandler(BaseHTTPRequestHandler):
             content_security_policy=_API_CONTENT_SECURITY_POLICY,
         )
         for name, value in response.headers.items():
-            if name.lower() == "set-cookie":
+            lower = name.lower()
+            if lower == "set-cookie":
                 self.send_header("Set-Cookie", value)
+            elif lower == "retry-after":
+                self.send_header("Retry-After", str(value))
         self.end_headers()
         self.wfile.write(data)
 

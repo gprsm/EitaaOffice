@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-COORDINATOR_SCHEMA_VERSION = 10
+COORDINATOR_SCHEMA_VERSION = 13
 
 SCHEMA_V1_SQL = """
 CREATE TABLE schema_migrations (
@@ -805,6 +805,74 @@ SCHEMA_V10_SQL = (
     + "DROP TABLE provider_operation_receipts_v9;\n"
 )
 SCHEMA_V10_CHECKSUM = hashlib.sha256(SCHEMA_V10_SQL.encode("utf-8")).hexdigest()
+
+# P1 sender profiles: one versioned row per (service credential, intent).
+# Deletion of the underlying account or credential is never cascaded: the
+# profile row survives so a stale configuration is reported honestly as
+# account_unavailable / sender_not_configured instead of being silently
+# re-bound to another account. A leftover table from a partially applied
+# newer schema is replaced on recovery; the table is admin configuration and
+# is recreated empty, which fail-closes the profile-pinned path.
+SCHEMA_V11_SQL = """
+DROP TABLE IF EXISTS service_sender_profiles;
+CREATE TABLE service_sender_profiles (
+    id TEXT PRIMARY KEY CHECK(length(id) = 36),
+    service_credential_id TEXT NOT NULL REFERENCES service_credentials(id),
+    intent TEXT NOT NULL CHECK(intent IN ('otp','notification')),
+    provider TEXT NOT NULL REFERENCES provider_registrations(provider),
+    messenger_account_id TEXT NOT NULL REFERENCES messenger_accounts(id),
+    enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+    revision INTEGER NOT NULL CHECK(revision > 0),
+    created_by_app_user_id TEXT NOT NULL REFERENCES app_users(id),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(service_credential_id, intent)
+);
+CREATE INDEX idx_sender_profiles_account
+    ON service_sender_profiles(messenger_account_id, intent, enabled);
+"""
+SCHEMA_V11_CHECKSUM = hashlib.sha256(SCHEMA_V11_SQL.encode("utf-8")).hexdigest()
+
+# P3 delivery reservations: one durable row per accepted local capacity slot.
+# The recipient binding is an HMAC under the server identity key over the
+# normalized phone, the intent and the service — never the raw number, and
+# never a bare hash (a bare phone hash is searchable in reverse). Expired or
+# cancelled rows are never resurrected; terminal transitions are final.
+SCHEMA_V12_SQL = """
+CREATE TABLE service_delivery_reservations (
+    id TEXT PRIMARY KEY CHECK(length(id) = 36),
+    service_credential_id TEXT NOT NULL REFERENCES service_credentials(id),
+    intent TEXT NOT NULL CHECK(intent IN ('otp','notification')),
+    provider TEXT NOT NULL,
+    messenger_account_id TEXT NOT NULL REFERENCES messenger_accounts(id),
+    sender_profile_id TEXT,
+    sender_profile_revision INTEGER,
+    recipient_binding TEXT NOT NULL,
+    idempotency_fingerprint TEXT NOT NULL,
+    request_fingerprint TEXT NOT NULL,
+    operation_costs TEXT NOT NULL,
+    token_reserved INTEGER NOT NULL CHECK(token_reserved IN (0,1)),
+    token_refunded INTEGER NOT NULL DEFAULT 0 CHECK(token_refunded IN (0,1)),
+    send_started_at TEXT,
+    operation_id TEXT UNIQUE,
+    state TEXT NOT NULL CHECK(state IN ('reserved','consumed','cancelled','expired')),
+    created_by_app_user_id TEXT NOT NULL REFERENCES app_users(id),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    UNIQUE(service_credential_id, idempotency_fingerprint)
+);
+CREATE INDEX idx_delivery_reservations_credential_state
+    ON service_delivery_reservations(service_credential_id, state, expires_at);
+CREATE INDEX idx_delivery_reservations_account
+    ON service_delivery_reservations(messenger_account_id, state, expires_at);
+"""
+SCHEMA_V12_CHECKSUM = hashlib.sha256(SCHEMA_V12_SQL.encode("utf-8")).hexdigest()
+SCHEMA_V13_SQL = """
+ALTER TABLE provider_operation_receipts ADD COLUMN attempt_token TEXT;
+ALTER TABLE provider_operation_receipts ADD COLUMN attempt_generation INTEGER NOT NULL DEFAULT 1;
+"""
+SCHEMA_V13_CHECKSUM = hashlib.sha256(SCHEMA_V13_SQL.encode("utf-8")).hexdigest()
 SCHEMA_CHECKSUMS = {
     1: SCHEMA_V1_CHECKSUM,
     2: SCHEMA_V2_CHECKSUM,
@@ -816,8 +884,11 @@ SCHEMA_CHECKSUMS = {
     8: SCHEMA_V8_CHECKSUM,
     9: SCHEMA_V9_CHECKSUM,
     10: SCHEMA_V10_CHECKSUM,
+    11: SCHEMA_V11_CHECKSUM,
+    12: SCHEMA_V12_CHECKSUM,
+    13: SCHEMA_V13_CHECKSUM,
 }
-SCHEMA_CHECKSUM = SCHEMA_V10_CHECKSUM
+SCHEMA_CHECKSUM = SCHEMA_V13_CHECKSUM
 
 
 def initial_schema_script() -> str:
@@ -863,13 +934,25 @@ def initial_schema_script() -> str:
         + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
         + f"10,'{SCHEMA_V10_CHECKSUM}',"
         + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+        + SCHEMA_V11_SQL
+        + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
+        + f"11,'{SCHEMA_V11_CHECKSUM}',"
+        + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+        + SCHEMA_V12_SQL
+        + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
+        + f"12,'{SCHEMA_V12_CHECKSUM}',"
+        + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+        + SCHEMA_V13_SQL
+        + "\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES("
+        + f"13,'{SCHEMA_V13_CHECKSUM}',"
+        + "strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
         + f"PRAGMA user_version={COORDINATOR_SCHEMA_VERSION};\n"
         + "COMMIT;\nPRAGMA foreign_keys=ON;\n"
     )
 
 
 def upgrade_schema_script(from_version: int) -> str:
-    if from_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9}:
+    if from_version not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}:
         raise ValueError("unsupported coordinator schema upgrade")
     parts = ["PRAGMA foreign_keys=OFF;\nBEGIN IMMEDIATE;\n"]
     if from_version == 1:
@@ -938,9 +1021,18 @@ def upgrade_schema_script(from_version: int) -> str:
     if from_version <= 8:
         parts.extend([SCHEMA_V9_SQL,
             f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(9,'{SCHEMA_V9_CHECKSUM}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"])
-    parts.extend([SCHEMA_V10_SQL,
-        f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(10,'{SCHEMA_V10_CHECKSUM}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
-        "PRAGMA user_version=10;\nCOMMIT;\nPRAGMA foreign_keys=ON;\n"])
+    if from_version <= 9:
+        parts.extend([SCHEMA_V10_SQL,
+            f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(10,'{SCHEMA_V10_CHECKSUM}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"])
+    if from_version <= 10:
+        parts.extend([SCHEMA_V11_SQL,
+            f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(11,'{SCHEMA_V11_CHECKSUM}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"])
+    if from_version <= 11:
+        parts.extend([SCHEMA_V12_SQL,
+            f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(12,'{SCHEMA_V12_CHECKSUM}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"])
+    parts.extend([SCHEMA_V13_SQL,
+        f"\nINSERT INTO schema_migrations(version,checksum,applied_at) VALUES(13,'{SCHEMA_V13_CHECKSUM}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n",
+        f"PRAGMA user_version={COORDINATOR_SCHEMA_VERSION};\nCOMMIT;\nPRAGMA foreign_keys=ON;\n"])
     return "".join(parts)
 
 
@@ -986,4 +1078,14 @@ REQUIRED_TABLES_V6 = REQUIRED_TABLES_V5 | frozenset({"provider_registrations"})
 
 REQUIRED_TABLES_V7 = REQUIRED_TABLES_V6 | frozenset({"provider_operation_receipts"})
 
-REQUIRED_TABLES = REQUIRED_TABLES_V7 | frozenset({"service_credentials"})
+REQUIRED_TABLES_V8 = REQUIRED_TABLES_V7 | frozenset({"service_credentials"})
+
+REQUIRED_TABLES_V9 = REQUIRED_TABLES_V8
+
+REQUIRED_TABLES_V10 = REQUIRED_TABLES_V9
+
+REQUIRED_TABLES_V11 = REQUIRED_TABLES_V10 | frozenset({"service_sender_profiles"})
+
+REQUIRED_TABLES = REQUIRED_TABLES_V11 | frozenset(
+    {"service_delivery_reservations"}
+)

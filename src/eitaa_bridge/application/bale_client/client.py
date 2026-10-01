@@ -403,6 +403,7 @@ class BaleClient:
         destination: str | Path,
         *,
         progress: ProgressCallback | None = None,
+        max_bytes: int | None = None,
     ) -> Path:
         info = await self.get_file_url(details)
         if not info.url:
@@ -413,8 +414,12 @@ class BaleClient:
         async with self.http.stream("GET", info.url) as response:
             response.raise_for_status()
             total = int(response.headers.get("content-length", details.size or 0))
+            if max_bytes is not None and total > max_bytes:
+                raise ProtocolError("Media exceeds the requested byte limit")
             with destination.open("wb") as handle:
-                async for chunk in response.aiter_bytes(max(1, info.chunk_size)):
+                async for chunk in response.aiter_bytes(min(65536, max(1, info.chunk_size))):
+                    if max_bytes is not None and received + len(chunk) > max_bytes:
+                        raise ProtocolError("Media exceeds the requested byte limit")
                     handle.write(chunk)
                     received += len(chunk)
                     if progress:

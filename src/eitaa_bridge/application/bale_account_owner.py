@@ -17,10 +17,13 @@ import os
 from pathlib import Path
 import stat
 import threading
+import time
 from typing import Any, Callable
 from uuid import UUID, uuid4
 
 from ..errors import ProviderExtensionError
+
+_DIALOG_NAME_REFRESH_SECONDS = 300
 
 
 def _account_directory(base_directory: Path, account_id: str) -> Path:
@@ -108,6 +111,8 @@ class BaleAccountOwner:
         self._ready = threading.Event()
         self._closed = False
         self._client: Any = None
+        self._dialog_contact_names: dict[int, str] = {}
+        self._dialog_names_checked_at = 0.0
         self._thread = threading.Thread(
             target=self._run, name=f"bale-account-{messenger_account_id[:8]}", daemon=True
         )
@@ -154,13 +159,27 @@ class BaleAccountOwner:
         return await self._invoke("auth_start", phone)
 
     async def auth_code(self, transaction_hash: str, code: str) -> dict[str, Any]:
-        return await self._invoke("auth_code", transaction_hash, code)
+        result = await self._invoke("auth_code", transaction_hash, code)
+        if result.get("authenticated") is True:
+            self._dialog_contact_names.clear()
+            self._dialog_names_checked_at = 0.0
+        return result
 
     async def auth_password(self, transaction_hash: str, password: str) -> dict[str, Any]:
-        return await self._invoke("auth_password", transaction_hash, password)
+        result = await self._invoke("auth_password", transaction_hash, password)
+        if result.get("authenticated") is True:
+            self._dialog_contact_names.clear()
+            self._dialog_names_checked_at = 0.0
+        return result
 
     async def connect(self, *, subscribe: bool = False) -> dict[str, Any]:
-        return await self._invoke("connect", subscribe=subscribe)
+        try:
+            return await self._invoke("connect", subscribe=subscribe)
+        except Exception as exc:
+            logger = getattr(self._client, "log", None)
+            if logger is not None:
+                logger.warning("bale_connect_failed type=%s", type(exc).__name__)
+            raise
 
     async def list_contacts(self) -> list[dict[str, Any]]:
         return await self._invoke("list_contacts")
@@ -173,6 +192,7 @@ class BaleAccountOwner:
         if existing is not None:
             return {"matched": True, "users": [{"id": existing}], "created": False}
         result = await self._invoke("add_contact_by_phone", phone, name)
+        self._dialog_names_checked_at = 0.0
         users = result.get("users") if result.get("matched") is True else None
         if isinstance(users, list) and len(users) == 1:
             item = users[0]
@@ -213,23 +233,47 @@ class BaleAccountOwner:
         return candidate if candidate is not None and any((item.get("peer") or {}).get("id") == candidate for item in contacts) else None
 
     async def add_contact(self, user_id: int) -> dict[str, Any]:
-        return await self._invoke("add_contact", user_id)
+        result = await self._invoke("add_contact", user_id)
+        self._dialog_names_checked_at = 0.0
+        return result
 
     async def remove_contact(self, user_id: int) -> dict[str, Any]:
-        return await self._invoke("remove_contact", user_id)
+        result = await self._invoke("remove_contact", user_id)
+        self._dialog_names_checked_at = 0.0
+        return result
 
     async def list_dialogs(self, *, limit: int = 20, offset_date: int | None = None) -> list[dict[str, Any]]:
         kwargs = {"limit": limit}
         if offset_date is not None:
             kwargs["offset_date"] = offset_date
         items = await self._invoke("list_dialogs", **kwargs)
-        contacts = await self.list_contacts()
-        names = {int(item["peer"]["id"]): item.get("local_name") or item.get("name")
-                 for item in contacts if isinstance(item.get("peer"), dict) and item["peer"].get("type") == 1}
+        needs_names = any(
+            not item.get("title") and isinstance(item.get("peer"), dict)
+            and item["peer"].get("type") == 1 for item in items
+        )
+        if not needs_names:
+            return items
+        now = time.monotonic()
+        if self._dialog_names_checked_at == 0.0 or now - self._dialog_names_checked_at >= _DIALOG_NAME_REFRESH_SECONDS:
+            self._dialog_names_checked_at = now
+            try:
+                contacts = await self.list_contacts()
+            except Exception as exc:
+                # Enriching a title is optional. A rate-limited GetContacts
+                # must not turn an otherwise valid dialog page into an error.
+                if getattr(exc, "code", None) != "bale_rpc_error":
+                    raise
+            else:
+                self._dialog_contact_names = {
+                    int(item["peer"]["id"]): str(item.get("local_name") or item.get("name"))
+                    for item in contacts if isinstance(item.get("peer"), dict)
+                    and item["peer"].get("type") == 1
+                    and (item.get("local_name") or item.get("name"))
+                }
         for item in items:
             peer = item.get("peer") or {}
-            if not item.get("title") and peer.get("type") == 1 and names.get(peer.get("id")):
-                item["title"] = names[peer["id"]]
+            if not item.get("title") and peer.get("type") == 1 and self._dialog_contact_names.get(peer.get("id")):
+                item["title"] = self._dialog_contact_names[peer["id"]]
         return items
 
     async def read_history(self, user_id: int, *, limit: int = 20, offset_date: int | None = None) -> list[dict[str, Any]]:
@@ -263,6 +307,8 @@ class BaleAccountOwner:
         """Explicit local revocation; archive this account's vault without deleting it."""
         if self._closed:
             raise ProviderExtensionError("Bale account owner is closed.", code="bale_runtime_closed")
+        self._dialog_contact_names.clear()
+        self._dialog_names_checked_at = 0.0
 
         async def revoke() -> bool:
             if self._client is not None:

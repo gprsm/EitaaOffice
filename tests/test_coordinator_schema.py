@@ -20,6 +20,47 @@ from eitaa_bridge.infrastructure.coordinator.schema import REQUIRED_TABLES
 from eitaa_bridge.infrastructure.coordinator.schema import SCHEMA_V1_CHECKSUM, SCHEMA_V1_SQL
 
 
+def test_schema_9_to_10_preserves_populated_service_owned_receipts(tmp_path):
+    from eitaa_bridge.infrastructure.coordinator import ProviderOperationReceiptStore
+    from eitaa_bridge.infrastructure.coordinator.schema import SCHEMA_V7_SQL, SCHEMA_V9_SQL
+    path = tmp_path / "coordinator.sqlite3"
+    database = CoordinatorDatabase(path)
+    database.initialize()
+    summary = bootstrap(database)
+    # Recreate the actual historical v9 receipt contract, retaining account rows.
+    # A faithful v9 layout also lacks the later-version tables (v11/v12).
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            "DROP TABLE provider_operation_receipts;"
+            + SCHEMA_V7_SQL
+            + SCHEMA_V9_SQL
+            + "DROP TABLE IF EXISTS service_sender_profiles;"
+            "DROP TABLE IF EXISTS service_delivery_reservations;"
+        )
+        connection.execute("DELETE FROM schema_migrations WHERE version>=10")
+        connection.execute("PRAGMA user_version=9")
+    fingerprint = hashlib.sha256(b"migration-fixture").hexdigest()
+    store = ProviderOperationReceiptStore(database)
+    service = "00000000-0000-4000-8000-0000000000c1"
+    args = dict(messenger_account_id=summary.messenger_account_id,
+                actor_app_user_id=summary.app_user_id, operation="messages.send_text",
+                idempotency_key="migration-send-0001", request_fingerprint=fingerprint,
+                service_credential_id=service)
+    store.claim(**args, actor_global_role="admin", claim_deadline_unix_ms=4_000_000_000_000)
+    store.complete(**args, outcome="succeeded", result_reference="message:17", contact_created=None, safe_reason_code=None)
+    with sqlite3.connect(path) as connection:
+        previous = connection.execute("SELECT * FROM provider_operation_receipts").fetchall()
+    database.initialize()
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION
+        assert connection.execute("SELECT * FROM provider_operation_receipts").fetchall() == previous
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+    replay = store.claim(**args, actor_global_role="admin", claim_deadline_unix_ms=4_000_000_000_000)
+    assert replay.claimed is False
+    assert replay.receipt.service_credential_id == service
+    assert replay.receipt.result_reference == "message:17"
+
+
 def protected_phone(
     seed: str = "1",
     *,
@@ -78,6 +119,9 @@ def test_schema6_upgrades_atomically_to_persistent_provider_receipts(tmp_path):
         )
         connection.execute("DROP TABLE provider_operation_receipts")
         connection.execute("DROP TABLE service_credentials")
+        # A faithful v6 layout also lacks the later-version tables.
+        connection.execute("DROP TABLE IF EXISTS service_sender_profiles")
+        connection.execute("DROP TABLE IF EXISTS service_delivery_reservations")
         connection.execute("DELETE FROM schema_migrations WHERE version>=7")
         connection.execute("PRAGMA user_version=6")
         connection.commit()
@@ -284,7 +328,7 @@ def test_schema9_binds_service_receipts_and_keeps_legacy_conservative(tmp_path):
     database.initialize()
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 10
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == COORDINATOR_SCHEMA_VERSION
         columns = {
             row[1]
             for row in connection.execute("PRAGMA table_info(provider_operation_receipts)")

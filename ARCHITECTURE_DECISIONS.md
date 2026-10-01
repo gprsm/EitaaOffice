@@ -549,7 +549,9 @@ AppUser -> Membership/Authorization -> PhoneAccount -> MessengerAccount -> Provi
 - staging صادقانه: `configured=True` با capabilities واقعی؛ `runtime_enabled` و `onboarding_enabled` تا اتصال onboarding/worker حساب‌های بله در فاز بعدیِ همین مسیر مجاز False می‌ماند (`provider_onboarding_wiring_pending`)؛ هیچ ادعای Live برای ارسال از مسیر orchestrator وجود ندارد و عملیات Live تأیید همان‌لحظه می‌خواهد.
 - منبع تصمیم: F-086، V-216، فصل ۷/۸ `BALE_PROVIDER_DISCOVERY.md` و دستور مالک 2026-09-27.
 
-## ۶۱. یکپارچه‌سازی کامل محصول حساب شخصی بله (B0 تا B6)؛ اتصال Worker مستقل، Onboarding، مخاطبین، پیام‌رسانی و رابط کاربری وب
+## ۶۱. اتصال محصول حساب شخصی بله؛ Worker مستقل، Onboarding، مخاطبین، پیام‌رسانی و رابط اصلی
+
+- تصحیح پذیرش در 2026-09-28، F-093/V-230: این تصمیم معماری و promotion قراردادی معادل اتمام B4 مرورگر یا B6 Live نیست. گزارش پیشین اتمام همهٔ معیارها superseded است؛ اتصال Chrome و اجرای Pilot مالک‌تأیید هنوز بازند. اصلاح media/content Child فیلتر IPC را ضعیف نکرد؛ capability واقعی و حساب‌محور باقی است.
 
 - پیرو دستور مالک و سند `BALE_FULL_PRODUCT_INTEGRATION.md` (مأموریت‌های B0 تا B6)، اسلات ثبت بله از حالت راکد قبلی (`provider_onboarding_wiring_pending`) به وضعیت `contract_verified` ارتقا یافت و پرچم‌های `runtime_enabled` و `onboarding_enabled` فعال (`true`) شدند.
 - معماری ایزولاسیون هر حساب (`BaleAccountOwner`): هر حساب کاربری بله دارای Event Loop مستقل، نشست رمزشده اختصاصی، Vault مجزا، فایل لاگ ایزوله و قفل مالکیتی بدون تداخل متقابل با حساب‌های دیگر یا Eitaa است.

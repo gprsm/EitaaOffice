@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 from uuid import uuid4
@@ -33,6 +34,14 @@ def main():
             return app.dispatch(method, route, body=body, app_session_token=token, csrf_token=setup.payload["csrf_token"], client_kind="browser", correlation_id=uuid4().hex)
         first = create_account(request)
         login(request, first)
+        paging_contacts = int(os.environ.get("BALE_UI_PREVIEW_CONTACT_COUNT", "0"))
+        if paging_contacts:
+            if not 1 <= paging_contacts <= 5000:
+                raise ValueError("BALE_UI_PREVIEW_CONTACT_COUNT must be between 1 and 5000")
+            OfflineOwner.states[first]["contacts"] = {
+                index: f"Paging Fixture {index:04d}"
+                for index in range(1, paging_contacts + 1)
+            }
         second = create_account(request, "+10000000002")
         eitaa = create_account(request, "+10000000003", "eitaa")
         OfflineOwner.states[first]["messages"] = [{"message_id": 17, "sender_id": 1, "date": 100, "text": "Fixture reply"}]
@@ -40,6 +49,7 @@ def main():
         with app._coordinator._connect() as connection:
             for account, label in [(first, "Bale Alpha"), (second, "Bale Beta"), (eitaa, "Eitaa Fixture")]:
                 connection.execute("UPDATE messenger_accounts SET label=? WHERE id=?", (label, account))
+            connection.commit()
 
         class FixtureHandler(_ApiHandler):
             def end_headers(self):

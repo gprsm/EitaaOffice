@@ -1,7 +1,8 @@
 # راهنمای توسعهٔ Provider Adapter مجاز
 
-آخرین بازبینی: 2026-08-20  
-وضعیت قرارداد: `API v1 / B2 SLICE1 CONTRACT_FAKE_VERIFIED`  
+آخرین بازبینی: 2026-09-28
+
+وضعیت قرارداد: `API v1 / additive Contact contract v2 / Bale CONTRACT_VERIFIED`
 دامنه: افزودن پیام‌رسان یا نوع حساب تازه بدون بازنویسی مالکیت، UI shell، Coordinator و مرزهای امنیتی
 
 ## ۱. هدف و مرز
@@ -23,7 +24,7 @@
 | `src/eitaa_bridge/providers/registry.py` | composition root و allowlist صریح Providerهای built-in |
 | `src/eitaa_bridge/providers/testing.py` | contract probe آفلاین و session store ساختگی حساب‌محور |
 | `src/eitaa_bridge/providers/<provider>/` | پیاده‌سازی اختصاصی Provider؛ transport و mapping نباید از این مرز نشت کند |
-| `src/eitaa_bridge/providers/bale/slot.py` | جایگاه غیرفعال بله؛ بدون endpoint و بدون کد عملیاتی |
+| `src/eitaa_bridge/providers/bale/slot.py` | registration مجاز شخصی بله و factory آداپتور/worker؛ contract_verified |
 | `src/eitaa_bridge/application/provider_adapter.py` | facade سازگاری برای مصرف‌کننده‌های فعلی catalog |
 | `src/eitaa_bridge/application/provider_orchestration.py` | مسیر application عمومی، ترتیب guardها، deadline، idempotency و result/error mapping |
 | `src/eitaa_bridge/providers/eitaa/application_adapter.py` | compatibility port ایتا؛ نمونهٔ قرارگیری translation در package Provider |
@@ -183,16 +184,18 @@ Mutationهای `messages.send_text` و `contacts.upsert` باید پیش از ا
 
 ## ۸. وضعیت جایگاه بله
 
-`bale` اکنون یک registration قابل مشاهده ولی fail-closed است:
+حالت scaffold تاریخی این بخش با F-086/ADR-60 و اجرای محصولی 2026-09-28 superseded است. `bale` اکنون registration مجاز حساب شخصی است:
 
-- account kind فعلی فقط برچسب محصولی `personal` است؛
-- state برابر `scaffold`؛
-- capability تهی؛
-- adapter/worker factory ندارد؛
-- configured/runtime/onboarding همگی false؛
-- هیچ endpoint، dependency، codec، auth implementation یا session format ندارد.
+- account kind برابر `personal` و state برابر `contract_verified` است؛
+- configured/runtime/onboarding همگی true و factoryهای adapter/worker متصل‌اند؛
+- runtime هر حساب loop، vault، کلید و لاگ مستقل دارد؛ process و in-process هر دو آزموده‌اند؛
+- auth، contacts، dialogs/history، text/media و polling در API/UI اصلی متصل‌اند؛
+- حذف مخاطب در `ProviderContactRemovalAdapter` قرارداد افزایشی v2 است؛ ارسال رسانه protocol اختیاری مستقل دارد. extension API v1 سازگار باقی مانده و schema 10 receiptهای تازه را با حفظ migrationهای تاریخی می‌پذیرد؛
+- درخواست رمز دومرحله‌ای در IPC با `credential`، و محتوای فایل با `content_handle` منتقل می‌شود؛ فیلتر عمومی secret/session خام ضعیف نشده است؛
+- گروه/کانال در عملیات فقط‌خصوصی خطای صریح می‌گیرند؛ رسانه حداکثر 512 KiB، و receive با polling پنج‌ثانیه‌ای است؛
+- contract verification معادل پذیرش Live یا مرورگر نیست؛ وضعیت باز در گزارش BALE-PRODUCT و V-230 ثبت شده است.
 
-برای API رسمی Bot/Arm باید account kind مستقل طراحی شود؛ نباید با slot شخصی فعلی یکی فرض شود. برای Bale Personal نیز تا API رسمی یا اجازهٔ کتبی، فقط همین scaffold حفظ می‌شود.
+Bot/Arm مستقل و غیرثبت‌شده باقی است؛ capability حساب شخصی به آن منتقل نمی‌شود. مبنای اجازهٔ مسیر شخصی F-086 است.
 
 ## ۹. چک‌لیست تحویل کد دستی آینده
 

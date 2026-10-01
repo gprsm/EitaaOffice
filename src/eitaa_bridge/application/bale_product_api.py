@@ -54,21 +54,33 @@ def dispatch_bale_auth(app: Any, session: Any, account_id: str, action: str,
         elif action == "password":
             if record.auth_state != "challenge_pending":
                 raise ProviderExtensionError("No active login challenge.", code="bale_challenge_invalid")
-            result = runtime.request("bale.auth.password", {"challenge_id": payload["challenge_id"], "credential": payload["password"]})
+            result = runtime.request("bale.auth.password", {"challenge_id": payload.get("challenge_id"), "credential": payload.get("password")})
             target = "authenticated" if result.get("step") == "completed" else "challenge_pending"
         elif action == "code":
             if record.auth_state != "challenge_pending":
                 raise ProviderExtensionError("No active login challenge.", code="bale_challenge_invalid")
-            result = runtime.request("bale.auth.code", {"challenge_id": payload["challenge_id"], "code": payload["code"]})
+            result = runtime.request("bale.auth.code", {"challenge_id": payload.get("challenge_id"), "code": payload.get("code")})
             target = "authenticated" if result.get("step") == "completed" else "challenge_pending"
         elif action == "restore":
             if record.auth_state in {"revoked", "invalid"}:
                 raise ProviderExtensionError("Fresh login is required.", code="bale_session_invalid")
             try:
                 result = runtime.request("bale.auth.restore", timeout_seconds=30)
-            except Exception:
-                result = {"authenticated": False, "reason_code": "bale_session_invalid"}
-            target = "authenticated" if result.get("authenticated") is True else "invalid"
+            except Exception as exc:
+                code = str(getattr(exc, "code", "") or "")
+                if code in {"bale_session_invalid", "bale_vault_locked"}:
+                    result = {"authenticated": False, "reason_code": "bale_session_invalid"}
+                elif code == "bale_vault_missing":
+                    result = {"authenticated": False, "reason_code": "bale_vault_missing"}
+                else:
+                    # Transport and timeout failures are not proof of session
+                    # invalidity; the account keeps its auth state so a later
+                    # restore attempt stays available to the user.
+                    result = {"authenticated": False, "reason_code": "bale_restore_unavailable"}
+            if result.get("reason_code") in {"bale_restore_unavailable", "bale_vault_missing"}:
+                target = record.auth_state
+            else:
+                target = "authenticated" if result.get("authenticated") is True else "invalid"
         elif action == "cancel":
             result = runtime.request("bale.auth.cancel")
             target = "absent" if record.auth_state == "challenge_pending" else record.auth_state
@@ -76,9 +88,10 @@ def dispatch_bale_auth(app: Any, session: Any, account_id: str, action: str,
             result = runtime.request("bale.auth.logout")
             target = "revoked"
         increment = target == "revoked" or (target == "authenticated" and record.auth_state != target)
+        reason_code = str(result.get("reason_code")) if action == "restore" and result.get("reason_code") else f"bale_auth_{action}"
         updated = coordinator.transition_messenger_auth(
             account_id, expected_states={record.auth_state}, expected_generation=record.session_generation,
-            new_state=target, increment_generation=increment, reason_code=f"bale_auth_{action}",
+            new_state=target, increment_generation=increment, reason_code=reason_code,
             action=f"bale.auth.{action}", mark_validated=target == "authenticated",
             actor_app_user_id=actor.app_user_id, actor_global_role=actor.global_role, request_id=request_id,
         )
@@ -126,10 +139,22 @@ def dispatch_product_extension(app: Any, session: Any, account_id: str, action: 
         reference = str(payload.get("content_reference") or "")
         if not reference.startswith("bale:download:"):
             raise CompositionValidationError("Invalid media reference.", code="provider_media_reference_invalid")
-        result = runtime.request("bale.provider.media.content", {"token": reference.removeprefix("bale:download:")})
+        result = runtime.request("bale.provider.media.content", {"content_handle": reference.removeprefix("bale:download:")})
         return {"ok": True, "messenger_account_id": account_id, **result}
-    app._require_provider_operation_fields(payload, {"query"})
-    result = runtime.request("bale.provider.contacts.search", {"query": payload.get("query")}, timeout_seconds=90)
+    app._require_provider_operation_fields(payload, {"query", "cursor", "limit"})
+    query = payload.get("query")
+    if not isinstance(query, str) or not query.strip() or len(query) > 128:
+        raise CompositionValidationError("Invalid contact search query.", code="provider_search_query_invalid")
+    limit = app._integer(payload.get("limit", 100), "limit", minimum=1, maximum=500)
+    cursor = payload.get("cursor")
+    if cursor is not None and not isinstance(cursor, str):
+        raise CompositionValidationError("Invalid contact cursor.", code="provider_cursor_invalid")
+    result = runtime.request(
+        "bale.provider.contacts.search",
+        {"query": query, "limit": limit, **({"cursor": cursor} if cursor is not None else {})},
+        timeout_seconds=90,
+    )
     return {"ok": True, "messenger_account_id": account_id, "contacts": [
         {"contact_reference": f"bale:user:{item['peer']['id']}", "display_name": item.get("name") or item.get("local_name") or ""}
-        for item in result["contacts"] if isinstance(item.get("peer"), dict) and item["peer"].get("type") == 1]}
+        for item in result["contacts"] if isinstance(item.get("peer"), dict) and item["peer"].get("type") == 1],
+        "next_cursor": result.get("next_cursor")}

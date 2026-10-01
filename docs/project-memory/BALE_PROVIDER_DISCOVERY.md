@@ -112,7 +112,7 @@
 - `providers/bale/slot.py` با `authorization_reference=document:F-086`، capabilities واقعی کلاینت، `account_identity_kind=phone_e164` و مراحل auth تلفنی ثبت شده و `adapter_factory` به آداپتور واقعی متصل است.
 - `application/bale_provider_adapter.py` آداپتور واقعی متصل به `bale_client` است؛ probe قرارداد آفلاین را می‌گذراند، وضعیت‌های نامعلوم را صادقانه `uncertain` گزارش می‌کند و هرگز passphrase/OTP/رمز/شمارهٔ کامل را به لاگ، خطا یا receipt نمی‌برد.
 - قرنطینهٔ `application/bale_client/` از بسته‌بندی release و wheel برداشته شد؛ وابستگی `websockets` به وابستگی‌های محصول افزوده شد.
-- یکپارچه‌سازی محصولی (F-092/ADR-61/V-228): در ۲۰۲۶-۰۹-۲۸ مأموریت‌های B0 تا B6 بله به‌طور کامل پیاده‌سازی شدند؛ پرچم‌های `runtime_enabled` و `onboarding_enabled` فعال (`True`) و اسلات بله در وضعیت `CONTRACT_VERIFIED` با کارخانه‌های آداپتور و ورکر متصل شد. ورکر مستقل (Process و In-Process)، مخزن مخاطبین، دیالوگ‌ها، پیام‌ها، رسانه، روت‌های M2M و رابط کاربری وب تفکیک‌شده فعال هستند.
+- یکپارچه‌سازی محصولی (F-092/ADR-61/V-228 و بازبینی F-093/V-230): پرچم‌های runtime/onboarding=True و اسلات CONTRACT_VERIFIED با worker/adapter متصل است. نقص media/content در Child اصلاح شد و API آفلاین پذیرفته است؛ ادعای تکمیل B0-B6 superseded است چون B4 مرورگر به اتصال Chrome نیاز دارد و B6 Live هنوز اجرا نشده. ابزار Pilot default-off اکنون مستقل از preview ساخته شده است.
 - عملیات Live (ورود تازه، OTP، ارسال واقعی) همچنان فقط با تأیید همان‌لحظهٔ مالک انجام می‌شود؛ هیچ رکورد تاریخی مجوز دائمی Live نیست.
 - Token، OTP، Cookie، Session، شمارهٔ کامل و متن خصوصی نباید وارد گزارش، لاگ یا artifact آزمون شوند.
 - شاهد فعال‌سازی: `tests/test_bale_personal_authorization.py`، V-216، wheel parity با دربرداشتن `bale_client` و پذیرش زندهٔ عملیات نشست روی شاخهٔ Bale (V-194/F-072، کامیت `b4491b7f`).
@@ -134,7 +134,7 @@
 
 ## فصل ۱۰ — بازیابی تصمیم تاریخی 2026-08-21
 
-> به‌روزرسانی اجرای 2026-09-28 (F-092/V-228): یکپارچه‌سازی محصولی بله شخصی (B0 تا B6) به‌طور کامل در برنامهٔ اصلی اجرا شد؛ متدهای مخاطب، احراز هویت، پیام‌ها، رسانه، روت‌های M2M، رابط کاربری BaleWorkspace و پروسس ورکر در هر دو پروفایل in-process و child_process پیاده و با ۱۸ آزمون یکپارچگی و فول‌سوییت ۹۲۰ تستی پذیرفته شدند. اسلات بله با CONTRACT_VERIFIED، runtime_enabled=True و onboarding_enabled=True فعال گردید. اجرای Live عملیاتی نیازمند مجوز صریح مالک در زمان اجرا است.
+> وضعیت جاری 2026-09-28 (F-093/V-230): پیاده‌سازی و gateهای آفلاین متصل‌اند؛ runtime/onboarding=True با CONTRACT_VERIFIED حفظ شده است. مرورگر disconnected و پذیرش UI/polling باز است؛ Pilot خاموش آماده ولی Live در انتظار حساب/گیرنده و تأیید همان‌لحظه است. V-228/V-229 به‌عنوان سابقه حفظ می‌شوند و شاهد اتمام مرورگر یا B6 نیستند.
 
 - وضعیت: `RECOVERED_FROM_PARTIAL_EVIDENCE / HISTORICAL / SUPERSEDED_BY_F-046`
 - متن اصلی این بخش دچار U+FFFD، علامت سؤال جایگزین و control character شده بود؛ متن لفظ‌به‌لفظ قابل‌بازیابی نیست و از خود سند حدس زده نشده است.

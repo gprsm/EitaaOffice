@@ -15,4 +15,20 @@
 
 قرارداد مرجع `bale:user:<id>`، `bale:group:<id>` و `bale:channel:<id>` است؛ `bale:peer:<id>` فقط به‌عنوان ورودی legacy خصوصی قابل تفسیر است. شناسهٔ عددی بدون نوع و account scope قابل ارسال نیست. بات بله با namespace/manifest مستقل می‌ماند. آزمون `tests/test_bale_product_integration.py` روی snapshot آغاز برای contact protocol، برخورد نوع peer و parser سرویس سه شکست معنادار داشت؛ نبود factory/runtime و مسیر UI/API در همین ماتریس با شاهد ایستا ثبت است. فعال‌سازی runtime/onboarding تا آزمون مستقل worker و vault ممنوع می‌ماند.
 
-پیشرفت همین نوبت: سه RED نام‌برده GREEN شدند و `BaleAccountOwner` با دو حساب و restart آفلاین آزموده شد؛ هنوز در registry/worker/API/UI مصرف نمی‌شود. factory/runtime و routing UI/API هنوز آزمون RED مستقل ندارند. وضعیت معیارهای BALE-A01 تا A07 در [گزارش](../../reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md) باز ثبت شده است.
+پیشرفت V-227 بالا snapshot آغاز است و با wiring در V-228/V-229 superseded شد. ماتریس جاری پس از بازبینی V-230:
+
+در جدول زیر `A` برابر `/api/v2/messenger-accounts/{account_id}` است. حساب و generation سمت سرور bind می‌شوند؛ raw RPC/مسیر فایل/secret DTO عمومی نیستند.
+
+| Backend | DTO/worker جاری | Endpoint | UI اصلی | شاهد آفلاین و مرز |
+|---|---|---|---|---|
+| auth_start/code/password/connect/logout | challenge opaque؛ `bale.auth.*` و generation fence | `A/auth/{status,start,code,password,cancel,restore,logout}` | wizard BaleWorkspace | main_product + product_integration؛ Child auth/restart سبز، browser/Live باز |
+| list/search_contacts | ContactPage؛ `bale.provider.contacts.{query,search}` | `A/contacts/{query,search}` | مخاطبین | main_product؛ DTO بدون access_hash |
+| add_by_phone/add_contact/remove | contact contract v2؛ `contacts.{add_phone,add_id,remove}` | `A/contacts/{upsert,remove}` | confirm + idempotency | replay، named match و حفظ نام موجود؛ Live mutation باز |
+| list_dialogs | DialogPage title/last_text/unread؛ `dialogs.query` | `A/dialogs/query` | فهرست گفتگو | fixture معتبر نوع peer؛ group/channel در عملیات خصوصی پشتیبانی نمی‌شود |
+| read_history | MessagePage، media ref، date cursor؛ `history.query` | `A/history/query` | history/older + polling | ترتیب و typed scope در API؛ polling مرورگری باز |
+| send_text | SendReceipt؛ `messages.send_text` | `A/messages/send-text` و M2M send-text | ارسال با confirm | concurrent/replay/uncertain؛ submission تحویل انسانی نیست |
+| send_file_bytes/read_message_media | optional media send + media read؛ `messages.send_media`, `media.{read,content}` | `A/messages/send-media`, `A/media/{read,content}` | فایل/دریافت پیوست | Child content regression سبز؛ stream و IPC حداکثر 512 KiB |
+| read_history polling | LIVE_UPDATES با snapshot/dedup/peer+account guards | تاریخچهٔ گفتگوی باز هر ۵ ثانیه؛ فهرست گفتگوها هر ۱۵ ثانیه با backoff مستقل (V-262) | گفتگوی باز بدون reload | دریافت بدون reload با dedup در مرورگر فیکسچر (V-233) و گزارش Live مالک (V-259)؛ دوام cadence تازه در انتظار مشاهده |
+| exact contact lookup/import | bounded `recipients.resolve` و ContactMutationReceipt | M2M `recipients/{resolve,prepare}` | انتخاب account سرویس/readiness | scope contacts.resolve/import جدا؛ peer ساختگی از phone ممنوع |
+
+capabilityهای AUTH_PHONE، CONTACTS_READ/WRITE، DIALOGS_READ، HISTORY_READ، MESSAGES_SEND، MEDIA_READ/SEND به ردیف‌های متناظر متصل‌اند. LIVE_UPDATES از F-098 با مشاهدهٔ ثبت‌شدهٔ `bale_updates_polling_transport` (نویسندهٔ `record_messenger_capability_observation` در store، ثبت در start ران‌تایم بله، گیت `hasCapability('updates.live')` در UI) به پیاده‌سازی polling متصل است؛ صرف history شاهد مرورگر آن نیست. آداپتور logout به store account-owned متصل و بات بله مستقل باقی است. gateها، browser (V-233 روی فیکسچر) و Live جدا در [گزارش](../../reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md) ثبت می‌شوند.

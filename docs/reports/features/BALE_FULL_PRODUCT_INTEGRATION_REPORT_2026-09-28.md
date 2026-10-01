@@ -1,79 +1,96 @@
-# گزارش اجرای BALE-PRODUCT — تکمیل آفلاین یکپارچه‌سازی محصولی بله
+# بازبینی و اصلاح BALE-PRODUCT — 2026-09-28
 
-تاریخ: 2026-09-28. وضعیت: `OFFLINE_COMPLETE / LIVE_PENDING_INPUT / NO_PUBLICATION`.
-HEAD آغاز: `ab7563c5`؛ شاخه: `codex/bale-web-client-instructions`؛ تمام داده‌های عملیاتی، نشست‌های واقعی و فایل‌های untracked پیشین کاربر حفظ شده‌اند. هیچ عملیات زنده روی شبکهٔ واقعی بله، ورود، ارسال پیام زنده یا تغییر تنظیم عملیاتی انجام نشد.
+قید جاری V-258/F-099 (2026-10-01): شرح V-244/V-247 در ادامهٔ این سند تاریخی است. جست‌وجوی فراگیر Child و حصار تکمیل نسل دوم اصلاح شده‌اند؛ پس از اصلاح اتصال بله در V-255/V-256، بازبینی مستقل کنونی ۱۰۵۱ آزمون جمع‌آوری کرد و full Backend با exit=0 و یک skip گذشت. پایلوت Live فقط در محدودهٔ خواندن، ارسال متن و تغییر مخاطب شاهد محدود مالک و رخدادهای امن V-257 دارد؛ پذیرش کامل B6 هنوز باز است. پاسخ خام WebSocket مخاطبین پیش از guard بایتی کامل دریافت می‌شود. [دستور اصلاحی دوم](../../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_FOLLOWUP_2026-09-30.md) و V-257/V-258 مرجع وضعیت جاری‌اند؛ پذیرش قطعی با ممیز/مالک است.
 
-## خلاصهٔ دستاورد فنی
+تکمیل اصلاحات و پذیرش آفلاین F-099 در 2026-09-29 با V-244: تمامی موارد دستور اصلاحی `BALE_ACCEPTANCE_REPAIR_2026-09-29.md` شامل R1 (پایبندی پایدار ادعا، بازگشت ۴۰۹ در صورت ارسال با محتوای متفاوت، موفقیت ارسال با محتوای یکسان)، R2 (کنترل نرخ مخاطب)، R3 (صفحه‌بندی ۵۰۱+ مخاطب بدون حذف خاموش)، R4 (نگاشت ۴۲۹ با Retry-After) و R5 (قبولی ۴/۴ پروب مستقل و قبولی ۱۰۰٪ کیفیت و آزمون‌ها) محقق و تأیید شدند. گزارش تفصیلی در [گزارش پذیرش بله](../validation/BALE_ACCEPTANCE_REPAIR_REPORT_2026-09-29.md) ثبت است.
 
-تمام مراحل فنی B0 تا B6 دستور بله به‌صورت کامل، بدون دور زدن انتزاع Provider و با جداسازی اکید چندحسابی و چندکاربری در برنامهٔ اصلی AntiGravity2 پیاده‌سازی و آزموده شدند:
+وضعیت جاری: `OFFLINE_REPAIRED / VERIFIED_OFFLINE / B4_BROWSER_ACCEPTED_ON_FIXTURE / B6_LIVE_PENDING_INPUT`.
+مرجع جاری: V-244، F-099، [گزارش پذیرش اصلاحات](../validation/BALE_ACCEPTANCE_REPAIR_REPORT_2026-09-29.md) و [handoff بله](../../handoffs/BALE_FULL_PRODUCT_INTEGRATION_HANDOFF.md).
 
-1. **B0 (Inventory و قرارداد):** ماتریس DTO، متدهای Worker، Endpointهای اصلی، کامپوننت‌های UI و شواهد در `BALE_B0_INVENTORY.md` تکمیل شد. کلیهٔ شکاف‌های اولیه (پروتکل مخاطبین، خطای نوع peer گروه، تفکیک رفرنس‌های typed `bale:user:<id>`، `bale:group:<id>` و `bale:channel:<id>`) با آزمون RED ثبت و سپس برطرف شدند.
-2. **B1 (Runtime، نشست و Worker):** کلاس `BaleAccountOwner` با حلقهٔ رویداد `asyncio` اختصاصی، ذخیره‌سازی کلید مجزا (با DPAPI روی ویندوز و فایل 0600 روی POSIX) و مسیرهای مستقل لاگ و vault پیاده شد. `BaleAccountRuntime` و `BaleProviderProcessWorker` با پروتکل‌های IPC، لایس اتمیک `AccountWorkerLease`، حصار generation، هارت‌بیت، بازیابی از crash و restore بدون ترافیک ناخواسته پیاده شدند و هر دو حالت in-process و process_worker آزموده شدند. فیلد رمز دومرحله‌ای در لایهٔ IPC به `credential` نگاشت شد تا قوانین امنیتی حصار IPC نقض نشود.
-3. **B2 (آداپتور و مخاطبین):** متدهای `list_contacts`، `search_contacts`، `add_contact_by_phone`، `add_contact` و `remove_contact` در `BaleProviderApplicationAdapter` پیاده‌سازی شدند. عملیات تغییر مخاطب و ارسال رسانه با ادعاهای پایدار (`receipt_store`)، کلید یکتایی (Idempotency)، تفکیک رفرنس و DTOهای امن اجرا شدند. نتیجهٔ ارسال متنی و رسانه‌ای با مرجع محلی `bale:submission:<id>` برگشت داده می‌شود و ادعای کاذب تحویل به مخاطب تولید نمی‌کند.
-4. **B3 (API، M2M و UI):** در `api.py` مسیرهای حساب‌محور `/api/v2/messenger-accounts/{id}/auth/*` و `/api/v2/messenger-accounts/{id}/(contacts/remove|messages/send-media|contacts/search|media/content)` متصل شدند. کامپوننت `BaleWorkspace.tsx` به همراه انتخاب‌گرهای حساب در `App.tsx`، `MessengerAccountGate.tsx` و `ServiceAccountSettingsPanel.tsx` تعبیه شد. در `m2m_api.py` متد `/api/v2/m2m/recipients/prepare` برای آماده‌سازی مخاطب OTP با بررسی تطابق واقعی و متد `/api/v2/m2m/messages/send-text` با مرجع مجاز بله برقرار گردید.
-5. **B4 (مجموعهٔ آزمون جامع):** ۱۸ آزمون یکپارچگی اختصاصی در `test_bale_product_integration.py` و `test_bale_main_product.py` شامل جداسازی دو حساب، جداسازی دو AppUser، بازیابی نشست در فرایند فرزند (Child process)، ارسال نامطمئن (Uncertain send)، Replay دیرپا، حصار CSRF و احراز هویت HTTP به همراه ۱۳۱ آزمون در سایر مجموعه‌های مرتبط با بله و چندProvider اجرا و با موفقیت گذرانده شدند.
-6. **B5 (Promotion و اسناد):** اسلات ثبت بله در `src/eitaa_bridge/providers/bale/slot.py` با `implementation_state=CONTRACT_VERIFIED`، `runtime_enabled=True`، `onboarding_enabled=True` و کارخانهٔ رسمی `BaleProviderProcessWorker` فعال شد. بستهٔ رسمی wheel با ابزار stdlib بازسازی و تطابق سورس با پکیج تأیید شد.
-7. **B6 (آماده‌سازی Pilot خاموش):** اسکریپت `tests/bale_ui_preview.py` برای اجرای محلی آزمایشی در حالت آفلاین فراهم شد. پروتکل دقیق Pilot برای سناریوی زندهٔ آینده تدوین شده و نیازمند اطلاعات واقعی کاربر و مجوز مستقیم است.
+## نتیجهٔ بررسی
 
-## وضعیت معیارهای پذیرش BALE-A01 تا BALE-A08
+مسیر بله از برنامهٔ اصلی به runtime، worker و آداپتور متصل است؛ خاموش‌کردن flag یا بازگشت به پنل مستقل راه‌حل نیست. نقص قطعی باقی‌مانده در حالت Child شناسایی و اصلاح شد: `/media/content` فیلد `token` را وارد IPC می‌کرد و فیلتر امن آن را رد می‌کرد. تست واقعی Child پیش از patch با status=400 شکست خورد؛ پس از استفاده از `content_handle` سبز شد. فیلتر عمومی secret/session خام تغییر نکرد.
 
-| معیار | وضعیت | شرح شاهد و اثبات |
+اصلاح‌های تکمیلی:
+
+- ورودی ناقص auth/code و auth/password به validation محدود worker می‌رسد؛ دسترسی مستقیم به کلید غایب دیگر KeyError نمی‌سازد. نگاشت رمز به `credential` که مدل دیگر انجام داده بود حفظ شد.
+- دانلود رسانه هنگام خواندن stream کران‌دار شد، حتی اگر اندازهٔ اعلام‌شدهٔ Provider نادرست باشد؛ فایل جزئی تازه‌ساخته‌شده در خطا پاک می‌شود. حد فعلی 512 KiB است.
+- پاسخ ارسال قدیمی، draft گفتگوی تازه‌انتخاب‌شده را پاک نمی‌کند؛ guard حساب و peer هر دو اعمال می‌شوند.
+- آزمون نگاشت نام مخاطب موجود، deadline/cancellation روی loop ماندگار، challenge غلط/منقضی، session generation قدیمی و ارسال هم‌زمان اضافه شد.
+- تست Child اکنون پس از restart کل برنامه replay را می‌سنجد؛ cache حافظه نمی‌تواند شاهد رسید پایدار باشد. migration واقعی schema 9 به 10 با receipt دارای مالک سرویس و نتیجهٔ موجود نیز آزموده شد.
+- guard قدیمی UI onboarding که بله را الزاماً disabled می‌خواست اصلاح شد؛ مبنای مجوز، state قراردادی و factory همچنان assert می‌شوند.
+- diagnostics عمومی برای ارسال uncertain، event موفقیت نمی‌سازد؛ text/media و replay همان نتیجهٔ نامعلوم را ثبت می‌کنند. regression پیش از patch هر دو رخداد متناقض را نشان داد.
+- ابزار واقعی `scripts/bale_product_pilot.py` ساخته و به release allowlist افزوده شد؛ پیش‌نمایش Fake ابزار Pilot زنده محسوب نمی‌شود.
+
+## وضعیت معیارها
+
+| معیار | وضعیت جاری | شاهد و مرز |
 |---|---|---|
-| **BALE-A01** | `PASS` (آفلاین) | رانتایم و ذخیره‌سازی مجزا برای هر حساب، مدیریت نشست، lease/generation، هارت‌بیت و بازیابی فرایند فرزند در `test_actual_bale_worker_start_restart_without_network` و `test_child_auth_restore_history_and_receipt_replay_after_restart` آزموده شد. |
-| **BALE-A02** | `PASS` (آفلاین) | ماشین وضعیت احراز هویت بله شامل وضعیت، شروع چالش، کد ورود، رمز دومرحله‌ای، انصراف، بازیابی نشست و خروج از طریق API اصلی در `test_main_product_auth_contacts_history_send_media_and_durable_replay` و `test_two_bale_accounts_and_eitaa_do_not_share_peers_challenges_or_media` اثبات شد. |
-| **BALE-A03** | `PASS` (آفلاین) | متدهای فهرست مخاطبین، جستجو، افزودن با شماره و شناسه، و حذف با رسید پایدار و idempotency در آداپتور، ارکستریتور و UI پیاده و در `test_contact_protocol_lists_safe_references_and_imports_with_name` و `test_main_product_auth_contacts_history_send_media_and_durable_replay` راستی‌آزمایی شد. |
-| **BALE-A04** | `PASS` (آفلاین) | دریافت گفتگوها، تاریخچه، ارسال متن با شناسهٔ سابمیشن، ارسال و دریافت رسانهٔ محدود به سقف ۵۱۲ کیلوبایت و سازوکار polling در رانتایم، API و UI متصل و در `test_main_product_auth_contacts_history_send_media_and_durable_replay` آزموده شد. |
-| **BALE-A05** | `PASS` (آفلاین) | پوشش کامل ماتریس جایگاه‌های UI در `BaleWorkspace.tsx`، تعویض حساب در `App.tsx`، عدم نشت داده میان حساب‌های بله و ایتا و تفکیک دسترسی دو AppUser مجزا در `test_two_bale_accounts_and_eitaa_do_not_share_peers_challenges_or_media` و `test_second_app_user_cannot_query_or_mutate_the_first_users_bale_account` تأیید شد. |
-| **BALE-A06** | `PASS` (آفلاین) | رفرنس‌های نوع‌دار بله (`bale:user:<id>`, `bale:group:<id>`, `bale:channel:<id>`) در پارسر M2M پیاده و روت‌های `prepare` و `resolve` به همراه ارسال ایمن پیام در `test_service_prepare_resolve_and_send_are_account_and_scope_fenced` به اثبات رسید. |
-| **BALE-A07** | `PASS` (آفلاین) | تمام دروازه‌های کیفی AGENTS.md و قواعد مشترک شامل فول‌سوییت بک‌اند (۹۲۰ تست)، بررسی تایپ TypeScript، آزمون observability، صحت اسناد، تطابق لینک‌ها و بازسازی wheel رسمی با exit code 0 پاس شدند. |
-| **BALE-A08** | `PASS` | تفکیک شفاف شواهد آزمون‌های آفلاین و شواهد تاریخی؛ V-194/V-195 صرفاً به‌عنوان سوابق مستقل شاخه حفظ شده و به‌عنوان شاهد رانتایم جدید جا زده نشده‌اند. کلیهٔ نتایج جدید در V-228 ثبت شدند. |
+| BALE-A01 | PASS آفلاین | loop/key/vault مستقل؛ in-process و Child؛ heartbeat/crash؛ restart کل برنامه و replay |
+| BALE-A02 | PASS API آفلاین + مرورگری فیکسچر | auth/2FA/cancel/logout و challenge/session fence؛ wizard کامل مرورگری در V-233؛ هیچ ورود واقعی انجام نشده |
+| BALE-A03 | PASS آفلاین + مرورگری فیکسچر؛ Live mutation باز | list/search/import/id/remove با confirm در مرورگر؛ add/remove واقعی هنوز تأیید نشده |
+| BALE-A04 | PASS API آفلاین + مرورگری فیکسچر | title/preview/history/text/media و **دریافت بدون reload با polling/dedup در مرورگر (V-233)**؛ Live باز |
+| BALE-A05 | PASS روی فیکسچر مرورگری | ماتریس UI با API واقعی و backend مصنوعی در مرورگر IAB: تعویض حساب بدون نشت، wizard، مخاطبین، تنظیمات، service selector (V-233)؛ Live ندارد |
+| BALE-A06 | PASS آفلاین | resolve فقط‌خواندنی، prepare با contacts.import، matched واقعی، membership/account/credential fence |
+| BALE-A07 | gateهای اجراشده سبز | full Backend 947 passed پس از اصلاح‌های F-098؛ wheel parity؛ کنترل اسناد |
+| BALE-A08 | PASS | گزارش/ماتریس/handoff با تفکیک offline، browser-fixture و Live؛ V-194/V-195 مستقل و تاریخی‌اند |
 
-## نتایج کنترل‌های کیفی و دستورات اجرا شده
+## آزمون‌ها و بسته
 
-- **آزمون‌های یکپارچگی محصولی بله:**
-  - فرمان: `.\.venv\Scripts\python.exe -m pytest tests\test_bale_product_integration.py tests\test_bale_main_product.py`
-  - خروجی: `18 passed, 1 warning in 22.89s` (Exit Code 0).
-- **آزمون‌های خانوادهٔ بله و Multi-Provider:**
-  - فرمان: `.\.venv\Scripts\python.exe -m pytest tests\test_bale_bot_adapter.py tests\test_bale_branch_api.py tests\test_bale_personal_authorization.py tests\test_m2m_endpoints.py tests\test_phase11b1_multi_provider_core.py tests\test_phase11b2_provider_neutral_orchestration.py tests\test_phase11b_provider_extension_foundation.py tests\test_phase4d_account_management.py`
-  - خروجی: `131 passed, 1 warning in 10.89s` (Exit Code 0).
-- **مجموعهٔ کامل آزمون‌های بک‌اند (Full Suite):**
-  - فرمان: `.\.venv\Scripts\python.exe -m pytest -q`
-  - خروجی: `919 passed, 1 skipped, 1 warning in 2m 35s` (Exit Code 0).
-- **بررسی صحت تایپ UI:**
-  - فرمان: `npm.cmd --prefix ui run check`
-  - خروجی: `tsc -b --pretty false` (Exit Code 0).
-- **آزمون Observability رابط کاربری:**
-  - فرمان: `npm.cmd --prefix ui run test:observability`
-  - خروجی: `observability UI/Electron contract assertions passed` (Exit Code 0).
-- **بازسازی پکیج Wheel محصول:**
-  - فرمان: `.\.venv\Scripts\python.exe scripts\build_wheel_stdlib.py --force`
-  - خروجی: تولید `dist/eitaa_bridge-0.7.0.dev31-py3-none-any.whl` با هش `e49402b3cc41a5d2eebb3a0961d585600054e2b8f46d9f09b0767563facb9aa7` (Exit Code 0).
-- **یکپارچگی حافظه و لینک‌های اسناد:**
-  - فرمان: `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py`
-  - فرمان: `.\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py` (PASS)
-  - فرمان: `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check` (Exit Code 0)
-  - فرمان: `.\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links` (Exit Code 0)
-  - فرمان: `git diff --check` (Exit Code 0).
+فرمان‌های اصلی این بازبینی:
 
-## بازبینی تکمیلی و پالایش‌های جامع (V-229)
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -o addopts='' --tb=short --show-capture=no
+npm.cmd --prefix ui run check
+npm.cmd --prefix ui run test:observability
+npm.cmd --prefix ui run build
+.\.venv\Scripts\python.exe scripts/build_wheel_stdlib.py --force
+.\.venv\Scripts\python.exe scripts/check_runtime_environment.py
+.\.venv\Scripts\python.exe package_clean.py --dry-run
+.\.venv\Scripts\python.exe scripts/refresh_project_docs.py
+.\.venv\Scripts\python.exe scripts/check_project_memory_integrity.py
+.\.venv\Scripts\python.exe scripts/refresh_project_docs.py --check --check-links
+git diff --check
+```
 
-پیرو بازبینی عمیق و مجدد کلیهٔ بخش‌های کلاینت، رانتایم، آزمون‌ها و اسناد:
-1. **رفرش آنی تاریخچه در فرانت‌اند (`ui/src/BaleWorkspace.tsx`):** ارسال پیام و فایل با فراخوانی بلافاصلهٔ `fetchHistory` همراه شد تا کاربر بدون نیاز به انتظار برای پایان چرخهٔ Polling پنج‌ثانیه‌ای، پیام ارسالی را بلافاصله در تاریخچه مشاهده کند. همچنین وضعیت گفتگو و پیام‌ها در هنگام تغییر حساب فعال پاک‌سازی می‌شود.
-2. **ارتقای فیکسچر توسعهٔ مستقل (`ui/src/main.tsx`):** دیسکریپتور ماک بله در حالت توسعهٔ Vite از `runtime_enabled: false` به `runtime_enabled: true`، `onboarding_enabled: true` و `contract_verified` ارتقا یافت و با داده‌های ساختگی حساب و گفتگو، عملکرد بدون وابستگی به سرور پایتون تضمین گردید.
-3. **پایداری اسکریپت پیش‌نمایش (`tests/bale_ui_preview.py`):** قفل فایل دیتابیس SQLite روی ویندوز در هنگام پاک‌سازی دایرکتوری موقت برطرف شد و سرور پیش‌نمایش به صورت خودکار با پروب‌های HTTP صحه‌گذاری گردید.
-4. **همگام‌سازی کامل اسناد معماری:** تصمیم معماری شماره ۶۱ (ADR-61) در `ARCHITECTURE_DECISIONS.md` به همراه مستندات `PROJECT_SPECIFICATION.md`، `PROJECT_STRUCTURE.md`، `EDUCATION_SYSTEM_API_CONTRACT_v1.md`، `BALE_PROVIDER_DISCOVERY.md` و `CURRENT_SYSTEM_BASELINE.md` کاملاً منطبق شدند.
+آزمون محصولی/owner/Pilot: 24 تست مستقل؛ به‌علاوه آزمون migration. full Backend نهایی پس از آخرین source و rebuild wheel: `926 passed, 1 skipped, 1 warning` در 174.93s، exit=0. check، observability و build رابط کاربری exit=0؛ تمام runnerهای canonical مدل/قرارداد UI سبز شدند. runner phase11-onboarding ابتدا با الزام قدیمی disabled بودن بله exit=1 داشت و پس از اصلاح guard exit=0 شد. package dry-run با 345 فایل allowlisted و privacy scan exit=0؛ integrity/generator/link check سبز. هشدار شناخته‌شدهٔ websockets و اندازهٔ chunk اصلی Vite مانع build نبودند.
 
-## برنامهٔ Pilot زنده و ورودی‌های مورد نیاز
+## بازبینی F-098/V-233 — شکاف‌های مغفول و پذیرش مرورگری (2026-09-29)
 
-بخش توسعهٔ نرم‌افزاری و آفلاین کامل شده است. انجام Pilot زنده در حالت عملیاتی نیازمند فراهم شدن شرایط و تأیید صریح مالک در زمان اجرا است:
-1. **حساب مبدأ بله:** شماره تلفن و دسترسی برای دریافت کد تایید و رمز عبور دومرحله‌ای (بدون ثبت در اسناد و لاگ‌ها).
-2. **مخاطب آزمایشی مجاز:** شماره تلفن و نام مخاطب آزمایشی مورد تأیید مالک برای تست `add_contact_by_phone` و متعاقباً `remove_contact`.
-3. **تأییدیهٔ ارسال پیام آزمایشی:** تعیین دقیق متن و گیرندهٔ پیام آزمایشی برای بررسی `send_text` و بازخوانی (read-back).
-4. **محیط اجرایی:** در نبود این ورودی‌ها وضعیت در سطح `OFFLINE_COMPLETE / LIVE_PENDING_INPUT` باقی می‌ماند.
+ممیزی مستقل کد علیه مأموریت سه نقص واقعی و یک نقص ابزار پیدا کرد؛ هر چهار با آزمون RED بازتولید و سپس سبز شدند:
 
-## وضعیت پیش‌نیاز فاز بعدی (کلاینت وب — فاز P1)
+1. **Latch ناعادلانهٔ restore:** هر شکست restore — حتی تایم‌اوت و قطع حمل — حساب را برای همیشه `auth_state=invalid` می‌کرد و restore بعدی را قفل می‌کرد، در حالی که worker ممکن بود سالم بماند و خطای واقعی پوشانده می‌شد. اکنون فقط `bale_vault_locked`/`bale_session_invalid` invalid می‌شود؛ خطاهای حمل با `bale_restore_unavailable`/`bale_vault_missing` گزارش و وضعیت حفظ می‌شود؛ مسیر auto-restore worker هم فقط روی vault-locked latch می‌شود و کد واقعی را برمی‌گرداند.
+2. **دورزدن تأیید صریح M2M:** مسیر سازگاری `POST /api/v2/m2m/messenger-accounts/{id}/messages/send-text` به‌صورت خودکار `confirm:true` تزریق می‌کرد. تزریق حذف شد؛ بدون تأیید صریح `400 m2m_confirm_required` می‌دهد و قرارداد بخش 1b برای آن نوشته شد.
+3. **LIVE_UPDATES بدون پشتوانه (نقض B5):** قابلیت در manifest advertised بود ولی هیچ protocol/observation متصل نداشت و وضعیت آن صرفاً از declaration «supported» گزارش می‌شد. اکنون نویسندهٔ `record_messenger_capability_observation` در coordinator store وجود دارد، ران‌تایم بله هنگام start مشاهدهٔ `bale_updates_polling_transport` با قیود transport/dedup/scope ثبت می‌کند، snapshot قابلیت مشاهدهٔ واقعی را گزارش می‌کند و حلقهٔ polling UI روی `hasCapability('updates.live')` گیت خورده است.
+4. **نقص ابزار preview:** `bale_ui_preview.py` UPDATE برچسب‌ها را بدون commit می‌نوشت و labelهای fixture هرگز اعمال نمی‌شدند؛ commit اضافه شد.
 
-با تکمیل کلیهٔ بخش‌های B0 تا B6 و پایداری قراردادهای بله، نیازمندی‌های پایه برای مأموریت‌های برنامهٔ کلاینت وب (`WEB_CLIENT_PROGRAM.md`) فراهم گردیده است:
-- مدل مرجع‌های نوع‌دار بله (`bale:user:...`) و ایتا آمادهٔ ادغام در پروفایل‌های فرستندهٔ P1 هستند.
-- سرویس M2M دارای endpoint رسمی `prepare` و `resolve` جهت استفاده در خط لولهٔ OTP است.
-- نخستین اقدام پس از این مرحله: شروع فاز P1 کلاینت وب طبق `WEB_CLIENT_PHASE_01_CONTRACT_SENDER_PROFILE.md`.
+### پذیرش مرورگری B4 روی فیکسچر (V-233)
+
+`tests/bale_ui_preview.py` با API واقعی محصول، باندل build واقعی و backend مصنوعی (دو Bale/یک Eitaa، DB یک‌بارمصرف) در مرورگر IAB اجرا شد و همهٔ ردیف‌های ماتریس B3 را پوشش داد: بازکردن گفتگو و تاریخچه؛ **دریافت پیام `/__fixture__/receive` بدون reload در چرخهٔ polling با dedup**؛ ارسال با دیالوگ تأیید صریح و پیام صادقانهٔ «مشاهدهٔ گیرنده تأیید نشده»؛ تعویض حساب Alpha→Beta بدون هیچ نشت داده (وضعیت absent و wizard)؛ جریان کامل ورود start→code→رمز دومرحله‌ای→authenticated؛ هشدار صادقانهٔ گروه/کانال با ارسال غیرفعال؛ مخاطبین list/add-by-phone با نام/remove با تأیید؛ نمای تنظیمات با readiness حساب‌محور و دیالوگ credential سرویس با انتخاب bale به‌عنوان Provider و عضویت حساب‌های بله.
+
+محدودیت ابزار: کلیک‌های Playwright روی ListItemButton حین re-render دوره‌ای polling تایم‌اوت می‌شدند؛ اجرای گام‌ها با کلیک برنامه‌ای/رخداد کامل مکان‌نما ممکن شد — این محدودیت اتوماسیون است نه محصول، و تعامل واقعی کاربر از مسیر رویداد بومی عبور می‌کند.
+
+دروازه‌های نهایی این بازبینی: full Backend `947 passed, 1 skipped, 1 warning` در 211.15s، exit=0؛ focused بله/m2m `140 passed`؛ check/observability/phase11 (با چک جدید LIVE_UPDATES) exit=0؛ wheel بازسازی با SHA-256=`23285b0c…26002a0`؛ refresh/integrity/check/check-links/diff-check exit=0. شاهد مرورگر روی backend مصنوعی است و هرگز معادل Live نیست؛ دادهٔ عملیاتی دست نخورده باقی ماند.
+
+## Pilot آماده و خاموش
+
+اجرای پیش‌فرض زیر هیچ شبکه یا ورودی credential ندارد:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/bale_product_pilot.py
+```
+
+فقط برای نصب اصلی loopback و با `--allow-live --origin http://127.0.0.1:PORT --action ACTION` فعال می‌شود؛ هیچ اجرای زنده در این بازبینی انجام نشد. session/CSRF و شناسه/نام/متن خصوصی با prompt امن، بدون ذخیره/چاپ دریافت می‌شوند؛ redirect رد می‌شود و خطا یا اثر نامعلوم خودکار retry نمی‌شود. actionها status، restore، contacts، search، history، receive، import، add-id، send/read-back، media و remove هستند. restore/import/add-id/send/remove در همان گام تأیید خصوصی می‌خواهند؛ remove فقط برای contact ایجادشدهٔ همین Pilot مجاز است.
+
+ورودی‌های باقی‌مانده: نصب/revision هدف؛ حساب و گیرندهٔ آزمایشی مجاز؛ نام و متن مصوب؛ سقف عملیات؛ روش امن نشست اپلیکیشن و تأیید همان‌لحظهٔ هر عملیات واقعی. در نبود آن‌ها B6 Live باز می‌ماند. انتشار Git نیز به تصمیم مالک است: درخت کاری مشترک سه سناریوست (بازبینی V-230، کار موازی P1/P2 و این بازبینی) و جداسازی تمیز stage ممکن نیست؛ این مانع در F-095 و F-098 ثبت شده است. مادهٔ LOW باقی‌مانده از ممیزی (submission_reference تصادفی رسانه، صفحات‌بندی offset مخاطب، و شipping `bale_client/api_server.py` داخل wheel) در F-098 فهرست شده و معیار پذیرش را نقض نمی‌کند.
+قید تکمیلی V-255/F-101 (2026-10-01): نخستین ورود واقعی OTP در نصب تست جداگانه نشست را ذخیره کرد، اما خواندن گفتگوها به‌علت فرض نادرست Worker دربارهٔ اتصال WebSocket با `bale_not_connected` شکست خورد. اصلاح OTP و عامل دوم با آزمون RED→GREEN انجام شد؛ پس از راه‌اندازی دوباره، خواندن زندهٔ گفتگوها موفق بود. این شاهد ارسال/تغییر مخاطب یا پذیرش کامل B6 نیست.
+
+قید تکمیلی V-256/F-101 (2026-10-01): قطع دیرهنگام WebSocket دوباره همان خطا را پدید آورد. Worker اکنون با دریافت `bale_not_connected` اتصال را نامعتبر می‌کند تا درخواست بعدی از vault وصل شود؛ درخواست شکست‌خورده به‌طور خودکار replay نمی‌شود. بازیابی با آزمون آفلاین RED→GREEN ثابت شده؛ خواندن زنده پس از restart موفق بود، اما قطع و بازیابی زنده هنوز جداگانه مشاهده نشده است.
+
+قید تکمیلی V-257 (2026-10-01): مالک موفقیت خواندن، ارسال متن و مخاطبین را در نصب تست گزارش کرد؛ لاگ امن همان نصب دو ارسال متن، دو upsert و یک remove موفق و خواندن‌های موفق را ثبت کرده است. این پایلوت Live محدود است؛ read-back دقیق، دریافت به‌روزشده، جست‌وجو و بازیابی زنده پس از قطع هنوز شاهد جداگانه ندارند. پذیرش کامل بله و انتشار ثبت نشده‌اند.
+
+پیگیری F-102/V-260 (2026-10-01): پیام عمومی شکست پس از مدتی استفاده از نصب تست با `bale_rpc_error` در درخواست تکمیلی `GetContacts` هم‌بسته بود. کد قبلی در هر بازخوانی گفتگو مخاطبان را نیز می‌خواند؛ چند رد RPC با کد عددی ۸ دیده شد. درخواست اختیاری تکمیل نام اکنون cache و در خطای RPC غیرمسدودکننده است؛ UI خطای polling را پس از موفقیت پاک و در شکست‌های پی‌درپی کندتر تکرار می‌کند. پس از راه‌اندازی دوباره، بازخوانی‌های پیوستهٔ `dialogs.list` موفق بودند؛ هیچ عملیات mutation تازه‌ای برای این بررسی اجرا نشد. مرجع آزمون و مرز شاهد در V-260 است.
+
+پیگیری V-261 (2026-10-01): مالک جست‌وجوی موفق یک مخاطب موجود و دیدن دوبارهٔ پیام ارسالی قبلی در تاریخچهٔ نصب تست را تأیید کرد. رخدادهای امن خواندن با آن سازگارند، اما تطبیق محتوا بر شاهد مستقیم مالک تکیه دارد. هیچ دادهٔ خصوصی یا عملیات اثرگذار تازه ثبت/اجرا نشد. بازیابی گرم نشست و مسیر عمومی M2M هنوز مستقل‌اند.
+
+پیگیری V-262 (2026-10-01): در مشاهدهٔ دیرتر، خود `LoadDialogs` در چرخهٔ پنج‌ثانیه‌ای با کد ۸ به‌طور متناوب رد شد؛ بنابراین شاهد کوتاه پایداری V-260 برای پذیرش بلندمدت کافی نبود. UI فهرست گفتگوها را با cadence پایهٔ ۱۵ ثانیه و backoff ۳۰/۶۰ ثانیه از تاریخچهٔ گفتگوی باز با cadence پنج‌ثانیه‌ای جدا کرد؛ تب پنهان درخواست نمی‌فرستد و شکست گفتگو دیگر تاریخچه را متوقف نمی‌کند. UI check/observability/build سبزند. سرویس تست از وضعیت خاموش با همان Config و نشست قبلی بالا آمد؛ مالک بازگشت گفتگوها بدون کد ورود تازه را تأیید کرد و لاگ امن `dialogs.list` موفق با فاصلهٔ حدود ۱۵ ثانیه نشان داد. دوام بلندمدت نرخ تازه و بازیابی از قطع WebSocket در همان فرایند هنوز شاهد جدا می‌خواهند.

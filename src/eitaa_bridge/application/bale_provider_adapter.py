@@ -48,6 +48,10 @@ from ..providers.contracts import (
     SensitiveProviderValue,
 )
 
+_CONTACT_FALLBACK_MAX_ITEMS = 5000
+_CONTACT_FALLBACK_MAX_BYTES = 16 * 1024 * 1024
+_CONTACT_FALLBACK_MAX_TEXT_CHARS = 8192
+
 _PEER_KIND_BY_TYPE = {1: "private", 2: "group", 3: "channel"}
 _PEER_TYPE_BY_KIND = {"private": "user", "group": "group", "channel": "channel"}
 _UNCERTAIN_CODES = frozenset(
@@ -172,8 +176,10 @@ class BaleProviderApplicationAdapter:
             backend.deadline_unix_ms = context.deadline_unix_ms
 
     def _safe_client_failure(self, exc: Exception) -> ProviderExtensionError:
+        if isinstance(exc, ProviderExtensionError):
+            return exc
         code = str(getattr(exc, "code", "bale_api_error"))
-        safe_code = code if code.startswith("bale_") else "bale_api_error"
+        safe_code = code if (code.startswith("bale_") or code.startswith("provider_")) else "bale_api_error"
         return ProviderExtensionError(
             "The Bale provider operation failed safely.",
             safe_context={"provider": "bale", "reason_code": safe_code},
@@ -392,15 +398,51 @@ class BaleProviderApplicationAdapter:
         offset = 0
         if cursor is not None:
             selected = cursor.removeprefix("offset:") if cursor.startswith("offset:") else ""
-            if not selected.isdigit() or int(selected) >= 500:
+            if not selected.isdigit() or int(selected) < 0:
                 raise ProviderExtensionError("Unsupported contact cursor.", code="provider_cursor_invalid")
             offset = int(selected)
+        backend = self._get_backend()
         try:
-            items = await self._get_backend().list_contacts()
+            if hasattr(backend, "list_contacts_page"):
+                page_data = await backend.list_contacts_page(cursor=cursor, offset=offset, limit=limit)
+                raw_items = page_data.get("contacts", [])
+                next_cursor = page_data.get("next_cursor")
+            else:
+                items = await backend.list_contacts()
+                if not isinstance(items, list) or len(items) > _CONTACT_FALLBACK_MAX_ITEMS:
+                    raise ProviderExtensionError(
+                        "The Bale contact snapshot exceeds the supported offline bound.",
+                        code="provider_contact_snapshot_too_large",
+                    )
+                snapshot_bytes = 0
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    peer = item.get("peer")
+                    selected = {
+                        "peer": {key: peer.get(key) for key in ("id", "type")} if isinstance(peer, dict) else None,
+                        "name": item.get("name"),
+                        "local_name": item.get("local_name"),
+                    }
+                    if any(isinstance(value, str) and len(value) > _CONTACT_FALLBACK_MAX_TEXT_CHARS
+                           for value in (selected["name"], selected["local_name"])):
+                        raise ProviderExtensionError(
+                            "A Bale contact exceeds the supported snapshot text bound.",
+                            code="provider_contact_snapshot_too_large",
+                        )
+                    snapshot_bytes += len(json.dumps(selected, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+                    if snapshot_bytes > _CONTACT_FALLBACK_MAX_BYTES:
+                        raise ProviderExtensionError(
+                            "The Bale contact snapshot exceeds the supported byte bound.",
+                            code="provider_contact_snapshot_too_large",
+                        )
+                raw_items = items[offset:offset + limit]
+                next_offset = offset + len(raw_items)
+                next_cursor = f"offset:{next_offset}" if next_offset < len(items) else None
         except Exception as exc:
             raise self._safe_client_failure(exc) from None
         contacts = []
-        for item in items[offset:offset + limit]:
+        for item in raw_items:
             peer = item.get("peer") if isinstance(item, dict) else None
             if not isinstance(peer, dict) or int(peer.get("type") or 0) != 1:
                 continue
@@ -411,8 +453,7 @@ class BaleProviderApplicationAdapter:
                 f"bale:user:{peer_id}",
                 str(item.get("local_name") or item.get("name") or ""),
             ))
-        next_offset = offset + limit
-        return ProviderContactPage(tuple(contacts), next_cursor=f"offset:{next_offset}" if next_offset < min(len(items), 500) else None)
+        return ProviderContactPage(tuple(contacts), next_cursor=next_cursor)
 
     async def upsert_contact(
         self,
@@ -425,13 +466,17 @@ class BaleProviderApplicationAdapter:
         try:
             if identity.startswith("bale:user:"):
                 peer_id = _user_id_from_reference(identity)
-                existing = await self._get_backend().list_contacts()
-                created = not any(
-                    isinstance(item, dict)
-                    and isinstance(item.get("peer"), dict)
-                    and int(item["peer"].get("id") or 0) == peer_id
-                    for item in existing
-                )
+                backend = self._get_backend()
+                if hasattr(backend, "contains_contact"):
+                    created = not await backend.contains_contact(peer_id)
+                else:
+                    existing = await backend.list_contacts()
+                    created = not any(
+                        isinstance(item, dict)
+                        and isinstance(item.get("peer"), dict)
+                        and int(item["peer"].get("id") or 0) == peer_id
+                        for item in existing
+                    )
                 if created:
                     result = await self._get_backend().add_contact(peer_id)
                     if not result.get("added"):

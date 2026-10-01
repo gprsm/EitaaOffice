@@ -10,6 +10,8 @@ import asyncio
 
 import base64
 
+import json
+
 import os
 
 from pathlib import Path
@@ -29,6 +31,79 @@ from ..infrastructure.worker_ipc import IPC_PROTOCOL_VERSION, IpcEnvelope
 from ..providers.contracts import ProviderWorkerDispatchResult
 
 from .bale_account_owner import BaleAccountOwner
+
+
+_CONTACT_SNAPSHOT_MAX_ITEMS = 5000
+_CONTACT_SNAPSHOT_MAX_BYTES = 16 * 1024 * 1024
+_CONTACT_TEXT_MAX_CHARS = 8192
+_CONTACT_PAGE_MAX_BYTES = 300_000
+_CONTACT_PAGE_ENVELOPE_RESERVE = 8_192
+
+
+def _contact_offset(payload: Mapping[str, Any], *, default_limit: int = 100) -> tuple[int, int]:
+    offset = 0
+    cursor = payload.get("cursor")
+    if cursor is not None:
+        cursor_str = str(cursor).strip()
+        if not cursor_str.startswith("offset:") or not cursor_str[7:].isdigit():
+            raise WorkerIpcError("Invalid contact cursor.", code="provider_cursor_invalid")
+        offset = int(cursor_str[7:])
+    elif "offset" in payload:
+        value = payload["offset"]
+        if isinstance(value, bool):
+            raise WorkerIpcError("Invalid contact offset.", code="provider_cursor_invalid")
+        try:
+            offset = int(value)
+        except (ValueError, TypeError):
+            raise WorkerIpcError("Invalid contact offset.", code="provider_cursor_invalid") from None
+        if offset < 0:
+            raise WorkerIpcError("Invalid contact offset.", code="provider_cursor_invalid")
+    limit = payload.get("limit", default_limit)
+    if isinstance(limit, bool):
+        raise WorkerIpcError("Invalid contact limit.", code="provider_page_limit_invalid")
+    try:
+        limit = int(limit)
+    except (ValueError, TypeError):
+        raise WorkerIpcError("Invalid contact limit.", code="provider_page_limit_invalid") from None
+    if not 1 <= limit <= 500:
+        raise WorkerIpcError("Invalid contact limit.", code="provider_page_limit_invalid")
+    return offset, limit
+
+
+def _bounded_contact_page(items: list[dict[str, Any]], *, offset: int, limit: int) -> dict[str, Any]:
+    if len(items) > _CONTACT_SNAPSHOT_MAX_ITEMS:
+        raise WorkerIpcError(
+            "The Bale contact snapshot exceeds the supported offline bound.",
+            code="provider_contact_snapshot_too_large",
+        )
+    selected: list[dict[str, Any]] = []
+    selected_bytes = 2  # JSON array brackets.
+    for item in items[offset:offset + limit]:
+        item_bytes = len(json.dumps(item, ensure_ascii=True, separators=(",", ":")).encode("utf-8"))
+        candidate_bytes = selected_bytes + item_bytes + (1 if selected else 0)
+        if candidate_bytes + _CONTACT_PAGE_ENVELOPE_RESERVE > _CONTACT_PAGE_MAX_BYTES:
+            if not selected:
+                raise WorkerIpcError(
+                    "A Bale contact exceeds the supported IPC page size.",
+                    code="provider_contact_record_too_large",
+                )
+            break
+        selected.append(item)
+        selected_bytes = candidate_bytes
+    if not selected and offset < len(items):
+        raise WorkerIpcError(
+            "A Bale contact exceeds the supported IPC page size.",
+            code="provider_contact_record_too_large",
+        )
+    next_offset = offset + len(selected)
+    return {
+        "contacts": selected,
+        "total": len(items),
+        "offset": offset,
+        "limit": limit,
+        "next_cursor": f"offset:{next_offset}" if next_offset < len(items) else None,
+        "has_more": next_offset < len(items),
+    }
 
 
 
@@ -91,6 +166,68 @@ class BaleProviderProcessWorker:
         self._session_invalid = False
 
         self._media: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._contact_snapshot: list[dict[str, Any]] | None = None
+        self._contact_search_snapshot: tuple[str, list[dict[str, Any]]] | None = None
+
+    def _invalidate_contact_snapshots(self) -> None:
+        self._contact_snapshot = None
+        self._contact_search_snapshot = None
+
+    def _bounded_contact_snapshot(self, items: Any) -> list[dict[str, Any]]:
+        if not isinstance(items, list) or len(items) > _CONTACT_SNAPSHOT_MAX_ITEMS:
+            raise WorkerIpcError(
+                "The Bale contact snapshot exceeds the supported offline bound.",
+                code="provider_contact_snapshot_too_large",
+            )
+        normalized: list[dict[str, Any]] = []
+        snapshot_bytes = 0
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            peer = item.get("peer")
+            safe_peer = None
+            if isinstance(peer, dict):
+                safe_peer = {
+                    "id": peer.get("id") if isinstance(peer.get("id"), int) and not isinstance(peer.get("id"), bool) else None,
+                    "type": peer.get("type") if isinstance(peer.get("type"), int) and not isinstance(peer.get("type"), bool) else None,
+                }
+            names: dict[str, str | None] = {}
+            for field in ("name", "local_name"):
+                value = item.get(field)
+                if value is not None and not isinstance(value, str):
+                    value = str(value)
+                if isinstance(value, str) and len(value) > _CONTACT_TEXT_MAX_CHARS:
+                    raise WorkerIpcError(
+                        "A Bale contact exceeds the supported snapshot text bound.",
+                        code="provider_contact_snapshot_too_large",
+                    )
+                names[field] = value
+            selected = {"peer": safe_peer, **names}
+            snapshot_bytes += len(json.dumps(selected, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            if snapshot_bytes > _CONTACT_SNAPSHOT_MAX_BYTES:
+                raise WorkerIpcError(
+                    "The Bale contact snapshot exceeds the supported byte bound.",
+                    code="provider_contact_snapshot_too_large",
+                )
+            normalized.append(selected)
+        return normalized
+
+    def _contact_list_snapshot(self, deadline_unix_ms: int, *, refresh: bool = False) -> list[dict[str, Any]]:
+        if refresh:
+            self._contact_snapshot = None
+        if self._contact_snapshot is None:
+            items = self._run(self._owner().list_contacts(), deadline_unix_ms)
+            self._contact_snapshot = self._bounded_contact_snapshot(items)
+        return self._contact_snapshot
+
+    def _search_contacts_snapshot(self, query: str, deadline_unix_ms: int, *, refresh: bool = False) -> list[dict[str, Any]]:
+        cached = self._contact_search_snapshot
+        if refresh or cached is None or cached[0] != query:
+            if refresh:
+                self._contact_search_snapshot = None
+            items = self._run(self._owner().search_contacts(query), deadline_unix_ms)
+            self._contact_search_snapshot = (query, self._bounded_contact_snapshot(items))
+        return self._contact_search_snapshot[1]
 
 
 
@@ -128,9 +265,7 @@ class BaleProviderProcessWorker:
 
 
 
-    @staticmethod
-
-    def _run(operation: Any, deadline_unix_ms: int) -> Any:
+    def _run(self, operation: Any, deadline_unix_ms: int) -> Any:
 
         remaining = (deadline_unix_ms - int(time.time() * 1000)) / 1000
 
@@ -148,8 +283,10 @@ class BaleProviderProcessWorker:
 
             raise WorkerIpcError("Bale operation timed out.", code="bale_operation_timeout") from None
 
-        except WorkerIpcError:
+        except WorkerIpcError as exc:
 
+            if exc.code == "bale_not_connected":
+                self._authenticated = False
             raise
 
         except Exception as exc:
@@ -157,6 +294,9 @@ class BaleProviderProcessWorker:
             selected = getattr(exc, "code", "bale_api_error")
 
             safe_code = selected if isinstance(selected, str) and selected.startswith("bale_") and selected.replace("_", "").isalnum() else "bale_api_error"
+
+            if safe_code == "bale_not_connected":
+                self._authenticated = False
 
             raise WorkerIpcError("Bale provider request failed.", code=safe_code) from None
 
@@ -320,6 +460,8 @@ class BaleProviderProcessWorker:
 
             self._challenge = None
 
+            self._invalidate_contact_snapshots()
+
             self._lease.update_session_generation(generation)
 
             return ProviderWorkerDispatchResult({"session_generation": generation})
@@ -372,7 +514,9 @@ class BaleProviderProcessWorker:
 
             if result.get("authenticated") is True:
 
-                self._authenticated = True
+                # OTP saves a vault session but does not open the provider WebSocket.
+                # The first provider request must restore/connect on the owner loop.
+                self._authenticated = False
 
                 self._challenge = None
 
@@ -406,7 +550,8 @@ class BaleProviderProcessWorker:
 
             self._challenge = None
 
-            self._authenticated = True
+            # A successful second factor saves the session without connecting.
+            self._authenticated = False
 
             return ProviderWorkerDispatchResult({"step": "completed"})
 
@@ -471,6 +616,19 @@ class BaleProviderProcessWorker:
             try:
 
                 restored = self._run(self._owner().connect(subscribe=False), request.deadline_unix_ms)
+
+            except WorkerIpcError as exc:
+
+                if str(getattr(exc, "code", "")) == "bale_vault_locked":
+
+                    self._session_invalid = True
+
+                    raise WorkerIpcError("Session restore failed.", code="bale_session_invalid") from None
+
+                # Transport and timeout failures are not proof of session
+                # invalidity; surface the real code and let the caller retry.
+
+                raise
 
             except Exception:
 
@@ -554,9 +712,10 @@ class BaleProviderProcessWorker:
 
         if method == "bale.provider.media.content":
 
-            self._require_fields(payload, {"token"})
+            self._require_fields(payload, {"content_handle"})
 
-            item = self._media.get(payload["token"])
+            handle = self._text(payload["content_handle"], maximum=32)
+            item = self._media.get(handle)
 
             if item is None or item[0] <= time.monotonic():
 
@@ -593,34 +752,32 @@ class BaleProviderProcessWorker:
             return ProviderWorkerDispatchResult({"sent": result.get("sent") is True, "submission_reference": f"bale:submission:{uuid4().hex}"})
 
         if method == "bale.provider.contacts.query":
+            offset, limit = _contact_offset(payload, default_limit=500)
+            items = self._contact_list_snapshot(request.deadline_unix_ms, refresh=offset == 0)
+            return ProviderWorkerDispatchResult(_bounded_contact_page(items, offset=offset, limit=limit))
 
-            self._require_fields(payload, set())
-
-            items = self._run(self._owner().list_contacts(), request.deadline_unix_ms)
-
-            return ProviderWorkerDispatchResult({"contacts": [
-
-                {"peer": item.get("peer"), "name": item.get("name"), "local_name": item.get("local_name")}
-
-                for item in items[:500] if isinstance(item, dict)
-
-            ]})
+        if method == "bale.provider.contacts.contains":
+            self._require_fields(payload, {"peer_id"})
+            try:
+                peer_id = int(payload["peer_id"])
+            except (ValueError, TypeError):
+                raise WorkerIpcError("Invalid peer id.", code="ipc_payload_invalid")
+            items = self._contact_list_snapshot(request.deadline_unix_ms, refresh=True)
+            exists = any(
+                isinstance(item, dict)
+                and isinstance(item.get("peer"), dict)
+                and int(item["peer"].get("id") or 0) == peer_id
+                for item in items
+            )
+            return ProviderWorkerDispatchResult({"exists": exists})
 
         if method == "bale.provider.contacts.search":
-
-            self._require_fields(payload, {"query"})
-
+            optional_page_fields = set(payload) & {"cursor", "limit"}
+            self._require_fields(payload, {"query", *optional_page_fields})
             query = self._text(payload["query"], maximum=128)
-
-            items = self._run(self._owner().search_contacts(query), request.deadline_unix_ms)
-
-            return ProviderWorkerDispatchResult({"contacts": [
-
-                {"peer": item.get("peer"), "name": item.get("name"), "local_name": item.get("local_name")}
-
-                for item in items[:500] if isinstance(item, dict)
-
-            ]})
+            offset, limit = _contact_offset(payload)
+            items = self._search_contacts_snapshot(query, request.deadline_unix_ms, refresh=offset == 0)
+            return ProviderWorkerDispatchResult(_bounded_contact_page(items, offset=offset, limit=limit))
 
         if method == "bale.provider.contacts.add_phone":
 
@@ -635,6 +792,8 @@ class BaleProviderProcessWorker:
                 raise WorkerIpcError("Invalid Bale phone identity.", code="bale_phone_invalid")
 
             result = self._run(self._owner().add_contact_by_phone(phone, name), request.deadline_unix_ms)
+
+            self._invalidate_contact_snapshots()
 
             users = result.get("users")
 
@@ -668,9 +827,13 @@ class BaleProviderProcessWorker:
 
                 result = self._run(self._owner().add_contact(user_id), request.deadline_unix_ms)
 
+                self._invalidate_contact_snapshots()
+
                 return ProviderWorkerDispatchResult({"added": result.get("added") is True})
 
             result = self._run(self._owner().remove_contact(user_id), request.deadline_unix_ms)
+
+            self._invalidate_contact_snapshots()
 
             return ProviderWorkerDispatchResult({"removed": result.get("removed") is True})
 

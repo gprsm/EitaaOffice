@@ -38,6 +38,7 @@ F-091 hardening (2026-09-27):
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import threading
@@ -66,6 +67,14 @@ class AgentChatResponse:
     response: str
     session_id: str
     is_test_response: bool
+
+
+def pseudonymize_session_id(session_id: str) -> str:
+    """Derive a stable pseudonym for session_id to prevent raw session exposure to external models."""
+    if not session_id:
+        return ""
+    h = hashlib.sha256(f"ai-session-pseudonym:{session_id}".encode("utf-8")).hexdigest()
+    return f"sess_{h[:20]}"
 
 
 @runtime_checkable
@@ -144,7 +153,7 @@ class ConfigurableAgentAdapter:
             "model": self.model_name,
             "messages": conversation,
             "user": context.web_user_id,
-            "session_id": session_id
+            "session_id": pseudonymize_session_id(session_id),
         }
         headers = {
             "Authorization": f"Bearer {self.agent_api_key}",
@@ -169,10 +178,134 @@ class ConfigurableAgentAdapter:
         except Exception as e:
             raise BridgeError("Agent communication failed", code="agent_communication_failed") from e
 
+    @property
+    def is_warm(self) -> bool:
+        return self.http_client is not None and not self.http_client.is_closed
+
+    async def aclose(self) -> None:
+        if self.http_client is not None and not self.http_client.is_closed:
+            await self.http_client.aclose()
+
     async def health(self) -> bool:
         try:
             resp = await self.http_client.get(f"{self.agent_url}/health")
             return resp.status_code == 200
+        except Exception:
+            return False
+
+
+class LiveAiAgentAdapter:
+    """Egress adapter that dispatches prompts to the configured external AI model."""
+
+    is_test_adapter = False
+
+    def __init__(
+        self,
+        store: Any,
+        transport: httpx.AsyncBaseTransport | None = None,
+        custom_client: httpx.AsyncClient | None = None,
+    ):
+        self.store = store
+        self.transport = transport
+        self._custom_client = custom_client
+        self._client: httpx.AsyncClient | None = None
+        self._semaphore: asyncio.Semaphore | None = None
+        self._revision = 0
+
+    def _get_client_and_semaphore(self, settings: Any) -> tuple[httpx.AsyncClient, asyncio.Semaphore]:
+        if self._custom_client is not None:
+            if self._semaphore is None:
+                self._semaphore = asyncio.Semaphore(settings.concurrency_limit)
+            return self._custom_client, self._semaphore
+
+        if self._client is None or self._revision != settings.revision:
+            self._client = httpx.AsyncClient(
+                timeout=settings.timeout_seconds,
+                transport=self.transport,
+                follow_redirects=False,
+            )
+            self._semaphore = asyncio.Semaphore(settings.concurrency_limit)
+            self._revision = settings.revision
+        assert self._semaphore is not None
+        return self._client, self._semaphore
+
+    async def chat(
+        self,
+        message: str,
+        session_id: str,
+        context: AgentChatContext,
+        *,
+        history: list[dict[str, str]],
+    ) -> AgentChatResponse:
+        settings = self.store.get_settings()
+        if not settings.enabled:
+            raise BridgeError("AI connection is disabled", code="ai_connection_disabled")
+
+        if len(message) > settings.max_input_length:
+            raise BridgeError("Message too long", code="agent_message_too_long")
+
+        client, semaphore = self._get_client_and_semaphore(settings)
+        conversation = [
+            {"role": str(item.get("role") or "user"), "content": str(item.get("content") or "")}
+            for item in history[-context.max_context_messages:]
+        ]
+        conversation.append({"role": "user", "content": message})
+
+        if settings.provider_dialect == "openai_compatible":
+            payload = {
+                "model": settings.model_id,
+                "messages": conversation,
+                "user": context.web_user_id,
+                "session_id": pseudonymize_session_id(session_id),
+                "max_tokens": settings.max_output_tokens,
+            }
+        else:
+            payload = {
+                "model": settings.model_id,
+                "prompt": message,
+                "user": context.web_user_id,
+                "session_id": pseudonymize_session_id(session_id),
+            }
+
+        secret_key = self.store.get_secret_key()
+        headers = {"Content-Type": "application/json"}
+        if secret_key:
+            headers["Authorization"] = f"Bearer {secret_key}"
+
+        async with semaphore:
+            try:
+                resp = await client.post(settings.endpoint, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if not reply:
+                    raise BridgeError("Invalid response from agent", code="agent_invalid_response")
+                return AgentChatResponse(
+                    response=reply,
+                    session_id=session_id,
+                    is_test_response=False,
+                )
+            except BridgeError:
+                raise
+            except Exception as e:
+                raise BridgeError("Agent communication failed", code="agent_communication_failed") from e
+
+    @property
+    def is_warm(self) -> bool:
+        client = self._custom_client or self._client
+        return client is not None and not getattr(client, "is_closed", False)
+
+    async def aclose(self) -> None:
+        if self._custom_client is not None and hasattr(self._custom_client, "aclose"):
+            await self._custom_client.aclose()
+        if self._client is not None and not getattr(self._client, "is_closed", False):
+            await self._client.aclose()
+            self._client = None
+
+    async def health(self) -> bool:
+        try:
+            settings = self.store.get_settings()
+            return bool(settings.enabled and settings.connection_status in ("configured", "reachable"))
         except Exception:
             return False
 
@@ -549,6 +682,24 @@ class AgentChatSessionStore:
 # Process-wide chat adapter. The initial binding is the marked test adapter;
 # configure_default_adapter replaces it from an explicit configuration.
 default_agent_adapter: AgentAdapter = TestAgentAdapter()
+
+# Optional coordinator stores wired for AI settings & data policy
+ai_connection_store: Any = None
+ai_data_policy_store: Any = None
+
+
+def get_current_adapter() -> AgentAdapter:
+    """Return the active adapter: LiveAiAgentAdapter if AI connection is configured & enabled,
+    otherwise default_agent_adapter."""
+    global default_agent_adapter, ai_connection_store
+    if ai_connection_store is not None:
+        try:
+            settings = ai_connection_store.get_settings()
+            if settings.enabled and settings.endpoint:
+                return LiveAiAgentAdapter(ai_connection_store)
+        except Exception:
+            pass
+    return default_agent_adapter
 
 # How long a racing request waits for the first adapter attempt of the same
 # message id before failing with agent_reply_pending. Module attribute so

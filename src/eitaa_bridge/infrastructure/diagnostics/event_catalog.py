@@ -140,6 +140,11 @@ _DEFINITIONS: Final[tuple[EventDefinition, ...]] = (
     EventDefinition("service_credential_created", "service_credential", "succeeded", audit_required=True),
     EventDefinition("service_credential_revoked", "service_credential", "succeeded", audit_required=True),
     EventDefinition("service_credential_rotated", "service_credential", "succeeded", audit_required=True),
+    EventDefinition("service_sender_profile_updated", "service_credential", "succeeded", audit_required=True),
+    EventDefinition("service_sender_profile_removed", "service_credential", "succeeded", audit_required=True),
+    EventDefinition("ai_connection_settings_updated", "ai_connection", "succeeded", audit_required=True),
+    EventDefinition("ai_connection_probe_executed", "ai_connection", "succeeded", audit_required=True),
+    EventDefinition("ai_data_policy_updated", "ai_data_policy", "succeeded", audit_required=True),
 )
 EVENT_CATALOG: Final[dict[str, EventDefinition]] = {item.name: item for item in _DEFINITIONS}
 

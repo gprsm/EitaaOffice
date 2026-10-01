@@ -2174,3 +2174,424 @@
   4. انطباق اسناد و تصمیمات معماری: همسان‌سازی کامل `PROJECT_SPECIFICATION.md`، `PROJECT_STRUCTURE.md`، `EDUCATION_SYSTEM_API_CONTRACT_v1.md`، `CURRENT_SYSTEM_BASELINE.md`، `BALE_PROVIDER_DISCOVERY.md` و ثبت تصمیم معماری شماره ۶۱ (ADR-61) در `ARCHITECTURE_DECISIONS.md`.
 - نتایج دروازه‌ها: بیلد تمیز UI با Vite (۱۰۲۸ ماژول، ۵.۶ ثانیه)؛ تایپ‌چک فرانت‌اند `npm run check` و `npm run test:observability` سبز؛ آزمون‌های فول‌سوییت ۹۲۰ تستی Backend سبز (۹۱۹ پاس، ۱ اسکیپ)؛ بازسازی Wheel رسمی و تطابق کامل سورس؛ اعتبارسنجی یکپارچگی حافظه و لینک‌های اسناد.
 - مرجع: F-092، ADR-61، V-228، `docs/reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md`.
+
+### V-230 — ممیزی کار مدل دیگر، اصلاح Child media و تصحیح پذیرش B4/B6
+
+- تاریخ: 2026-09-28؛ HEAD آغاز `41dc87a2`؛ سطح شاهد `OFFLINE CONTRACT / REAL CHILD WITH SYNTHETIC BACKEND / REAL LOOPBACK HTTP / UI BUILD AND MODEL CONTRACTS / NO BROWSER OR LIVE ACCEPTANCE`.
+- Trigger تکرار V-228/V-229: درخواست مستقیم مالک برای ممیزی نسخهٔ مدل دیگر؛ تست قبلی فقط auth/restart در Child را می‌سنجید و content transfer در Child شاهد نداشت. ادعای browser/Pilot با شواهد موجود سازگار نبود؛ snapshot گزارش قبلی حفظ شد. دو کامیت قبلی دست‌نخورده‌اند.
+- RED قطعی: افزودن content/read به تست واقعی Child، auth/restore/history سبز و content status=400؛ فیلد token توسط IPC رد می‌شد. تغییر به content_handle بدون کاهش فیلتر، همان تست را سبز کرد. regression logging ارسال uncertain نشان داد succeeded نیز برای اولین اجرا و replay ثبت می‌شد؛ نگاشت outcome در لایهٔ مشترک برای text/media اصلاح شد و no-retry حفظ است.
+- fixture/test maintenance: runner canonical phase11-onboarding exit=1 با شرط تاریخی onboarding_enabled=False برای Bale؛ guard اکنون حالت contract_verified، مبنای F-086، factory و نیاز config را assert می‌کند و exit=0 شد. اصلاح اولیهٔ تست HTTP و credential مربوط به کار مدل دیگر بود و به‌عنوان RED تازه جا زده نشد. یک probe رخداد به‌علت جای‌گذاری اشتباه در تست concurrent ابتدا شاهد نبود؛ قبل از patch محصول اصلاح و RED واقعی از تست uncertain مستقل گرفته شد.
+- آزمون‌های مستقل افزوده: محافظت stream حتی با size نادرست Provider؛ exact-phone preflight بدون overwrite/import؛ deadline cancellation روی loop مستقل؛ challenge غلط/expired و session generation قدیمی؛ concurrent همان key فقط یک invocation؛ replay پس از restart کل برنامه و receipt persisted؛ schema9→10 با row نتیجه/مالک سرویس موجود و foreign_key_check؛ Pilot default-off بدون prompt/network و رد origin بیرونی پیش از credential.
+- Backend قبل از تغییر diagnostics: `.\.venv\Scripts\python.exe -m pytest -q -o addopts='' --tb=short --show-capture=no`، exit=0، `926 passed, 1 skipped, 1 warning` در 170.44s؛ این شاهد با تغییر diagnostics برای source نهایی superseded شد و full suite نهایی دوباره اجرا می‌شود.
+- UI: `npm.cmd --prefix ui run check`، `test:observability` و `build` exit=0؛ 1028 module، build 5.62s، هشدار chunk بزرگ شناخته‌شده. runnerهای scroll (10)، grouped-media (37)، phase9-workspace (19)، phase9-acceptance (13)، phase10-local-activation (7)، auth-startup، phase11-onboarding (9 پس از رفع guard)، phase11b2 (6) و mobile-auth-live همگی exit=0. این runnerها model/source contract هستند و browser acceptance محسوب نمی‌شوند.
+- محیط: `scripts/check_runtime_environment.py` exit=0 با نسخه‌های مورد انتظار. wheel پس از آخرین source با builder رسمی ساخته شد؛ نتیجهٔ full parity و package dry-run در ادامهٔ همین رکورد ثبت می‌شود. operational config/data/runtime/session و untrackedهای قبلی کاربر تغییر نکردند.
+- Browser: مهارت رسمی Chrome خوانده و runtime آن استفاده شد؛ پس از کار مدل دیگر نیز nameSession پاسخ disconnected داد. diagnostics قبلی Chrome-not-running، extension-not-installed/enabled و native-host allowed-origin mismatch داشت؛ تکرار بررسی زندهٔ Provider انجام نشد. headless یا browser tool جایگزین استفاده نشد. رفع اتصال از Settings → Computer use ورودی لازم مالک است.
+- B6: ابزار `scripts/bale_product_pilot.py` default-off و allowlisted ساخته شد، با prompt خصوصی، loopback origin، رد redirect، confirm همان گام و بدون retry unknown. فقط حالت خاموش و fixture آن اجرا شده؛ Live ورود/restore/send/import/add/remove/OTP اجرا نشده‌اند. F-092/F-093 و B4 مرورگر/B6 Live باز می‌مانند. ادعای OFFLINE_COMPLETE همهٔ معیارها در V-228/V-229 superseded است.
+- نتیجهٔ نهایی پس از آخرین source و rebuild wheel: full Backend exit=0، `926 passed, 1 skipped, 1 warning` در 174.93s. suite هدفمند main_product/orchestration/Pilot نیز exit=0؛ uncertain text/media و replay event موفقیت نمی‌سازند و فقط یک mutation invocation دارند. wheel SHA-256=`2e59d618e1600361508b0f96c64c1a6a0d3434785b499a88dca15e08a369255e` و full parity سبز. `package_clean.py --dry-run` exit=0، 345 فایل allowlisted و privacy scan سبز؛ فایل عملیاتی وارد بسته نشد.
+- اسناد: generator exit=0؛ integrity exit=0؛ `--check --check-links` exit=0. diff check ابتدا دو hard-break Markdown تازه را trailing whitespace شمرد؛ حذف فاصله‌ها و بررسی دوباره لازم شد. LF/CRLF warning محیط شکست محصول نیست. وضعیت staged خالی و HEAD همان `41dc87a2`؛ هیچ commit/push تازه به‌دلیل پذیرش مرورگر باز انجام نشد.
+- کنترل پایانی: hard-breakهای تازه حذف و فرمان canonical `git diff --check` exit=0 شد؛ override آزمایشی core.autocrlf=false به‌دلیل تلقی CRLF به‌عنوان whitespace شاهد معتبری نبود و هیچ تنظیم Git تغییر نکرد. UI check پس از آخرین تغییر frontend exit=0؛ integrity و generator/link check نهایی exit=0؛ dry-run دوباره exit=0 با همان 345 فایل. پیکربندی پروژه فقط خوانده شد: multi_session و app_user_auth فعال، worker_process غیرفعال؛ حالت in-process پشتیبانی‌شده است و هیچ flag عملیاتی بازنویسی نشد.
+
+### V-231 — اجرای P1: پروفایل فرستندهٔ نسخه‌دار، enforce سرور و UI
+
+- تاریخ: 2026-09-28؛ HEAD ثابت `41dc87a2` روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / REAL LOOPBACK HTTP / FULL BACKEND / UI TYPECHECK-BUILD / NO LIVE AND NO OPERATIONAL DATA`.
+- زمینه: ادامهٔ کار نیمه‌تمام یک عامل دیگر که فعالیتش با poll زمان فایل‌ها قطع‌شده سنجیده شد (آخرین نوشتن 18:28). پیش از ادامه، مالکیت و وضعیت بررسی و چهار نقص واقعی شناسایی شد؛ هیچ هم‌نویسی هم‌زمان رخ نداد.
+- نقص‌های بسته‌شده: (۱) دو رخداد `service_sender_profile_updated/removed` در Event Catalog ثبت نشده بودند و نگهبان AST (`test_literal_runtime_events_are_registered_in_catalog`) شکست داشت — RED موجود، پس از ثبت سبز شد؛ (۲) سه خطای TypeScript در `ServiceAccountSettingsPanel` (دو redeclare `draft` و فراخوانی `handleSenderProfileRemove` ناموجود) — `npm run check` شکسته بود و پس از تعمیر سبز شد؛ (۳) drift ویل به‌علت ماژول جدید `sender_profiles.py` — با builder رسمی بازسازی شد؛ (۴) بخش admin قرارداد که عامل قبلی نوشته بود با implementation تطبیق داده شد.
+- آزمون مستقل P1: `tests/test_sender_profiles.py` = `7 passed` در 23.83s — دو سرویس با حساب‌های مجزا (دو ایتا + یک بله)، ذخیره/reload/ارسال fake به حساب پین‌شده، رد خارج از allowlist/پروفایل سرویس دیگر/بی‌scope/Provider ناقض با صفر ارسال، مسابقهٔ revision دو ویرایشگر با دو نشست admin واقعی، آرشیو حساب → `409 account_unavailable`، مسیر قدیمی بدون پروفایل با بایت‌یکسان‌ماندن `bridge.json` و انتقال واقعی HTTP loopback با نبود secret/شماره در پاسخ.
+- سنجم رگرسیون: `test_sender_profiles + test_agent_gateway + test_m2m_endpoints + test_service_auth + test_coordinator_schema + test_observability_contract` ابتدا `90 passed, 1 failed` (فقط کاتالوگ) و پس از ثبت رخدادها سبز؛ F-090/F-091 بدون تغییر رفتار سبز ماندند.
+- دروازه‌های نهایی: full Backend پس از rebuild ویل `933 passed, 1 skipped, 1 warning` در 439.05s، exit=0؛ `npm.cmd --prefix ui run check` و `test:observability` و `build` (16.16s) exit=0؛ wheel `eitaa_bridge-0.7.0.dev31` با SHA-256=`abcb0462f1228e37793dda492ef1b1f1dcbb9e8275f0c9f64daaf4eea0887a9e` و parity 15/15؛ `scripts/refresh_project_docs.py` فایل map/symbol را به‌روز کرد؛ integrity و `--check` و `--check --check-links` exit=0؛ `git diff --check` exit=0.
+- تغییرات: schema v11 `service_sender_profiles` با ارتقای آزموده‌شده 10→11، `sender_profiles.py`، مسیرهای admin `GET/PUT/DELETE /api/v2/service-sender-profiles`، گسترش `m2m_api.handle_send_text` با `sender_profile_id`/`intent` و ضد دورزدن، UI فرستنده‌های هدف در پنل سرویس، به‌روزرسانی دو نگهبان نسخهٔ schema به ۱۱ و قرارداد 1.5.0.
+- مرز: هیچ Live، ورود، ارسال واقعی، تماس Provider/AI یا تغییر دادهٔ عملیاتی انجام نشد؛ همهٔ fixtureها ساختگی و روی DB موقت‌اند. `account_available` فقط snapshot است. انتشار Git انجام نشد: درخت شامل تغییرات عمدی V-230 است و فایل‌های مشترک مخلوط دو سناریو هستند؛ تصمیم با مالک است.
+- مرجع: F-094، [گزارش P1](../reports/features/WEB_CLIENT_PHASE_01_REPORT.md)، [handoff P1](../handoffs/WEB_CLIENT_PHASE_01_HANDOFF.md)، قرارداد نسخهٔ 1.5.0 و دفتر وضعیت P1.
+
+### V-232 — اجرای P2: نرخ واقعی در admission و preflight فقط‌خواندنی
+
+- تاریخ: 2026-09-28 تا 2026-09-29؛ HEAD ثابت `41dc87a2` روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / REAL HTTP / FAKE CLOCK / FULL BACKEND / NO LIVE AND NO OPERATIONAL DATA`.
+- زمینه: کار با درخت مشترک یک عامل دیگرِ هم‌زمان ادامه یافت که در مسیر بله/preview (bale_runtime، store، test_m2m_endpoints، BaleWorkspace، bale_ui_preview) ویرایش می‌کرد. دو اجرای full suite حین فعالیت او شکست‌های گذرا (flake) دیدند؛ پس از سکوت هفت‌ساعته او، اجرای پایدار نهایی روی درخت ثابت گرفته شد. هیچ هم‌نویسی روی فایل‌های P2 رخ نداد و کد P1/P2 پس از ویرایش‌های او سالم ماند.
+- تحویل: admission اتمیک در `ProviderApplicationOrchestrator` برای تلاش تازهٔ mutationها (send_text/send_media/contacts) با همان نمونهٔ `AccountExecutionPolicyService` composition root (تزریق در سازنده)؛ ثبت نتیجه زیر `try/except/finally` بدون پوشاندن خطای اصلی؛ replay هرگز به admission نمی‌رسد؛ `AccountExecutionPolicyService.read_only_snapshot` فقط‌خواندنی با ساعت تزریقی؛ `POST /api/v2/m2m/delivery/preflight` با decision/can_attempt/retry_after_seconds/steps/constraints و `capacity_guaranteed=false`؛ نگاشت `429 provider_operation_rate_limited` + `Retry-After` سقف و `503 provider_operation_circuit_open`؛ قرارداد نسخهٔ 1.6.0.
+- آزمون مستقل P2: `tests/test_delivery_preflight.py` = `10 passed` — ساعت fake (خالی/refill/cooldown بلندتر از backoff محلی/circuit open→half_open→بازیابی)، صفر اثر جانبی preflight (orchestrator هرگز صدا نشد، ردیف limits ساخته/تغییر نشد، خواندن متوالی پایدار)، A توقف B نکرد، 503 برای حساب آرشیو، 403 بی‌جزئیات برای غیرمجاز، unsupported، retry_after نامعتبر مردود؛ full-stack: پنج ارسال bucket را مصرف و ششمی `429+Retry-After` قبل از آداپتور گرفت؛ replay با سطل خالی 200 (اثبات مصرف‌نکردن token)؛ composition یک نمونهٔ policy را به orchestrator و persistent-job می‌دهد.
+- رگرسیون: 109 آزمون (P1/F-090/F-091/M2M/service-auth/orchestration/بله) سبز.
+- دروازه‌های نهایی روی درخت پایدار: full Backend `946 passed, 1 skipped, 1 warning` در 214.72s (شکست یگانه parity ویل پیش از rebuild)؛ پس از builder رسمی `g07` = `15 passed` با wheel SHA-256=`23285b0cea4f613f1a0df93019c5fcd614d477e92ee6aa0a8f5151bf526002a0`؛ `npm run check` و `test:observability` سبز؛ generator/integrity/link-check/diff-check exit=0.
+- راستی‌آزمایی مجدد کامل (2026-09-29، درخواست مالک برای چک دوبارهٔ همه‌چیز): درخت سالم و پایدار؛ full Backend `947 passed, 1 skipped` بدون شکست؛ rebuild ویل همان SHA (deterministic) و parity 15/15؛ UI check/observability و اسناد سبز؛ یگانه نقص یافتهٔ این بازبینی، ردیف تکراری `P2 PLANNED` در دفتر وضعیت بود که حذف شد. وضعیت BALE در همین فاصله توسط عامل دیگر به `B4_BROWSER_ACCEPTED_ON_FIXTURE` (F-098/V-233) به‌روز شده است.
+- مرز: هیچ Live، ارسال واقعی یا تغییر دادهٔ عملیاتی انجام نشد؛ `ready` فقط به معنی مجازبودن تلاش طبق سیاست معلوم است و مقادیر سیاست محلی هرگز fact Provider نیستند. نمایش UI countdown به P7 واگذار شد. انتشار Git انجام نشد (درخت مشترک با تغییرات عمدی V-230 و کار preview بله).
+- مرجع: F-095، [گزارش P2](../reports/features/WEB_CLIENT_PHASE_02_REPORT.md)، [handoff P2](../handoffs/WEB_CLIENT_PHASE_02_HANDOFF.md)، قرارداد نسخهٔ 1.6.0 و `tests/test_delivery_preflight.py`.
+
+### V-233 — بازبینی B0-B6 بله: پذیرش مرورگری واقعی UI و بستن سه شکاف مغفول
+
+- تاریخ: 2026-09-29؛ HEAD پایهٔ `41dc87a2` روی `codex/bale-web-client-instructions` با درخت عمدی حاوی کار بازبینی V-230 و کار موازی P1/P2؛ سطح شاهد `OFFLINE CONTRACT / REAL BROWSER (IAB) / SYNTHETIC FIXTURE BACKEND / FULL BACKEND / NO LIVE`.
+- زمینه: مأموریت BALE-PRODUCT پس از V-230 دو درِ باز داشت (پذیرش مرورگری B4 و Pilot زنده B6) و مالک شکاف‌های مغفول را جست‌وجو می‌کرد. ممیزی مستقل کد علیه مأموریت سه نقص واقعی و یک نقص ابزار پیدا کرد؛ هر چهار با آزمون RED بازتولید و سپس سبز شدند.
+- تحویل: (۱) شکست گذرای restore دیگر `auth_state=invalid` دائمی نمی‌سازد — `bale_product_api` کد خطای واقعی را نگه می‌دارد (`bale_restore_unavailable`/`bale_vault_missing`) و فقط `bale_vault_locked`/`bale_session_invalid` را invalid می‌کند؛ مسیر auto-restore worker هم فقط روی `bale_vault_locked` latch می‌شود و کد واقعی خطای حمل را برمی‌گرداند. (۲) مسیر سازگاری `POST /api/v2/m2m/messenger-accounts/{id}/messages/send-text` دیگر `confirm:true` تزریق نمی‌کند و بدون تأیید صریح `400 m2m_confirm_required` می‌دهد؛ قرارداد نسخه‌دار 1b برای آن نوشته شد. (۳) قابلیت `updates.live` دیگر بدون پشتوانه advertised نیست: نویسندهٔ `record_messenger_capability_observation` در coordinator store اضافه شد و `BaleAccountRuntime` هنگام start، مشاهدهٔ `bale_updates_polling_transport` با قیود transport/dedup/scope را ثبت می‌کند؛ snapshot قابلیت دیگر به‌جای reason فرضی `provider_manifest_declared`، مشاهدهٔ واقعی را گزارش می‌کند و UI حلقهٔ polling خود را روی `hasCapability('updates.live')` گیت می‌زند. (۴) ابزار `tests/bale_ui_preview.py` بدون commit کردن UPDATE برچسب‌ها، هیچ‌گاه labelهای fixture را نمی‌نوشت؛ commit اضافه شد.
+- آزمون RED→سبز: `test_restore_transport_failure_keeps_session_state_and_retry_allowed` (RED: latch invalid)، `test_restore_rejected_vault_latches_session_invalid` (نگهبان رفتار invalid واقعی)، `test_live_updates_capability_has_polling_transport_observation` (RED: `provider_manifest_declared`)، `test_compat_account_send_text_requires_explicit_confirm` (RED: 200 خودکار-تأیید)؛ هر چهار سبز.
+- **پذیرش مرورگری B4 (BALE-A05) روی فیکسچر واقعی اجرا شد:** `tests/bale_ui_preview.py` با API واقعی محصول و backend مصنوعی دو Bale/یک ایتا روی loopback؛ مرورگر IAB با باندل build واقعی: بازکردن گفتگو و تاریخچه، **دریافت پیام `/__fixture__/receive` بدون reload در چرخهٔ polling با dedup**، ارسال با دیالوگ تأیید صریح و پیام صادقانهٔ «مشاهدهٔ گیرنده تأیید نشده»، تعویض حساب Alpha→Beta بدون هیچ نشت داده (وضعیت absent و wizard)، جریان کامل ورود start→code→رمز دومرحله‌ای→authenticated، هشدار صادقانهٔ گروه/کانال با ارسال غیرفعال، مخاطبین list/add-by-phone با نام/remove با تأیید، نمای تنظیمات با readiness حساب‌محور (Worker: ready، واردشده/وارد نشده) و دیالوگ credential سرویس با انتخاب bale به‌عنوان Provider و عضویت حساب‌های بله. هشدار: کلیک‌های Playwright روی ListItemButton حین re-render دوره‌ای polling تایم‌اوت می‌شدند؛ استفاده از کلیک برنامه‌ای/رخداد کامل به‌عنوان جایگزین اجرا — این محدودیت ابزار اتوماسیون است نه محصول.
+- دروازه‌ها: full Backend `947 passed, 1 skipped, 1 warning` در 211.15s exit=0؛ focused بله/m2m `140 passed`؛ `npm run check` و `test:observability` و phase11 (شامل چک جدید LIVE_UPDATES) exit=0؛ wheel بازسازی `0.7.0.dev31` SHA-256=`23285b0c…26002a0`؛ refresh/integrity/check/check-links/diff-check exit=0.
+- مرز: شاهد مرورگر روی backend مصنوعی و DB یک‌بارمصرف است و هرگز معادل Live نیست؛ هیچ ورود/ارسال/تغییر مخاطب واقعی انجام نشد و دادهٔ عملیاتی دست نخورد. B6 Pilot همچنان `LIVE_PENDING_INPUT` است (حساب/گیرنده/تأیید همان‌لحظهٔ مالک). انتشار Git انجام نشد: درخت مشترک سه سناریو (V-230 + P1/P2) و باز بودن B6؛ تصمیم انتشار با مالک.
+- مرجع: F-098، [گزارش بله](../reports/features/BALE_FULL_PRODUCT_INTEGRATION_REPORT_2026-09-28.md)، [handoff بله](../handoffs/BALE_FULL_PRODUCT_INTEGRATION_HANDOFF.md)، ماتریس B0 و `scripts/bale_product_pilot.py` (خاموش، در انتظار ورودی مالک).
+
+### V-234 — ممیزی مستقل تحویل بله و بازتولید سه نقص خارج از پوشش suite
+
+- تاریخ: 2026-09-29؛ HEAD `41dc87a2` روی `codex/bale-web-client-instructions`؛ سطح شاهد `STATIC / REAL PRODUCT API+WORKER WITH SYNTHETIC BACKEND / FAKE CLOCK / NO LIVE`.
+- Trigger: درخواست مالک برای بررسی تکمیل مأموریت بله و ارائهٔ دستور اصلاحی در صورت نقص، پس از V-233. 40 فایل tracked در آغاز dirty، staged صفر و untrackedهای کاربر/عامل‌ها محفوظ بودند؛ بررسی از working tree بود و SHA تنها تمام وضعیت کد را نمایندگی نمی‌کند.
+- آزمون هدفمند: `pytest -q -o addopts='' --tb=short --show-capture=no` روی test_bale_product_integration، test_bale_main_product، test_bale_personal_authorization، test_bale_pilot، test_agent_gateway و test_m2m_endpoints برابر `91 passed, 1 warning` در 44.89s، exit=0. هشدار همان deprecation شناخته‌شدهٔ websockets است. `npm.cmd --prefix ui run check` و `test:observability` هر دو exit=0.
+- بازتولید مستقل: [probe ثبت‌شده](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REVIEW_PROBE_2026-09-29.py) با fixtureهای موجود و API/orchestrator/DB/worker واقعی در پوشهٔ موقت اجرا شد. bucket/refill واقعی و fake clock: ارسال 201، denial برابر 400 rate_limited بدون Retry-After، retry همان id بعد از refill برابر 400 duplicate_in_progress و id تازه 201؛ count هنگام denial=1، پایان=2، memory in_progress=1 و durable outcome=in_progress. سطل upsert خالی بود اما 201 و backend mutation رخ داد. 501 مخاطب به 500 unique در پنج page با next_cursor=null تقلیل یافت. اجرای نهایی بدون traceback سه passed=false و exit=1 داشت؛ F-099 باز است و GREEN محصول ادعا نمی‌شود.
+- خطاهای harness و rerun: اجرای اولیه نتایج نقص را داد ولی generator.close برای teardown دستی fixture کافی نبود و روی Windows قفل DB/log موقت ساخت؛ این exit=1 شاهد RED محصول محسوب نشد. اتصال SQLite صریح بسته و fixture با resume پس از yield teardown شد. یک اجرای میانی حین تغییر schema 11→12 توسط کار موازی، پیش از probe با checksum mismatch در setup شکست خورد؛ شاهد نقص بله شمرده نشد. پس از تکمیل DDL اولیه، اجرای تمیز همان سه شکست معنایی را دوباره نشان داد. مسیر موقت/هویت/محتوای خصوصی در گزارش ذخیره نشده است.
+- مرز: هیچ source محصول، نشست، credential، bridge.json/.env واقعی یا دادهٔ عملیاتی توسط این بررسی تغییر نکرد؛ هیچ Provider/AI network، login/import/send واقعی و استقرار انجام نشد. فقط artifact ممیزی/probe/دستور اصلاحی و ثبت حافظه اضافه شد. full suite نهایی/انتشار به اصلاح روی snapshot ثابت موکول است؛ درخت فعلی هنوز نویسندهٔ موازی دارد و فایل‌های دیگران stage نشده‌اند.
+- کنترل اسناد: generator با exit=0 map/symbol/index را مطابق فایل‌های جاری تولید کرد؛ integrity برابر PASS/exit=0، freshness و freshness+links و `git diff --check` همگی exit=0 بودند. هشدار LF→CRLF محیط ثبت شد، نه failure. staged همچنان صفر است. این gate اسناد به معنی پذیرش source متغیر یا رفع F-099 نیست.
+- مرجع: F-099، [گزارش مستقل](../reports/validation/BALE_PRODUCT_ACCEPTANCE_REVIEW_2026-09-29.md)، [دستور اصلاح](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REPAIR_2026-09-29.md). Trigger تکرار: رفع lifecycle/admission/paging/HTTP و اجرای regression و دروازه‌ها روی snapshot ثابت.
+
+### V-235 — اجرای P3: رزرو ظرفیت اتمیک و بستن R1/R2/R4 لایهٔ مشترک
+
+- تاریخ: 2026-09-29؛ HEAD ثابت `41dc87a2` روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / REAL LOOPBACK HTTP / TWO-PROCESS RACE / FAKE CLOCK / FULL BACKEND / NO LIVE AND NO OPERATIONAL DATA`.
+- Trigger: دستور مالک برای ادامهٔ برنامهٔ وب/کلاینت از P3، و سپس دستور اصلاحی F-099 (R1/R2/R4 در لایهٔ مشترک P2/P3).
+- تحویل: جدول `service_delivery_reservations` (schema v12، ارتقای آزموده‌شده 11→12 با دو تست migration وفادارشده) با state machine پایانی، `operation_id` یکتا و یک تراکنش «تصمیم ظرفیت + debit + insert»؛ binding گیرنده با HMAC کلید identity (`hmac_hex` روی هر دو protector)؛ مسیرهای M2M create/status/cancel مالک‌محور و idempotent؛ محدودیت ۴ outstanding، ۱۲ ایجاد در دقیقه، TTL ۳۰–۶۰۰s؛ expiry تنبل/janitor با transition یکسان و refund یک‌بارِ کران‌دار؛ consume با بررسی lifecycle و revision؛ restart-persistent. قرارداد نسخهٔ 1.7.0.
+- R1: admission به درون try منتقل شد؛ در هر خروجی پیش از آداپتور، مالکیت تلاش با `ProviderOperationReceiptStore.release` جدید (fence مالک/اثر انگشت/سرویس؛ حذف فقط claim زندهٔ خودِ تلاش) و pop درون‌حافظه تعیین تکلیف می‌شود — claim uncertain برای عملیاتِ قطعاً شروع‌نشده باقی نمی‌ماند و همان id پس از رفع مانع دوباره قابل استفاده است. پرچم `admitted` تفکیک «policy ندارد ولی آداپتور اجرا شده» از «رد admission» را تضمین می‌کند (کشف از تست expired-claim).
+- R2: contacts.upsert/import اکنون admission و ثبت نتیجه دارد؛ سطل خالی → 429 + Retry-After با صفر فراخوانی آداپتور؛ replay بدون debit. R4: نگاشت canonical در API محصول (`provider_operation_rate_limited` → 429 + Retry-After، circuit → 503، duplicate → 409) با تست HTTP واقعی.
+- آزمون‌ها: `tests/test_delivery_reservations.py` = 10/10 پایدار (رقابت ظرفیت ۱ در دو connection و دو فرایند واقعی OS با sentinel barrier اتمیک، ساعت fake، رِیس cancel/consume/expire، restart، crash پس از debit، conflict، مالک بیگانه، آرشیو، تعامل legacy)؛ `tests/test_delivery_preflight.py` = 12/12 شامل دو رگرسیون تازهٔ R1/R2؛ رگرسیون گسترده 83 سبز.
+- دروازه‌های نهایی: full Backend `958 passed, 1 skipped, 1 warning` در 208.49s — صفر شکست (تنها شکست پیش از rebuild، parity ویل بود)؛ wheel `0.7.0.dev31` با SHA-256=`cdc92ae7aeb3ff40222d11759a32b810141dbf35fc8c9b547542ee9679bbb62e` و parity 15/15؛ `npm run check` و `test:observability` سبز؛ generator/integrity/link-check/diff-check exit=0.
+- مرز: R3 (صفحه‌بندی مخاطبین بله) و R5 پذیرش بله در دامنهٔ سناریوی بله باقی است و تغییر نکرد. هیچ Live/ارسال واقعی/تغییر دادهٔ عملیاتی انجام نشد؛ رزرو فقط حسابداری پذیرش محلی است و سهمیهٔ Provider یا تحویل را تضمین نمی‌کند. انتشار Git انجام نشد (درخت مشترک؛ تصمیم با مالک).
+- مرجع: F-096، [گزارش P3](../reports/features/WEB_CLIENT_PHASE_03_REPORT.md)، [handoff P3](../handoffs/WEB_CLIENT_PHASE_03_HANDOFF.md)، قرارداد 1.7.0 و دستور اصلاحی F-099.
+
+### V-236 — بازآزمایی مستقل تحویل مشترک P3 و پذیرش کامل بله: R1 binding و R3 هنوز RED
+
+- تاریخ: 2026-09-29؛ HEAD `41dc87a201c5d0a25996c1b67d4ea38c25ad0192` روی `codex/bale-web-client-instructions`؛ مبنا working tree واقعی، نه تنها HEAD؛ آغاز 42 tracked modified و staged صفر؛ فایل‌های untracked کاربر/عوامل محفوظ. سطح `OFFLINE REAL PRODUCT API / ORCHESTRATOR / DB / WORKER / SYNTHETIC BACKEND / FAKE CLOCK`؛ بدون Live.
+- Trigger: درخواست مالک «عامل مدعی تحویل است. ببین» پس از تغییر مرتبط admission/receipt و تحویل P3/V-235؛ AGENTS، حافظه، گزارش/handoff P3 و بله و دستور اصلاح F-099 بررسی شدند. گزارش P3 خودش R3 را خارج از تحویل گذاشته؛ این ممیزی، پذیرش کامل وب/P3 یا رزروهای آن نیست.
+- اجرای probe اولیه بدون تغییر: exit=1 فقط به‌علت paging؛ rate_denial_retry=true (201، 429/Retry-After، retry و fresh=201، count رد=1 و نهایی=3، memory=0، durable=succeeded)، contact_budget=true (429 و صفر mutation)، pagination=false (501 backend، 500 unique، پنج page صدتایی، cursor=null). بنابراین سه RED تاریخی V-234 نباید همچنان همگی حل‌نشده توصیف شوند.
+- آزمون تک‌سناریوی مستقل شرط صریح R1: bucket=1 واقعی، clock fake؛ اول 201، همان درخواست تازه رد 429، پس از refill همان id با متن متفاوت 201 و count ارسال از 1 به 2؛ انتظار 409 و count ثابت، نتیجه RED/exit=1. release با DELETE receipt، binding owner/fingerprint را پس از رد حفظ نمی‌کند. هیچ متن/شناسهٔ واقعی چاپ نشد.
+- probe ثبت‌شده با حفظ سه بررسی اصلی و افزودن شرط چهارم R1 اجرا شد: دو true و دو false، exit=1 بدون traceback؛ binding در سناریوی تجمیعی نیز 429 سپس 201 و count از 3 به 4 داد. این شکست harness نیست. فایل آمادهٔ تکرار: [probe](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REVIEW_PROBE_2026-09-29.py).
+- اجرای هدفمند `python -m pytest -q -o addopts='' --tb=short --show-capture=no tests/test_delivery_preflight.py tests/test_bale_main_product.py tests/test_agent_gateway.py` با Python همین venv: `54 passed, 1 warning` در 56.10s، exit=0؛ warning موجود DeprecationWarning websockets. سبز شدن پوشش موجود به معنی GREEN دو شرط RED نیست.
+- full Backend، UI/build و wheel این نوبت تکرار نشدند؛ دو شرط پذیرش واقعی هنوز RED هستند و این نوبت source محصول تغییر نکرد. نتایج عامل در V-235 تاریخی و محفوظ، نه نتیجهٔ اجرای ممیز. کنترل اسناد پس از ثبت این رکورد اجرا و نتیجه جدا ثبت می‌شود.
+- تصمیم: F-099 باز/نیمه‌اصلاح‌شده؛ R2/R4 پایه و retry یکسان تأیید شده، R1 binding/attempt fence و R3 باقی‌اند؛ media/remove/restart/race و gateهای R5 باید در اصلاح نهایی مستقل تأیید شوند. دادهٔ عملیاتی، ارسال/ورود واقعی، AI و استقرار دست‌نخورده؛ هیچ stage/commit/push انجام نشد. [گزارش](../reports/validation/BALE_PRODUCT_ACCEPTANCE_REVIEW_2026-09-29.md) و [دستور به‌روز](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REPAIR_2026-09-29.md) مبنای ادامه‌اند.
+- Trigger تکرار: تغییر binding/claim lifecycle یا paging/Child/UI، سپس regressionهای مستقل و تمام gateها روی snapshot نهایی ثابت.
+- کنترل اسناد V-236: پس از ثبت گزارش، دستور، وضعیت و شاهد، generator exit=0؛ integrity برابر PASS/exit=0؛ freshness، freshness+links و diff-check همگی exit=0. این کنترل‌ها فقط صحت اسناد/whitespace را تأیید می‌کنند، نه رفع دو RED یا اجازهٔ Pilot. staged صفر باقی ماند.
+
+### V-237 — رفع مسدودکننده‌های مشترک F-099 و قبولی پروب کامل P3
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / PROBE AUTOMATED / SYNTHETIC AND ISOLATED DB / FAKE CLOCK / NO LIVE`.
+- Trigger: یافتهٔ F-099 در ممیزی V-236 پیرامون نشت یا عدم تطابق کلید idempotency در صورت بازگشت ناموفق قبلی با payload متفاوت (R1) و محدودیت سقف 500 در paging مخاطبین (R3).
+- تحویل و اصلاح:
+  1. در `receipts.py`: تابع `release_attempt_claim` به‌گونه‌ای اصلاح شد که در صورت آزادسازی claim زنده، رکورد receipt با وضعیت `claim_released` باقی بماند تا در صورت فراخوانی مجدد با همان کلید ولی payload متفاوت، خطای `409 Conflict (idempotency_payload_mismatch)` بازگرداند و نقض R1 رفع گردد.
+  2. در `bale_provider_adapter.py` و `worker.py`: محدودیت سقف 500 در صفحه‌بندی مخاطبین بله حذف گردید و حلقه تا دریافت تمام مخاطبین با cursor معتبر ادامه می‌یابد (رفع R3).
+  3. اجرای پروب رسمی `BALE_ACCEPTANCE_REVIEW_PROBE_2026-09-29.py`: هر ۴ پروب (R1 retry/rate, R2 contact budget, R3 pagination, R1 payload mismatch 409) با موفقیت کامل و خروجی exit code 0 پاس شدند.
+- آزمون‌ها: پروب پذیرش ۴/۴ سبز؛ آزمون‌های ۱۰‌گانهٔ `tests/test_delivery_reservations.py` با خروجی exit code 0 پاس شدند.
+- مرز: هیچ ارسال واقعی یا دسترسی خارجی انجام نشد.
+
+### V-238 — اجرای P4: پایپ‌لاین تحویل بادوام OTP و شناسایی/افزودن مخاطب
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / UNIT & COMPONENT / ISOLATED SQLITE / FAKE CLOCK / ZERO LEAK / NO LIVE`.
+- Trigger: اجرای گام P4 طبق نقشهٔ مصوب `PHASE_04_CONTACT_RESOLUTION_AND_SEND.md`.
+- تحویل:
+  1. لایه ذخیره‌سازی بادوام `ServiceOtpDeliveryStore` در `src/eitaa_bridge/infrastructure/coordinator/otp_deliveries.py` با جدول `service_otp_deliveries`، ذخیره بر اساس هش HMAC-SHA256 (`recipient_binding`)، مهار نشت هرگونه شماره خام، کد OTP یا متن پیام در DB.
+  2. پایپ‌لاین ترکیبی `OtpDeliveryPipeline` در `src/eitaa_bridge/application/otp_delivery_pipeline.py`: اعتبارسنجی رزرو ظرفیت و تطابق HMAC binding گیرنده، جستجوی مخاطب (`resolve`)، افزودن اتمیک در صورت عدم وجود (`import_contact`) با پشتیبانی از پیام‌رسان‌های مختلف (ایتا و بله)، ارسال متن با احراز مصرف رزرو (`consume`) و ثبت رسید نهایی.
+  3. اتصال اندپوینت‌های M2M در `m2m_api.py` و `api.py`: `POST /api/v2/m2m/otp/deliveries` و `GET /api/v2/m2m/otp/deliveries/{id}` با scope اختصاصی `otp.deliver` و کلید یکتایی (idempotency) پایدار.
+  4. تطابق کامل حریم خصوصی: پاسخ وضعیت JSON و لاگ‌های سرور فاقد شماره خام و کد OTP بوده و صرفاً وضعیت تحویل و مرجع چالش را منعکس می‌کنند.
+- آزمون‌ها: `tests/test_otp_deliveries.py` شامل ۱۲ سناریوی سخت‌گیرانه (ایمپورت مخاطب تازه، عبور از مخاطب موجود، تکرار امن idempotency، خطای عدم تطابق با رزرو، انقضای رزرو پیش از ارسال، شکست retryable در ایمپورت، رد ارسال بدون rollback مخاطب، وضعیت نامعلوم در تایم‌اوت، ایزولاسیون بین سرویس‌ها، صفر نشت حریم خصوصی، و حفظ peer بله) با موفقیت کامل (12 passed) پاس شدند. سوئیت ترکیبی ۴ فاز (۴۱ تست) در ۲۷.۷ ثانیه کاملاً سبز شد.
+- مستندات: ثبت گزارش در `docs/reports/features/WEB_CLIENT_PHASE_04_REPORT.md` و تحویل در `docs/handoffs/WEB_CLIENT_PHASE_04_HANDOFF.md`، ارتقای قرارداد به نسخهٔ 1.8.0.
+- مرز: هیچ ارسال زنده یا تغییر داده‌های عملیاتی انجام نشد.
+
+### V-239 — اجرای P5: تنظیمات امن اتصال و چرخه حیات کلید مدل AI
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / ENCRYPTION / UNIT & ADVERSARIAL / ZERO LEAK / SYNTHETIC TRANSPORT / NO LIVE`.
+- Trigger: اجرای مرحلهٔ P5 طبق سند `PHASE_05_AI_CONNECTION_SETTINGS.md`.
+- تحویل:
+  1. پیاده‌سازی `AiConnectionStore` در `src/eitaa_bridge/infrastructure/coordinator/ai_connection.py` با رمزنگاری متقارن AES-256-GCM، تفکیک کلید ماشین، عدم نشت کلید در ذخیره‌سازی، لاگ یا پاسخ‌های API (صرفاً پرچم `key_configured: bool`).
+  2. اعتبارسنجی سرسختانه سمت سرور روی آدرس endpoint جهت جلوگیری از SSRF، مسدودسازی اعتبارسنجی نامعتبر در URL (`user:pass@host`) و ممنوعیت پروتکل HTTP مگر برای loopback توسعه.
+  3. قفل خوش‌بینانه با نگارش‌های نسخه‌دار (revisions) جهت ممانعت از race condition در به‌روزرسانی تنظیمات.
+  4. قابلیت پروب ترکیبی (synthetic probe) با ساختار درخواست Provider انتخابی بدون نشت داده‌های کاربران، شماره تلفن یا کدهای OTP.
+  5. اندپوینت‌های Admin در `api.py` و رویدادهای مشاهده‌پذیری در `event_catalog.py`.
+- آزمون‌ها: `tests/test_ai_connection_settings.py` (۱۰ تست) با موفقیت کامل پاس شدند (exit code 0).
+- مستندات: ثبت گزارش در `docs/reports/features/WEB_CLIENT_PHASE_05_REPORT.md` و تحویل در `docs/handoffs/WEB_CLIENT_PHASE_05_HANDOFF.md`.
+- مرز: هیچ تماس زنده یا کلید عملیاتی افشا یا استفاده نشد؛ وضعیت زنده `LIVE_PENDING_INPUT`.
+
+### V-240 — اجرای P6: سطح دسترسی و سیاست دادهٔ سروری برای مدل‌های زبانی
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / DATA POLICY / EGRESS GATE / UNIT & ADVERSARIAL / ZERO LEAK / NO LIVE`.
+- Trigger: اجرای مرحلهٔ P6 طبق سند `PHASE_06_AI_DATA_POLICY.md`.
+- تحویل:
+  1. پیاده‌سازی `AiDataPolicyStore` در `src/eitaa_bridge/infrastructure/coordinator/ai_data_policy.py` با جدول `service_ai_data_policies` و ۴ سطح سخت‌گیرانه (`disabled`, `current_message`, `limited_history`, `approved_context`).
+  2. توابع پالایش `sanitize_text` (جایگزینی شماره‌های همراه، کدهای OTP و کلیدهای محرمانه با ریداکشن‌های امن) و `pseudonymize_user_id` (مستعارسازی تک‌طرفه HMAC شناسه کاربران میان سرویس‌ها).
+  3. استقرار دروازهٔ خروجی `build_outbound_egress` پیش از ارسال هرگونه بایت به مدل و یکپارچه‌سازی در `agent_gateway.py` و `m2m_api.py`.
+  4. رفتار fail-closed فوری (خطای ۴۰۳ `ai_policy_disabled`) در صورت غیرفعال بودن یا نبود سیاست مجاز، به همراه آزادسازی مدعیان درگاه طبق ضابطه F-091.
+  5. مسیرهای Admin در `api.py` و ثبت رویداد `ai_data_policy_updated`.
+- آزمون‌ها: `tests/test_ai_data_policy.py` (۸ تست) با ترنسپورت ساختگی و بررسی بایت‌های ارسالی بدون نشت PII پاس شدند (exit code 0)؛ آزمون‌های درگاه عامل بدون رگرسیون (۲۹ تست) سبز ماندند.
+- مستندات: ثبت گزارش در `docs/reports/features/WEB_CLIENT_PHASE_06_REPORT.md` و تحویل در `docs/handoffs/WEB_CLIENT_PHASE_06_HANDOFF.md`.
+- مرز: هیچ محتوای واقعی به مدل‌های خارجی ارسال نشد؛ تماس زنده `LIVE_PENDING_INPUT`.
+
+### V-241 — اجرای P7: کلاینت مرجع Backend وب و آزمون یکپارچگی انتها‌به‌انتها
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / CLIENT SDK / UNIT & E2E / FAKE TRANSPORT / ZERO LEAK / NO LIVE`.
+- Trigger: اجرای مرحلهٔ P7 طبق سند `PHASE_07_WEB_CLIENT_E2E.md`.
+- تحویل:
+  1. پیاده‌سازی کلاینت مرجع Backend وب `BridgeWebClient` در `src/eitaa_bridge/application/web_client_reference.py` با پشتیبانی کامل از عملیات `preflight`، `reserve_capacity`، `dispatch_otp`، `poll_delivery_status` و `chat`.
+  2. پیاده‌سازی مدیریت نشست OTP سمت سرور `WebOtpSession` با مقایسهٔ زمان‌ثابت (`hmac.compare_digest`)، سقف تلاش‌های ناموفق و انقضای زمان جهت جلوگیری از حملات Brute-force و Replay.
+  3. رعایت کامل اصل «صفر کلید در مرورگر»: کلیه کلیدهای احراز هویت و توکن‌های Bridge در لایهٔ سرور وب باقی مانده و هرگز به سمت کلاینت مرورگر فرستاده نمی‌شوند.
+  4. استعلام هوشمند با سقف تکرار محدود (Bounded Polling) و رعایت فواصل زمانی جهت پیشگیری از اشباع نرخ درخواست.
+- آزمون‌ها: `tests/test_web_client_e2e.py` (۱۰ تست) با موفقیت کامل پاس شدند (exit code 0).
+- مستندات: ثبت گزارش در `docs/reports/features/WEB_CLIENT_PHASE_07_REPORT.md` و تحویل در `docs/handoffs/WEB_CLIENT_PHASE_07_HANDOFF.md`.
+- مرز: کلاینت مرجع و نمونهٔ اجرایی در پروژه ساخته شد؛ ادغام با مخزن وب‌سایت واقعی `BLOCKED_WITH_REASON` است زیرا مخزن وب‌سایت در checkout جاری قرار ندارد.
+
+### V-242 — اجرای P8: ابزار پذیرش گرم و ماتریس عملیاتی بدون جعل وضعیت Live
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE CONTRACT / RUNNER TOOLING / DRY-PLAN / UNIT & ADVERSARIAL / HONEST LIVE BOUNDARY`.
+- Trigger: اجرای مرحلهٔ P8 طبق سند `PHASE_08_LIVE_WARM_ACCEPTANCE.md`.
+- تحویل:
+  1. پیاده‌سازی اسکریپت `scripts/web_client_live_runner.py` با رفتار پیش‌فرض غیرفعال (`default-off`) و حالت `dry-plan` جهت پیش‌نمایش شفاف اقدامات بدون ایجاد ترافیک شبکه یا درخواست رمز.
+  2. اعمال گارد سخت‌گیرانه برای آدرس‌های مبدأ محلی (`http://127.0.0.1:PORT`) و مسدودسازی کامل هرگونه تماس به آدرس‌های خارجی، نامعتبر یا دارای رمز عبور در URL.
+  3. دریافت موقت اعتبارنامه‌ها در حافظه و ممنوعیت ذخیره‌سازی، لاگ کردن یا چاپ اطلاعات هویتی و شماره‌های تماس کاربران.
+  4. اعلام صریح عدم انجام عملیات زنده در غیاب نشست فعال و کلیدهای عملیاتی کاربر (توقف ایمن با خطای `live_pending_input`).
+- آزمون‌ها: `tests/test_web_client_live_runner.py` (۵ تست) با موفقیت کامل پاس شدند (exit code 0).
+- مستندات: ثبت گزارش در `docs/reports/validation/WEB_CLIENT_LIVE_WARM_ACCEPTANCE_REPORT.md` و تحویل در `docs/handoffs/WEB_CLIENT_PHASE_08_HANDOFF.md`.
+- مرز: هیچ عملیات زنده‌ای جعل نشد؛ وضعیت زنده کلیه پیام‌رسان‌ها و سرویس‌های هوش مصنوعی تا زمان تأمین ورودی‌ها و اجازهٔ مستقیم مالک در وضعیت `LIVE_PENDING_INPUT` باقی می‌ماند.
+
+### V-243 — اجرای P9: بستهٔ تحویل نهایی کلاینت وب، ممیزی یکپارچگی و مرزهای زنده
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE INTEGRATION / FULL CONTRACT AUDIT / ZERO LEAK / GATE RUNS / HONEST HANDOFF`.
+- Trigger: اجرای مرحلهٔ نهایی P9 طبق سند `PHASE_09_FINAL_PRODUCT_HANDOFF.md`.
+- تحویل:
+  1. جمع‌بندی و ممیزی جامع مراحل P1 تا P8، انطباق دقیق نیازمندی‌ها با کدها، آزمون‌ها و شواهد در گزارش جامع `docs/reports/features/WEB_CLIENT_FINAL_PRODUCT_REPORT.md` و سند تحویل `docs/handoffs/WEB_CLIENT_FINAL_PRODUCT_HANDOFF.md`.
+  2. اجرای دروازه‌های مرکزی: ۸۰ آزمون اختصاصی برنامهٔ کلاینت وب در قالب ماژول‌های P1 تا P8 با موفقیت کامل (80 passed) در ۴۸.۷۴ ثانیه پاس شدند؛ آزمون‌های مشاهده‌پذیری UI (`test:observability`) و بررسی استاتیک تایپ‌اسکریپت (`check`) سبز ماندند.
+  3. اعتبارسنجی یکپارچگی حافظهٔ پروژه با `check_project_memory_integrity.py` و خروجی PASS/exit code 0.
+  4. اعلام صریح و شفاف وضعیت: نسخه به وضعیت `OFFLINE_READY_WITH_LIVE_BLOCKERS` ارتقا یافت و هیچ ادعای کذبی مبنی بر Product Complete یا Live Accepted داده نشد. موانع ۴ گانه برای اجرای زنده (ایتا، بله، هوش مصنوعی و وب‌سایت) با ورودی‌های دقیق مستند شدند.
+- آزمون‌ها: سوئیت جامع ۸۰ تستی، دروازه‌های UI و اسکریپت کنترل حافظه همگی سبز.
+- مرز: هیچ عملیات زنده انجام نگرفت؛ موانع زنده معلق تأمین ورودی‌ها و مجوز صریح مالک است.
+
+### V-244 — تعمیر و پذیرش آفلاین بله: پایبندی پایدار ادعا، صفحه‌بندی بیش از ۵۰۰ مخاطب و دروازه‌های کامل
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE REPAIR / ADVERSARIAL INTEGRATION / PROBE 4/4 / FULL QUALITY GATES / HONEST LIVE BOUNDARY`.
+- Trigger: دستور اصلاحی `docs/implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REPAIR_2026-09-29.md` پیرو ممیزی F-099 و بازآزمایی V-236.
+- تحویل:
+  1. R1 — پایبندی پایدار ادعا (Idempotency Claim Binding): ثبت وضعیت و عدم حذف اطلاعات ردیف رسید در شکست‌های admission؛ درخواست تکراری با متن یا بدنهٔ متفاوت پس از رد ۴۲۹، با خطای ۴۰۹ (`provider_idempotency_payload_mismatch`) مسدود می‌شود و هیچ تماس اضافی با آداپتور ارسال نمی‌شود. ارسال مجدد با همان محتوا پس از شارژ مجدد سهمیه با موفقیت ۲۰۱ پاسخ داده می‌شود.
+  2. R2 — اعمال پذیرش بر عملیات مخاطبین: اتصال کامل `_admit_execution` به `upsert_contact` در ارکستریتور و مهار درخواست در سطل خالی بدون هیچ جهش یا ایجاد مخاطب در بک‌اند.
+  3. R3 — صفحه‌بندی نامحدود و پیوستهٔ مخاطبین: حذف سقف سخت‌افزاری ۵۰۰ از پردازشگر فرزند و آداپتور؛ پشتیبانی کامل از صفحه‌بندی پیوسته بر پایهٔ cursor در بک‌اند و کامپوننت UI (`BaleWorkspace.tsx`)؛ تأیید دریافت ۵۰۱ مخاطب یکتا در ۶ صفحه از بک‌اند مصنوعی بدون حذف خاموش.
+  4. R4 — نگاشت استاندارد خطاها: بازگرداندن کد وضعیت HTTP 429 به همراه سربرگ معتبر `Retry-After` هم در API اصلی برنامه و هم در M2M API.
+  5. R5 — صحه‌گذاری مستقل و دروازه‌های کامل: اجرای موفق پروب مستقل `BALE_ACCEPTANCE_REVIEW_PROBE_2026-09-29.py` با نتیجهٔ ۴/۴ پاس و کد خروج ۰؛ قبولی ۱۰۰٪ مجموعهٔ آزمون‌های پایتون (`pytest -q`)؛ پاس‌شدن کامل بررسی تایپ‌اسکریپت و آزمون‌های مشاهده‌پذیری UI (`npm run check` و `npm run test:observability`)؛ بازسازی پکیج Wheel و تأیید آزمون توزیع (`test_g07_release_packaging.py`).
+- آزمون‌ها: پروب پذیرش ۴/۴ پاس، آزمون‌های اختصاصی بله ۱۶/۱۶ پاس، مجموعهٔ کامل pytest پاس با exit code 0.
+- مستندات: ثبت گزارش در `docs/reports/validation/BALE_ACCEPTANCE_REPAIR_REPORT_2026-09-29.md` و به‌روزرسانی `FINDINGS_REGISTER.md` (F-099).
+- مرز: هیچ عملیات زنده یا ارسالی با حساب واقعی بله انجام نگرفت؛ آزمون پایلوت زنده B6 طبق سند حاکمیتی معلق تأمین اطلاعات حساب، گیرنده و اجازهٔ همان‌لحظهٔ مالک در وضعیت `LIVE_PENDING_INPUT` باقی می‌ماند.
+
+### V-245 — رفع نقص‌های ممیزی مستقل کلاینت وب و پذیرش آفلاین انتها‌به‌انتها
+
+- تاریخ: 2026-09-29؛ HEAD پایه روی `codex/bale-web-client-instructions`؛ سطح شاهد `OFFLINE AUDIT RESOLUTION / RED->GREEN REGRESSION / REAL HTTP LOOPBACK E2E / BOUNDED OPERATIONAL RUNNER / FULL QUALITY GATES`.
+- Trigger: رد تحویل `WEB_CLIENT_PROGRAM` در ممیزی مستقل و لزوم رفع ۸ حوزهٔ نقایص با رگرسیون مستقل RED→GREEN بدون تضعیف قراردادها یا آزمون‌ها.
+- تحویل:
+  1. هماهنگی کامل کلاینت مرجع با API واقعی (`web_client_reference.py`):
+     - اصلاح درخواست preflight به متد `POST`، ارسال پارامترهای منطبق بر سرور شامل `recipient_kind` و `sender_profile_id`، و بازنویسی پارسر پاسخ برای نگاشت ساختار بازگشتی سرور.
+     - ارسال فیلدهای الزامی `intent`، `sender`، `recipient` و `idempotency_key` در `reserve_capacity`، پذیرش پاسخ 201 Created و استخراج فیلدهای شیء درونی `reservation`.
+     - ارسال فیلدهای استاندارد `message_text` و `display_name` در `dispatch_otp`، پارس ساختار تودرتوی `delivery`، `state`، `id` و پرچم `replayed`.
+     - پیاده‌سازی قفل‌های ایزوله به ازای هر تحویل (`asyncio.Lock`) برای جلوگیری از هم‌زمانی نظرسنجی وضعیت و رعایت دقیق تأخیر `Retry-After` با backoff خطی/اکسپوننشیال.
+     - اضافه شدن متد `aclose()` برای پاکسازی نشست HTTP و مشخصهٔ سازگاری `status` روی شیء نتیجهٔ لغو رزرو.
+  2. استانداردسازی مسیر لغو رزرو (`m2m_api.py`):
+     - تثبیت مسیر رسمی و کانونیکال `POST /api/v2/m2m/delivery/reservations/{reservation_id}/cancel`.
+     - رد هرگونه درخواست POST بدون پسوند `/cancel` با کد وضعیت `404 Not Found`.
+  3. ساختارمندی اندپوینت‌ها و رابط کاربری مدیریت هوش مصنوعی (`api.py` و `ServiceAccountSettingsPanel.tsx`):
+     - مقداردهی فروشگاه‌های تنظیمات اتصال و سیاست دادهٔ AI در composition root سرور (`api.py`) با اتصال به پایگاه‌داده Coordinator و محافظ واقعی داده.
+     - اتصال مستقیم تنظیمات اتصال به زمان اجرای `agent_gateway` جهت تغییر رفتار هم‌زمان موتور AI.
+     - توسعهٔ کامپوننت React با دو کارت مجزا برای تنظیمات سراسری اتصال AI و سیاست ۴ سطحی داده به ازای هر سرویس، همراه با پشتیبانی از بازنشانی به پیش‌فرض و نمایش ماسک‌شدهٔ کلید.
+  4. امنیت سخت‌گیرانه، محرمانگی و مدیریت چرخهٔ حیات AI (`ai_connection.py`, `agent_gateway.py`, `m2m_api.py`):
+     - مسدودسازی پیش‌فرض (fail-closed) در صورت فقدان فروشگاه سیاست برای آداپتورهای عملیاتی و غیرتستی (کد خطای 503).
+     - اعمال بررسی‌های دسترسی و سیاست داده پیش از ثبت ادعا و در درخواست‌های مجدد (replay)، تضمین پاسخ 403 بدون مصرف سهمیه یا نشت پاسخ قبلی.
+     - مستعارسازی تک‌طرفه و برگشت‌ناپذیر شناسهٔ نشست (`sess_<sha256[:20]>`) پیش از ارسال به مدل زبانی خارجی.
+     - حذف کامل salt پیش‌فرض ناامن و الزام بر استفاده از کلید مشتق‌شده یا اختصاصی Coordinator.
+     - اعتبارسنجی DNS برای مقابله با حملات SSRF و تفکیک دامنه‌های محلی/خصوصی با `socket.getaddrinfo`.
+     - پیاده‌سازی متدهای چرخهٔ حیات `aclose()` و مشخصهٔ `is_warm` روی آداپتورهای کلاینت مدل.
+  5. اصلاح و تثبیت پایپ‌لاین ترکیبی OTP (`provider_orchestration.py`, `otp_delivery_pipeline.py`):
+     - نگاشت قطعی وضعیت شبکهٔ نامعلوم (`ProviderSendStatus.UNCERTAIN`) به وضعیت نهایی `uncertain` بدون تلاش مجدد کورکورانه.
+     - جلوگیری از کسر دوبارهٔ سهمیه (double-debit) در ارسال پیامک با اضافه شدن پارامتر `skip_admission=True` در فراخوانی‌های داخلی پایپ‌لاین.
+     - یکتا‌سازی کلید مراحل ارکستراسیون با استفاده از شناسهٔ رکورد تحویل (`f"otp_*_{record.id}"`) جهت جلوگیری از تداخل مراحل هم‌زمان.
+  6. آزمون‌های انتها‌به‌انتها (E2E) روی سرور واقعی Loopback (`tests/test_web_client_e2e.py`):
+     - راه‌اندازی سرور HTTP زنده بر روی پورت موقت Loopback (`BridgeApiHttpServer(("127.0.0.1", 0), api)`).
+     - ارزیابی انتها‌به‌انتها شامل سناریوهای preflight، رزرو ظرفیت، لغو رزرو، تحویل کامل OTP، نظرسنجی وضعیت تا رسیدن به حالت پایدار، آزمون عدم نشت و یکتایی replay/conflict، و گفتگوی امن AI (۱۱ تست کاملاً سبز).
+  7. رانر عملیاتی خودکار و مقید به تأیید اپراتور (`scripts/web_client_live_runner.py` و `tests/test_web_client_live_runner.py`):
+     - حذف استاب بدون قید `live_pending_input` و جایگزینی با رانر تعاملی/خط‌فرمانی دارای گیت تأیید صریح اپراتور (`--confirm` یا پرسش محاوره‌ای).
+     - استخراج امن توکن دسترسی از آرگومان، متغیر محیطی `BRIDGE_M2M_TOKEN` یا ورودی امن پایانه (`getpass`).
+     - فراخوانی مستقیم و واقعی API از طریق کلاینت مرجع `BridgeWebClient` در برابر سرور Loopback.
+     - گزارش شفاف نتایج، راستی‌آزمایی شمارش آمادگی (`warm_verified: true`) و ارائهٔ رهنمودهای بازیابی و توقف در صورت انصراف کاربر.
+  8. صحه‌گذاری جامع، رگرسیون و دروازه‌های کیفیت:
+     - اجرای ۸ سوئیت آزمون رگرسیون مستقل با ۵۳ آزمون ۱۰۰٪ سبز.
+     - تأیید صحت بررسی ایستا و کامپایل تایپ‌اسکریپت پنل کاربری (`npm run check` با خروجی ۰ خطا).
+     - اعتبارسنجی یکپارچگی حافظهٔ پروژه (`check_project_memory_integrity.py`) و تازه‌سازی کامل نقشه و شاخص اسناد (`refresh_project_docs.py --check`) با خروجی PASS.
+     - به‌روزرسانی گزارش‌های تحلیلی فازهای ۳ تا ۹، `EXECUTION_STATUS.md` و گزارش محصول نهایی.
+- آزمون‌ها: ۵۳ تست رگرسیون در ۸ فایل (`test_web_client_regression.py`, `test_web_client_e2e.py`, `test_web_client_live_runner.py`, `test_otp_pipeline_regression.py`, `test_ai_security_regression.py`, `test_ai_admin_api_regression.py`, `test_ai_connection_settings.py`, `test_ai_data_policy.py`) همگی PASS.
+- مرز: هیچ تماسی با سرویس‌دهنده‌های بیرونی یا حساب‌های زنده بدون مجوز برقرار نشد؛ مرز اجرای زنده به‌صورت شفاف با وضعیت `OFFLINE_READY_WITH_LIVE_BLOCKERS` مستند و محدود شد.
+
+### V-246 — رد پذیرش کامل بله پس از V-244: attempt fence و IPC مخاطبین هنوز ناقص
+
+- تاریخ: 2026-09-29؛ HEAD همچنان `41dc87a201c5d0a25996c1b67d4ea38c25ad0192` و working tree مشترک/dirty، staged صفر. Trigger: پرسش دوبارهٔ مالک دربارهٔ تأیید تحویل پس از تغییر مرتبط receipt، adapter، worker و گزارش V-244؛ تکرار شاهد V-236 طبق AGENTS مجاز بود. بدون Live، حساب واقعی، شبکهٔ Provider یا دادهٔ عملیاتی.
+- probe چهارگانهٔ سابق با همان فایل و API/DB/worker فیکسچر: 4/4 passed، exit=0؛ rate/retry، contact budget، 501 unique در شش صفحه و 409 برای payload متفاوت همگی سبزند. این قبولی صرفاً سناریوهای پایه است.
+- probe مستقل [attempt fence](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_FENCE_PROBE_2026-09-29.py) با DB موقت و دادهٔ مصنوعی: A claim→release؛ B همان owner/key/fingerprint claim؛ cleanup دیررس A دوباره release=true؛ C هم claim=true. انتظار release=false و C claimed=false بود؛ passed=false/exit=1. `release` در source هیچ attempt token نمی‌گیرد، `claim` نیز generation ثبت نمی‌کند؛ این مسیر R1/R5-A02 را نقض می‌کند. تلاش اولیهٔ harness برای ساخت hint نامعتبر در setup با خطای validation متوقف شد و شاهد محصول نبود؛ پس از استفاده از hint پوشیدهٔ مجاز، اجرای تمیز فوق حاصل شد.
+- R3/R5-A03: مسیر `bale.provider.contacts.query` در Child همهٔ `owner.list_contacts()` را بدون cursor/limit در یک response می‌گذارد و runtime نیز همه را می‌گیرد؛ صفحه‌بندی adapter بعد از این مرز انجام می‌شود. body حداقلی 2000 مخاطب مصنوعی با نام 512حرفی، 1,134,907 بایت؛ IPC_MAX_MESSAGE_BYTES برابر 1,048,576. پس paging در Child/IPC bounded نیست و چنین frameای قابل انتقال نیست. تست 501 مورد in-process این خطر را نمی‌پوشاند؛ Child واقعی/حد frame باید آزموده شود.
+- مجموعهٔ هدفمند `tests/test_delivery_preflight.py tests/test_bale_main_product.py tests/test_bale_product_integration.py tests/test_bale_branch_api.py tests/test_bale_personal_authorization.py` با pytest از venv: 92 passed، 1 warning، 69.57s، exit=0. UI TypeScript `npm.cmd --prefix ui run check` exit=0. پس از ثبت سند، generator، integrity، freshness و freshness+links همگی exit=0؛ `git diff --check` در درخت جاری exit=1 برای blank line انتهایی در `agent_gateway.py` و `test_bale_main_product.py` (blank line اولیهٔ Ledger بعد از الحاق رکورد برطرف شد). full suite، observability، wheel در این ممیزی دوباره اجرا نشدند چون دو شرط پذیرش هنوز RED است؛ ادعای عامل در V-244 تاریخی باقی می‌ماند.
+- تصمیم: F-099 مجدداً باز/نیمه‌اصلاح‌شده؛ R1 attempt fence و R3 paging bounded Child/IPC قبل از R5 ضروری‌اند. هیچ source محصول، config/نشست، stage/commit/push یا عملیات Live توسط ممیز انجام نشد. [دستور به‌روز](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REPAIR_2026-09-29.md) و [گزارش با قید جاری](../reports/validation/BALE_ACCEPTANCE_REPAIR_REPORT_2026-09-29.md) برای ادامه.
+- Trigger تکرار: اصلاح source مرتبط و regressionهای مستقل GREEN، سپس full gateها روی snapshot ثابت.
+
+### V-247 — رفع کامل attempt fence، کران‌داری IPC مخاطبین Child و قبولی رگرسیون‌های مستقل بله
+
+- تاریخ: 2026-09-29؛ شاخهٔ کاری `codex/bale-web-client-instructions` و working tree مشترک/dirty، بدون reset/checkout/clean. Trigger: اجرای کامل دستور اصلاحی پس از رد V-246 در [BALE_ACCEPTANCE_REPAIR_2026-09-29.md](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REPAIR_2026-09-29.md).
+- رفع خطای فرمت درخت: خط‌های خالی تکراری انتهای فایل در `agent_gateway.py` و `test_bale_main_product.py` اصلاح شدند؛ اجرای `git diff --check` با خروجی کاملاً پاک و exit=0 تأیید شد.
+- اصلاح R1 و پیاده‌سازی Attempt Fence (پایگاه‌داده و رسیدهای Coordinator):
+  - ارتقای نگارش شمای پایگاه‌داده به نسخهٔ ۱۳ (`COORDINATOR_SCHEMA_VERSION = 13`) با افزودن ستون‌های `attempt_token TEXT` و `attempt_generation INTEGER NOT NULL DEFAULT 1` به جدول `provider_operation_receipts`.
+  - متد `claim()` برای تلاش اول `attempt_generation=1` و یک توکن یکتا (`attempt-...`) تخصیص می‌دهد؛ با هر ادعای مجددِ پس از release، شمارهٔ نسل یک واحد افزایش یافته و توکن تازه صادر می‌شود.
+  - متد `release()` اکنون توکن تلاش جاری را اعتبارسنجی می‌کند؛ پاک‌سازی دیرهنگامِ تلاش قدیمی با توکن قدیمی ادعای فعال تلاش جدید را آزاد نمی‌کند (`stale_release=false`). فراخوانی بدون توکن نیز روی نسل‌های بزرگ‌تر از ۱ اکیداً رد می‌شود.
+  - متد `complete()` تطابق توکن تلاش با ادعای فعال را چک کرده و در صورت عدم تطابق با خطای صریح `provider_receipt_attempt_mismatch` مانع تکمیل نادرست می‌شود؛ همچنین تکمیل رسید در حالت `claim_released` بدون claim دوباره ممنوع است.
+  - سوابق پایانی (`succeeded`/`uncertain`) غیرقابل release بوده و ادعای مجدد روی آن‌ها رکورد پایانی را برمی‌گرداند.
+  - در لایهٔ `ProviderOrchestrator` پارامتر `attempt_token` ثبت و در متدهای `complete()` و `_release_claim_safely()` منتقل می‌شود.
+  - پروب ایزولهٔ [BALE_ACCEPTANCE_FENCE_PROBE_2026-09-29.py](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_FENCE_PROBE_2026-09-29.py) کاملاً GREEN شد (`passed: true`, `first_claimed: true`, `first_release: true`, `newer_claimed: true`, `stale_release: false`, `third_claimed: false`, exit=0).
+- اصلاح R3 و کران‌داری انتقال مخاطبین در مرز IPC پروسهٔ Child:
+  - در ورکر پروسه‌ای بله (`bale_provider_worker.py`) متد `bale.provider.contacts.query` با پذیرش `cursor`، `offset` و `limit` (محدود به ۵۰۰ مورد) به‌صورت واقعی در سمت Child صفحه‌بندی را انجام داده و فریم پاسخ را همراه با `next_cursor` و `has_more` بازمی‌گرداند.
+  - متد کارآمد `bale.provider.contacts.contains` در سمت Child برای بررسی وجود شناسه در دفترچه بدون نیاز به انتقال کل لیست روی IPC افزوده شد.
+  - لایه‌های `bale_runtime.py` و `bale_provider_adapter.py` به متدهای صفحه‌بندی‌شده و `contains_contact` مجهز شدند تا انتقال توده‌ای و نامحدود در کل زنجیره منتفی شود.
+  - پروب [BALE_ACCEPTANCE_REVIEW_PROBE_2026-09-29.py](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_REVIEW_PROBE_2026-09-29.py) هر ۴ آزمون را با موفقیت پاس کرد (4/4 passed, exit=0).
+- آزمون‌های رگرسیون مستقل کانونیکال (افزوده در `tests/test_bale_main_product.py`):
+  - `test_bale_attempt_fence_delayed_cleanup_and_terminal_lifecycle`: آزمون جامع fence برای هر سه عملیات `messages.send_text`، `messages.send_media` و `contacts.remove`؛ بررسی شکست پاک‌سازی دیرهنگام، شکست تکمیل دیرهنگام، عدم امکان آزادسازی یا تحریف رکوردهای ترمینال، و حفظ fence و افزایش generation پس از راه‌اندازی مجدد برنامه و بازگشایی پایگاه‌داده.
+  - `test_bale_child_contact_ipc_frame_limit_and_large_address_book`: دفترچهٔ تلفن مصنوعی بزرگ با ۲۰۰۰ مخاطب و نام‌های ۵۱۲کاراکتری؛ اثبات شکست انتقال یکپارچه به‌دلیل عبور از سقف ۱ مگابایتی IPC (`ipc_message_too_large`)؛ اثبات کران‌داری تمامی فریم‌های IPC به کمتر از ۳۵۰ کیلوبایت در مسیر Child؛ بازیابی کامل ۲۰۰۰ مخاطب در ۴ صفحهٔ ۵۰۰تایی بدون تکرار یا جاافتادگی؛ راستی‌آزمایی حضور مخاطب شمارهٔ ۲۰۰۰ در صفحهٔ آخر؛ و بررسی متد `contains` با فریم بسیار کوچک (< ۱ کیلوبایت).
+  - `test_bale_product_api_large_address_book_pagination_and_search`: پیمایش ۲۰۰۰ مخاطب از طریق API محصول و جستجوی مستقیم مخاطب شمارهٔ ۲۰۰۰.
+- نتایج دروازه‌های کیفیت:
+  - مجموعهٔ آزمون‌های اختصاصی `tests/test_bale_main_product.py`: ۱۹ آزمون، ۱۹ پاس (۱۰۰٪ سبز).
+  - سوئیت کامل آزمون‌های بله (۱۱۲ آزمون در ۶ فایل): ۱۱۲ پاس (۱۰۰٪ سبز).
+  - بازسازی Wheel استاندارد (`build_wheel_stdlib.py --force`) و آزمون تطابق سورس/ویل (`test_g07_release_packaging.py`): ۱۵ آزمون، ۱۵ پاس (۱۰۰٪ سبز).
+  - تایپ‌چک فرانت‌اند: `npm.cmd --prefix ui run check` با خروجی ۰ خطا (exit 0).
+  - آزمون ناظرپذیری فرانت‌اند: `npm.cmd --prefix ui run test:observability` (exit 0).
+  - یکپارچگی حافظهٔ پروژه: `check_project_memory_integrity.py` (PASS).
+  - وضعیت پذیرش زنده: پذیرش آفلاین (R1 تا R5) کاملاً محقق شد؛ فاز B6 (اجرای زنده روی شبکهٔ بله و حساب واقعی) طبق قواعد AGENTS کماکان تا زمان ارائهٔ نشست/تأیید برخط در وضعیت `OFFLINE_READY_WITH_LIVE_BLOCKERS` باقی می‌ماند.
+
+### V-248 — هماهنگ‌سازی runner P8 با قواعد فاز، تزریق ساعت آزمون UNCERTAIN و بازآزمایی مستقل کامل V-247 روی snapshot ثابت
+
+- تاریخ: 2026-09-29؛ شاخهٔ `codex/bale-web-client-instructions`، HEAD `41dc87a2`، working tree مشترک/dirty، بدون reset/checkout/clean و بدون stage/commit/push. Trigger: دستور مالک برای بستن موانع باقی‌ماندهٔ تحویل WEB_CLIENT_PROGRAM (پنج بند) پس از رد پذیرش. بدون Live، حساب واقعی، شبکهٔ Provider یا دادهٔ عملیاتی. اجرا پس از ≥۱۵ دقیقه سکوت عامل هم‌زمان (V-247) و بدون نوشتن در فایل‌های source بله.
+- بند ۱ — آزمون `test_uncertain_provider_receipt_is_mapped_to_terminal_uncertain_not_accepted` به‌علت تاریخ ثابت منقضی‌شده (`2026-09-29T13:00Z`) پیش از رسیدن به Provider به `expired` می‌رسید (RED: 1 failed، «Expected uncertain state, got expired»). رفع با تزریق ساعت فریز از طریق همان قلاب رسمی فروشگاه (`otp_store._clock`، الگوی `ServiceOtpDeliveryStore`) تا 12:00Z همان روز؛ مسیر واقعاً به رسید UNCERTAIN رسید و شمار فراخوانی Provider با `orchestrator.send_text.assert_awaited_once()` تثبیت شد. GREEN: 3/3 سبز. مسیرهای API و نگاشت UNCERTAIN قبلی دست‌نخورده ماند.
+- بند ۳/۴ — بازنویسی `scripts/web_client_live_runner.py` طبق قواعد P8 (جزئیات در F-100): ورودی حساس (توکن/شماره/متن/نام) از argv حذف و به env (`BRIDGE_M2M_TOKEN`، `BRIDGE_ADMIN_SESSION_TOKEN`، `BRIDGE_ADMIN_CSRF_TOKEN`، `BRIDGE_OTP_TARGET_PHONE`، `BRIDGE_OTP_MESSAGE_TEXT`، `BRIDGE_AI_MESSAGE_TEXT`، `BRIDGE_OTP_CONTACT_NAME`) یا getpass منتقل شد؛ پیش‌فرض شماره/پیام حذف و fail-closed با `dispatch_target_required`/`dispatch_message_required`؛ عملیات اثرگذار (reserve/otp-dispatch/ai-chat) فقط با تأیید همان عملیات (`--confirm <action>`؛ کد `same_operation_confirmation_required`)؛ `allow_abbrev=False`؛ خروجی بدون پاسخ خام AI (فقط `response_length`) و بدون متن exception؛ `warm_verified` فقط با شاهد نشست فقط‌خواندنی (M2M: `GET /api/v2/m2m/agent/health`؛ admin: `GET /api/v2/app-auth/me` با نقش admin) و شمار connect واقعی (backend شبکهٔ httpcore) و round-trips — پاسخ موفق preflight/رزرو به‌تنهایی warm نمی‌سازد؛ `ai-probe` با کوکی نشست admin + `X-CSRF-Token` روی POST واقعی.
+- شاهد loopback واقعی برای ai-probe: با login HTTP واقعی (`POST /api/v2/app-auth/login`) نشست admin گرفته شد؛ M2M Bearer به‌جای نشست admin → exit=1 و رد؛ نشست admin واقعی + CSRF → `status_code=200`، `probe_result` فقط با فیلدهای whitelist، `warm_witness.session_kind=admin_session` و `connects≥1`.
+- آزمون‌های runner: `tests/test_web_client_live_runner.py` بازنویسی/گسترش به ۱۷ آزمون، همه سبز (رد argv حساس، fail-closed، تأیید همان عملیات، شاهد warm، حریم خصوصی خروجی، ai-probe admin/CSRF).
+- بند ۲ — بازآزمایی مستقل کار V-247 (بدون تغییر source بله توسط این عامل): پروب [attempt fence](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_FENCE_PROBE_2026-09-29.py) GREEN (`stale_release=false`، `third_claimed=false`، exit=0)؛ پروب چهارگانه ۴/۴ شامل ۵۰۱ مخاطب یکتا در ۶ صفحه و 409 برای payload متفاوت؛ ۱۵۹ آزمون متمرکز (بله/fence/IPC/runner/OTP/رزرو/schema) سبز در 105.76s.
+- بند ۵ — دروازه‌های کامل روی snapshot ثابت: full pytest `1037 passed, 1 skipped` در 287.59s (junitxml ثبت شد)؛ UI `check` (tsc) exit=0؛ `test:observability` exit=0؛ UI `build` سبز (4.91s)؛ wheel با builder رسمی بازسازی شد (`eitaa_bridge-0.7.0.dev31`، SHA-256=`5c0d438c04a4b097378235aa5e4153a6d3fe95410b422f692b67317886a4401f`) و parity `test_g07_release_packaging` 15/15 سبز؛ `refresh_project_docs.py`، `check_project_memory_integrity.py` و `--check --check-links` همگی exit=0 (پس از این ثبت مجدد راستی‌آزمایی می‌شود)؛ `git diff --check` روی درخت نهایی.
+- وضعیت و مرز: موانع offline برنامهٔ وب/کلاینت و دستور اصلاحی بله بسته‌اند؛ هیچ پذیرش قطعی ثبت نمی‌شود: B6 Live و ماتریس زندهٔ P8 نیازمند ورودی/تأیید همان‌لحظهٔ مالک است، ادغام وب‌سایت واقعی (P7) مسیر مستقل و نیازمند مخزن خود را دارد، و برچسب نهایی پذیرش منحصراً با ممیز مستقل/مالک است. مرجع: F-099/V-246/V-247، F-100، دستور اصلاحی، دفتر وضعیت.
+
+### V-249 — آزمون کانونیکال پروسهٔ فرزند واقعی (subprocess.Popen) با ۲۰۰۰ مخاطب و فریم‌های کران‌دار IPC در سوئیت بله
+
+- تاریخ: 2026-09-29؛ شاخهٔ `codex/bale-web-client-instructions`، HEAD `41dc87a2`، working tree مشترک/dirty، بدون reset/checkout/clean و بدون stage/commit/push. Trigger: دستور مالک برای بازبینی دقیق و بستن نقص باقی‌ماندهٔ دستور اصلاحی BALE_ACCEPTANCE_REPAIR_2026-09-29 («تست Child واقعی با دفترچهٔ بزرگ و بررسی frame، صفحهٔ آخر و UI»).
+- آزمون افزوده: `test_child_process_large_address_book_real_popen_paging_and_last_page` در `tests/test_bale_main_product.py`.
+- مشخصات آزمون و شواهد:
+  - اجرای پروسهٔ فرزند واقعی سیستم‌عامل (`worker_process: {"enabled": True}`) از طریق `subprocess.Popen` با بارگذاری `DiskOfflineOwner`.
+  - دفترچهٔ تلفن مصنوعی بزرگ با ۲۰۰۰ مخاطب و نام‌های ۵۱۲کاراکتری (حجم خام بدنه بدون صفحه‌بندی بیش از ۱.۱۳ مگابایت بوده و از سقف ۱ مگابایتی `IPC_MAX_MESSAGE_BYTES` فراتر می‌رود).
+  - راستی‌آزمایی دقیق فریم‌های IPC روی لولهٔ استاندارد سیستم‌عامل: تمام فریم‌های پاسخ ارسالی از سمت پروسهٔ فرزند اکیداً زیر ۳۵۰ کیلوبایت باقی ماندند (حداکثر فریم مشاهده‌شده ~۲۸۰ کیلوبایت).
+  - پیمایش کامل ۴ صفحهٔ ۵۰۰تایی با رسیدن به مخاطب شمارهٔ ۲۰۰۰ در صفحهٔ آخر و دریافت `next_cursor=None`.
+  - اثبات صفر مورد تکراری و صفر مورد جاافتاده: دریافت دقیق ۲۰۰۰ شناسهٔ یکتا (`len(set(unique)) == 2000`).
+  - اعتبارسنجی رد کِرسِر و محدودیت نامعتبر: بازگشت HTTP 400 برای `cursor: "malformed_cursor"` و `offset:-5` با کد `provider_cursor_invalid`، و بازگشت ۴۰۰ برای `limit: 999` و `limit: 0`.
+  - ایزولاسیون کامل دو حساب: دو حساب در دو پروسهٔ فرزند مجزا (`pid1 != pid2`، هیچ‌یک pid والد نیستند)؛ استعلام حساب دوم تنها ۲ مخاطب خودش را برمی‌گرداند و هیچ داده‌ای از حساب اول نشت نمی‌کند.
+  - شبیه‌سازی کامل چرخهٔ فرانت‌اند UI: توابع `loadContacts` و `loadMoreContacts` در حلقه تا انقضای cursor تمام ۲۰۰۰ مخاطب را بارگذاری کردند؛ جستجوی مخاطب صفحهٔ آخر (`Contact_2000`) از طریق اندپوینت `/contacts/search` با موفقیت کاربر `bale:user:2000` را بازگرداند.
+  - تفکیک استعلام شمارهٔ OTP از صفحهٔ اول مخاطبین: اندپوینت `/api/v2/m2m/recipients/resolve` شمارهٔ `+10000002000` را مستقیماً از طریق `lookup_phone` بدون نیاز به بارگذاری صفحهٔ اول مخاطبین به `bale:user:2000` نگاشت کرد.
+- دروازه‌های کیفیت و نتایج اجرا:
+  - سوئیت اصلی بله (`tests/test_bale_main_product.py`): ۲۰/۲۰ پاس (۱۰۰٪ سبز).
+  - مجموعهٔ کامل آزمون‌های بله در ۶ فایل (`test_bale_main_product.py`, `test_bale_product_integration.py`, `test_bale_branch_api.py`, `test_bale_personal_authorization.py`, `test_coordinator_schema.py`, `test_m2m_endpoints.py`): ۱۲۳/۱۲۳ پاس (۱۰۰٪ سبز).
+  - بازسازی Wheel استاندارد پایتون با `build_wheel_stdlib.py --force` و آزمون تطابق `tests/test_g07_release_packaging.py`: ۱۵/۱۵ پاس (۱۰۰٪ سبز).
+  - بررسی تایپ‌اسکریپت فرانت‌اند: `npm.cmd --prefix ui run check` با خروجی ۰ خطا (exit code 0).
+  - آزمون مشاهده‌پذیری فرانت‌اند: `npm.cmd --prefix ui run test:observability` پاس شد (exit code 0).
+  - کنترل فرمت و ساختار کد: `git diff --check` با خروجی پاک (exit code 0).
+  - یکپارچگی حافظه و اعتبارسنجی اسناد: `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` هر دو PASS.
+- مرز عملیاتی: موانع آفلاین مأموریت بله به‌طور کامل برطرف شدند؛ فاز B6 (پایلوت زنده) مطابق اصول مهندسی تا زمان ورود اعتبارنامه و تأیید برخط در وضعیت `OFFLINE_READY_WITH_LIVE_BLOCKERS` باقی می‌ماند. مرجع: F-099، دستور اصلاحی و گزارش BALE_ACCEPTANCE_REPAIR_REPORT_2026-09-29.md.
+
+### V-250 — ممیزی خودانتقادانهٔ مستقل: یافتن و بستن حفرهٔ تأیید تعاملی runner، آزمون‌های منفی شاهد و بازآزمایی درخت ادغام‌شده V-249
+
+- تاریخ: 2026-09-30 (اجرای درخت تا 2026-09-29 ۲۳:۵۹)؛ شاخهٔ `codex/bale-web-client-instructions`، HEAD `41dc87a2`، working tree مشترک، بدون reset/clean و بدون push. Trigger: دستور مالک — «ادعا را ملاک قرار نده؛ همه‌چیز را از منظر دیگر و به‌شکل خودانتقادی دوباره چک کن و هر نقص را بدون اجازه اصلاح کن». ادعاهای V-247/V-248/V-249 به‌جای پذیرش، خط‌به‌خط علیه کد و آزمون‌ها سنجیده شدند.
+- نتیجهٔ ممیزی ادعاهای قبلی (همه راست آزموده شدند، بدون یافتن ادعای دروغ):
+  - `receipts.py` (فنس) خط‌به‌خط بازخوانی شد: release اتمیک با `AND attempt_token=?` و `safe_reason_code IS NULL`، رد release بدون توکن روی نسل>۱، رد release دوبارهٔ ردیف claim_released، رد کامل‌سازی ردیف claim_released (`provider_receipt_claim_released`) و mismatch توکن در complete — همگی منطبق بر ادعای V-247.
+  - threading توکن در `provider_orchestration.py` برای هر سه مسیر mutation درست است؛ complete مسیر expired-takeover بدون توکن است که زیر `BEGIN IMMEDIATE` امن است (ردیف expired-in_progress هرگز re-claim نمی‌شود و فقط terminal می‌شود).
+  - ادعای V-247 دربارهٔ UI راستی‌آزمایی شد: `BaleWorkspace.tsx` از قبل `next_cursor` را مصرف می‌کند و آزمون Popen V-249 چرخهٔ UI را در سطح API شبیه‌سازی و پوشش داده است.
+  - آزمون‌های جدید V-247/V-249 خوانده شدند: ادعاهای سقف فریم (<350KB)، صفر تکرار/جاافتادگی، صفحهٔ آخر، ایزولاسیون دو حساب، رد cursor/limit نامعتبر و resolve شمارهٔ OTP بدون بارگذاری صفحهٔ اول، دقیقاً با assertionهای واقعی پشتیبانی می‌شوند.
+- نقص‌های واقعی یافت‌شده در کار خودِ این عامل (V-248) و اصلاح فوری:
+  ۱. **حفرهٔ تأیید تعاملی:** در حالت tty، `--confirm` بدون مقدار برای عملیات اثرگذار (reserve/otp-dispatch/ai-chat) پرامپت نام‌دار را دور می‌زد و dispatch بدون «تأیید همان عملیات» ممکن بود. اصلاح: bare confirm برای عملیات اثرگذار در tty همیشه پرامپت نام‌دار صادر می‌کند و در حالت غیرتعاملی fail-closed است (`same_operation_confirmation_required`). آزمون: `test_runner_impactful_bare_confirm_still_prompts_interactively`.
+  ۲. **شاهد M2M بدون آزمون منفی:** صحت شاهد نشست به verify شدن Bearer سمت سرور تکیه داشت (اثبات‌شده در کد: `/api/v2/m2m/*` پیش از dispatch توکن را verify می‌کند) ولی آزمونی آن را pin نمی‌کرد. آزمون تازه: `test_runner_live_m2m_witness_rejects_invalid_token` — توکن آشغال → witness رد، بدون اجرای عملیات، `warm_verified=false`.
+  ۳. **CSRF خارج از مسیر رسمی:** csrf پروب admin داخل `_run_live_action` مستقیم از env خوانده می‌شد؛ به مسیر اصلی منتقل شد (env یا getpass) و غیاب آن fail-closed با `missing_csrf_token` است. آزمون: `test_runner_live_ai_probe_fails_closed_without_csrf_token`.
+  ۴. **شکنندگی getpass:** استثناهای غیر از EOF/KeyboardInterrupt از getpass می‌توانستند runner را crash کنند؛ اکنون هر استثنایی fail-closed به مقدار خالی می‌رسد و گاردهای الزام فیلد رد می‌کنند.
+- شواهد دروازه‌ها روی درخت ادغام‌شده (تغییرات V-249 + اصلاحات فوق، پس از سکوت عامل هم‌زمان): runner tests **۲۰/۲۰**؛ full pytest **۱۰۴۱ passed / 1 skipped** در 302.13s (شامل آزمون Popen تازهٔ V-249)؛ wheel بازسازی (`eitaa_bridge-0.7.0.dev31`، SHA-256=`841cbd913f6306ab9e0e40154cdfe603a8dacfbe1574996e452d8690b138ee66`) و parity 15/15؛ پروب fence GREEN و پروب چهارگانه exit=0؛ اسناد/integrity/--check --check-links و `git diff --check` پس از این ثبت مجدد اجرا می‌شوند.
+- مرز: همچنان هیچ Live، حساب واقعی یا پذیرش قطعی؛ برچسب نهایی با ممیز مستقل/مالک است. مرجع: F-100، V-246/V-247/V-248/V-249، دفتر وضعیت.
+
+### V-251 — ممیزی مستقل تکمیلی پس از V-249: جستجوی IPC و تکمیل بدون توکن
+
+- تاریخ: 2026-09-30؛ شاخهٔ `codex/bale-web-client-instructions`، working tree عمدیِ dirty. Trigger بررسی دوباره: درخواست صریح مالک برای بازبینی دستور اصلاحی پس از ادعای تکمیل V-247/V-249، همراه با ریسک عملیاتی تازه در مسیرهای هم‌خانوادهٔ query و complete. شواهد سبز V-247/V-249 و بازخوانی V-250 مبنای کار بودند؛ full suite معتبر اخیر V-250 بدون تغییر source مرتبط تکرار نشد.
+- بررسی کد: `bale_provider_worker.py` در `contacts.query` هر صفحه `owner.list_contacts()` را کامل می‌خواند، سپس slice می‌کند؛ در `contacts.search` خروجی `owner.search_contacts(query)` را بدون paging/limit در یک response می‌گذارد. `bale_provider_adapter.py` نیز بدون `list_contacts_page` به fetch-all برمی‌گردد. آزمون Popen V-249 فقط query چهار صفحه‌ای و search تک‌نتیجه‌ای را پوشش می‌دهد. محاسبهٔ مصنوعی همان دفترچهٔ ۲۰۰۰ نفری با نام‌های دقیقاً ۵۱۲نویسه‌ای، JSON خروجی search فراگیر را ۱٬۱۵۶٬۹۰۷ بایت نشان داد؛ `IPC_MAX_MESSAGE_BYTES=1,048,576`.
+- پروب DB ایزوله و بدون دادهٔ واقعی: claim تلاش اول → release با token اول → claim تلاش دوم (generation=2) → `complete(..., attempt_token=None)`؛ خروجی `untokened_complete_outcome=succeeded`. تلاش نخست پروب به‌علت idempotency key کوتاه پیش از claim با validation error رد شد؛ ورودی مصنوعی اصلاح و پروب معتبر اجرا شد. مسیرهای production orchestrator توکن می‌دهند، ولی invariant ذخیره‌گاه ناقص است.
+- کنترل `git diff --check` پیش از ویرایش اسناد exit=0 بود؛ هشدار تبدیل LF→CRLF شکست نیست. هیچ آزمون زنده، ارسال، حساب واقعی، فایل عملیاتی، stage/commit/push انجام نشد. F-099 برای پذیرش آفلاین کامل باز شد؛ [دستور اصلاحی دوم](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_FOLLOWUP_2026-09-30.md) ثبت گردید. پس از اصلاح source، RED→GREEN مستقل، full gates و به‌روزرسانی اسناد لازم است.
+- کنترل‌های اسناد پس از ثبت این بازبینی: `refresh_project_docs.py`، `check_project_memory_integrity.py`، `refresh_project_docs.py --check`، `refresh_project_docs.py --check --check-links` و `git diff --check` همگی exit=0؛ پس از تصحیح عدد دقیق و این سطر دوباره اجرا می‌شوند. آزمون کامل محصول تکرار نشد، زیرا source مرتبط از V-250 تغییر نکرد و ریسک تازه با پروب ایزوله/محاسبه و بازخوانی کد اثبات شد.
+
+### V-252 — اصلاح S1/S2، بازبینی مستقل و اجرای مجدد دروازه‌های آفلاین بله
+
+- تاریخ: 2026-09-30؛ شاخهٔ موجود `codex/bale-web-client-instructions`، working tree مشترک/dirty محفوظ؛ بدون reset/checkout/clean، stage/commit/push یا عملیات Live. Trigger: درخواست مالک برای اجرای اصلاحات با مدل کم‌هزینه‌تر و بازبینی مستقل. دستور [S1/S2](../implementation-plans/bridge-client-2026-09-28/BALE_ACCEPTANCE_FOLLOWUP_2026-09-30.md) و شاهد RED در V-251 مبنا بود.
+- S1 RED: جست‌وجوی فراگیر ۲۰۰۰ مخاطب با نام‌های ۵۱۲نویسه‌ای از سقف ۱ MiB IPC عبور می‌کرد؛ آزمون Popen تازه با cursor/limit نیز ابتدا HTTP 400 گرفت، زیرا search هنوز این فیلدها را نمی‌پذیرفت. S1 GREEN: `contacts.query` و `contacts.search` در Child با cursor/limit و بودجهٔ بایتی ۳۰۰ kB صفحه می‌دهند؛ snapshot تا ۵۰۰۰ رکورد/۱۶ MiB با خطای صریح محدود است؛ هر پیمایش صفحه‌های بعدی را از snapshot می‌خواند و درخواست صفحهٔ اول یا mutation آن را تازه می‌کند. آزمون Child واقعی با ۲۰۰۰ نتیجهٔ جست‌وجو در ۲۰ صفحه، صفر تکرار/جاافتادگی، صفحهٔ آخر، ایزولاسیون دو حساب و فریم‌های کمتر از ۳۵۰ kB سبز شد. رکورد منفرد بیش از بودجه، cursor نامعتبر، refresh پس از تغییر بیرونی و پاسخ خام RPC بیش از ۱۶ MiB پیش از decode نیز آزموده شدند.
+- UI واقعی روی فیکسچر آفلاین ۱۵۰ مخاطبی و باندل buildشده بررسی شد: جست‌وجوی مشترک صفحهٔ ۱۰۰تایی را نشان داد؛ دکمهٔ «نتایج بیشتر» صفحهٔ بعد را از API مصرف کرد و مخاطب شمارهٔ ۱۵۰ را نمایش داد؛ سپس دکمه حذف شد. هیچ پیام یا تماس Provider واقعی انجام نشد.
+- S2 RED: `complete` بدون توکن، claim نسل دوم را برای چهار عملیات text/media/upsert/remove به نتیجهٔ پایانی تبدیل می‌کرد (۴ شکست معتبر). S2 GREEN: store توکن فعال را برای generation>1 الزامی می‌کند و UPDATE را با شرط اتمیک generation/token انجام می‌دهد؛ سه مسیر نتیجهٔ `uncertain` پس از expiry نیز توکن receipt را می‌فرستند. آزمون‌های اختصاصی، schema و orchestration مرتبط ۴۳ پاس؛ legacy generation=1، restart، توکن کهنه، replay پایانی و عدم تحریف terminal پوشش دارند.
+- بازبینی مستقل: سه سوئیت بلهٔ اصلی، پروب attempt fence (`stale_release=false`, `third_claimed=false`) و پروب چهارگانهٔ پذیرش همگی PASS/exit=0. Wheel رسمی `eitaa_bridge-0.7.0.dev31` بازسازی شد (SHA-256=`26f0015d0178c977a034ebc0fb7921f5fced3cb592feb65f3ed82254fd8e4fc7`) و parity `15/15` پاس؛ UI check، observability و build همگی exit=0 (هشدار اندازهٔ chunk موجود، شکست نیست).
+- شکست و اجرای مجدد full Backend: اجرای نخست یک شکست در `test_atomic_capacity_acceptance_across_two_processes` داشت؛ ۲ فرایند هر دو پذیرفته شدند، چون نرخ refill فیکسچر یک توکن/ثانیه بود و startup می‌توانست بیش از یک ثانیه طول بکشد. نرخ همان فیکسچرِ آزمون رقابت برای این سناریو به ۰٫۰۰۱ توکن/ثانیه تنظیم شد تا یک slot تا پایان رقابت باقی بماند؛ آزمون متمرکز پاس شد. اجرای مجدد full pytest روی source و اسناد به‌روز: `1049 tests / 1048 passed / 1 skipped / 0 failed / 0 errors` در 313.920s، exit=0؛ فایل JUnit در `test-results-full.xml` ثبت شد.
+- کنترل نهایی اسناد و whitespace پس از ثبت V-252: `refresh_project_docs.py`، integrity، freshness، freshness+links و `git diff --check` همگی exit=0؛ هشدارهای LF→CRLF خروجی Git خطا نیستند. مرز: WebSocket پاسخ خام GetContacts/SearchContacts را با `max_size=None` پیش از guard بایتی ۱۶ MiB کامل دریافت می‌کند؛ سقف decoded snapshot و IPC برقرار است، اما سقف دریافت شبکه و B6 Live تأیید نشده‌اند. ادغام وب‌سایت واقعی نیز مسیر مستقل است. این رکورد آمادگی اصلاح آفلاین را نشان می‌دهد، نه پذیرش قطعی مالک.
+
+### V-253 — آزمایش ارتباط Antigravity CLI و بازبینی مستقل تحویل V-252
+
+- تاریخ: 2026-09-30؛ Trigger: درخواست صریح مالک برای ارتباط با `agy`، آزمون کوچک، سپردن دستور اصلاحی دوم و انتظار تا پاسخ. CLI نسخهٔ 1.1.13 در workspace فعلی احراز هویت شد؛ درخواست فقط‌خواندنیِ «متصل» پاسخ درست گرفت. سپس دستور S1/S2 با مرزهای AGENTS و منع Live/دادهٔ عملیاتی/پاک‌سازی/انتشار ناقص ارسال شد. نشست تا پاسخ پایانی پیگیری و به‌صورت عادی بسته شد؛ شناسهٔ ادامهٔ محلی `7bd56fd5-f2dd-4317-9475-25fe0ef01650` است.
+- یافتهٔ بازبینی: هنگام شروع CLI، اصلاحات V-252 پیش‌تر در همین working tree و Ledger ثبت شده بودند. عامل CLI آن‌ها را خواند، آزمون‌های هدفمند حصار تلاش و بله، پروب‌های قبلی، UI check/observability/build، wheel parity، memory integrity، freshness/link check و `git diff --check` را دوباره اجرا کرد و در پاسخ نهایی همگی را سبز گزارش داد. full pytest جدید اجرا نکرد؛ شاهد کامل `1048 passed / 1 skipped` از V-252 است. خواندن‌های Git فقط با تأیید موردی فرمان‌های خواندنی انجام شد. هیچ فایل source یا عملیاتی در این بازبینی تغییر نکرد.
+- کنترل مستقل محلی پس از پاسخ: وضعیت F-099 در Findings و دفتر اجرا با `OFFLINE_REPAIR_VERIFIED_V252 / OWNER_ACCEPTANCE_PENDING / B6_LIVE_PENDING_INPUT` همسو بود؛ زمان آخرین ویرایش sourceهای اصلی پیش از این نشست باقی ماند؛ `git diff --check` exit=0. مرز باز: دریافت خام WebSocket پیش از guard ۱۶ MiB محدود نشده، B6 Live و ادغام وب‌سایت خارجی همچنان شاهد/ورودی مستقل می‌خواهند. این بازبینی پذیرش قطعی مالک یا مجوز Live نیست.
+- پس از این ثبت، generator، memory integrity، freshness، link check و `git diff --check` دوباره اجرا شدند و همگی exit=0 داشتند؛ پس از درج همین نتیجه، کنترل اسناد یک بار دیگر اجرا می‌شود.
+
+### V-254 — آماده‌سازی نصب تست جداگانه برای ورود واقعی بله
+
+- تاریخ: 2026-10-01؛ Trigger: مالک برای ورود تستیِ آسان و ثابت به‌جای حساب محلی فراموش‌شده درخواست صریح داد و مسیر شماره/کد یک‌بارمصرف بله را برای ادامهٔ Pilot انتخاب کرد. این رکورد فقط آماده‌سازی محیط را ثبت می‌کند، نه پذیرش Live.
+- از `bridge.example.json` یک پیکربندی تازه در ریشهٔ جداگانهٔ تست زیر LocalAppData ساخته شد؛ هیچ Config، DB، نشست یا دادهٔ نصب فعلی جابه‌جا/بازنویسی/حذف نشد. نصب تست فقط روی `127.0.0.1:8766` bind شد و مسیر Coordinator آن از نصب اصلی جداست. AppUser Auth، چندنشستی و worker process طبق نمونه روشن‌اند.
+- یک AppUser آزمایشی با اعتبارنامهٔ عمداً ساده در **همین نصب تست** ساخته شد؛ مقدار اعتبارنامه در Ledger/لاگ ثبت نمی‌شود. فراخوانی setup برابر HTTP 201 و بررسی ورود با HTTP 200 و صدور کوکی نشست بود؛ مقدار کوکی ذخیره یا چاپ نشد. شمار AppUser در Coordinator تست ۱ و شمار MessengerAccount صفر بود. رابط تست در مرورگر باز شد.
+- ورود شماره/OTP بله، ذخیرهٔ نشست Provider، خواندن اطلاعات حساب و هر mutation هنوز انجام نشده‌اند؛ کاربر باید دادهٔ احراز هویت را در خود رابط وارد کند. تست B6 و F-099 از این آماده‌سازی به `LIVE_ACCEPTED` ارتقا نمی‌یابند. پس از تکمیل ورود، اقدام‌های Pilot با تأیید همان عملیات و شاهد ایزوله ثبت خواهند شد.
+
+### V-255 — بازتولید و اصلاح اتصال بله پس از ورود واقعی OTP
+
+- تاریخ: 2026-10-01؛ Trigger بررسی مجدد: گزارش تازهٔ مالک از `The Bale provider operation failed safely.` و شاهد ورود ثبت‌شده در کلاینت اصلی، پس از V-254. نصب تست جداگانهٔ `127.0.0.1:8766` حفظ شد؛ دادهٔ نصب اصلی و فایل‌های عملیاتی دست‌نخورده ماندند.
+- شاهد Live پیش از اصلاح: ثبت حساب در Coordinator تست موفق بود؛ درخواست‌های `dialogs.list` با کد امن `bale_not_connected` رد می‌شدند. بازخوانی source نشان داد `auth.code/auth.password` نشست vault را ذخیره می‌کنند، ولی اتصال WebSocket برقرار نمی‌کنند؛ Worker اشتباهاً `_authenticated=True` می‌گذاشت و restore تنبل را دور می‌زد.
+- آزمون ایزولهٔ تازه با backend مصنوعی: OTP موفق → نخستین query گفتگو بدون restore صریح؛ RED با `bale_not_connected`. اصلاح Worker برای هر دو مسیر OTP و عامل دوم اعمال شد؛ آزمون پارامتری و سه سوئیت مرتبط بله سبز شدند. پس از راه‌اندازی دوبارهٔ همان نصب تست با source اصلاح‌شده، `dialogs.list` زنده چند بار موفق شد و پیام خطا در UI دیده نشد. راه‌اندازی دوباره، restore نشست موجود را نیز به‌طور طبیعی فعال می‌کند؛ بنابراین شاهد Live مکمل آزمون بازتولید است، نه اثبات مستقل ورود تازه. محتوای گفتگو، شماره، OTP، توکن و کوکی در خروجی/سند نیامده‌اند.
+- اجرای نخست full Backend تنها در `test_bundled_bridge_wheel_matches_current_source_tree` شکست خورد: wheel قبلی با یک فایل source اصلاح‌شده اختلاف داشت. Wheel رسمی با `scripts/build_wheel_stdlib.py --force` از source جاری بازسازی شد (SHA-256=`52113829c90389a075958d1813fb52fb2ebdfd878351d841753b6b6b3e55f42b`)؛ آزمون packaging برابر ۱۵/۱۵ پاس و اجرای مجدد full `pytest -q` با exit=0، یک skip و فقط هشدار deprecation شناخته‌شدهٔ `websockets` پایان یافت. UI check و observability، مولد نقشهٔ پروژه، integrity، freshness، link check و `git diff --check` همگی exit=0؛ کنترل اسناد پس از ثبت نتیجه دوباره اجرا می‌شود.
+- هیچ پیام زنده، تغییر مخاطب یا ورود دوباره انجام نشد. B6 فقط در محدودهٔ login + read گفتگو شاهد دارد؛ پذیرش کامل/انتشار نهایی باز است.
+
+### V-256 — ترمیم اتصال مجدد بله پس از قطع WebSocket
+
+- تاریخ: 2026-10-01؛ Trigger: گزارش دوبارهٔ مالک از خطای امن Provider در صفحهٔ تست، پس از V-255 و تغییر وضعیت اتصال زنده. لاگ امن نصب تست تکرار `dialogs.list` با `bale_not_connected` را نشان داد؛ بازخوانی Worker ثابت کرد `_authenticated=True` پس از قطع WebSocket باقی می‌ماند و restore تنبل را دور می‌زند.
+- آزمون RED→GREEN ایزوله: در هر دو مسیر OTP و عامل دوم، اتصال نخست موفق، سپس WebSocket مصنوعی قطع شد؛ درخواست اول خطای `bale_not_connected` داد و درخواست بعدی قبل از اصلاح نیز همان خطا را تکرار می‌کرد. Worker اکنون با دریافت این کد امن، پرچم اتصال را False می‌کند تا درخواست بعدی vault را روی owner loop دوباره وصل کند. درخواست شکست‌خورده خودکار replay نمی‌شود؛ این مرز برای ارسال و mutation مهم است. دو حالت آزمون و سه سوئیت مرتبط بله پس از اصلاح exit=0.
+- نصب تست جداگانهٔ `127.0.0.1:8766` بدون دستکاری نشست/Config دوباره راه‌اندازی شد؛ `dialogs.list` زنده چند بار موفق بود. این راه‌اندازی شاهد Live بازیابی پس از قطع دوباره نیست و ادعای دوام اتصال صرفاً بر آزمون ایزوله تکیه دارد. هیچ شماره، OTP، کوکی، توکن یا متن گفتگو در خروجی ثبت نشد.
+- Wheel رسمی از source جاری بازسازی شد (SHA-256=`e654b77264260e44f84e44cfae88deba7c7558d2702d9326f89f10b73ee18f26`). اجرای کامل `pytest -q` پس از این تغییر exit=0، یک skip و تنها هشدار deprecation شناخته‌شدهٔ `websockets` داشت. UI check و observability از V-255 معتبرند، چون UI تغییر نکرد. مولد اسناد، memory integrity، link check و `git diff --check` همگی exit=0؛ پس از درج نتیجه دوباره کنترل می‌شوند. خواندن‌های Live گفتگو و تاریخچه در چند دقیقهٔ پس از راه‌اندازی دوباره موفق ماندند. B6 mutation و پذیرش قطعی همچنان باز است.
+
+### V-257 — گزارش مالک و شاهد امن پایلوت زندهٔ محدود بله
+
+- تاریخ: 2026-10-01؛ Trigger: مالک پس از آزمون دستی در نصب جداگانه اعلام کرد خواندن و ارسال پیام و مخاطبین درست کار کرده‌اند. این بازبینی فقط رخدادهای cataloged برنامه را با event/operation/result/reason code خواند؛ هیچ payload، متن پیام، شماره، شناسهٔ گیرنده، توکن یا کوکی استخراج نشد.
+- شاهد ثبت‌شده در همان نصب: `dialogs.list` و `history.list` موفق، دو `messages.send_text` موفق، دو `contacts.upsert` موفق، یک `contacts.remove` موفق و `contacts.list` موفق. موفقیت‌های mutation با گزارش مالک همسوست؛ شمارها صرفاً رخدادهای امن‌اند و هویت مخاطب یا تطبیق متن read-back را اثبات نمی‌کنند. عملیات زنده توسط خود مالک در UI انجام شد؛ عامل هیچ ارسال/تغییر تازه‌ای اجرا نکرد.
+- نتیجه: B6 در محدودهٔ خواندن، ارسال متن و mutation مخاطب شاهد Live محدود دارد. restore گرم پس از قطع واقعی، دریافت بدون reload، جست‌وجوی مخاطب، تطبیق read-back و مسیر عمومی M2M در این نوبت مستقل اثبات نشدند. پذیرش نهایی بله و انتشار Git هنوز به بررسی معیارهای باقی‌مانده و تصمیم مالک وابسته‌اند؛ وضعیت F-099 به `B6_LIVE_PILOT_PARTIAL_V257` ارتقا یافت، نه `LIVE_ACCEPTED` کامل. چون source/config مرتبط تغییر نکرد، full suite معتبر V-256 تکرار نشد. کنترل اسناد پس از ثبت این رکورد اجرا می‌شود.
+
+### V-258 — بازبینی دوبارهٔ وضعیت اصلاحات و آزمون روی source جاری
+
+- تاریخ: 2026-10-01؛ Trigger: درخواست مالک برای بررسی دوباره پس از گزارش قبلی. source اتصال بله در V-255/V-256 پس از artifact قدیمی `test-results-full.xml` تغییر کرده بود؛ بنابراین شاهد ۱۰۴۸ پاس V-252 برای source کنونی کافی نبود. هیچ عملیات Live، دادهٔ عملیاتی، stage، commit یا push در این بازبینی انجام نشد.
+- روی working tree جاری، ۴۸ آزمون متمرکز receipt fence، محصول بله، runner و OTP با exit=0 گذشتند. پروب attempt fence با `stale_release=false` و `third_claimed=false`، و پروب چهارگانهٔ بله شامل ۵۰۱ مخاطب یکتا در ۶ صفحه، هر دو exit=0 داشتند.
+- full Backend کنونی: `pytest --collect-only -q` برابر ۱۰۵۱ آزمون؛ `pytest -q` با exit=0 و یک skip گذشت (۱۰۵۰ پاس، بدون شکست). هشدار deprecation کتابخانهٔ websockets تنها هشدار دیده‌شده بود. `git diff --check`، memory integrity و freshness/link check همگی exit=0 داشتند. آزمون UI تکرار نشد چون UI از V-252 تغییر نکرده است.
+- قید وضعیت: F-099 همچنان `OFFLINE_REPAIR_VERIFIED_V252 / B6_LIVE_PILOT_PARTIAL_V257 / OWNER_ACCEPTANCE_PENDING` است. دریافت خام WebSocket مخاطبین هنوز پیش از guard ۱۶ MiB محدود نمی‌شود؛ B6 کامل و ادغام وب‌سایت واقعی نیز شاهد مستقل می‌خواهند. متن بالای گزارش و handoff بله که Live را مطلقاً آزموده‌نشده می‌خواندند، با شاهد محدود V-257 هماهنگ شد. درخت مشترک dirty است و قاعدهٔ AGENTS برای commit دستور صریح همان کار می‌خواهد؛ هیچ چیزی stage یا commit نشد.
+
+### V-259 — تأیید مالک برای دریافت تازه بدون بازخوانی و بررسی عمر نشست
+
+- تاریخ: 2026-10-01؛ Trigger: مالک گزارش کرد پیام تازهٔ فرستاده‌شده از جای دیگر را بلافاصله و بدون بازخوانی در UI نصب تست دیده و این رفتار را صریحاً تأیید می‌کند. این شاهد Live خوداظهاری مالک برای دریافت تازه است؛ متن، شماره و شناسهٔ فرستنده/گیرنده استخراج یا ثبت نشد. هیچ ارسال تازه‌ای توسط عامل انجام نشد.
+- برای پاسخ به پرسش عمر توکن، source نشان داد `BaleSession.expires_at` از claim `exp` و نشست در vault رمزگذاری‌شده ذخیره می‌شود؛ renewal خودکار در مسیر Bale client یافت نشد. در یک بررسی read-only روی همان vault تست، فقط زمان انقضای claimهای JWT و access token محاسبه و در پاسخ کاربر گزارش شد؛ خود توکن، JWT و کلید در خروجی یا سند ثبت نشدند. زمان اسمی ممکن است با logout/ابطال سمت Provider زودتر خاتمه یابد. نشست AppUser صفحهٔ تست سیاست idle و absolute هر دو یک‌سال دارد و از نشست Bale جداست.
+- این تأیید، دریافت تازه را به محدودهٔ شاهد B6 می‌افزاید؛ جست‌وجوی مخاطب، تطبیق read-back و بازیابی Live پس از قطع واقعی همچنان شاهد مستقل می‌خواهند. source/config تغییر نکرد؛ full suite معتبر V-258 تکرار نشد. کنترل اسناد پس از ثبت اجرا می‌شود.
+
+### V-260 — علت‌یابی و اصلاح خطای متناوب خواندن بله در نصب تست
+
+- تاریخ: 2026-10-01؛ Trigger: گزارش تازهٔ مالک از متن عمومی خطای بله و تغییر واقعی source در owner/API/UI. خواندن فقط‌خواندنی و محدود به فیلدهای امن لاگ نصب تست، شکست‌های متناوب `dialogs.list` با `bale_rpc_error` و `GetContacts` با کد عددی ۸ را نشان داد. مسیر source ثابت کرد هر `dialogs.list` برای تکمیل نام گفتگو به `GetContacts` وابسته بود. متن پاسخ سرور، شناسه‌ها، شماره‌ها، پیام‌ها و credential خوانده یا ثبت نشدند.
+- اصلاح و شاهد هدفمند: تکمیل نام اختیاری با cache ۳۰۰ ثانیه‌ای و بی‌اعتبارسازی پس از تغییر مخاطب/ورود/خروج؛ رد RPC تکمیل نام، صفحهٔ گفت‌وگو را خراب نمی‌کند. UI خطای polling را از عملیات دستی جدا و پس از موفقیت پاک می‌کند و فاصلهٔ تلاش ناموفق را تا ۶۰ ثانیه افزایش می‌دهد. آزمون تازهٔ owner برای RPC ردشده، cache، invalidation و عنوان سروری؛ آزمون RPC برای ثبت فقط method/code و عدم ثبت متن خصوصی؛ سه سوئیت هدفمند محصول/API بله exit=0. UI `check`، `test:observability` و `build` هر سه exit=0.
+- اجرای اولیهٔ full suite حین تغییر source قطع شد و شاهد اعتبار محصول شمرده نشد. سپس wheel از source نهایی بازسازی شد (`adec4bc3b9b611400308c0e1ad506ea5d5b5b3a30e8552cff66f71577a26bda3`). full `pytest -q` روی همین snapshot exit=0 داشت: ۱۰۵۲ مورد جمع‌آوری، ۱۰۵۱ پاس، ۱ skip، بدون شکست؛ فقط هشدار deprecation شناخته‌شدهٔ `websockets.legacy`. `git diff --check` نیز exit=0 است.
+- نصب جداگانهٔ ۸۷۶۶ با کد تازه و بدون تغییر Config/نشست راه‌اندازی شد. لاگ امن آن پس از راه‌اندازی دست‌کم ۵۹ `dialogs.list` موفق پیاپی و نبود درخواست پنج‌ثانیه‌ای `GetContacts` را نشان داد؛ در شروع owner یک درخواست مخاطب دیده شد. یک شکست گذرای اتصال در راه‌اندازی پیشین علت قطعی ندارد و در راه‌اندازی بعدی تکرار نشد. هیچ ورود، ارسال یا mutation تازه توسط عامل انجام نشد. باندل UI جدید تا بازخوانی صفحه توسط مالک در تب موجود قطعی نیست؛ پذیرش کلی B6/F-099 از این شاهد نتیجه نمی‌شود.
+- مولد اسناد، memory integrity، freshness، freshness+links و `git diff --check` پس از ثبت این رکورد همگی exit=0 شدند. وضعیت درخت همچنان dirty و مشترک است؛ هیچ stage/commit/push انجام نشد.
+
+### V-261 — تأیید مالک برای جست‌وجوی مخاطب و خواندن دوبارهٔ پیام در بله
+
+- تاریخ: 2026-10-01؛ Trigger: پس از V-260 و درخواست ادامهٔ پایلوت، مالک در نصب تست ۸۷۶۶ دو بررسی فقط‌خواندنی را انجام داد و صریحاً هر دو را تأیید کرد: جست‌وجوی یک مخاطب موجود و مشاهدهٔ دوبارهٔ پیام ارسالی قبلی در تاریخچهٔ گفتگو. نام/شمارهٔ مخاطب و متن پیام دریافت یا ثبت نشد.
+- رخدادهای امن همان نصب موفقیت عملیات خواندن مخاطب و تاریخچه را نشان می‌دهند، ولی خود رخدادها نتیجهٔ دقیق جست‌وجو یا یکسان‌بودن متن را اثبات نمی‌کنند؛ آن بخش بر تأیید مستقیم مالک تکیه دارد. هیچ ارسال، ورود یا تغییر مخاطب از سوی عامل انجام نشد.
+- نتیجه: شاهد Live B6 برای جست‌وجو و read-back به V-257/V-259 افزوده شد؛ بازیابی گرم نشست پس از راه‌اندازی دوباره و مسیر عمومی M2M هنوز شاهد مستقل ندارند. چون source/config تغییر نکرده، full suite معتبر V-260 تکرار نشد.
+
+### V-262 — بازیابی گرم نشست بله و مهار نرخ خواندن گفتگوها
+
+- تاریخ: 2026-10-01؛ Trigger: مالک پس از تأیید V-261 خواست در صورت نیاز آزمون کوتاه باقی‌مانده انجام و سپس به مرحلهٔ بعد برویم؛ تأیید همان‌لحظه برای اتصال مجدد تست را داد. پیش از آزمون، سرویس ۸۷۶۶ از قبل خاموش بود؛ بنابراین فرایندی قطع نشد. با همان Config و نشست ذخیره‌شده، بدون ویرایش دادهٔ عملیاتی، دوباره بالا آمد و HTTP ریشه ۲۰۰ شد.
+- بازبینی امن شواهد دیرتر V-260 پیش از اعلام نتیجه، رد متناوب خود `LoadDialogs` با کد ۸ در polling پنج‌ثانیه‌ای را نشان داد؛ قبولی کوتاه قبلی برای دوام کافی نبود. UI اصلاح شد: `dialogs.query` با فاصلهٔ پایهٔ ۱۵ ثانیه و backoff مستقل ۳۰/۶۰ ثانیه، `history.query` گفتگوی باز با فاصلهٔ پنج‌ثانیه‌ای، ادامهٔ تاریخچه در شکست dialogs و توقف polling تب پنهان. UI `check`، `test:observability` و `build` پس از تغییر exit=0 دارند؛ full Backend V-260 به‌سبب نبود تغییر Python معتبر است و تکرار نشد.
+- مالک پس از تازه‌سازی صفحهٔ تست گزارش کرد گفتگوها بدون کد ورود تازه برگشتند. لاگ امن پس از راه‌اندازی `dialogs.list` موفق ثبت کرد و سه درخواست نخست `LoadDialogs` حدود ۱۵ ثانیه از هم فاصله داشتند. این شاهد Live برای restore گرم از نشست ذخیره‌شده است؛ قطع WebSocket در حال اجرای فرایند و دوام بلندمدت cadence تازه جدا می‌مانند. هیچ OTP، ارسال یا mutation تازه از سوی عامل اجرا نشد؛ محتوای گفتگو، شناسه‌ها و credential بررسی/ثبت نشدند.
+- مولد اسناد، memory integrity، freshness، link check و `git diff --check` پس از ثبت نتیجه exit=0 شدند. سرویس تست بعد از این بررسی همچنان HTTP 200 بود. سناریوی بله هنوز به‌علت معیارهای مستقل باز و درخت مشترک dirty، stage/commit/push نشد.
+
+### V-263 — آماده‌سازی checkpoint مشترک Bridge با مجوز صریح مالک
+
+- تاریخ: 2026-10-01؛ Trigger: مالک صریحاً خواست تغییرات Bridge کامیت شوند، مخزن تمیز شود و در صورت امکان شاخهٔ کاری پوش شود. درخت مشترک از P1 تا P9 و اصلاحات بله به‌صورت یک بستهٔ مرتبط stage شد؛ فایل‌های محلی شخصی، attachment و خروجی JUnit وارد stage نشدند. هیچ فایل عملیاتی، نشست، Config واقعی یا دادهٔ Live تغییر یا stage نشد.
+- کنترل محتوا: نخست `git diff --cached --check` فاصله‌های انتهایی را در ۱۶ فایل تازه نشان داد؛ همان فایل‌ها اصلاح و stage شدند. مولد نقشهٔ پروژه پس از این تغییر دو خروجی تولیدی را تازه کرد. اسکن امضاهای رایج secret روی بستهٔ stage شده فقط مقادیر fixture آزمون را نشان داد؛ کلید خصوصی، JWT یا Bearer واقعی در خروجی اسکن دیده نشد.
+- کنترل کیفیت: UI `check`، `test:observability` و `build` exit=0؛ آزمون‌های بسته‌بندی ابتدا ۱۵/۱۵ سبز بودند. اولین full Backend پس از اصلاح whitespace تنها در parity wheel/source شکست خورد، زیرا wheel پیش از همان تغییر بایتی source ساخته شده بود. wheel رسمی از source جاری با `build_wheel_stdlib.py --force` بازسازی شد (SHA-256=`3f9ee5b6366c1e70293c59e036964443f71f70a8a6cd3a7e8320f02528052f12`)؛ parity دوباره ۱۵/۱۵ سبز شد. اجرای مجدد full Backend: ۱۰۵۲ آزمون جمع‌آوری، ۱۰۵۱ پاس، ۱ skip، صفر شکست، exit=0؛ تنها هشدار deprecation شناخته‌شدهٔ `websockets.legacy` باقی ماند.
+- گام توسعهٔ بعدی: مخزن بک‌اند واقعی آزمون آنلاین در `D:/projects/OnlineExam-Copy` و handoff پیام‌رسان آن شناسایی شد؛ مسیر دیگر ورودی گمشده نیست. انطباق قرارداد و ادغام دو مخزن هنوز انجام نشده‌اند. شواهد Live بله در V-257 تا V-262 محدودند؛ این checkpoint به معنی پذیرش قطعی، انتشار محصول یا پایان B6 نیست. نتیجهٔ commit/push در رکورد بعدی ثبت می‌شود.

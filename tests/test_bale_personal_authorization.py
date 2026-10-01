@@ -341,3 +341,6 @@ def test_release_scope_ships_the_personal_client_again() -> None:
     assert "src/eitaa_bridge/application/bale_client/api.py" in selected
     assert "src/eitaa_bridge/application/bale_provider_adapter.py" in selected
     assert "src/eitaa_bridge/providers/bale/slot.py" in selected
+    assert "src/eitaa_bridge/application/bale_provider_worker.py" in selected
+    assert "src/eitaa_bridge/application/bale_runtime.py" in selected
+    assert "scripts/bale_product_pilot.py" in selected

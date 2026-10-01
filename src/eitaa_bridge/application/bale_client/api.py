@@ -42,6 +42,17 @@ from .wire import decode_tree
 
 log = logging.getLogger("bale_client.api")
 
+_MAX_CONTACT_RPC_RESPONSE_BYTES = 16 * 1024 * 1024
+
+
+def _require_bounded_contact_rpc_response(response: bytes) -> bytes:
+    if len(response) > _MAX_CONTACT_RPC_RESPONSE_BYTES:
+        raise BaleApiError(
+            "The Bale contact response exceeds the supported byte bound.",
+            code="bale_contact_snapshot_too_large",
+        )
+    return response
+
 __all__ = [
     "BaleApi",
     "BaleApiError",
@@ -271,7 +282,7 @@ class BaleApi:
         when present. Output shape is uniform: ``peer`` + display fields.
         """
         self._require_ws()
-        response = await self._rpc("users", "GetContacts", b"")
+        response = _require_bounded_contact_rpc_response(await self._rpc("users", "GetContacts", b""))
         # Peer-only blobs decode as nameless records; treat those as "not
         # enriched" and route them through the LoadUsers batch instead.
         records = [r for r in decode_users(response) if _record_is_enriched(r)]
@@ -311,7 +322,7 @@ class BaleApi:
         contact list so nicknames (local_name) match too.
         """
         self._require_ws()
-        response = await self._rpc("users", "SearchContacts", _build_search(query))
+        response = _require_bounded_contact_rpc_response(await self._rpc("users", "SearchContacts", _build_search(query)))
         lowered = query.strip().lower()
         records = [r for r in decode_users(response) if _record_is_enriched(r)]
         matches = [_contact_record_to_dict(r) for r in records]
@@ -546,7 +557,12 @@ class BaleApi:
         destination.mkdir(parents=True, exist_ok=True)
         # Provider-supplied names are not filesystem paths.
         out_path = destination / f"{secrets.token_hex(16)}.download"
-        saved = await self._client.download_file(target.document, out_path)
+        try:
+            saved = await self._client.download_file(target.document, out_path, max_bytes=max_bytes)
+        except BaseException:
+            # Only this operation's newly generated partial file is removed.
+            out_path.unlink(missing_ok=True)
+            raise
         return {
             "message_id": message_id,
             "path": str(saved),
@@ -562,6 +578,11 @@ class BaleApi:
         try:
             return await self._client.raw_rpc(SERVICES[service_key], method, payload)
         except RpcError as exc:
+            logger = getattr(self._client, "log", None)
+            if logger is not None:
+                # Server messages can contain private data; only the numeric
+                # status and fixed RPC method enter account diagnostics.
+                logger.warning("bale_rpc_failed method=%s code=%s", method, exc.code)
             text = str(exc)
             if "PermissionDenied" in text:
                 raise BaleApiError(

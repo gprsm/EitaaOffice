@@ -422,3 +422,17 @@ def test_delivery_status_is_bound_to_the_issuing_service():
                              coordinator=ScopedCoordinator(legacy_rows))
     assert conservative.status == 200
     assert conservative.payload["delivery_status"] == "not_found"
+
+
+def test_compat_account_send_text_requires_explicit_confirm():
+    account_id = "12345678-1234-4634-8234-123456789012"
+    body = _send_body(messenger_account_id=account_id)
+    body.pop("confirm")  # A client that omits the field must be rejected.
+    res = _dispatch(
+        "POST",
+        f"/api/v2/m2m/messenger-accounts/{account_id}/messages/send-text",
+        body,
+        FakeAuthContext(["messages.send"], [account_id]),
+    )
+    assert res.status == 400
+    assert res.payload["code"] == "m2m_confirm_required"

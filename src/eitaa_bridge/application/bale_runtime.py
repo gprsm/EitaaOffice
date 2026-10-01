@@ -38,7 +38,7 @@ from ..infrastructure.diagnostics import RuntimeLogger
 
 from ..infrastructure.worker_ipc import IpcEnvelope
 
-from ..providers.contracts import ProviderAccountContext, SensitiveProviderValue
+from ..providers.contracts import ProviderAccountContext, ProviderCapability, SensitiveProviderValue
 
 from .bale_provider_worker import BaleProviderProcessWorker
 
@@ -200,13 +200,47 @@ class BaleAccountRuntime:
 
 
 
+    def _record_transport_observation(self) -> None:
+
+        """Ground the LIVE_UPDATES declaration in the real polling transport.
+
+        Bale updates are delivered by bounded account-scoped polling with
+        message dedup and account/peer guards, not by a live worker stream;
+        the observation records that constraint instead of leaving the
+        declaration assumed.
+        """
+
+        self._coordinator.record_messenger_capability_observation(
+
+            self.runtime_record.messenger_account_id,
+
+            capability=ProviderCapability.LIVE_UPDATES.value,
+
+            status="supported",
+
+            reason_code="bale_updates_polling_transport",
+
+            constraints={
+
+                "transport": "account_scoped_polling",
+
+                "poll_interval_seconds": 5,
+
+                "dedup_key": "message_reference",
+
+                "scope_guards": ["messenger_account", "peer"],
+
+            },
+
+        )
+
     def start_supervisor(self, *, heartbeat_seconds: float | None = None) -> None:
+
+        self._record_transport_observation()
 
         if self._heartbeat_thread is not None:
 
             return
-
-
 
         policy = self.config.features.worker_process
 
@@ -386,15 +420,40 @@ class BaleRuntimeBackend:
 
 
 
-    async def list_contacts(self) -> list[dict[str, Any]]:
+    async def list_contacts_page(self, *, cursor: str | None = None, offset: int = 0, limit: int = 100) -> dict[str, Any]:
+        payload: dict[str, Any] = {"limit": limit}
+        if cursor is not None:
+            payload["cursor"] = cursor
+        else:
+            payload["offset"] = offset
+        return await self._request("bale.provider.contacts.query", payload, 90)
 
-        return list((await self._request("bale.provider.contacts.query", {}, 90))["contacts"])
+    async def list_contacts(self) -> list[dict[str, Any]]:
+        return list((await self._request("bale.provider.contacts.query", {"offset": 0, "limit": 500}, 90))["contacts"])
+
+    async def contains_contact(self, peer_id: int) -> bool:
+        res = await self._request("bale.provider.contacts.contains", {"peer_id": peer_id}, 90)
+        return bool(res.get("exists"))
 
 
 
     async def search_contacts(self, query: str) -> list[dict[str, Any]]:
+        contacts: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            page = await self.search_contacts_page(query, cursor=cursor, limit=500)
+            contacts.extend(page["contacts"])
+            cursor = page.get("next_cursor")
+            if cursor is None:
+                return contacts
 
-        return list((await self._request("bale.provider.contacts.search", {"query": query}, 90))["contacts"])
+    async def search_contacts_page(
+        self, query: str, *, cursor: str | None = None, limit: int = 100,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"query": query, "limit": limit}
+        if cursor is not None:
+            payload["cursor"] = cursor
+        return await self._request("bale.provider.contacts.search", payload, 90)
 
 
 

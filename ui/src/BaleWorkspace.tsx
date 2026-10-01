@@ -29,12 +29,16 @@ export function BaleWorkspace() {
   const [historyCursor, setHistoryCursor] = useState<string | null>(null)
   const selectedPeer = useRef<string | null>(null)
   selectedPeer.current = peer?.peer_reference || null
+  const dialogPoll = useRef({ nextAt: 0, failures: 0, error: '' })
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [contactsCursor, setContactsCursor] = useState<string | null>(null)
+  const [contactsSearchQuery, setContactsSearchQuery] = useState('')
   const [search, setSearch] = useState('')
   const [identity, setIdentity] = useState('')
   const [name, setName] = useState('')
   const [text, setText] = useState('')
   const [error, setError] = useState('')
+  const [pollError, setPollError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [view, setView] = useState<'chat' | 'contacts' | 'settings'>('chat')
@@ -43,7 +47,8 @@ export function BaleWorkspace() {
 
   useEffect(() => {
     alive.current = true
-    setPeer(null); setDialogs([]); setMessages([]); setContacts([])
+    dialogPoll.current = { nextAt: 0, failures: 0, error: '' }
+    setPeer(null); setDialogs([]); setMessages([]); setContacts([]); setContactsCursor(null); setPollError('')
     void api<Auth>('GET', `${base}/auth/status`).then(value => { if (alive.current) setAuth(value) }).catch(reason => { if (alive.current) setError(String(reason.message)) })
     return () => { alive.current = false }
   }, [base])
@@ -56,41 +61,60 @@ export function BaleWorkspace() {
   const authenticate = async (action: string, body: Record<string, unknown> = {}) => {
     const next = await api<Auth>('POST', `${base}/auth/${action}`, body)
     if (!alive.current) return
-    setSecret(''); setAuth(next); setMessages([]); setDialogs([]); setContacts([])
+    setSecret(''); setAuth(next); setMessages([]); setDialogs([]); setContacts([]); setContactsCursor(null)
     await accounts.refresh()
   }
   useEffect(() => {
     if (auth?.auth_state !== 'authenticated' || view !== 'chat') return
     let active = true
     let timer: ReturnType<typeof setTimeout>
+    let historyError = ''
     const poll = async () => {
-      try {
-        if (accounts.hasCapability('dialogs.read')) {
+      if (!active) return
+      if (document.visibilityState === 'hidden' && accounts.hasCapability('updates.live')) {
+        timer = setTimeout(() => void poll(), 5000)
+        return
+      }
+      if (accounts.hasCapability('dialogs.read') && Date.now() >= dialogPoll.current.nextAt) {
+        dialogPoll.current.nextAt = Date.now() + 15000
+        try {
           const result = await api<{ dialogs: Peer[] }>('POST', `${base}/dialogs/query`, { limit: 100 })
           if (active) setDialogs(result.dialogs)
+          dialogPoll.current.failures = 0
+          dialogPoll.current.error = ''
+        } catch (reason) {
+          dialogPoll.current.failures = Math.min(dialogPoll.current.failures + 1, 2)
+          dialogPoll.current.nextAt = Date.now() + Math.min(60000, 15000 * 2 ** dialogPoll.current.failures)
+          dialogPoll.current.error = reason instanceof Error ? reason.message : 'ارتباط برقرار نشد.'
         }
-        if (peer?.peer_kind === 'private' && accounts.hasCapability('history.read')) {
+      }
+      if (peer?.peer_kind === 'private' && accounts.hasCapability('history.read')) {
+        try {
           const result = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, limit: 100 })
           if (active) {
             setMessages(previous => mergeMessages(previous, result.messages))
             setHistoryCursor(previous => previous || result.next_cursor || null)
           }
-        }
-      } catch (reason) {
-        if (active) {
-          setError(reason instanceof Error ? reason.message : 'ارتباط برقرار نشد.')
-          try {
-            const status = await api<Auth>('GET', `${base}/auth/status`)
-            if (active && status.auth_state !== 'authenticated') setAuth(status)
-          } catch { /* Keep the connection error visible. */ }
+          historyError = ''
+        } catch (reason) {
+          historyError = reason instanceof Error ? reason.message : 'ارتباط برقرار نشد.'
         }
       }
-      finally { if (active) timer = setTimeout(() => void poll(), 5000) }
+      if (active) setPollError(dialogPoll.current.error || historyError)
+      if (dialogPoll.current.error || historyError) {
+        try {
+          const status = await api<Auth>('GET', `${base}/auth/status`)
+          if (active && status.auth_state !== 'authenticated') setAuth(status)
+        } catch { /* Keep the connection error visible. */ }
+      }
+      // History stays responsive in the open chat. Dialogs have a separate
+      // provider-friendly cadence and failure backoff across peer changes.
+      if (active && accounts.hasCapability('updates.live')) timer = setTimeout(() => void poll(), 5000)
     }
     setMessages([]); setHistoryCursor(null)
     void poll()
     return () => { active = false; clearTimeout(timer) }
-  }, [base, auth?.auth_state, peer?.peer_reference, view, accounts.hasCapability])
+  }, [base, auth?.auth_state, peer?.peer_reference, view, accounts.hasCapability, accounts.capabilityLoading])
   const loadOlder = async () => {
     if (!peer || !historyCursor) return
     const reference = peer.peer_reference
@@ -100,10 +124,35 @@ export function BaleWorkspace() {
     setHistoryCursor(result.next_cursor && result.next_cursor !== historyCursor ? result.next_cursor : null)
   }
   const loadContacts = async () => {
-    const result = search.trim()
-      ? await api<{ contacts: Contact[] }>('POST', `${base}/contacts/search`, { query: search.trim() })
-      : await api<{ contacts: Contact[] }>('POST', `${base}/contacts/query`, { limit: 500 })
-    if (alive.current) setContacts(result.contacts)
+    if (search.trim()) {
+      const selectedQuery = search.trim()
+      const result = await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/search`, { query: selectedQuery, limit: 100 })
+      if (alive.current) {
+        setContacts(result.contacts)
+        setContactsCursor(result.next_cursor || null)
+        setContactsSearchQuery(selectedQuery)
+      }
+    } else {
+      const result = await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/query`, { limit: 100 })
+      if (alive.current) {
+        setContacts(result.contacts)
+        setContactsCursor(result.next_cursor || null)
+        setContactsSearchQuery('')
+      }
+    }
+  }
+  const loadMoreContacts = async () => {
+    if (!contactsCursor) return
+    const result = contactsSearchQuery
+      ? await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/search`, { query: contactsSearchQuery, limit: 100, cursor: contactsCursor })
+      : await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/query`, { limit: 100, cursor: contactsCursor })
+    if (!alive.current) return
+    setContacts(previous => {
+      const existing = new Set(previous.map(item => item.contact_reference))
+      const fresh = result.contacts.filter(item => !existing.has(item.contact_reference))
+      return [...previous, ...fresh]
+    })
+    setContactsCursor(result.next_cursor && result.next_cursor !== contactsCursor ? result.next_cursor : null)
   }
   useEffect(() => {
     if (view === 'contacts' && auth?.auth_state === 'authenticated' && accounts.hasCapability('contacts.read')) void run(loadContacts)
@@ -113,7 +162,7 @@ export function BaleWorkspace() {
     const key = crypto.randomUUID()
     const targetPeer = peer
     const result = await api<{ status: string }>('POST', `${base}/messages/send-text`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, text, idempotency_key: key, confirm: true })
-    if (!alive.current) return
+    if (!alive.current || selectedPeer.current !== targetPeer.peer_reference) return
     setText('')
     setNotice(result.status === 'succeeded' ? 'پیام به سرویس بله ارسال شد؛ مشاهدهٔ گیرنده تأیید نشده است.' : 'نتیجهٔ ارسال نامعلوم است؛ ارسال خودکار تکرار نمی‌شود.')
     if (targetPeer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
@@ -133,7 +182,7 @@ export function BaleWorkspace() {
     bytes.forEach(value => { binary += String.fromCharCode(value) })
     const targetPeer = peer
     const result = await api<{ status: string }>('POST', `${base}/messages/send-media`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, filename: draftFile.name, data_base64: btoa(binary), caption: text, idempotency_key: crypto.randomUUID(), confirm: true })
-    if (!alive.current) return
+    if (!alive.current || selectedPeer.current !== targetPeer.peer_reference) return
     setDraftFile(null); setText(''); setNotice(result.status === 'succeeded' ? 'فایل به سرویس ارسال شد.' : 'نتیجه نامعلوم است؛ خودکار تکرار نمی‌شود.')
     if (targetPeer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
       try {
@@ -164,6 +213,7 @@ export function BaleWorkspace() {
       <AppUserLogoutButton />
     </Stack>
     {error && <Alert severity="error">{error}</Alert>}
+    {pollError && <Alert severity="warning">{pollError}</Alert>}
     {notice && <Alert severity="info">{notice}</Alert>}
     {accounts.capabilityError && <Alert severity="error">{accounts.capabilityError}</Alert>}
     {!auth && <CircularProgress aria-label="خواندن نشست بله" />}
@@ -211,6 +261,7 @@ export function BaleWorkspace() {
         <Button onClick={() => { setPeer({ peer_reference: item.contact_reference, peer_kind: 'private', title: item.display_name, unread_count: 0 }); setView('chat') }}>گفتگو</Button>
         <Button color="error" disabled={busy || !accounts.hasCapability('contacts.write')} onClick={() => setConfirm({ label: `حذف ${item.display_name || item.contact_reference} از مخاطبین همین حساب؟`, run: async () => { await api('POST', `${base}/contacts/remove`, { contact_reference: item.contact_reference, idempotency_key: crypto.randomUUID(), confirm: true }); if (alive.current) await loadContacts() } })}>حذف مخاطب</Button>
       </Stack></Paper>)}
+      {contactsCursor && <Button disabled={busy || !accounts.hasCapability('contacts.read')} onClick={() => void run(loadMoreContacts)}>{contactsSearchQuery ? 'نتایج بیشتر' : 'مخاطبین بیشتر'}</Button>}
     </Stack>}
     {view === 'settings' && <>
       <Alert severity={auth?.auth_state === 'authenticated' ? 'success' : 'info'}>آمادگی حساب بله: {auth?.auth_state === 'authenticated' ? 'نشست وارد شده' : 'ورود لازم است'} · Worker: {account.worker?.runtime_state || 'نامشخص'}</Alert>
