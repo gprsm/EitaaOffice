@@ -1357,3 +1357,10 @@
 - علت با پروب محدود و بدون نمایش credential مشخص شد: endpoint هویت بک‌اند HTTP 200 و protocol/API/install/root درست می‌داد، اما تنها تطبیق `bridge_version` شکست می‌خورد. `VERSION.txt` پس از انتشار مرحلهٔ Bale نسخهٔ `0.7.0-ui-mvp6.1.1-bale1` داشت، در حالی‌که `src/eitaa_bridge/version.py` هنوز `0.7.0-ui-mvp6.1.1-gmi4.2` اعلام می‌کرد. حصار مالکیت launcher طبق ADR نسخهٔ متفاوت را رد می‌کرد؛ خود حصار دور زده نشد.
 - اصلاح: نسخهٔ محصول در source با manifest انتشار هماهنگ شد. checker محیط و smoke از نسخهٔ canonical `VERSION.txt` می‌خوانند و آزمون رگرسیون جدید الزام برابری نسخهٔ source و manifest را می‌سنجد؛ آزمون CLI نیز به نسخهٔ source متصل است. `EitaaBridge.bat` واقعی پس از اصلاح بک‌اند و Edge را راه انداخت؛ health 200، وضعیت runtime `Owned=True` و `VersionMatches=True` پس از گذشت مهلت heartbeat ثبت شدند.
 - مرز: هیچ `bridge.json`، نشست، Token، OTP، مخاطب یا پیام به‌صورت دستی خوانده/تغییر داده نشد و Provider عملیاتی آزمایش نشد. آزمون وب هنوز به تنظیمات و ادغام وب‌سایت خودش وابسته است. Trigger بازبینی: تغییر نسخهٔ محصول/manifest، مسیر identity یا بسته‌بندی launcher. مرجع V-265 و [گزارش بازیابی نشست و راه‌انداز](../reports/features/SESSION_RECOVERY_REPORT_2026-07-28.md).
+
+### F-104 — نامشخص‌بودن انتخاب دسترسی در فرم گواهینامهٔ سرویس
+
+- تاریخ: 2026-10-01؛ وضعیت: `IMPLEMENTED / BROWSER_VERIFIED`؛ Trigger: گزارش مالک دربارهٔ خاموش‌شدن ظاهر گزینهٔ انتخاب‌شده.
+- علت: `MuiChip.styleOverrides.root` رنگ ثابت پس‌زمینه اعمال می‌کرد. در مرورگر، Chip انتخاب‌شده با `colorPrimary` و Chip انتخاب‌نشده هر دو پس‌زمینهٔ `rgb(34, 45, 57)` داشتند؛ وضعیت انتخاب با ARIA نیز اعلام نمی‌شد.
+- اصلاح: `ui/src/ServiceAccountSettingsPanel.tsx` برای scope، Provider و حساب از Checkbox با label و checked کنترل‌شده استفاده می‌کند. state و قرارداد صدور همان فهرست‌های موجود هستند؛ مجوز واقعی تغییر نکرد.
+- شاهد: V-267 و [گزارش اصلاح](../reports/features/SERVICE_CREDENTIAL_SELECTION_FIX_2026-10-01.md). انتخاب، لغو با صفحه‌کلید و اعتبارسنجی بدون حساب در مرورگر تأیید شدند؛ submit، صدور credential و dispatch اجرا نشدند.

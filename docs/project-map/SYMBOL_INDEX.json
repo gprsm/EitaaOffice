@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "82d8b091b9584f2a",
+  "source_fingerprint": "9196550751c2b6ae",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -25095,72 +25095,72 @@
         {
           "name": "accountAvailabilityLabel",
           "kind": "script symbol",
-          "line": 122
+          "line": 124
         },
         {
           "name": "ServiceAccountSettingsPanel",
           "kind": "script symbol",
-          "line": 132
+          "line": 134
         },
         {
           "name": "updateSenderDraft",
           "kind": "script symbol",
-          "line": 228
+          "line": 230
         },
         {
           "name": "handleSenderProfileSave",
           "kind": "script symbol",
-          "line": 235
+          "line": 237
         },
         {
           "name": "handleSenderProfileDelete",
           "kind": "script symbol",
-          "line": 269
+          "line": 271
         },
         {
           "name": "resetDialog",
           "kind": "script symbol",
-          "line": 284
+          "line": 286
         },
         {
           "name": "handleCreate",
           "kind": "script symbol",
-          "line": 293
+          "line": 295
         },
         {
           "name": "handleRotate",
           "kind": "script symbol",
-          "line": 310
+          "line": 312
         },
         {
           "name": "handleRevoke",
           "kind": "script symbol",
-          "line": 322
+          "line": 324
         },
         {
           "name": "handleAiSave",
           "kind": "script symbol",
-          "line": 332
+          "line": 334
         },
         {
           "name": "handleAiProbe",
           "kind": "script symbol",
-          "line": 369
+          "line": 371
         },
         {
           "name": "handlePolicySave",
           "kind": "script symbol",
-          "line": 399
+          "line": 401
         },
         {
           "name": "chipFor",
           "kind": "script symbol",
-          "line": 424
+          "line": 426
         },
         {
           "name": "senderProfileFor",
           "kind": "script symbol",
-          "line": 440
+          "line": 442
         }
       ]
     },

@@ -2614,3 +2614,10 @@
 
 - تاریخ: 2026-10-01؛ پس از V-265 و کنترل `git diff --cached --check`، اسکن stage شده برای کلید خصوصی/JWT/Bearer/شمارهٔ کامل هر چهار صفر بود. ۱۱ فایل مرتبط در commit `c6861292cff6a7ecd2287885c1893d7ff873eded` با پیام `fix(launcher): align Bale product version with runtime identity` ثبت شدند.
 - همان commit بدون force به `origin/codex/bale-web-client-instructions` پوش شد و `git ls-remote` SHA برابر نشان داد. `main` تغییر نکرد و working tree پس از push تمیز بود. این انتشار شاخهٔ کاری فقط اصلاح launcher است؛ ادغام وب‌سایت واقعی و پذیرش Live Provider/OTP مستقل‌اند.
+
+### V-267 — اصلاح و آزمون مرورگری انتخاب دسترسی سرویس
+
+- تاریخ: 2026-10-01؛ Trigger: گزارش جدید مالک دربارهٔ نامشخص‌بودن انتخاب‌ها. پیش از تغییر، Git تمیز بود. شاهد RED مرورگر: پس‌زمینهٔ Chip انتخاب‌شده و انتخاب‌نشده یکسان (`rgb(34, 45, 57)`) و `aria-pressed` غایب بود؛ علت در theme ثابت تأیید شد (F-104).
+- اصلاح محدود: سه فهرست انتخاب در `ServiceAccountSettingsPanel.tsx` به Checkbox کنترل‌شده با label تبدیل شدند. UI check، `test:observability` و build همگی exit=0؛ هشدار اندازهٔ chunk در build باقی است.
+- شاهد GREEN مرورگر روی رابط ساخته‌شده: انتخاب scope/Provider/حساب پس از تغییر focus حفظ شد؛ Space انتخاب ارسال را لغو کرد و انتخاب وضعیت باقی ماند؛ حذف حساب ساخت توکن را غیرفعال کرد. پنجره بدون submit بسته شد؛ هیچ credential/مخاطب/پیام واقعی ساخته نشد.
+- full Backend و wheel V-265 به دلیل نبود تغییر Python/بستهٔ wheel تکرار نشدند. گزارش موضوعی: `docs/reports/features/SERVICE_CREDENTIAL_SELECTION_FIX_2026-10-01.md`. مولد اسناد اجرا شد؛ memory integrity، freshness همراه links و `git diff --check` همگی exit=0 شدند. دادهٔ عملیاتی و نشست‌های واقعی تغییر نکردند.

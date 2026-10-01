@@ -5,12 +5,14 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
   IconButton,
   InputLabel,
   List,
@@ -824,14 +826,15 @@ export const ServiceAccountSettingsPanel = () => {
               <Typography variant="subtitle1" gutterBottom>دامنهٔ دسترسی‌ها</Typography>
               <Stack direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
                 {Object.entries(SCOPE_LABELS).map(([scope, label]) => (
-                  <Chip
+                  <FormControlLabel
                     key={scope}
                     label={label}
-                    clickable
-                    color={selectedScopes.includes(scope) ? 'primary' : 'default'}
-                    onClick={() => setSelectedScopes(current =>
-                      current.includes(scope) ? current.filter(item => item !== scope) : [...current, scope]
-                    )}
+                    control={<Checkbox
+                      checked={selectedScopes.includes(scope)}
+                      onChange={(_, checked) => setSelectedScopes(current =>
+                        checked ? [...current, scope] : current.filter(item => item !== scope)
+                      )}
+                    />}
                   />
                 ))}
               </Stack>
@@ -841,14 +844,15 @@ export const ServiceAccountSettingsPanel = () => {
                   ? Object.keys(providerAdapters)
                   : ['eitaa', 'bale']
                 ).map(provider => (
-                  <Chip
+                  <FormControlLabel
                     key={provider}
                     label={provider}
-                    clickable
-                    color={selectedProviders.includes(provider) ? 'primary' : 'default'}
-                    onClick={() => setSelectedProviders(current =>
-                      current.includes(provider) ? current.filter(item => item !== provider) : [...current, provider]
-                    )}
+                    control={<Checkbox
+                      checked={selectedProviders.includes(provider)}
+                      onChange={(_, checked) => setSelectedProviders(current =>
+                        checked ? [...current, provider] : current.filter(item => item !== provider)
+                      )}
+                    />}
                   />
                 ))}
               </Stack>
@@ -859,14 +863,15 @@ export const ServiceAccountSettingsPanel = () => {
                   const selected = selectedAccounts.includes(accountId)
                   const hint = `${PROVIDER_LABELS[account.provider] || account.label || account.provider} (${account.phone_hint})`
                   return (
-                    <Chip
+                    <FormControlLabel
                       key={accountId}
                       label={hint}
-                      clickable
-                      color={selected ? 'primary' : 'default'}
-                      onClick={() => setSelectedAccounts(current =>
-                        current.includes(accountId) ? current.filter(item => item !== accountId) : [...current, accountId]
-                      )}
+                      control={<Checkbox
+                        checked={selected}
+                        onChange={(_, checked) => setSelectedAccounts(current =>
+                          checked ? [...current, accountId] : current.filter(item => item !== accountId)
+                        )}
+                      />}
                     />
                   )
                 })}
