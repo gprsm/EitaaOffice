@@ -154,6 +154,13 @@ def _load_office_runtime(root: Path):
     return module
 
 
+def test_source_runtime_version_matches_release_manifest():
+    from eitaa_bridge.version import __version__
+
+    root = Path(__file__).resolve().parents[1]
+    assert _load_office_runtime(root).read_product_version(root) == __version__
+
+
 def test_runtime_controller_requires_exact_handshake(tmp_path):
     project_root = Path(__file__).resolve().parents[1]
     module = _load_office_runtime(project_root)

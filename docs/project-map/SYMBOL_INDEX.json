@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "6c823ec1123bb878",
+  "source_fingerprint": "82d8b091b9584f2a",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -260,7 +260,7 @@
         {
           "name": "main",
           "kind": "function",
-          "line": 19
+          "line": 24
         }
       ]
     },
@@ -18545,57 +18545,57 @@
         {
           "name": "_multi_site_config",
           "kind": "function",
-          "line": 14
+          "line": 15
         },
         {
           "name": "test_facade_creates_draft_without_opening_core",
           "kind": "function",
-          "line": 57
+          "line": 58
         },
         {
           "name": "test_facade_opens_without_wordpress_credentials_and_validates_on_use",
           "kind": "function",
-          "line": 68
+          "line": 69
         },
         {
           "name": "test_facade_uses_only_selected_site",
           "kind": "function",
-          "line": 80
+          "line": 81
         },
         {
           "name": "test_cli_sites_list_is_safe_and_marks_default",
           "kind": "function",
-          "line": 99
+          "line": 100
         },
         {
           "name": "test_cli_doctor_skip_core_open",
           "kind": "function",
-          "line": 120
+          "line": 121
         },
         {
           "name": "test_cli_missing_config_returns_safe_error",
           "kind": "function",
-          "line": 131
+          "line": 132
         },
         {
           "name": "test_facade_uploads_media_without_opening_core",
           "kind": "function",
-          "line": 139
+          "line": 140
         },
         {
           "name": "test_cli_media_upload_outputs_safe_summary",
           "kind": "function",
-          "line": 159
+          "line": 160
         },
         {
           "name": "test_cli_composer_preview_loads_manifest_and_returns_safe_plan",
           "kind": "function",
-          "line": 199
+          "line": 200
         },
         {
           "name": "test_cli_taxonomy_list_outputs_term_ids",
           "kind": "function",
-          "line": 253
+          "line": 254
         }
       ]
     },
@@ -22141,149 +22141,154 @@
           "line": 148
         },
         {
-          "name": "test_runtime_controller_requires_exact_handshake",
+          "name": "test_source_runtime_version_matches_release_manifest",
           "kind": "function",
           "line": 157
         },
         {
+          "name": "test_runtime_controller_requires_exact_handshake",
+          "kind": "function",
+          "line": 164
+        },
+        {
           "name": "test_runtime_identity_files_are_race_safe",
           "kind": "function",
-          "line": 180
+          "line": 187
         },
         {
           "name": "test_stop_script_never_kills_by_port",
           "kind": "function",
-          "line": 192
+          "line": 199
         },
         {
           "name": "test_normal_setup_does_not_force_reinstall",
           "kind": "function",
-          "line": 200
+          "line": 207
         },
         {
           "name": "test_office_runtime_prefers_current_source_over_installed_package",
           "kind": "function",
-          "line": 209
+          "line": 216
         },
         {
           "name": "test_electron_runtime_prefers_current_source_over_installed_package",
           "kind": "function",
-          "line": 230
+          "line": 237
         },
         {
           "name": "test_electron_development_runtime_prefers_python_module_over_stale_entrypoint",
           "kind": "function",
-          "line": 238
+          "line": 245
         },
         {
           "name": "test_electron_expected_backend_version_comes_from_canonical_version_file",
           "kind": "function",
-          "line": 253
+          "line": 260
         },
         {
           "name": "test_office_runtime_derives_endpoint_from_desktop_deployment",
           "kind": "function",
-          "line": 263
+          "line": 270
         },
         {
           "name": "test_electron_endpoint_and_media_transport_are_config_driven",
           "kind": "function",
-          "line": 285
+          "line": 292
         },
         {
           "name": "test_edge_pid_handoff_uses_visible_owned_window",
           "kind": "function",
-          "line": 300
+          "line": 307
         },
         {
           "name": "test_office_runtime_does_not_end_when_initial_edge_pid_exits",
           "kind": "function",
-          "line": 315
+          "line": 322
         },
         {
           "name": "test_windows_process_query_uses_explicit_utf8",
           "kind": "function",
-          "line": 323
+          "line": 330
         },
         {
           "name": "test_legacy_backend_rejects_prefix_sibling_path",
           "kind": "function",
-          "line": 351
+          "line": 358
         },
         {
           "name": "test_legacy_backend_accepts_exact_absolute_root",
           "kind": "function",
-          "line": 366
+          "line": 373
         },
         {
           "name": "test_process_probe_error_is_not_treated_as_exit",
           "kind": "function",
-          "line": 380
+          "line": 387
         },
         {
           "name": "test_office_installer_mirrors_managed_code_directories",
           "kind": "function",
-          "line": 394
+          "line": 401
         },
         {
           "name": "test_office_setup_is_self_contained_and_excludes_private_runtime_state",
           "kind": "function",
-          "line": 402
+          "line": 409
         },
         {
           "name": "test_office_setup_has_explicit_supported_windows_preflight",
           "kind": "function",
-          "line": 424
+          "line": 431
         },
         {
           "name": "test_operator_batches_support_bundled_python_runtime",
           "kind": "function",
-          "line": 443
+          "line": 450
         },
         {
           "name": "test_self_contained_setup_bootstrap_embeds_and_verifies_resources",
           "kind": "function",
-          "line": 451
+          "line": 458
         },
         {
           "name": "_write_test_icon",
           "kind": "function",
-          "line": 499
+          "line": 506
         },
         {
           "name": "test_branded_setup_rejects_missing_or_invalid_icon",
           "kind": "function",
-          "line": 535
+          "line": 542
         },
         {
           "name": "test_office_release_branding_and_signing_are_explicit_and_fail_closed",
           "kind": "function",
-          "line": 567
+          "line": 574
         },
         {
           "name": "test_new_office_build_archives_previous_release_without_deleting_unrelated_files",
           "kind": "function",
-          "line": 587
+          "line": 594
         },
         {
           "name": "test_checked_in_windows_icon_is_multiresolution_and_source_is_rgba_png",
           "kind": "function",
-          "line": 635
+          "line": 642
         },
         {
           "name": "test_internal_code_signing_keeps_private_key_outside_project_and_pins_trust",
           "kind": "function",
-          "line": 681
+          "line": 688
         },
         {
           "name": "test_office_payload_privacy_scanner_rejects_private_key_material",
           "kind": "function",
-          "line": 718
+          "line": 725
         },
         {
           "name": "test_python_install_batches_force_utf8_for_unicode_paths",
           "kind": "function",
-          "line": 752
+          "line": 759
         }
       ]
     },

@@ -4,6 +4,7 @@ import importlib
 import importlib.metadata
 import json
 import sys
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 EXPECTED_DISTRIBUTIONS = {
@@ -13,7 +14,11 @@ EXPECTED_DISTRIBUTIONS = {
     "eitaa-bridge": "0.7.0.dev31",
     "cryptography": "46.0.7",
 }
-EXPECTED_BRIDGE_PRODUCT = "0.7.0-ui-mvp6.1.1-gmi4.2"
+EXPECTED_BRIDGE_PRODUCT = next(
+    line.strip()
+    for line in (Path(__file__).resolve().parents[1] / "VERSION.txt").read_text(encoding="utf-8-sig").splitlines()
+    if line.strip() and "=" not in line
+)
 
 
 def main() -> int:

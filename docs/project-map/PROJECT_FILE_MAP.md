@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 400
-- اثرانگشت منبع: `6c823ec1123bb878`
+- اثرانگشت منبع: `82d8b091b9584f2a`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -332,7 +332,7 @@
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
-| `tests/test_runtime_ownership.py` | Python test | 34 | — |
+| `tests/test_runtime_ownership.py` | Python test | 35 | — |
 | `tests/test_sender_directory.py` | Python test | 1 | — |
 | `tests/test_sender_profiles.py` | Python test | 22 | P1 sender profile tests: per-service, per-intent pinned senders. |
 | `tests/test_service_auth.py` | Python test | 16 | Tests for M2M service authentication and authorization boundaries. |

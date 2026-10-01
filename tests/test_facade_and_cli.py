@@ -8,6 +8,7 @@ import pytest
 from eitaa_bridge.errors import CredentialError
 from eitaa_bridge.facade import EitaaBridge
 from eitaa_bridge.interfaces.cli import main
+from eitaa_bridge.version import __version__
 from conftest import FakeResponse, FakeSession
 
 
@@ -123,7 +124,7 @@ def test_cli_doctor_skip_core_open(config_file, monkeypatch, capsys):
     code = main(["--config", str(config_file), "doctor", "--skip-core-open"])
     payload = json.loads(capsys.readouterr().out)
     assert code in {0, 1}
-    assert payload["version"] == "0.7.0-ui-mvp6.1.1-gmi4.2"
+    assert payload["version"] == __version__
     names = {item["name"] for item in payload["checks"]}
     assert "core_version" in names
 
