@@ -1,15 +1,55 @@
-import { useEffect, useRef, useState } from 'react'
-import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, List, ListItemButton, ListItemText, Paper, Stack, TextField, Typography } from '@mui/material'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material'
 import { api } from './lib/api'
 import { AddMessengerAccountButton, MessengerAccountManagementPanel, MessengerAccountMenuControl, useMessengerAccounts } from './MessengerAccountGate'
-import { AppUserLogoutButton } from './AppUserGate'
+import { AppUserLogoutButton, useAppUser } from './AppUserGate'
 import { AccessManagementPanel } from './AccessManagementPanel'
 import { ServiceAccountSettingsPanel } from './ServiceAccountSettingsPanel'
+import { WorkspaceNavigation, type WorkspaceSectionValue } from './WorkspaceNavigation'
+import { AuthBrandPill } from './AuthBrand'
+import { LoginSurface } from './LoginExperience'
+import { BaleConversationList, type BaleDialogItem } from './bale/BaleConversationList'
+import { BaleAvatar } from './bale/BaleConversationList'
+import { BaleChatHeader } from './bale/BaleChatHeader'
+import { BaleMessageCard } from './bale/BaleMessageCard'
+import { BaleComposer, type BaleSendTarget } from './bale/BaleComposer'
+import { BaleContactDirectory } from './bale/BaleContactDirectory'
 
 type Auth = { auth_state: string; has_vault: boolean; step?: string; challenge_id?: string }
-type Peer = { peer_reference: string; peer_kind: string; title: string; last_text?: string; unread_count: number }
-type Message = { message_reference: string; text?: string; media_reference?: string; sent_at_unix_ms: number }
+type Message = { message_reference: string; text?: string; media_reference?: string; sender_reference?: string | null; sent_at_unix_ms: number }
 type Contact = { contact_reference: string; display_name: string }
+
+const CAPABILITY_LABELS: Record<string, string> = {
+  'auth.phone': 'ورود با شماره',
+  'auth.token': 'ورود با توکن',
+  'auth.logout': 'خروج از نشست',
+  'contacts.read': 'خواندن مخاطبین',
+  'contacts.write': 'تغییر مخاطبین',
+  'dialogs.read': 'خواندن گفتگوها',
+  'history.read': 'خواندن تاریخچه',
+  'messages.send': 'ارسال پیام',
+  'media.read': 'دریافت رسانه',
+  'media.send': 'ارسال رسانه',
+  'updates.live': 'دریافت خودکار پیام‌های تازه',
+}
+
+const capabilityLabel = (capability: string) => CAPABILITY_LABELS[capability] || capability
 
 function mergeMessages(previous: Message[], incoming: Message[]): Message[] {
   return [...new Map([...previous, ...incoming].map(item => [item.message_reference, item])).values()]
@@ -18,54 +58,66 @@ function mergeMessages(previous: Message[], incoming: Message[]): Message[] {
 
 export function BaleWorkspace() {
   const accounts = useMessengerAccounts()
+  const appUser = useAppUser()
   const account = accounts.selected!
   const base = `/api/v2/messenger-accounts/${account.messenger_account_id}`
+  const theme = useTheme()
+  const mobile = useMediaQuery('(max-width: 899px)', { noSsr: true })
   const alive = useRef(true)
   const [auth, setAuth] = useState<Auth | null>(null)
+  const [authError, setAuthError] = useState('')
   const [secret, setSecret] = useState('')
-  const [dialogs, setDialogs] = useState<Peer[]>([])
-  const [peer, setPeer] = useState<Peer | null>(null)
+  const [dialogs, setDialogs] = useState<BaleDialogItem[]>([])
+  const [dialogsLoaded, setDialogsLoaded] = useState(false)
+  const [peer, setPeer] = useState<BaleDialogItem | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [historyCursor, setHistoryCursor] = useState<string | null>(null)
   const selectedPeer = useRef<string | null>(null)
   selectedPeer.current = peer?.peer_reference || null
   const dialogPoll = useRef({ nextAt: 0, failures: 0, error: '' })
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [contactsCursor, setContactsCursor] = useState<string | null>(null)
-  const [contactsSearchQuery, setContactsSearchQuery] = useState('')
+  const [section, setSection] = useState<WorkspaceSectionValue>('all')
   const [search, setSearch] = useState('')
-  const [identity, setIdentity] = useState('')
-  const [name, setName] = useState('')
-  const [text, setText] = useState('')
+  const [listOpen, setListOpen] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [directoryOpen, setDirectoryOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [downloadingKey, setDownloadingKey] = useState('')
   const [error, setError] = useState('')
   const [pollError, setPollError] = useState('')
-  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
-  const [view, setView] = useState<'chat' | 'contacts' | 'settings'>('chat')
   const [confirm, setConfirm] = useState<{ label: string; run: () => Promise<void> } | null>(null)
-  const [draftFile, setDraftFile] = useState<File | null>(null)
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null)
+  const followRef = useRef(true)
 
   useEffect(() => {
     alive.current = true
     dialogPoll.current = { nextAt: 0, failures: 0, error: '' }
-    setPeer(null); setDialogs([]); setMessages([]); setContacts([]); setContactsCursor(null); setPollError('')
-    void api<Auth>('GET', `${base}/auth/status`).then(value => { if (alive.current) setAuth(value) }).catch(reason => { if (alive.current) setError(String(reason.message)) })
+    setPeer(null); setDialogs([]); setMessages([]); setPollError(''); setDialogsLoaded(false); setSection('all'); setSearch(''); setListOpen(true)
+    setAuthError('')
+    void api<Auth>('GET', `${base}/auth/status`).then(value => { if (alive.current) setAuth(value) }).catch(reason => { if (alive.current) { setAuthError(String(reason.message)); setAuth(null) } })
     return () => { alive.current = false }
   }, [base])
+
   const run = async (callback: () => Promise<void>) => {
     if (busy) return
-    setBusy(true); setError(''); setNotice('')
+    setBusy(true); setError('')
     try { await callback() } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'عملیات انجام نشد.') }
     finally { if (alive.current) setBusy(false) }
   }
   const authenticate = async (action: string, body: Record<string, unknown> = {}) => {
     const next = await api<Auth>('POST', `${base}/auth/${action}`, body)
     if (!alive.current) return
-    setSecret(''); setAuth(next); setMessages([]); setDialogs([]); setContacts([]); setContactsCursor(null)
+    setSecret(''); setAuth(next); setMessages([]); setDialogs([]); setDialogsLoaded(false)
     await accounts.refresh()
   }
+
+  // History stays responsive in the open chat (about every 5 seconds). Dialogs
+  // have a separate provider-friendly cadence (about every 15 seconds) with an
+  // independent failure backoff, a hidden tab never polls, and a dialogs
+  // failure never blocks history — this ordering was fixed after Bale rate
+  // problems and must be preserved.
   useEffect(() => {
-    if (auth?.auth_state !== 'authenticated' || view !== 'chat') return
+    if (auth?.auth_state !== 'authenticated') return
     let active = true
     let timer: ReturnType<typeof setTimeout>
     let historyError = ''
@@ -78,10 +130,11 @@ export function BaleWorkspace() {
       if (accounts.hasCapability('dialogs.read') && Date.now() >= dialogPoll.current.nextAt) {
         dialogPoll.current.nextAt = Date.now() + 15000
         try {
-          const result = await api<{ dialogs: Peer[] }>('POST', `${base}/dialogs/query`, { limit: 100 })
+          const result = await api<{ dialogs: BaleDialogItem[] }>('POST', `${base}/dialogs/query`, { limit: 100 })
           if (active) setDialogs(result.dialogs)
           dialogPoll.current.failures = 0
           dialogPoll.current.error = ''
+          if (active) setDialogsLoaded(true)
         } catch (reason) {
           dialogPoll.current.failures = Math.min(dialogPoll.current.failures + 1, 2)
           dialogPoll.current.nextAt = Date.now() + Math.min(60000, 15000 * 2 ** dialogPoll.current.failures)
@@ -107,14 +160,34 @@ export function BaleWorkspace() {
           if (active && status.auth_state !== 'authenticated') setAuth(status)
         } catch { /* Keep the connection error visible. */ }
       }
-      // History stays responsive in the open chat. Dialogs have a separate
-      // provider-friendly cadence and failure backoff across peer changes.
       if (active && accounts.hasCapability('updates.live')) timer = setTimeout(() => void poll(), 5000)
     }
     setMessages([]); setHistoryCursor(null)
     void poll()
     return () => { active = false; clearTimeout(timer) }
-  }, [base, auth?.auth_state, peer?.peer_reference, view, accounts.hasCapability, accounts.capabilityLoading])
+  }, [base, auth?.auth_state, peer?.peer_reference, accounts.hasCapability, accounts.capabilityLoading])
+
+  const refreshNow = async () => {
+    if (!accounts.hasCapability('dialogs.read')) return
+    setSyncing(true)
+    try {
+      const result = await api<{ dialogs: BaleDialogItem[] }>('POST', `${base}/dialogs/query`, { limit: 100 })
+      if (alive.current) {
+        setDialogs(result.dialogs)
+        setDialogsLoaded(true)
+      }
+      dialogPoll.current.failures = 0
+      dialogPoll.current.error = ''
+      dialogPoll.current.nextAt = Date.now() + 15000
+      if (alive.current) setPollError(previous => (previous ? '' : previous))
+    } catch (reason) {
+      dialogPoll.current.failures = Math.min(dialogPoll.current.failures + 1, 2)
+      dialogPoll.current.nextAt = Date.now() + Math.min(60000, 15000 * 2 ** dialogPoll.current.failures)
+      dialogPoll.current.error = reason instanceof Error ? reason.message : 'ارتباط برقرار نشد.'
+      if (alive.current) setPollError(dialogPoll.current.error)
+    } finally { if (alive.current) setSyncing(false) }
+  }
+
   const loadOlder = async () => {
     if (!peer || !historyCursor) return
     const reference = peer.peer_reference
@@ -123,153 +196,287 @@ export function BaleWorkspace() {
     setMessages(previous => mergeMessages(previous, result.messages))
     setHistoryCursor(result.next_cursor && result.next_cursor !== historyCursor ? result.next_cursor : null)
   }
-  const loadContacts = async () => {
-    if (search.trim()) {
-      const selectedQuery = search.trim()
-      const result = await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/search`, { query: selectedQuery, limit: 100 })
-      if (alive.current) {
-        setContacts(result.contacts)
-        setContactsCursor(result.next_cursor || null)
-        setContactsSearchQuery(selectedQuery)
-      }
+
+  const send = async (payload: { kind: 'text'; peer: BaleSendTarget; text: string; idempotency_key: string } | { kind: 'media'; peer: BaleSendTarget; file: File; caption: string; idempotency_key: string }): Promise<'succeeded' | 'uncertain'> => {
+    let status: string
+    if (payload.kind === 'text') {
+      const result = await api<{ status: string }>('POST', `${base}/messages/send-text`, {
+        peer_reference: payload.peer.peer_reference,
+        peer_kind: payload.peer.peer_kind,
+        text: payload.text,
+        idempotency_key: payload.idempotency_key,
+        confirm: true,
+      })
+      status = result.status
     } else {
-      const result = await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/query`, { limit: 100 })
-      if (alive.current) {
-        setContacts(result.contacts)
-        setContactsCursor(result.next_cursor || null)
-        setContactsSearchQuery('')
-      }
+      const bytes = new Uint8Array(await payload.file.arrayBuffer())
+      let binary = ''
+      bytes.forEach(value => { binary += String.fromCharCode(value) })
+      const result = await api<{ status: string }>('POST', `${base}/messages/send-media`, {
+        peer_reference: payload.peer.peer_reference,
+        peer_kind: payload.peer.peer_kind,
+        filename: payload.file.name,
+        data_base64: btoa(binary),
+        caption: payload.caption,
+        idempotency_key: payload.idempotency_key,
+        confirm: true,
+      })
+      status = result.status
     }
-  }
-  const loadMoreContacts = async () => {
-    if (!contactsCursor) return
-    const result = contactsSearchQuery
-      ? await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/search`, { query: contactsSearchQuery, limit: 100, cursor: contactsCursor })
-      : await api<{ contacts: Contact[]; next_cursor?: string | null }>('POST', `${base}/contacts/query`, { limit: 100, cursor: contactsCursor })
-    if (!alive.current) return
-    setContacts(previous => {
-      const existing = new Set(previous.map(item => item.contact_reference))
-      const fresh = result.contacts.filter(item => !existing.has(item.contact_reference))
-      return [...previous, ...fresh]
-    })
-    setContactsCursor(result.next_cursor && result.next_cursor !== contactsCursor ? result.next_cursor : null)
-  }
-  useEffect(() => {
-    if (view === 'contacts' && auth?.auth_state === 'authenticated' && accounts.hasCapability('contacts.read')) void run(loadContacts)
-  }, [view, auth?.auth_state])
-  const send = async () => {
-    if (!peer || !text.trim()) return
-    const key = crypto.randomUUID()
-    const targetPeer = peer
-    const result = await api<{ status: string }>('POST', `${base}/messages/send-text`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, text, idempotency_key: key, confirm: true })
-    if (!alive.current || selectedPeer.current !== targetPeer.peer_reference) return
-    setText('')
-    setNotice(result.status === 'succeeded' ? 'پیام به سرویس بله ارسال شد؛ مشاهدهٔ گیرنده تأیید نشده است.' : 'نتیجهٔ ارسال نامعلوم است؛ ارسال خودکار تکرار نمی‌شود.')
-    if (targetPeer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
+    // A late response must never leak into a different account or dialog; the
+    // composer owns its own state, so only history is refreshed here.
+    if (payload.peer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
       try {
-        const history = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, limit: 100 })
-        if (alive.current && selectedPeer.current === targetPeer.peer_reference) {
+        const history = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: payload.peer.peer_reference, peer_kind: payload.peer.peer_kind, limit: 100 })
+        if (alive.current && selectedPeer.current === payload.peer.peer_reference) {
           setMessages(previous => mergeMessages(previous, history.messages))
         }
       } catch { /* Background poll handles errors */ }
     }
-  }
-  const sendFile = async () => {
-    if (!peer || !draftFile) return
-    if (draftFile.size > 512 * 1024) throw new Error('حد فعلی هر فایل ۵۱۲ کیلوبایت است.')
-    const bytes = new Uint8Array(await draftFile.arrayBuffer())
-    let binary = ''
-    bytes.forEach(value => { binary += String.fromCharCode(value) })
-    const targetPeer = peer
-    const result = await api<{ status: string }>('POST', `${base}/messages/send-media`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, filename: draftFile.name, data_base64: btoa(binary), caption: text, idempotency_key: crypto.randomUUID(), confirm: true })
-    if (!alive.current || selectedPeer.current !== targetPeer.peer_reference) return
-    setDraftFile(null); setText(''); setNotice(result.status === 'succeeded' ? 'فایل به سرویس ارسال شد.' : 'نتیجه نامعلوم است؛ خودکار تکرار نمی‌شود.')
-    if (targetPeer.peer_kind === 'private' && accounts.hasCapability('history.read')) {
-      try {
-        const history = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: targetPeer.peer_reference, peer_kind: targetPeer.peer_kind, limit: 100 })
-        if (alive.current && selectedPeer.current === targetPeer.peer_reference) {
-          setMessages(previous => mergeMessages(previous, history.messages))
-        }
-      } catch { /* Background poll handles errors */ }
-    }
-  }
-  const download = async (message: Message) => {
-    if (!peer || !message.media_reference) return
-    const receipt = await api<{ content_reference: string }>('POST', `${base}/media/read`, { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, message_reference: message.message_reference, media_reference: message.media_reference, max_bytes: 512 * 1024, variant: 'full' })
-    const content = await api<{ data_base64: string; mime_type: string }>('POST', `${base}/media/content`, { content_reference: receipt.content_reference })
-    if (!alive.current) return
-    const bytes = Uint8Array.from(atob(content.data_base64), c => c.charCodeAt(0))
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }))
-    const link = document.createElement('a'); link.href = url; link.download = 'bale-media'; link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return status === 'succeeded' ? 'succeeded' : 'uncertain'
   }
 
-  return <Stack dir="rtl" spacing={1.5} sx={{ p: 2, height: '100%', overflow: 'auto' }} data-provider-workspace="bale">
-    <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap">
-      <Typography variant="h5">بله — {account.label || account.phone_hint}</Typography>
-      <Box sx={{ minWidth: 230 }}><MessengerAccountMenuControl /></Box>
-      <AddMessengerAccountButton />
-      <Button onClick={() => setView('chat')}>گفتگوها</Button><Button onClick={() => setView('contacts')}>مخاطبین</Button><Button onClick={() => setView('settings')}>تنظیمات و دسترسی</Button>
-      <AppUserLogoutButton />
-    </Stack>
-    {error && <Alert severity="error">{error}</Alert>}
+  const download = async (message: Message) => {
+    if (!peer || !message.media_reference) return
+    setDownloadingKey(message.message_reference)
+    try {
+      const receipt = await api<{ content_reference: string }>('POST', `${base}/media/read`, { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, message_reference: message.message_reference, media_reference: message.media_reference, max_bytes: 512 * 1024, variant: 'full' })
+      const content = await api<{ data_base64: string; mime_type: string }>('POST', `${base}/media/content`, { content_reference: receipt.content_reference })
+      if (!alive.current) return
+      const bytes = Uint8Array.from(atob(content.data_base64), c => c.charCodeAt(0))
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }))
+      const link = document.createElement('a'); link.href = url; link.download = 'bale-media'; link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } finally { if (alive.current) setDownloadingKey('') }
+  }
+
+  useEffect(() => { followRef.current = true }, [peer?.peer_reference])
+  useEffect(() => {
+    if (!followRef.current) return
+    const box = scrollBoxRef.current
+    if (box) box.scrollTop = box.scrollHeight
+  }, [messages, peer?.peer_reference])
+
+  const railTabs = useMemo(() => {
+    const unread = (kind?: string) => dialogs
+      .filter(item => !kind || item.peer_kind === kind)
+      .reduce((sum, item) => sum + (item.unread_count || 0), 0)
+    return [
+      { value: 'all' as const, label: 'همه', count: unread() },
+      { value: 'personal' as const, label: 'شخصی', count: unread('private') },
+      { value: 'group' as const, label: 'گروه‌ها', count: unread('group') },
+      { value: 'channel' as const, label: 'کانال‌ها', count: unread('channel') },
+    ]
+  }, [dialogs])
+
+  const visibleDialogs = useMemo(() => {
+    const query = search.trim()
+    return dialogs.filter(item => {
+      if (section !== 'all' && item.peer_kind !== (section === 'personal' ? 'private' : section)) return false
+      if (!query) return true
+      return (item.title || '').includes(query) || (item.last_text || '').includes(query)
+    })
+  }, [dialogs, section, search])
+
+  const dialogsSupported = accounts.hasCapability('dialogs.read')
+  const liveState: 'idle' | 'connecting' | 'retrying' = pollError
+    ? 'retrying'
+    : (accounts.capabilityLoading || (auth?.auth_state === 'authenticated' && !dialogsLoaded)) ? 'connecting' : 'idle'
+  const outgoingFor = (message: Message) => Boolean(peer && message.sender_reference && message.sender_reference !== peer.peer_reference)
+  const contactCanOpenChat = (contact: Contact) => {
+    setPeer({ peer_reference: contact.contact_reference, peer_kind: 'private', title: contact.display_name, unread_count: 0 })
+    setSection('all')
+  }
+  const logoutSoftware = async () => {
+    if (!window.confirm('از نرم‌افزار خارج شوید؟ نشست حساب بله حذف نمی‌شود.')) return
+    try { await appUser.logout() } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'خروج از نرم‌افزار انجام نشد.') }
+  }
+
+  const alerts = <Stack spacing={1}>
+    {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
     {pollError && <Alert severity="warning">{pollError}</Alert>}
-    {notice && <Alert severity="info">{notice}</Alert>}
     {accounts.capabilityError && <Alert severity="error">{accounts.capabilityError}</Alert>}
-    {!auth && <CircularProgress aria-label="خواندن نشست بله" />}
-    {auth && auth.auth_state !== 'authenticated' && <Paper variant="outlined" sx={{ p: 2 }}><Stack spacing={2}>
-      <Typography variant="h6">ورود به حساب بله انتخابی</Typography>
-      <Typography>{account.phone_hint} · وضعیت نشست: {auth.auth_state}</Typography>
-      {auth.step && auth.challenge_id ? <>
+  </Stack>
+
+  if (!auth) {
+    if (authError) {
+      return <LoginSurface><Stack alignItems="center" spacing={2} sx={{ maxWidth: 420 }} data-provider-workspace="bale">
+        <AuthBrandPill label="حساب بله" />
+        <Typography variant="h6">خواندن وضعیت نشست انجام نشد</Typography>
+        <Alert severity="error" sx={{ width: '100%' }}>{authError}</Alert>
+        <Button variant="contained" onClick={() => { setAuthError(''); void api<Auth>('GET', `${base}/auth/status`).then(value => { if (alive.current) setAuth(value) }).catch(reason => { if (alive.current) setAuthError(String(reason.message)) }) }}>تلاش دوباره</Button>
+        <AppUserLogoutButton />
+      </Stack></LoginSurface>
+    }
+    return <LoginSurface><Stack alignItems="center" spacing={2} data-provider-workspace="bale">
+      <AuthBrandPill label="حساب بله" />
+      <Typography variant="h6">در حال خواندن وضعیت نشست بله</Typography>
+      <CircularProgress size={32} />
+    </Stack></LoginSurface>
+  }
+  if (auth.auth_state !== 'authenticated') {
+    return <LoginSurface><Stack spacing={2} sx={{ maxWidth: 460, width: '100%' }} data-provider-workspace="bale">
+      <AuthBrandPill label="حساب بله" />
+      <Typography variant="h5">ورود به حساب بله انتخابی</Typography>
+      <Typography>{account.label || 'حساب بله'} · <span dir="ltr">{account.phone_hint}</span> · وضعیت نشست: {auth.auth_state}</Typography>
+      {alerts}
+      {auth.step && auth.challenge_id ? <Paper variant="outlined" sx={{ p: 2 }}><Stack spacing={2}>
         <TextField autoComplete="off" label={auth.step === 'password' ? 'رمز دومرحله‌ای' : 'کد ورود'} type={auth.step === 'password' ? 'password' : 'text'} value={secret} onChange={event => setSecret(event.target.value)} />
-        <Button disabled={busy || !secret} onClick={() => void run(() => authenticate(auth.step === 'password' ? 'password' : 'code', { challenge_id: auth.challenge_id, [auth.step === 'password' ? 'password' : 'code']: secret }))}>ادامهٔ ورود</Button>
+        <Button variant="contained" disabled={busy || !secret} onClick={() => void run(() => authenticate(auth.step === 'password' ? 'password' : 'code', { challenge_id: auth.challenge_id, [auth.step === 'password' ? 'password' : 'code']: secret }))}>ادامهٔ ورود</Button>
         <Button disabled={busy} onClick={() => void run(() => authenticate('cancel'))}>لغو ورود</Button>
-      </> : <Button disabled={busy || !accounts.hasCapability('auth.phone')} onClick={() => setConfirm({ label: 'درخواست کد ورود بله برای همین حساب؟', run: () => authenticate('start', { confirm: true }) })}>درخواست کد ورود</Button>}
-      {auth.has_vault && !['revoked', 'invalid'].includes(auth.auth_state) && <Button disabled={busy} onClick={() => void run(() => authenticate('restore', { confirm: true }))}>بازیابی نشست ذخیره‌شده</Button>}
-    </Stack></Paper>}
-    {auth?.auth_state === 'authenticated' && view === 'chat' && <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ minHeight: 350, flex: 1 }}>
-      <Paper variant="outlined" sx={{ minWidth: 220, maxHeight: '75vh', overflow: 'auto' }}><List>
-        {dialogs.map(item => <ListItemButton key={item.peer_reference} selected={peer?.peer_reference === item.peer_reference} onClick={() => { setPeer(item); setText(''); setDraftFile(null) }}><ListItemText primary={`${item.title}${item.unread_count ? ` (${item.unread_count})` : ''}`} secondary={item.last_text} /></ListItemButton>)}
-        {!dialogs.length && <Typography sx={{ p: 2 }}>گفتگویی بارگذاری نشده است.</Typography>}
-      </List></Paper>
-      <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="h6">{peer?.title || 'یک گفتگو انتخاب کنید'}</Typography>
-        {historyCursor && messages.length < 500 && <Button disabled={busy || !accounts.hasCapability('history.read')} onClick={() => void run(loadOlder)}>پیام‌های قدیمی‌تر</Button>}
-        {messages.length >= 500 && <Typography variant="caption">حد نمایش این گفتگو ۵۰۰ پیام است.</Typography>}
-        {peer && peer.peer_kind !== 'private' && <Alert severity="info">این کلاینت فعلاً خواندن و ارسال در گروه/کانال را پشتیبانی نمی‌کند.</Alert>}
-        <Box sx={{ flex: 1, overflow: 'auto' }}>{messages.map(message => <Paper key={message.message_reference} variant="outlined" sx={{ p: 1.5, mb: 1 }}>
-          <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{message.text}</Typography>
-          {message.media_reference && <Button disabled={busy || !accounts.hasCapability('media.read')} onClick={() => void run(() => download(message))}>دریافت پیوست</Button>}
-        </Paper>)}</Box>
-        <TextField multiline label="متن پیام" value={text} onChange={event => setText(event.target.value)} />
-        <Stack direction="row" gap={1}>
-          <Button variant="contained" disabled={busy || !peer || peer.peer_kind !== 'private' || !text.trim() || !accounts.hasCapability('messages.send')} onClick={() => setConfirm({ label: `ارسال پیام به ${peer?.title}؟`, run: send })}>ارسال پیام</Button>
-          <Button component="label" disabled={busy || !peer || peer.peer_kind !== 'private' || !accounts.hasCapability('media.send')}>انتخاب فایل<input hidden type="file" onChange={event => setDraftFile(event.target.files?.[0] || null)} /></Button>
-          {draftFile && <Button disabled={busy} onClick={() => setConfirm({ label: `ارسال ${draftFile.name} به ${peer?.title}؟`, run: sendFile })}>ارسال فایل</Button>}
+      </Stack></Paper>
+        : <Paper variant="outlined" sx={{ p: 2 }}><Stack spacing={2}>
+          <Button variant="contained" disabled={busy || !accounts.hasCapability('auth.phone')} onClick={() => setConfirm({ label: 'درخواست کد ورود بله برای همین حساب؟', run: () => authenticate('start', { confirm: true }) })}>درخواست کد ورود</Button>
+          {!accounts.hasCapability('auth.phone') && <Alert severity="info">ورود با شماره برای این حساب در حال حاضر مجاز نیست.</Alert>}
+          {auth.has_vault && !['revoked', 'invalid'].includes(auth.auth_state) && <Button disabled={busy} onClick={() => void run(() => authenticate('restore', { confirm: true }))}>بازیابی نشست ذخیره‌شده</Button>}
+        </Stack></Paper>}
+      <AddMessengerAccountButton />
+      <AppUserLogoutButton disabled={busy} />
+      <Dialog open={Boolean(confirm)} onClose={() => !busy && setConfirm(null)}><DialogTitle>تأیید عملیات</DialogTitle><DialogContent>{confirm?.label}</DialogContent><DialogActions>
+        <Button disabled={busy} onClick={() => setConfirm(null)}>انصراف</Button><Button disabled={busy} onClick={() => { const operation = confirm; setConfirm(null); if (operation) void run(operation.run) }}>تأیید</Button>
+      </DialogActions></Dialog>
+    </Stack></LoginSurface>
+  }
+
+  const unsupportedReason = peer && peer.peer_kind !== 'private' ? 'خواندن و ارسال در گروه/کانال فعلاً پشتیبانی نمی‌شود.' : ''
+
+  return <Box sx={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden', bgcolor: 'background.default' }} data-provider-workspace="bale">
+    <Box component="main" sx={{
+      width: '100%',
+      height: '100%',
+      minWidth: 0,
+      minHeight: 0,
+      overflow: 'hidden',
+      display: { xs: 'block', md: 'grid' },
+      pb: { xs: 'calc(66px + env(safe-area-inset-bottom))', md: 0 },
+      gridTemplateColumns: { md: '72px minmax(280px, 32vw) minmax(0, 1fr)' },
+      '& > *': { minWidth: 0, minHeight: 0 },
+    }}>
+      <WorkspaceNavigation
+        sections={railTabs}
+        activeSection={section}
+        userName={appUser.principal?.display_name || 'بله'}
+        userRole={appUser.principal?.global_role === 'admin' ? 'مدیر نرم‌افزار' : 'کاربر نرم‌افزار'}
+        accountControl={<MessengerAccountMenuControl />}
+        syncing={syncing}
+        dialogsEnabled={dialogsSupported}
+        wordpressVisible={false}
+        wordpressEnabled={false}
+        onSection={value => { setSection(value); if (mobile) setListOpen(true) }}
+        onSettings={() => setSettingsOpen(true)}
+        onSync={() => void run(refreshNow)}
+        onContacts={() => setDirectoryOpen(true)}
+        onMessengerLogout={() => setConfirm({ label: 'خروج از نشست بله همین حساب؟', run: () => authenticate('logout', { confirm: true }) })}
+        onSoftwareLogout={appUser.enabled ? () => void logoutSoftware() : undefined}
+        syncLabel="به‌روزرسانی گفتگوها"
+        messengerLogoutLabel="خروج از حساب بله"
+      />
+
+      <BaleConversationList
+        open={listOpen}
+        docked={!mobile}
+        loading={!dialogsLoaded && dialogsSupported}
+        refreshing={syncing}
+        dialogsEnabled={dialogsSupported}
+        filterLabel={railTabs.find(item => item.value === section)?.label || 'گفتگوها'}
+        search={search}
+        items={visibleDialogs}
+        totalCount={visibleDialogs.length}
+        activePeerKey={peer?.peer_reference}
+        onSearch={setSearch}
+        onClose={() => setListOpen(false)}
+        onRefresh={() => void run(refreshNow)}
+        onSelect={item => { setPeer(item); if (mobile) setListOpen(false) }}
+      />
+
+      <Paper component="section" square elevation={0} sx={{ display: 'flex', flexDirection: 'column', position: 'relative', minWidth: 0, minHeight: 0, height: { xs: 'calc(100dvh - 66px - env(safe-area-inset-bottom))', md: '100%' }, overflow: 'hidden', bgcolor: theme => theme.palette.mode === 'dark' ? '#0c131b' : '#e7f0ea' }}>
+        {alerts}
+        {!dialogsSupported && <Alert severity="info" sx={{ borderRadius: 0 }}>خواندن گفتگوها برای این حساب در حال حاضر مجاز نیست.</Alert>}
+        <BaleChatHeader
+          title={peer?.title || 'یک گفتگو را انتخاب کنید'}
+          subtitle={peer ? `${messages.length.toLocaleString('fa-IR')} پیام در این نشست` : `${account.label || 'حساب بله'} — ${account.phone_hint}`}
+          avatar={<BaleAvatar title={peer?.title || 'ب'} small />}
+          liveState={liveState}
+          onOpenChats={() => setListOpen(true)}
+        />
+        {!peer ? <Stack alignItems="center" justifyContent="center" spacing={1.5} sx={{ minHeight: 0, flex: 1, p: 3, textAlign: 'center' }}>
+          <AuthBrandPill label="بله" />
+          <Typography variant="h6">یک گفتگو را انتخاب کنید</Typography>
+          <Typography variant="body2" color="text.secondary">از فهرست گفتگوها یا دفترچهٔ مخاطبین، مقصد خصوصی را باز کنید.</Typography>
+        </Stack> : <Stack spacing={0.75} sx={{ minHeight: 0, flex: 1, p: { xs: 1, sm: 1.5 }, minWidth: 0 }}>
+          <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+            {historyCursor && messages.length < 500 && <Button size="small" variant="outlined" disabled={busy || !accounts.hasCapability('history.read')} onClick={() => void run(loadOlder)}>پیام‌های قدیمی‌تر</Button>}
+            {messages.length >= 500 && <Typography variant="caption" color="text.secondary">حد نمایش این گفتگو ۵۰۰ پیام است.</Typography>}
+            {Boolean(messages.length) && !historyCursor && <Chip size="small" variant="outlined" label="ابتدای گفتگو نمایش داده شد" />}
+            {peer.peer_kind !== 'private' && <Alert severity="info" sx={{ py: 0.25 }}>این کلاینت فعلاً خواندن و ارسال در گروه/کانال را پشتیبانی نمی‌کند.</Alert>}
+          </Stack>
+          <Box ref={scrollBoxRef} onScroll={() => {
+            const box = scrollBoxRef.current
+            if (box) followRef.current = box.scrollHeight - box.scrollTop - box.clientHeight < 160
+          }} sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowAnchor: 'none', display: 'flex', flexDirection: 'column', gap: 0.75, py: 0.5 }}>
+            {messages.map(message => <BaleMessageCard
+              key={message.message_reference}
+              text={message.text}
+              sentAtUnixMs={message.sent_at_unix_ms}
+              outgoing={outgoingFor(message)}
+              hasMedia={Boolean(message.media_reference)}
+              canDownloadMedia={accounts.hasCapability('media.read')}
+              downloading={downloadingKey === message.message_reference}
+              onDownload={() => void run(() => download(message))}
+            />)}
+            {!messages.length && <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>پیامی برای نمایش نیست؛ پیام‌های تازه به‌صورت خودکار ظاهر می‌شوند.</Typography>}
+          </Box>
+          <BaleComposer
+            key={peer.peer_reference}
+            peer={peer.peer_kind === 'private' ? { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, title: peer.title } : null}
+            unsupportedReason={unsupportedReason}
+            canSendText={accounts.hasCapability('messages.send')}
+            canSendMedia={accounts.hasCapability('media.send')}
+            capabilityLoading={accounts.capabilityLoading}
+            capabilityError={accounts.capabilityError}
+            send={send}
+            onSent={() => undefined}
+          />
+        </Stack>}
+      </Paper>
+    </Box>
+
+    <BaleContactDirectory
+      open={directoryOpen}
+      base={base}
+      can={capability => accounts.hasCapability(capability)}
+      onClose={() => setDirectoryOpen(false)}
+      onOpenChat={contactCanOpenChat}
+    />
+
+    <Dialog open={settingsOpen} fullScreen onClose={() => setSettingsOpen(false)}>
+      <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
+        <Stack spacing={2} sx={{ p: { xs: 1, sm: 2 }, maxWidth: 980, mx: 'auto' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
+            <Typography variant="h5" fontWeight={850}>تنظیمات و دسترسی بله</Typography>
+            <Button variant="outlined" onClick={() => setSettingsOpen(false)}>بازگشت به گفتگوها</Button>
+          </Stack>
+          <Alert severity={auth.auth_state === 'authenticated' ? 'success' : 'info'}>آمادگی حساب بله: نشست وارد شده · Worker: {account.worker?.runtime_state || 'نامشخص'}</Alert>
+          {accounts.capabilitySnapshot && <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="h6">قابلیت‌های مجاز این حساب</Typography>
+            <Typography variant="caption" color="text.secondary">هر قابلیت غیرمجاز با کد علت خودش نمایش داده می‌شود.</Typography>
+            <Stack direction="row" gap={1} flexWrap="wrap" sx={{ pt: 1 }}>
+              {accounts.capabilitySnapshot.capabilities.map(item => <Stack key={item.capability} direction="row" spacing={0.75} alignItems="center">
+                <Chip size="small" color={item.status === 'supported' ? 'success' : item.status === 'restricted' ? 'warning' : 'default'} label={capabilityLabel(item.capability)} />
+                <Typography variant="caption" color="text.secondary">{item.status === 'supported' ? 'مجاز' : item.reason_code}</Typography>
+              </Stack>)}
+            </Stack>
+          </Paper>}
+          <MessengerAccountManagementPanel />
+          <AccessManagementPanel />
+          <ServiceAccountSettingsPanel />
+          <Button color="warning" disabled={busy} onClick={() => setConfirm({ label: 'خروج از نشست بله همین حساب؟', run: () => authenticate('logout', { confirm: true }) })}>خروج از حساب بله</Button>
         </Stack>
-      </Stack>
-    </Stack>}
-    {auth?.auth_state === 'authenticated' && view === 'contacts' && <Stack spacing={2}>
-      <Stack direction="row" gap={1}><TextField label="جستجوی مخاطب" value={search} onChange={event => setSearch(event.target.value)} /><Button disabled={busy || !accounts.hasCapability('contacts.read')} onClick={() => void run(loadContacts)}>جستجو / تازه‌سازی</Button></Stack>
-      <Stack direction="row" gap={1} flexWrap="wrap"><TextField label="شمارهٔ E.164 یا bale:user:شناسه" value={identity} onChange={event => setIdentity(event.target.value)} helperText="مثال: +989123456789 یا bale:user:123456" /><TextField label="نام مخاطب" value={name} onChange={event => setName(event.target.value)} />
-        <Button disabled={busy || !identity.trim() || !name.trim() || !accounts.hasCapability('contacts.write')} onClick={() => setConfirm({ label: `افزودن مخاطب با نام ${name.trim()} در همین حساب بله؟`, run: async () => {
-          const cleanIdentity = identity.trim().replace(/\s+/g, '')
-          await api('POST', `${base}/contacts/upsert`, { identity: cleanIdentity, display_name: name.trim(), idempotency_key: crypto.randomUUID(), confirm: true }); if (!alive.current) return; setIdentity(''); setName(''); await loadContacts()
-        } })}>افزودن مخاطب</Button></Stack>
-      {contacts.map(item => <Paper key={item.contact_reference} variant="outlined" sx={{ p: 1 }}><Stack direction="row" gap={2} alignItems="center">
-        <Typography>{item.display_name || item.contact_reference}</Typography>
-        <Button onClick={() => { setPeer({ peer_reference: item.contact_reference, peer_kind: 'private', title: item.display_name, unread_count: 0 }); setView('chat') }}>گفتگو</Button>
-        <Button color="error" disabled={busy || !accounts.hasCapability('contacts.write')} onClick={() => setConfirm({ label: `حذف ${item.display_name || item.contact_reference} از مخاطبین همین حساب؟`, run: async () => { await api('POST', `${base}/contacts/remove`, { contact_reference: item.contact_reference, idempotency_key: crypto.randomUUID(), confirm: true }); if (alive.current) await loadContacts() } })}>حذف مخاطب</Button>
-      </Stack></Paper>)}
-      {contactsCursor && <Button disabled={busy || !accounts.hasCapability('contacts.read')} onClick={() => void run(loadMoreContacts)}>{contactsSearchQuery ? 'نتایج بیشتر' : 'مخاطبین بیشتر'}</Button>}
-    </Stack>}
-    {view === 'settings' && <>
-      <Alert severity={auth?.auth_state === 'authenticated' ? 'success' : 'info'}>آمادگی حساب بله: {auth?.auth_state === 'authenticated' ? 'نشست وارد شده' : 'ورود لازم است'} · Worker: {account.worker?.runtime_state || 'نامشخص'}</Alert>
-      <MessengerAccountManagementPanel /><AccessManagementPanel /><ServiceAccountSettingsPanel />
-      {auth?.auth_state === 'authenticated' && <Button color="warning" disabled={busy} onClick={() => setConfirm({ label: 'خروج از نشست بله همین حساب؟', run: () => authenticate('logout', { confirm: true }) })}>خروج از حساب بله</Button>}
-    </>}
+      </DialogContent>
+    </Dialog>
+
     <Dialog open={Boolean(confirm)} onClose={() => !busy && setConfirm(null)}><DialogTitle>تأیید عملیات</DialogTitle><DialogContent>{confirm?.label}</DialogContent><DialogActions>
       <Button disabled={busy} onClick={() => setConfirm(null)}>انصراف</Button><Button disabled={busy} onClick={() => { const operation = confirm; setConfirm(null); if (operation) void run(operation.run) }}>تأیید</Button>
     </DialogActions></Dialog>
-  </Stack>
+  </Box>
 }

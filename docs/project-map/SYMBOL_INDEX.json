@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "9196550751c2b6ae",
+  "source_fingerprint": "a04fdd0f88c079f8",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -17202,6 +17202,108 @@
       ]
     },
     {
+      "path": "tests/test_bale_workspace_ui.py",
+      "role": "Python test",
+      "summary": "Behavioral source contracts for the Bale workspace UI.",
+      "symbols": [
+        {
+          "name": "read",
+          "kind": "function",
+          "line": 19
+        },
+        {
+          "name": "read_bale",
+          "kind": "function",
+          "line": 23
+        },
+        {
+          "name": "bale_surface",
+          "kind": "function",
+          "line": 27
+        },
+        {
+          "name": "test_bale_workspace_is_mounted_per_account_with_isolated_state",
+          "kind": "function",
+          "line": 38
+        },
+        {
+          "name": "test_bale_drafts_are_scoped_to_account_and_dialog",
+          "kind": "function",
+          "line": 52
+        },
+        {
+          "name": "test_bale_polling_keeps_provider_friendly_cadences_and_hidden_tab_pause",
+          "kind": "function",
+          "line": 60
+        },
+        {
+          "name": "test_bale_send_is_confirmed_idempotent_and_honest",
+          "kind": "function",
+          "line": 75
+        },
+        {
+          "name": "test_bale_media_stays_bounded_without_raw_file_paths",
+          "kind": "function",
+          "line": 90
+        },
+        {
+          "name": "test_bale_surface_gates_every_operation_on_account_capabilities",
+          "kind": "function",
+          "line": 99
+        },
+        {
+          "name": "test_bale_group_and_channel_are_honestly_unsupported",
+          "kind": "function",
+          "line": 112
+        },
+        {
+          "name": "test_bale_contact_directory_is_paged_searchable_and_recoverable",
+          "kind": "function",
+          "line": 122
+        },
+        {
+          "name": "test_bale_navigation_shares_workspace_chrome_without_eitaa_operations",
+          "kind": "function",
+          "line": 136
+        },
+        {
+          "name": "test_bale_surface_never_calls_eitaa_only_routes",
+          "kind": "function",
+          "line": 150
+        },
+        {
+          "name": "test_bale_history_marks_end_and_cap_honestly",
+          "kind": "function",
+          "line": 159
+        },
+        {
+          "name": "test_bale_messages_dedupe_and_stay_sorted_by_reference",
+          "kind": "function",
+          "line": 165
+        },
+        {
+          "name": "test_bale_settings_show_worker_state_and_capability_reasons",
+          "kind": "function",
+          "line": 171
+        },
+        {
+          "name": "test_bale_auth_surface_covers_code_password_cancel_restore_and_errors",
+          "kind": "function",
+          "line": 179
+        },
+        {
+          "name": "test_bale_uses_shared_shell_and_mobile_list_pattern_without_class_names",
+          "kind": "function",
+          "line": 201
+        },
+        {
+          "name": "test_bale_privacy_secrets_never_enter_component_persistence",
+          "kind": "function",
+          "line": 214
+        }
+      ]
+    },
+    {
       "path": "tests/test_bearer_and_app_user_auth_boundary.py",
       "role": "Python test",
       "summary": "",
@@ -24146,64 +24248,189 @@
       ]
     },
     {
+      "path": "ui/src/bale/BaleChatHeader.tsx",
+      "role": "React UI",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "BaleChatHeader",
+          "kind": "script symbol",
+          "line": 4
+        }
+      ]
+    },
+    {
+      "path": "ui/src/bale/BaleComposer.tsx",
+      "role": "React UI",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "BaleComposer",
+          "kind": "script symbol",
+          "line": 34
+        },
+        {
+          "name": "chooseFile",
+          "kind": "script symbol",
+          "line": 86
+        },
+        {
+          "name": "requestSend",
+          "kind": "script symbol",
+          "line": 106
+        },
+        {
+          "name": "runSend",
+          "kind": "script symbol",
+          "line": 111
+        }
+      ]
+    },
+    {
+      "path": "ui/src/bale/BaleContactDirectory.tsx",
+      "role": "React UI",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "BaleContactDirectory",
+          "kind": "script symbol",
+          "line": 30
+        },
+        {
+          "name": "loadContacts",
+          "kind": "script symbol",
+          "line": 62
+        },
+        {
+          "name": "loadMoreContacts",
+          "kind": "script symbol",
+          "line": 72
+        },
+        {
+          "name": "run",
+          "kind": "script symbol",
+          "line": 84
+        },
+        {
+          "name": "addContact",
+          "kind": "script symbol",
+          "line": 97
+        },
+        {
+          "name": "removeContact",
+          "kind": "script symbol",
+          "line": 105
+        }
+      ]
+    },
+    {
+      "path": "ui/src/bale/BaleConversationList.tsx",
+      "role": "React UI",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "kindIcon",
+          "kind": "script symbol",
+          "line": 34
+        },
+        {
+          "name": "kindLabel",
+          "kind": "script symbol",
+          "line": 40
+        },
+        {
+          "name": "BaleAvatar",
+          "kind": "script symbol",
+          "line": 47
+        },
+        {
+          "name": "BaleConversationList",
+          "kind": "script symbol",
+          "line": 67
+        }
+      ]
+    },
+    {
+      "path": "ui/src/bale/BaleMessageCard.tsx",
+      "role": "React UI",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "BaleMessageCard",
+          "kind": "script symbol",
+          "line": 10
+        }
+      ]
+    },
+    {
       "path": "ui/src/BaleWorkspace.tsx",
       "role": "React UI",
       "summary": "",
       "symbols": [
         {
+          "name": "capabilityLabel",
+          "kind": "script symbol",
+          "line": 51
+        },
+        {
           "name": "mergeMessages",
           "kind": "script symbol",
-          "line": 13
+          "line": 53
         },
         {
           "name": "BaleWorkspace",
           "kind": "script symbol",
-          "line": 18
+          "line": 58
         },
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 55
+          "line": 100
         },
         {
           "name": "authenticate",
           "kind": "script symbol",
-          "line": 61
+          "line": 107
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 72
+          "line": 124
+        },
+        {
+          "name": "refreshNow",
+          "kind": "script symbol",
+          "line": 169
         },
         {
           "name": "loadOlder",
           "kind": "script symbol",
-          "line": 118
-        },
-        {
-          "name": "loadContacts",
-          "kind": "script symbol",
-          "line": 126
-        },
-        {
-          "name": "loadMoreContacts",
-          "kind": "script symbol",
-          "line": 144
-        },
-        {
-          "name": "send",
-          "kind": "script symbol",
-          "line": 160
-        },
-        {
-          "name": "sendFile",
-          "kind": "script symbol",
-          "line": 177
+          "line": 190
         },
         {
           "name": "download",
           "kind": "script symbol",
-          "line": 196
+          "line": 238
+        },
+        {
+          "name": "unread",
+          "kind": "script symbol",
+          "line": 261
+        },
+        {
+          "name": "outgoingFor",
+          "kind": "script symbol",
+          "line": 285
+        },
+        {
+          "name": "contactCanOpenChat",
+          "kind": "script symbol",
+          "line": 286
+        },
+        {
+          "name": "logoutSoftware",
+          "kind": "script symbol",
+          "line": 290
         }
       ]
     },
@@ -25725,12 +25952,12 @@
         {
           "name": "close",
           "kind": "script symbol",
-          "line": 100
+          "line": 106
         },
         {
           "name": "invoke",
           "kind": "script symbol",
-          "line": 101
+          "line": 107
         }
       ]
     }

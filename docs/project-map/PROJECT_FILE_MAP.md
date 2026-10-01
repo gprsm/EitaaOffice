@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 400
-- اثرانگشت منبع: `9196550751c2b6ae`
+- تعداد فایل‌های نقشه: 406
+- اثرانگشت منبع: `a04fdd0f88c079f8`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -262,6 +262,7 @@
 | `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
 | `tests/test_bale_pilot.py` | Python test | 3 | Pilot defaults must never prompt for credentials or touch the network. |
 | `tests/test_bale_product_integration.py` | Python test | 21 | Offline regression for Bale's product boundary; no provider network access. |
+| `tests/test_bale_workspace_ui.py` | Python test | 19 | Behavioral source contracts for the Bale workspace UI. |
 | `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |
@@ -369,7 +370,12 @@
 | `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 2 | — |
-| `ui/src/BaleWorkspace.tsx` | React UI | 11 | — |
+| `ui/src/bale/BaleChatHeader.tsx` | React UI | 1 | — |
+| `ui/src/bale/BaleComposer.tsx` | React UI | 4 | — |
+| `ui/src/bale/BaleContactDirectory.tsx` | React UI | 6 | — |
+| `ui/src/bale/BaleConversationList.tsx` | React UI | 4 | — |
+| `ui/src/bale/BaleMessageCard.tsx` | React UI | 1 | — |
+| `ui/src/BaleWorkspace.tsx` | React UI | 13 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
