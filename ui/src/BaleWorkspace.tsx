@@ -85,6 +85,7 @@ export function BaleWorkspace() {
   const [error, setError] = useState('')
   const [pollError, setPollError] = useState('')
   const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
   const [confirm, setConfirm] = useState<{ label: string; run: () => Promise<void> } | null>(null)
   const scrollBoxRef = useRef<HTMLDivElement | null>(null)
   const followRef = useRef(true)
@@ -99,10 +100,11 @@ export function BaleWorkspace() {
   }, [base])
 
   const run = async (callback: () => Promise<void>) => {
-    if (busy) return
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true); setError('')
     try { await callback() } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'عملیات انجام نشد.') }
-    finally { if (alive.current) setBusy(false) }
+    finally { busyRef.current = false; if (alive.current) setBusy(false) }
   }
   const authenticate = async (action: string, body: Record<string, unknown> = {}) => {
     const next = await api<Auth>('POST', `${base}/auth/${action}`, body)
@@ -383,6 +385,7 @@ export function BaleWorkspace() {
         items={visibleDialogs}
         totalCount={visibleDialogs.length}
         activePeerKey={peer?.peer_reference}
+        warning={pollError || undefined}
         onSearch={setSearch}
         onClose={() => setListOpen(false)}
         onRefresh={() => void run(refreshNow)}

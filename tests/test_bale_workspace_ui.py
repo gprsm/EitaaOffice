@@ -75,6 +75,7 @@ def test_bale_polling_keeps_provider_friendly_cadences_and_hidden_tab_pause() ->
 def test_bale_send_is_confirmed_idempotent_and_honest() -> None:
     workspace = read("BaleWorkspace.tsx")
     composer = read_bale("BaleComposer.tsx")
+    directory = read_bale("BaleContactDirectory.tsx")
     assert "idempotency_key: payload.idempotency_key" in workspace
     assert "confirm: true" in workspace
     # The composer always asks for explicit confirmation with the target shown.
@@ -85,6 +86,11 @@ def test_bale_send_is_confirmed_idempotent_and_honest() -> None:
     assert "پیام به سرویس بله ارسال شد؛ مشاهدهٔ گیرنده تأیید نشده است." in composer
     assert "نتیجهٔ ارسال نامعلوم است؛ ارسال خودکار تکرار نمی‌شود." in composer
     assert 'return status === \'succeeded\' ? \'succeeded\' : \'uncertain\'' in workspace
+    # Two synchronous clicks inside one React batch must not double-send or
+    # double-run: the re-entry guards are synchronous refs, not state.
+    assert "sendingRef.current" in composer
+    assert "busyRef.current" in workspace
+    assert "busyRef.current" in directory
 
 
 def test_bale_media_stays_bounded_without_raw_file_paths() -> None:
@@ -209,6 +215,19 @@ def test_bale_uses_shared_shell_and_mobile_list_pattern_without_class_names() ->
         source = read(name) if name == "BaleWorkspace.tsx" else read_bale(name)
         assert "className=" not in source, name
     assert 'aria-label="بازگشت به فهرست گفتگوها"' in read_bale("BaleChatHeader.tsx")
+
+
+def test_bale_mobile_header_and_search_clear_the_fixed_menu_button() -> None:
+    # F-106: the workspace menu button floats over the inline-start edge on
+    # mobile; header and list content must reserve space so no control is
+    # covered or unreachable.
+    header = read_bale("BaleChatHeader.tsx")
+    listing = read_bale("BaleConversationList.tsx")
+    assert "paddingInlineStart: { xs: '60px', md: 0 }" in header
+    assert "paddingInlineStart: { xs: '60px', md: 8 }" in listing
+    # Polling failures stay visible while the mobile drawer covers the chat pane.
+    assert "warning?: string" in listing
+    assert "warning={pollError || undefined}" in read("BaleWorkspace.tsx")
 
 
 def test_bale_privacy_secrets_never_enter_component_persistence() -> None:

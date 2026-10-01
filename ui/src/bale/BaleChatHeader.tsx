@@ -29,7 +29,7 @@ export function BaleChatHeader({
       bgcolor: 'background.paper',
     }}
   >
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: '1 1 220px', minWidth: 0 }}>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: '1 1 220px', minWidth: 0, /* Clear the fixed mobile menu button that floats over the inline-start edge. */ paddingInlineStart: { xs: '60px', md: 0 } }}>
       <Tooltip title="بازگشت به فهرست گفتگوها">
         <IconButton onClick={onOpenChats} aria-label="بازگشت به فهرست گفتگوها" sx={{ display: { md: 'none' } }}><ArrowForwardRounded /></IconButton>
       </Tooltip>

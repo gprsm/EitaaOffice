@@ -59,6 +59,7 @@ export function BaleContactDirectory({
   const [name, setName] = useState('')
   const [confirm, setConfirm] = useState<{ label: string; run: () => Promise<void> } | null>(null)
   const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
 
   const loadContacts = async () => {
     const selectedQuery = searchInput.trim()
@@ -82,11 +83,12 @@ export function BaleContactDirectory({
     setCursor(result.next_cursor && result.next_cursor !== cursor ? result.next_cursor : null)
   }
   const run = async (callback: () => Promise<void>, pending: (value: boolean) => void = setLoading) => {
-    if (busy || loading || loadingMore) return
+    if (busyRef.current || busy || loading || loadingMore) return
+    busyRef.current = true
     pending(true); setError('')
     try { await callback() } catch (reason) {
       if (alive.current) setError(reason instanceof Error ? reason.message : 'خواندن مخاطبین انجام نشد.')
-    } finally { if (alive.current) pending(false) }
+    } finally { busyRef.current = false; if (alive.current) pending(false) }
   }
   useEffect(() => {
     if (!open) return

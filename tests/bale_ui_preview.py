@@ -8,6 +8,22 @@ import tempfile
 from uuid import uuid4
 
 from test_bale_main_product import OfflineOwner, Protector, create_account, login
+
+
+class PreviewOwner(OfflineOwner):
+    """Offline owner with real cursor paging for the UI preview fixture.
+
+    The shared OfflineOwner keeps the full message list and ignores
+    offset_date; the workspace acceptance matrix needs older-page loads, so
+    paging messages are sliced by date here without touching the shared
+    fixture used by product tests.
+    """
+
+    async def read_history(self, user_id, *, limit, offset_date=None):
+        items = sorted(self.state["messages"], key=lambda item: int(item.get("date") or 0))
+        if offset_date is not None:
+            items = [item for item in items if int(item.get("date") or 0) < int(offset_date)]
+        return list(items[-limit:])
 from eitaa_bridge.application.api import BridgeApplicationApi
 from eitaa_bridge.application.bale_provider_worker import BaleProviderProcessWorker
 import eitaa_bridge.application.bale_runtime as runtime
@@ -24,7 +40,7 @@ def main():
             "features": {"multi_session": {"enabled": True}, "app_user_auth": {"enabled": True}},
             "wordpress_sites": [{"site_key": "fixture", "base_url": "https://example.test", "default_status": "draft", "username_env": "TEST_WP_USERNAME", "application_password_env": "TEST_WP_APP_PASSWORD"}]}
         path.write_text(json.dumps(config), encoding="utf-8")
-        runtime.BaleProviderProcessWorker = lambda account, config: BaleProviderProcessWorker(account, config, owner_factory=OfflineOwner)
+        runtime.BaleProviderProcessWorker = lambda account, config: BaleProviderProcessWorker(account, config, owner_factory=PreviewOwner)
         app = BridgeApplicationApi(path, phone_protector=Protector())
         setup = app.dispatch("POST", "/api/v2/app-auth/setup", body={"username": "preview.admin", "password": "synthetic preview password", "display_name": "Preview Admin"}, client_kind="browser")
         if setup.status != 201:
@@ -44,7 +60,16 @@ def main():
             }
         second = create_account(request, "+10000000002")
         eitaa = create_account(request, "+10000000003", "eitaa")
-        OfflineOwner.states[first]["messages"] = [{"message_id": 17, "sender_id": 1, "date": 100, "text": "Fixture reply"}]
+        OfflineOwner.states[first]["messages"] = [{"message_id": 17, "sender_id": 1, "date": 100, "text": "Fixture reply"},
+                                                  {"message_id": 19, "sender_id": 42, "date": 105, "text": "پیوست آزمایشی", "media": {"type": "document"}}]
+        paging_messages = int(os.environ.get("BALE_UI_PREVIEW_MESSAGE_COUNT", "0"))
+        if paging_messages:
+            if not 1 <= paging_messages <= 5000:
+                raise ValueError("BALE_UI_PREVIEW_MESSAGE_COUNT must be between 1 and 5000")
+            OfflineOwner.states[first]["messages"] = [
+                {"message_id": 1000 + index, "sender_id": 42 if index % 2 else 1, "date": 300 + index, "text": f"Paging Fixture {index:04d}"}
+                for index in range(1, paging_messages + 1)
+            ] + OfflineOwner.states[first]["messages"]
         # Only synthetic fixture labels are written into this disposable database.
         with app._coordinator._connect() as connection:
             for account, label in [(first, "Bale Alpha"), (second, "Bale Beta"), (eitaa, "Eitaa Fixture")]:

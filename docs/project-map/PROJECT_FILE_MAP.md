@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 406
-- اثرانگشت منبع: `a04fdd0f88c079f8`
+- اثرانگشت منبع: `36b633c3ee7ce514`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -242,7 +242,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/service.py` | Project | 13 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/version.py` | Project | 0 | — |
-| `tests/bale_ui_preview.py` | Python test | 1 | Opt-in local acceptance fixture. Never connects to a messaging provider. |
+| `tests/bale_ui_preview.py` | Python test | 3 | Opt-in local acceptance fixture. Never connects to a messaging provider. |
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
 | `tests/test_account_runtime.py` | Python test | 12 | — |
@@ -262,7 +262,7 @@
 | `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
 | `tests/test_bale_pilot.py` | Python test | 3 | Pilot defaults must never prompt for credentials or touch the network. |
 | `tests/test_bale_product_integration.py` | Python test | 21 | Offline regression for Bale's product boundary; no provider network access. |
-| `tests/test_bale_workspace_ui.py` | Python test | 19 | Behavioral source contracts for the Bale workspace UI. |
+| `tests/test_bale_workspace_ui.py` | Python test | 20 | Behavioral source contracts for the Bale workspace UI. |
 | `tests/test_bearer_and_app_user_auth_boundary.py` | Python test | 15 | — |
 | `tests/test_clean_install_auth_stabilization.py` | Python test | 30 | — |
 | `tests/test_clean_install_http_boot.py` | Python test | 5 | Regression: a clean process-isolated install must boot the HTTP server. |

@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import {
+  Alert,
   Badge,
   Box,
   CircularProgress,
@@ -76,6 +77,7 @@ export function BaleConversationList({
   items,
   totalCount,
   activePeerKey,
+  warning,
   onSearch,
   onClose,
   onRefresh,
@@ -91,6 +93,7 @@ export function BaleConversationList({
   items: BaleDialogItem[]
   totalCount: number
   activePeerKey?: string
+  warning?: string
   onSearch: (value: string) => void
   onClose: () => void
   onRefresh: () => void
@@ -126,7 +129,7 @@ export function BaleConversationList({
       },
     }}
   >
-    <Stack direction="row" alignItems="center" gap={0.5} sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
+    <Stack direction="row" alignItems="center" gap={0.5} sx={{ p: 1, /* Keep the search field clear of the fixed mobile menu button. */ paddingInlineStart: { xs: '60px', md: 8 }, borderBottom: 1, borderColor: 'divider' }}>
       <TextField
         size="small"
         fullWidth
@@ -138,6 +141,8 @@ export function BaleConversationList({
       <Tooltip title="به‌روزرسانی فهرست"><span><IconButton disabled={refreshing || !dialogsEnabled} onClick={onRefresh} aria-label="به‌روزرسانی فهرست گفتگوها">{refreshing ? <CircularProgress size={20} /> : <SyncRounded />}</IconButton></span></Tooltip>
       {!docked && <IconButton onClick={onClose} aria-label="بستن فهرست گفتگوها"><CloseRounded /></IconButton>}
     </Stack>
+
+    {warning && <Alert severity="warning" sx={{ mx: 1, mt: 1 }}>{warning}</Alert>}
 
     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 1.5, py: 1 }}>
       <Typography variant="subtitle2">{filterLabel}</Typography>

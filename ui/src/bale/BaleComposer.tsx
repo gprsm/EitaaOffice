@@ -61,6 +61,7 @@ export function BaleComposer({
   const [file, setFile] = useState<File | null>(null)
   const [confirming, setConfirming] = useState<SendPayload | null>(null)
   const [sending, setSending] = useState(false)
+  const sendingRef = useRef(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const draftKey = peer ? scopedStorageKey(`eitaa-bridge.bale-composer.${peer.peer_reference}`) : ''
@@ -111,7 +112,10 @@ export function BaleComposer({
 
   const runSend = async () => {
     const payload = confirming
-    if (!payload || sending) return
+    // A synchronous guard: two clicks inside one React batch must not
+    // produce two provider sends.
+    if (!payload || sendingRef.current) return
+    sendingRef.current = true
     setConfirming(null)
     setSending(true); setError(''); setNotice('')
     try {
@@ -126,6 +130,7 @@ export function BaleComposer({
     } catch (reason) {
       if (alive.current) setError(reason instanceof Error ? reason.message : 'ارسال پیام ناموفق بود.')
     } finally {
+      sendingRef.current = false
       if (alive.current) setSending(false)
     }
   }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "a04fdd0f88c079f8",
+  "source_fingerprint": "36b633c3ee7ce514",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -15042,9 +15042,19 @@
       "summary": "Opt-in local acceptance fixture. Never connects to a messaging provider.",
       "symbols": [
         {
+          "name": "PreviewOwner",
+          "kind": "class",
+          "line": 13
+        },
+        {
+          "name": "PreviewOwner.read_history",
+          "kind": "method",
+          "line": 22
+        },
+        {
           "name": "main",
           "kind": "function",
-          "line": 17
+          "line": 33
         }
       ]
     },
@@ -17244,62 +17254,67 @@
         {
           "name": "test_bale_media_stays_bounded_without_raw_file_paths",
           "kind": "function",
-          "line": 90
+          "line": 96
         },
         {
           "name": "test_bale_surface_gates_every_operation_on_account_capabilities",
           "kind": "function",
-          "line": 99
+          "line": 105
         },
         {
           "name": "test_bale_group_and_channel_are_honestly_unsupported",
           "kind": "function",
-          "line": 112
+          "line": 118
         },
         {
           "name": "test_bale_contact_directory_is_paged_searchable_and_recoverable",
           "kind": "function",
-          "line": 122
+          "line": 128
         },
         {
           "name": "test_bale_navigation_shares_workspace_chrome_without_eitaa_operations",
           "kind": "function",
-          "line": 136
+          "line": 142
         },
         {
           "name": "test_bale_surface_never_calls_eitaa_only_routes",
           "kind": "function",
-          "line": 150
+          "line": 156
         },
         {
           "name": "test_bale_history_marks_end_and_cap_honestly",
           "kind": "function",
-          "line": 159
+          "line": 165
         },
         {
           "name": "test_bale_messages_dedupe_and_stay_sorted_by_reference",
           "kind": "function",
-          "line": 165
+          "line": 171
         },
         {
           "name": "test_bale_settings_show_worker_state_and_capability_reasons",
           "kind": "function",
-          "line": 171
+          "line": 177
         },
         {
           "name": "test_bale_auth_surface_covers_code_password_cancel_restore_and_errors",
           "kind": "function",
-          "line": 179
+          "line": 185
         },
         {
           "name": "test_bale_uses_shared_shell_and_mobile_list_pattern_without_class_names",
           "kind": "function",
-          "line": 201
+          "line": 207
+        },
+        {
+          "name": "test_bale_mobile_header_and_search_clear_the_fixed_menu_button",
+          "kind": "function",
+          "line": 220
         },
         {
           "name": "test_bale_privacy_secrets_never_enter_component_persistence",
           "kind": "function",
-          "line": 214
+          "line": 233
         }
       ]
     },
@@ -24272,17 +24287,17 @@
         {
           "name": "chooseFile",
           "kind": "script symbol",
-          "line": 86
+          "line": 87
         },
         {
           "name": "requestSend",
           "kind": "script symbol",
-          "line": 106
+          "line": 107
         },
         {
           "name": "runSend",
           "kind": "script symbol",
-          "line": 111
+          "line": 112
         }
       ]
     },
@@ -24299,27 +24314,27 @@
         {
           "name": "loadContacts",
           "kind": "script symbol",
-          "line": 62
+          "line": 63
         },
         {
           "name": "loadMoreContacts",
           "kind": "script symbol",
-          "line": 72
+          "line": 73
         },
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 84
+          "line": 85
         },
         {
           "name": "addContact",
           "kind": "script symbol",
-          "line": 97
+          "line": 99
         },
         {
           "name": "removeContact",
           "kind": "script symbol",
-          "line": 105
+          "line": 107
         }
       ]
     },
@@ -24331,22 +24346,22 @@
         {
           "name": "kindIcon",
           "kind": "script symbol",
-          "line": 34
+          "line": 35
         },
         {
           "name": "kindLabel",
           "kind": "script symbol",
-          "line": 40
+          "line": 41
         },
         {
           "name": "BaleAvatar",
           "kind": "script symbol",
-          "line": 47
+          "line": 48
         },
         {
           "name": "BaleConversationList",
           "kind": "script symbol",
-          "line": 67
+          "line": 68
         }
       ]
     },
@@ -24385,52 +24400,52 @@
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 100
+          "line": 101
         },
         {
           "name": "authenticate",
           "kind": "script symbol",
-          "line": 107
+          "line": 109
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 124
+          "line": 126
         },
         {
           "name": "refreshNow",
           "kind": "script symbol",
-          "line": 169
+          "line": 171
         },
         {
           "name": "loadOlder",
           "kind": "script symbol",
-          "line": 190
+          "line": 192
         },
         {
           "name": "download",
           "kind": "script symbol",
-          "line": 238
+          "line": 240
         },
         {
           "name": "unread",
           "kind": "script symbol",
-          "line": 261
+          "line": 263
         },
         {
           "name": "outgoingFor",
           "kind": "script symbol",
-          "line": 285
+          "line": 287
         },
         {
           "name": "contactCanOpenChat",
           "kind": "script symbol",
-          "line": 286
+          "line": 288
         },
         {
           "name": "logoutSoftware",
           "kind": "script symbol",
-          "line": 290
+          "line": 292
         }
       ]
     },
