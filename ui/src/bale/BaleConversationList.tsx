@@ -41,7 +41,7 @@ const kindIcon = (kind: string) => {
 
 const kindBadge = (kind: string) => ({
   group: 'گروه — خواندن و ارسال گروهی فعال است',
-  channel: 'کانال — فقط‌خواندنی',
+  channel: 'کانال — خواندن و ارسال در کانال فعال است',
 }[kind] || '')
 
 const kindLabel = (kind: string) => ({
@@ -173,7 +173,7 @@ export function BaleConversationList({
             secondaryTypographyProps={{ noWrap: true }}
           />
           <Stack direction="row" alignItems="center" spacing={0.5}>
-            {item.peer_kind !== 'private' && <Tooltip title={kindBadge(item.peer_kind)}><Box sx={{ display: 'inline-flex', color: item.peer_kind === 'channel' ? 'warning.main' : 'text.disabled' }}>{kindIcon(item.peer_kind)}</Box></Tooltip>}
+            {item.peer_kind !== 'private' && <Tooltip title={kindBadge(item.peer_kind)}><Box sx={{ display: 'inline-flex', color: 'text.disabled' }}>{kindIcon(item.peer_kind)}</Box></Tooltip>}
             {item.unread_count > 0 && <Badge badgeContent={item.unread_count > 999 ? '999+' : item.unread_count} color="primary" max={999} />}
           </Stack>
         </ListItemButton>

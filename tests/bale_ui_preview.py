@@ -34,6 +34,28 @@ class PreviewOwner(OfflineOwner):
         if offset_date is not None:
             items = [item for item in items if int(item.get("date") or 0) < int(offset_date)]
         return list(items[-limit:])
+
+    async def send_text(self, user_id, text, *, peer_type=1):
+        result = await super().send_text(user_id, text, peer_type=peer_type)
+        import time
+        store = self.state["messages"] if int(peer_type) == 1 else self.state.get("chats", {}).get((int(peer_type), int(user_id)), [])
+        if store:
+            store[-1]["date"] = int(time.time())
+            store[-1]["message_id"] = len(store) + 1000
+        return result
+
+    async def send_file_bytes(self, user_id, name, data, *, caption=None, peer_type=1):
+        result = await super().send_file_bytes(user_id, name, data, caption=caption, peer_type=peer_type)
+        import time
+        store = self.state["messages"] if int(peer_type) == 1 else self.state.get("chats", {}).setdefault((int(peer_type), int(user_id)), [])
+        store.append({
+            "message_id": len(store) + 1000,
+            "sender_id": 1,
+            "date": int(time.time()),
+            "text": caption or name,
+            "media": {"type": "document"},
+        })
+        return result
 from eitaa_bridge.application.api import BridgeApplicationApi
 from eitaa_bridge.application.bale_provider_worker import BaleProviderProcessWorker
 import eitaa_bridge.application.bale_runtime as runtime

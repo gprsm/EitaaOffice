@@ -297,8 +297,7 @@ export function BaleWorkspace() {
     return suffix === message.sender_reference ? '' : suffix
   }
   const sendDisabledReason = (kind: string) => {
-    if (kind === 'channel') return 'ارسال در کانال پشتیبانی نمی‌شود؛ کانال‌ها فقط‌خواندنی‌اند.'
-    if (kind === 'private' || kind === 'group') return ''
+    if (kind === 'private' || kind === 'group' || kind === 'channel') return ''
     return 'این نوع گفتگو پشتیبانی نمی‌شود.'
   }
   const contactCanOpenChat = (contact: Contact) => {
@@ -425,7 +424,6 @@ export function BaleWorkspace() {
             {historyCursor && messages.length < 500 && <Button size="small" variant="outlined" disabled={busy || !accounts.hasCapability('history.read')} onClick={() => void run(loadOlder)}>پیام‌های قدیمی‌تر</Button>}
             {messages.length >= 500 && <Typography variant="caption" color="text.secondary">حد نمایش این گفتگو ۵۰۰ پیام است.</Typography>}
             {Boolean(messages.length) && !historyCursor && <Chip size="small" variant="outlined" label="ابتدای گفتگو نمایش داده شد" />}
-            {peer.peer_kind === 'channel' && <Chip size="small" variant="outlined" color="warning" label="کانال — فقط‌خواندنی" />}
             {peer.peer_kind !== 'private' && peer.peer_kind !== 'group' && peer.peer_kind !== 'channel' && <Alert severity="info" sx={{ py: 0.25 }}>این کلاینت خواندن و ارسال در این نوع گفتگو را پشتیبانی نمی‌کند.</Alert>}
           </Stack>
           <Box ref={scrollBoxRef} onScroll={() => {

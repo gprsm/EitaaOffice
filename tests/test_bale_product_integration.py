@@ -40,6 +40,7 @@ def _adapter(backend):
 class _Backend:
     def __init__(self):
         self.sent = []
+        self.sent_files = []
         self.peer_types = []
         self.imported = []
         self.added = []
@@ -59,6 +60,10 @@ class _Backend:
         self.sent.append((peer_id, text))
         self.peer_types.append(peer_type)
         return {"random_id": 17, "sent": True}
+
+    async def send_file_bytes(self, peer_id, filename, data, *, caption=None, peer_type=1):
+        self.sent_files.append((peer_id, filename, peer_type))
+        return {"sent": True, "submission_reference": "bale:submission:file-42"}
 
 
 def test_contact_protocol_lists_safe_references_and_imports_with_name():
@@ -105,26 +110,21 @@ def test_group_send_keeps_type_and_legacy_reference_stays_rejected():
             assert getattr(exc, "code", None) == "provider_peer_reference_invalid"
         else:
             raise AssertionError("A legacy peer reference must not address a group")
-        # Channel send is rejected with its own safe code, for text and media alike.
+        # Channel send routes as a channel chat with peer_type=3 for text and media alike.
         channel_text = ProviderSendTextRequest(
-            ProviderPeerReference("bale:channel:42", "channel"), "fixture", "bale-send-00000003",
+            ProviderPeerReference("bale:channel:42", "channel"), "fixture channel", "bale-send-00000003",
         )
-        try:
-            await adapter.send_text(operation, channel_text)
-        except Exception as exc:
-            assert getattr(exc, "code", None) == "bale_channel_send_unsupported"
-        else:
-            raise AssertionError("Channel text send must stay unsupported")
+        receipt_channel = await adapter.send_text(operation, channel_text)
+        assert receipt_channel.status == ProviderSendStatus.SUCCEEDED
+        assert backend.sent[-1] == (42, "fixture channel")
+        assert backend.peer_types[-1] == 3
+
         channel_media = ProviderSendMediaRequest(
             ProviderPeerReference("bale:channel:42", "channel"), "fixture.txt", b"fixture", "bale-media-00000004", "",
         )
-        try:
-            await adapter.send_media(operation, channel_media)
-        except Exception as exc:
-            assert getattr(exc, "code", None) == "bale_channel_send_unsupported"
-        else:
-            raise AssertionError("Channel media send must stay unsupported")
-        assert backend.sent == [(42, "fixture")]
+        receipt_media = await adapter.send_media(operation, channel_media)
+        assert receipt_media.status == ProviderSendStatus.SUCCEEDED
+        assert backend.sent_files[-1] == (42, "fixture.txt", 3)
 
     asyncio.run(exercise())
 

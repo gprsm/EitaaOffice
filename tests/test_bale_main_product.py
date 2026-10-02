@@ -1420,13 +1420,21 @@ def test_group_history_send_media_and_channel_send_rejection(product):
     assert OfflineOwner.states[account]["calls"].count("media_send:2") == 1
     group_media_read = request("POST", f"{base}/media/read", {"peer_reference": "bale:group:42", "peer_kind": "group", "message_reference": "bale:message:71", "media_reference": "bale:media:42:71", "variant": "full", "max_bytes": 512 * 1024})
     assert group_media_read.status == 200
-    # A legacy untyped reference must never address a group (checked before
-    # the rejection-run opens the account circuit).
+    # Channel read and send work on typed channel peers.
+    channel_send = {"peer_reference": "bale:channel:42", "peer_kind": "channel", "text": "به کانال", "idempotency_key": "bale-channel-send-0001", "confirm": True}
+    receipt = request("POST", f"{base}/messages/send-text", channel_send)
+    assert receipt.status == 201
+    assert receipt.payload["status"] == "succeeded"
+    assert OfflineOwner.states[account]["calls"].count("send:3") == 1
+    assert OfflineOwner.states[account]["chats"][(3, 42)][-1]["text"] == "به کانال"
+    # Channel media send and read work on the scoped reference.
+    channel_media = {"peer_reference": "bale:channel:42", "peer_kind": "channel", "filename": "channel-fixture.txt", "data_base64": base64.b64encode(b"channel fixture").decode(), "idempotency_key": "bale-channel-media-0001", "confirm": True}
+    assert request("POST", f"{base}/messages/send-media", channel_media).status == 200
+    assert OfflineOwner.states[account]["calls"].count("media_send:3") == 1
+    channel_media_read = request("POST", f"{base}/media/read", {"peer_reference": "bale:channel:42", "peer_kind": "channel", "message_reference": "bale:message:81", "media_reference": "bale:media:42:81", "variant": "full", "max_bytes": 512 * 1024})
+    assert channel_media_read.status == 200
+    # A legacy untyped reference must never address a group (checked last as it
+    # opens the account circuit).
     legacy = request("POST", f"{base}/messages/send-text", {"peer_reference": "bale:peer:42", "peer_kind": "group", "text": "مستقیم", "idempotency_key": "bale-legacy-group-0001", "confirm": True})
     assert legacy.status == 400
     assert (legacy.payload.get("error", {}).get("error_code") or legacy.payload.get("code")) == "provider_peer_reference_invalid"
-    # Channel read works, but channel send is rejected with its own safe code
-    # (one rejection per account circuit window; permanent errors open it).
-    rejected = request("POST", f"{base}/messages/send-text", {"peer_reference": "bale:channel:42", "peer_kind": "channel", "text": "به کانال", "idempotency_key": "bale-channel-send-0001", "confirm": True})
-    assert rejected.status == 400
-    assert (rejected.payload.get("error", {}).get("error_code") or rejected.payload.get("code")) == "bale_channel_send_unsupported"

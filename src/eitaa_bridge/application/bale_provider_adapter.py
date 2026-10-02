@@ -114,9 +114,7 @@ def _chat_address(opaque_reference: str, kind: str = "private") -> tuple[int, in
     """Resolve a typed peer reference into (chat_id, wire peer_type).
 
     Legacy untyped ``bale:peer:`` references stay private-only: pointing them
-    at a group would silently direct the operation to a different recipient.
-    Sending into channels is a product-level restriction enforced by the
-    send operations, not by this resolver.
+    at a group or channel would silently direct the operation to a different recipient.
     """
     selected = str(opaque_reference or "").strip()
     if kind == "private":
@@ -401,11 +399,6 @@ class BaleProviderApplicationAdapter:
         request: ProviderSendTextRequest,
     ) -> ProviderSendReceipt:
         self._prepare(context)
-        if request.peer.kind == "channel":
-            raise ProviderExtensionError(
-                "Sending into Bale channels is not supported.",
-                code="bale_channel_send_unsupported",
-            )
         chat_id, peer_type_id = _chat_address(request.peer.opaque_reference, request.peer.kind)
         try:
             result = await self._get_backend().send_text(chat_id, request.text, peer_type=peer_type_id)
@@ -552,11 +545,6 @@ class BaleProviderApplicationAdapter:
 
     async def send_media(self, context: ProviderOperationContext, request: ProviderSendMediaRequest) -> ProviderSendReceipt:
         self._prepare(context)
-        if request.peer.kind == "channel":
-            raise ProviderExtensionError(
-                "Sending into Bale channels is not supported.",
-                code="bale_channel_send_unsupported",
-            )
         chat_id, peer_type_id = _chat_address(request.peer.opaque_reference, request.peer.kind)
         try:
             result = await self._get_backend().send_file_bytes(chat_id, request.filename, request.data, caption=request.caption, peer_type=peer_type_id)

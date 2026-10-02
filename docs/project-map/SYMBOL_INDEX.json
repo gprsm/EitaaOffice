@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "6490b337df042abd",
+  "source_fingerprint": "cce6814937ed2f7e",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -2876,1017 +2876,1017 @@
         {
           "name": "BridgeApplicationApi._provider_media_read",
           "kind": "method",
-          "line": 3784
+          "line": 3773
         },
         {
           "name": "BridgeApplicationApi._provider_contact_query",
           "kind": "method",
-          "line": 3847
+          "line": 3836
         },
         {
           "name": "BridgeApplicationApi._provider_contact_upsert",
           "kind": "method",
-          "line": 3896
+          "line": 3885
         },
         {
           "name": "BridgeApplicationApi._audit_query",
           "kind": "method",
-          "line": 3957
+          "line": 3946
         },
         {
           "name": "BridgeApplicationApi._audit_export",
           "kind": "method",
-          "line": 3981
+          "line": 3970
         },
         {
           "name": "BridgeApplicationApi._payload_text",
           "kind": "method",
-          "line": 4006
+          "line": 3995
         },
         {
           "name": "BridgeApplicationApi._untrusted_account_context_fields",
           "kind": "method",
-          "line": 4011
+          "line": 4000
         },
         {
           "name": "BridgeApplicationApi._session_cookie",
           "kind": "method",
-          "line": 4032
+          "line": 4021
         },
         {
           "name": "BridgeApplicationApi._clear_session_cookie",
           "kind": "method",
-          "line": 4040
+          "line": 4029
         },
         {
           "name": "BridgeApplicationApi._issued_session_response",
           "kind": "method",
-          "line": 4047
+          "line": 4036
         },
         {
           "name": "BridgeApplicationApi._client_diagnostics_report",
           "kind": "method",
-          "line": 4067
+          "line": 4056
         },
         {
           "name": "BridgeApplicationApi._app_auth_status",
           "kind": "method",
-          "line": 4181
+          "line": 4170
         },
         {
           "name": "BridgeApplicationApi._app_auth_setup",
           "kind": "method",
-          "line": 4263
+          "line": 4252
         },
         {
           "name": "BridgeApplicationApi._app_auth_login",
           "kind": "method",
-          "line": 4279
+          "line": 4268
         },
         {
           "name": "BridgeApplicationApi._app_auth_register",
           "kind": "method",
-          "line": 4296
+          "line": 4285
         },
         {
           "name": "BridgeApplicationApi._require_authorized_session",
           "kind": "method",
-          "line": 4317
+          "line": 4306
         },
         {
           "name": "BridgeApplicationApi._app_auth_me",
           "kind": "method",
-          "line": 4328
+          "line": 4317
         },
         {
           "name": "BridgeApplicationApi._app_auth_logout",
           "kind": "method",
-          "line": 4341
+          "line": 4330
         },
         {
           "name": "BridgeApplicationApi._app_auth_logout_all",
           "kind": "method",
-          "line": 4355
+          "line": 4344
         },
         {
           "name": "BridgeApplicationApi._app_auth_sessions_list",
           "kind": "method",
-          "line": 4376
+          "line": 4365
         },
         {
           "name": "BridgeApplicationApi._app_auth_session_revoke",
           "kind": "method",
-          "line": 4384
+          "line": 4373
         },
         {
           "name": "BridgeApplicationApi._app_auth_change_password",
           "kind": "method",
-          "line": 4409
+          "line": 4398
         },
         {
           "name": "BridgeApplicationApi._app_users_list",
           "kind": "method",
-          "line": 4425
+          "line": 4414
         },
         {
           "name": "BridgeApplicationApi._app_users_create",
           "kind": "method",
-          "line": 4438
+          "line": 4427
         },
         {
           "name": "BridgeApplicationApi._app_users_update",
           "kind": "method",
-          "line": 4456
+          "line": 4445
         },
         {
           "name": "BridgeApplicationApi._app_users_revoke_sessions",
           "kind": "method",
-          "line": 4476
+          "line": 4465
         },
         {
           "name": "BridgeApplicationApi._phone_accounts_list",
           "kind": "method",
-          "line": 4494
+          "line": 4483
         },
         {
           "name": "BridgeApplicationApi._phone_account_membership_update",
           "kind": "method",
-          "line": 4504
+          "line": 4493
         },
         {
           "name": "BridgeApplicationApi._app_integrations_list",
           "kind": "method",
-          "line": 4523
+          "line": 4512
         },
         {
           "name": "BridgeApplicationApi._app_integration_update",
           "kind": "method",
-          "line": 4542
+          "line": 4531
         },
         {
           "name": "BridgeApplicationApi._messenger_accounts_list",
           "kind": "method",
-          "line": 4560
+          "line": 4549
         },
         {
           "name": "BridgeApplicationApi._messenger_account_status",
           "kind": "method",
-          "line": 4586
+          "line": 4575
         },
         {
           "name": "BridgeApplicationApi._messenger_account_capabilities",
           "kind": "method",
-          "line": 4599
+          "line": 4588
         },
         {
           "name": "BridgeApplicationApi._messenger_account_onboard",
           "kind": "method",
-          "line": 4615
+          "line": 4604
         },
         {
           "name": "BridgeApplicationApi._messenger_account_worker_action",
           "kind": "method",
-          "line": 4741
+          "line": 4730
         },
         {
           "name": "BridgeApplicationApi._authorize",
           "kind": "method",
-          "line": 4796
+          "line": 4785
         },
         {
           "name": "BridgeApplicationApi._health",
           "kind": "method",
-          "line": 4804
+          "line": 4793
         },
         {
           "name": "BridgeApplicationApi._observability_health",
           "kind": "method",
-          "line": 4815
+          "line": 4804
         },
         {
           "name": "BridgeApplicationApi._readiness",
           "kind": "method",
-          "line": 4827
+          "line": 4816
         },
         {
           "name": "BridgeApplicationApi._schema",
           "kind": "method",
-          "line": 4835
+          "line": 4824
         },
         {
           "name": "BridgeApplicationApi._run_eitaa",
           "kind": "method",
-          "line": 5026
+          "line": 5015
         },
         {
           "name": "BridgeApplicationApi._aware_datetime",
           "kind": "method",
-          "line": 5042
+          "line": 5031
         },
         {
           "name": "BridgeApplicationApi._core_config",
           "kind": "method",
-          "line": 5062
+          "line": 5051
         },
         {
           "name": "BridgeApplicationApi._account_auth_actor",
           "kind": "method",
-          "line": 5079
+          "line": 5068
         },
         {
           "name": "BridgeApplicationApi._account_auth_fields",
           "kind": "method",
-          "line": 5090
+          "line": 5079
         },
         {
           "name": "BridgeApplicationApi._process_auth_request",
           "kind": "method",
-          "line": 5098
+          "line": 5087
         },
         {
           "name": "BridgeApplicationApi._account_session_file",
           "kind": "method",
-          "line": 5117
+          "line": 5106
         },
         {
           "name": "BridgeApplicationApi._close_auth_attempt",
           "kind": "method",
-          "line": 5122
+          "line": 5111
         },
         {
           "name": "BridgeApplicationApi._archive_uncoordinated_session",
           "kind": "method",
-          "line": 5130
+          "line": 5119
         },
         {
           "name": "BridgeApplicationApi._archive_account_session_file",
           "kind": "method",
-          "line": 5156
+          "line": 5145
         },
         {
           "name": "BridgeApplicationApi._audit_account_auth_failure",
           "kind": "method",
-          "line": 5179
+          "line": 5168
         },
         {
           "name": "BridgeApplicationApi._transition_account_auth",
           "kind": "method",
-          "line": 5210
+          "line": 5199
         },
         {
           "name": "BridgeApplicationApi._auth_status",
           "kind": "method",
-          "line": 5251
+          "line": 5240
         },
         {
           "name": "BridgeApplicationApi._auth_status_account",
           "kind": "method",
-          "line": 5271
+          "line": 5260
         },
         {
           "name": "BridgeApplicationApi._auth_status_legacy",
           "kind": "method",
-          "line": 5458
+          "line": 5447
         },
         {
           "name": "BridgeApplicationApi._auth_reset_local_session",
           "kind": "method",
-          "line": 5523
+          "line": 5512
         },
         {
           "name": "BridgeApplicationApi._auth_reset_local_session_account",
           "kind": "method",
-          "line": 5551
+          "line": 5540
         },
         {
           "name": "BridgeApplicationApi._auth_reset_local_session_legacy",
           "kind": "method",
-          "line": 5696
+          "line": 5685
         },
         {
           "name": "BridgeApplicationApi._auth_recover_phone_identity",
           "kind": "method",
-          "line": 5741
+          "line": 5730
         },
         {
           "name": "BridgeApplicationApi._auth_request_code",
           "kind": "method",
-          "line": 5927
+          "line": 5916
         },
         {
           "name": "BridgeApplicationApi._auth_request_code_account",
           "kind": "method",
-          "line": 5956
+          "line": 5945
         },
         {
           "name": "BridgeApplicationApi._auth_request_code_legacy",
           "kind": "method",
-          "line": 6092
+          "line": 6081
         },
         {
           "name": "BridgeApplicationApi._require_account_challenge",
           "kind": "method",
-          "line": 6142
+          "line": 6131
         },
         {
           "name": "BridgeApplicationApi._require_legacy_challenge",
           "kind": "method",
-          "line": 6225
+          "line": 6214
         },
         {
           "name": "BridgeApplicationApi._auth_submit_code",
           "kind": "method",
-          "line": 6284
+          "line": 6273
         },
         {
           "name": "BridgeApplicationApi._auth_submit_code_account",
           "kind": "method",
-          "line": 6309
+          "line": 6298
         },
         {
           "name": "BridgeApplicationApi._auth_submit_code_legacy",
           "kind": "method",
-          "line": 6451
+          "line": 6440
         },
         {
           "name": "BridgeApplicationApi._auth_submit_password",
           "kind": "method",
-          "line": 6514
+          "line": 6503
         },
         {
           "name": "BridgeApplicationApi._auth_submit_password_account",
           "kind": "method",
-          "line": 6545
+          "line": 6534
         },
         {
           "name": "BridgeApplicationApi._auth_submit_password_legacy",
           "kind": "method",
-          "line": 6626
+          "line": 6615
         },
         {
           "name": "BridgeApplicationApi._auth_logout",
           "kind": "method",
-          "line": 6656
+          "line": 6645
         },
         {
           "name": "BridgeApplicationApi._auth_logout_account",
           "kind": "method",
-          "line": 6676
+          "line": 6665
         },
         {
           "name": "BridgeApplicationApi._auth_logout_legacy",
           "kind": "method",
-          "line": 6846
+          "line": 6835
         },
         {
           "name": "BridgeApplicationApi._sites",
           "kind": "method",
-          "line": 6889
+          "line": 6878
         },
         {
           "name": "BridgeApplicationApi._capabilities",
           "kind": "method",
-          "line": 6903
+          "line": 6892
         },
         {
           "name": "BridgeApplicationApi._compositions",
           "kind": "method",
-          "line": 6910
+          "line": 6899
         },
         {
           "name": "BridgeApplicationApi._terms",
           "kind": "method",
-          "line": 6932
+          "line": 6921
         },
         {
           "name": "BridgeApplicationApi._create_tag",
           "kind": "method",
-          "line": 6952
+          "line": 6941
         },
         {
           "name": "BridgeApplicationApi._wordpress_post",
           "kind": "method",
-          "line": 6966
+          "line": 6955
         },
         {
           "name": "BridgeApplicationApi._dialogs_list",
           "kind": "method",
-          "line": 6987
+          "line": 6976
         },
         {
           "name": "BridgeApplicationApi._dialogs_sync",
           "kind": "method",
-          "line": 7017
+          "line": 7006
         },
         {
           "name": "BridgeApplicationApi._dialogs_live_sync",
           "kind": "method",
-          "line": 7031
+          "line": 7020
         },
         {
           "name": "BridgeApplicationApi._dialogs_sync_start",
           "kind": "method",
-          "line": 7081
+          "line": 7070
         },
         {
           "name": "BridgeApplicationApi._run_dialog_sync_job",
           "kind": "method",
-          "line": 7106
+          "line": 7095
         },
         {
           "name": "BridgeApplicationApi._dialogs_sync_status",
           "kind": "method",
-          "line": 7160
+          "line": 7149
         },
         {
           "name": "BridgeApplicationApi._dialog_avatar_source",
           "kind": "method",
-          "line": 7173
+          "line": 7162
         },
         {
           "name": "BridgeApplicationApi._dialogs_avatar",
           "kind": "method",
-          "line": 7194
+          "line": 7183
         },
         {
           "name": "BridgeApplicationApi._avatar_mime_type",
           "kind": "method",
-          "line": 7260
+          "line": 7249
         },
         {
           "name": "BridgeApplicationApi._valid_avatar_file",
           "kind": "method",
-          "line": 7270
+          "line": 7259
         },
         {
           "name": "BridgeApplicationApi._merge_core_dialogs",
           "kind": "method",
-          "line": 7285
+          "line": 7274
         },
         {
           "name": "BridgeApplicationApi._hydrate_dialog_catalog_from_core",
           "kind": "method",
-          "line": 7342
+          "line": 7331
         },
         {
           "name": "BridgeApplicationApi._sync_dialog_catalog",
           "kind": "method",
-          "line": 7359
+          "line": 7348
         },
         {
           "name": "BridgeApplicationApi._dialogs_manual",
           "kind": "method",
-          "line": 7500
+          "line": 7489
         },
         {
           "name": "BridgeApplicationApi._dialogs_favorite",
           "kind": "method",
-          "line": 7554
+          "line": 7543
         },
         {
           "name": "BridgeApplicationApi._dialogs_display_kind",
           "kind": "method",
-          "line": 7565
+          "line": 7554
         },
         {
           "name": "BridgeApplicationApi._sender_contact_name",
           "kind": "method",
-          "line": 7582
+          "line": 7571
         },
         {
           "name": "BridgeApplicationApi._sender_contact_name_is_generic_eitaa",
           "kind": "method",
-          "line": 7591
+          "line": 7580
         },
         {
           "name": "BridgeApplicationApi._enrich_message_senders",
           "kind": "method",
-          "line": 7594
+          "line": 7583
         },
         {
           "name": "BridgeApplicationApi._messages_list",
           "kind": "method",
-          "line": 7709
+          "line": 7698
         },
         {
           "name": "BridgeApplicationApi._thumbnail_type",
           "kind": "method",
-          "line": 7754
+          "line": 7743
         },
         {
           "name": "BridgeApplicationApi._cached_media_file",
           "kind": "method",
-          "line": 7774
+          "line": 7763
         },
         {
           "name": "BridgeApplicationApi._message_send",
           "kind": "method",
-          "line": 7783
+          "line": 7772
         },
         {
           "name": "BridgeApplicationApi._media_preview",
           "kind": "method",
-          "line": 7852
+          "line": 7841
         },
         {
           "name": "BridgeApplicationApi._messages_read",
           "kind": "method",
-          "line": 7975
+          "line": 7964
         },
         {
           "name": "BridgeApplicationApi._messages_read_enqueue",
           "kind": "method",
-          "line": 8008
+          "line": 7997
         },
         {
           "name": "BridgeApplicationApi._run_read_receipt_worker",
           "kind": "method",
-          "line": 8055
+          "line": 8044
         },
         {
           "name": "BridgeApplicationApi._messages_sync",
           "kind": "method",
-          "line": 8121
+          "line": 8110
         },
         {
           "name": "BridgeApplicationApi._messages_date_range_sync",
           "kind": "method",
-          "line": 8148
+          "line": 8137
         },
         {
           "name": "BridgeApplicationApi._message_usage",
           "kind": "method",
-          "line": 8179
+          "line": 8168
         },
         {
           "name": "BridgeApplicationApi._content_index_labels",
           "kind": "method",
-          "line": 8196
+          "line": 8185
         },
         {
           "name": "BridgeApplicationApi._content_index_job_copy",
           "kind": "method",
-          "line": 8238
+          "line": 8227
         },
         {
           "name": "BridgeApplicationApi._content_index_start",
           "kind": "method",
-          "line": 8248
+          "line": 8237
         },
         {
           "name": "BridgeApplicationApi._run_content_index_job",
           "kind": "method",
-          "line": 8321
+          "line": 8310
         },
         {
           "name": "BridgeApplicationApi._content_index_status",
           "kind": "method",
-          "line": 8448
+          "line": 8437
         },
         {
           "name": "BridgeApplicationApi._content_index_cancel",
           "kind": "method",
-          "line": 8466
+          "line": 8455
         },
         {
           "name": "BridgeApplicationApi._content_index_results",
           "kind": "method",
-          "line": 8492
+          "line": 8481
         },
         {
           "name": "BridgeApplicationApi._content_index_feedback",
           "kind": "method",
-          "line": 8584
+          "line": 8573
         },
         {
           "name": "BridgeApplicationApi._eitaa_contact_status",
           "kind": "method",
-          "line": 8619
+          "line": 8608
         },
         {
           "name": "BridgeApplicationApi._eitaa_contact_peer_file",
           "kind": "method",
-          "line": 8623
+          "line": 8612
         },
         {
           "name": "BridgeApplicationApi._eitaa_contact_payload",
           "kind": "method",
-          "line": 8633
+          "line": 8622
         },
         {
           "name": "BridgeApplicationApi._invalidate_eitaa_contacts_cache",
           "kind": "method",
-          "line": 8654
+          "line": 8643
         },
         {
           "name": "BridgeApplicationApi._contact_mutation_context",
           "kind": "method",
-          "line": 8659
+          "line": 8648
         },
         {
           "name": "BridgeApplicationApi._upsert_eitaa_local_contact",
           "kind": "method",
-          "line": 8670
+          "line": 8659
         },
         {
           "name": "BridgeApplicationApi._with_selected_contact_bindings",
           "kind": "method",
-          "line": 8716
+          "line": 8705
         },
         {
           "name": "BridgeApplicationApi._allow_legacy_contact_identity",
           "kind": "method",
-          "line": 8741
+          "line": 8730
         },
         {
           "name": "BridgeApplicationApi._eitaa_contacts_list",
           "kind": "method",
-          "line": 8749
+          "line": 8738
         },
         {
           "name": "BridgeApplicationApi._eitaa_contacts_add",
           "kind": "method",
-          "line": 8876
+          "line": 8865
         },
         {
           "name": "BridgeApplicationApi._eitaa_contacts_remove",
           "kind": "method",
-          "line": 8993
+          "line": 8982
         },
         {
           "name": "BridgeApplicationApi._eitaa_contacts_categorize",
           "kind": "method",
-          "line": 9019
+          "line": 9008
         },
         {
           "name": "BridgeApplicationApi._contacts_add_to_messenger_start",
           "kind": "method",
-          "line": 9142
+          "line": 9131
         },
         {
           "name": "BridgeApplicationApi._eitaa_contacts_import_local_start",
           "kind": "method",
-          "line": 9163
+          "line": 9152
         },
         {
           "name": "BridgeApplicationApi._contact_ids",
           "kind": "method",
-          "line": 9303
+          "line": 9292
         },
         {
           "name": "BridgeApplicationApi._contact_validation",
           "kind": "method",
-          "line": 9324
+          "line": 9313
         },
         {
           "name": "BridgeApplicationApi._contacts_list",
           "kind": "method",
-          "line": 9332
+          "line": 9321
         },
         {
           "name": "BridgeApplicationApi._contacts_audit",
           "kind": "method",
-          "line": 9360
+          "line": 9349
         },
         {
           "name": "BridgeApplicationApi._contacts_upsert",
           "kind": "method",
-          "line": 9395
+          "line": 9384
         },
         {
           "name": "BridgeApplicationApi._contacts_archive",
           "kind": "method",
-          "line": 9448
+          "line": 9437
         },
         {
           "name": "BridgeApplicationApi._contact_categories",
           "kind": "method",
-          "line": 9463
+          "line": 9452
         },
         {
           "name": "BridgeApplicationApi._contact_category_save",
           "kind": "method",
-          "line": 9467
+          "line": 9456
         },
         {
           "name": "BridgeApplicationApi._contact_category_delete",
           "kind": "method",
-          "line": 9482
+          "line": 9471
         },
         {
           "name": "BridgeApplicationApi._contact_import_bytes",
           "kind": "method",
-          "line": 9503
+          "line": 9492
         },
         {
           "name": "BridgeApplicationApi._contact_import_preview",
           "kind": "method",
-          "line": 9520
+          "line": 9509
         },
         {
           "name": "BridgeApplicationApi._contact_import_start",
           "kind": "method",
-          "line": 9532
+          "line": 9521
         },
         {
           "name": "BridgeApplicationApi._run_contact_import",
           "kind": "method",
-          "line": 9577
+          "line": 9566
         },
         {
           "name": "BridgeApplicationApi._contact_job_error",
           "kind": "method",
-          "line": 9748
+          "line": 9737
         },
         {
           "name": "BridgeApplicationApi._start_contact_source_import",
           "kind": "method",
-          "line": 9791
+          "line": 9780
         },
         {
           "name": "BridgeApplicationApi._contact_source_row",
           "kind": "method",
-          "line": 9908
+          "line": 9897
         },
         {
           "name": "BridgeApplicationApi._contact_community_import_start",
           "kind": "method",
-          "line": 9940
+          "line": 9929
         },
         {
           "name": "BridgeApplicationApi._contact_phone_list_import_start",
           "kind": "method",
-          "line": 10082
+          "line": 10071
         },
         {
           "name": "BridgeApplicationApi._contact_import_status",
           "kind": "method",
-          "line": 10203
+          "line": 10192
         },
         {
           "name": "BridgeApplicationApi._contact_import_cancel",
           "kind": "method",
-          "line": 10219
+          "line": 10208
         },
         {
           "name": "BridgeApplicationApi._contact_targets",
           "kind": "method",
-          "line": 10242
+          "line": 10231
         },
         {
           "name": "BridgeApplicationApi._composition_action",
           "kind": "method",
-          "line": 10253
+          "line": 10242
         },
         {
           "name": "BridgeApplicationApi._site_settings",
           "kind": "method",
-          "line": 10296
+          "line": 10285
         },
         {
           "name": "BridgeApplicationApi._deployment_port_settings",
           "kind": "method",
-          "line": 10300
+          "line": 10289
         },
         {
           "name": "BridgeApplicationApi._settings_deployment",
           "kind": "method",
-          "line": 10303
+          "line": 10292
         },
         {
           "name": "BridgeApplicationApi._settings_deployment_port_update",
           "kind": "method",
-          "line": 10320
+          "line": 10309
         },
         {
           "name": "BridgeApplicationApi._settings_sites",
           "kind": "method",
-          "line": 10390
+          "line": 10379
         },
         {
           "name": "BridgeApplicationApi._settings_site_upsert",
           "kind": "method",
-          "line": 10393
+          "line": 10382
         },
         {
           "name": "BridgeApplicationApi._settings_site_default",
           "kind": "method",
-          "line": 10396
+          "line": 10385
         },
         {
           "name": "BridgeApplicationApi._settings_site_delete",
           "kind": "method",
-          "line": 10402
+          "line": 10391
         },
         {
           "name": "BridgeApplicationApi._settings_site_test",
           "kind": "method",
-          "line": 10411
+          "line": 10400
         },
         {
           "name": "BridgeApplicationApi._safe_summary",
           "kind": "method",
-          "line": 10420
+          "line": 10409
         },
         {
           "name": "BridgeApplicationApi._start_background",
           "kind": "method",
-          "line": 10431
+          "line": 10420
         },
         {
           "name": "BridgeApplicationApi._background_status",
           "kind": "method",
-          "line": 10501
+          "line": 10490
         },
         {
           "name": "BridgeApplicationApi._community_members_sync",
           "kind": "method",
-          "line": 10528
+          "line": 10517
         },
         {
           "name": "BridgeApplicationApi._community_members_sync_start",
           "kind": "method",
-          "line": 10556
+          "line": 10545
         },
         {
           "name": "BridgeApplicationApi._community_members_list",
           "kind": "method",
-          "line": 10584
+          "line": 10573
         },
         {
           "name": "BridgeApplicationApi._member_ids",
           "kind": "method",
-          "line": 10666
+          "line": 10655
         },
         {
           "name": "BridgeApplicationApi._bulk_member_ids",
           "kind": "method",
-          "line": 10682
+          "line": 10671
         },
         {
           "name": "BridgeApplicationApi._member_mutation_error_code",
           "kind": "method",
-          "line": 10707
+          "line": 10696
         },
         {
           "name": "BridgeApplicationApi._member_mutation_must_stop",
           "kind": "method",
-          "line": 10714
+          "line": 10703
         },
         {
           "name": "BridgeApplicationApi._community_members_mutation_start",
           "kind": "method",
-          "line": 10730
+          "line": 10719
         },
         {
           "name": "BridgeApplicationApi._community_members_remove_start",
           "kind": "method",
-          "line": 10923
+          "line": 10912
         },
         {
           "name": "BridgeApplicationApi._community_members_invite_start",
           "kind": "method",
-          "line": 10926
+          "line": 10915
         },
         {
           "name": "BridgeApplicationApi._member_roles",
           "kind": "method",
-          "line": 10929
+          "line": 10918
         },
         {
           "name": "BridgeApplicationApi._optional_limit",
           "kind": "method",
-          "line": 10940
+          "line": 10929
         },
         {
           "name": "BridgeApplicationApi._bulk_spec",
           "kind": "method",
-          "line": 10944
+          "line": 10933
         },
         {
           "name": "BridgeApplicationApi._bulk_options",
           "kind": "method",
-          "line": 10970
+          "line": 10959
         },
         {
           "name": "BridgeApplicationApi._community_bulk_validate",
           "kind": "method",
-          "line": 10981
+          "line": 10970
         },
         {
           "name": "BridgeApplicationApi._community_bulk_preview",
           "kind": "method",
-          "line": 11008
+          "line": 10997
         },
         {
           "name": "BridgeApplicationApi._community_bulk_create",
           "kind": "method",
-          "line": 11024
+          "line": 11013
         },
         {
           "name": "BridgeApplicationApi._community_bulk_run",
           "kind": "method",
-          "line": 11040
+          "line": 11029
         },
         {
           "name": "BridgeApplicationApi._community_bulk_jobs",
           "kind": "method",
-          "line": 11055
+          "line": 11044
         },
         {
           "name": "BridgeApplicationApi._community_bulk_recipients",
           "kind": "method",
-          "line": 11068
+          "line": 11057
         },
         {
           "name": "BridgeApplicationApi._community_bulk_action",
           "kind": "method",
-          "line": 11096
+          "line": 11085
         },
         {
           "name": "BridgeApplicationApi._phone_list_import",
           "kind": "method",
-          "line": 11120
+          "line": 11109
         },
         {
           "name": "BridgeApplicationApi._phone_lists",
           "kind": "method",
-          "line": 11154
+          "line": 11143
         },
         {
           "name": "BridgeApplicationApi._phone_list_status",
           "kind": "method",
-          "line": 11164
+          "line": 11153
         },
         {
           "name": "BridgeApplicationApi._phone_list_resolve",
           "kind": "method",
-          "line": 11174
+          "line": 11163
         },
         {
           "name": "BridgeApplicationApi._phone_list_preview",
           "kind": "method",
-          "line": 11197
+          "line": 11186
         },
         {
           "name": "BridgeApplicationApi._phone_list_bulk_create",
           "kind": "method",
-          "line": 11212
+          "line": 11201
         },
         {
           "name": "BridgeApplicationApi._membership_preview",
           "kind": "method",
-          "line": 11225
+          "line": 11214
         },
         {
           "name": "BridgeApplicationApi._membership_create",
           "kind": "method",
-          "line": 11242
+          "line": 11231
         },
         {
           "name": "BridgeApplicationApi._membership_run",
           "kind": "method",
-          "line": 11263
+          "line": 11252
         },
         {
           "name": "BridgeApplicationApi._membership_jobs",
           "kind": "method",
-          "line": 11278
+          "line": 11267
         },
         {
           "name": "BridgeApplicationApi._membership_action",
           "kind": "method",
-          "line": 11289
+          "line": 11278
         },
         {
           "name": "BridgeApplicationApi._number",
           "kind": "method",
-          "line": 11312
+          "line": 11301
         },
         {
           "name": "BridgeApplicationApi._site_key",
           "kind": "method",
-          "line": 11339
+          "line": 11328
         },
         {
           "name": "BridgeApplicationApi._peer_path",
           "kind": "method",
-          "line": 11346
+          "line": 11335
         },
         {
           "name": "BridgeApplicationApi._integer",
           "kind": "method",
-          "line": 11364
+          "line": 11353
         },
         {
           "name": "BridgeApplicationApi._is_invalid_session_error",
           "kind": "method",
-          "line": 11396
+          "line": 11385
         },
         {
           "name": "BridgeApplicationApi._error_response",
           "kind": "method",
-          "line": 11413
+          "line": 11402
         }
       ]
     },
@@ -6040,112 +6040,112 @@
         {
           "name": "_normalized_unix_ms",
           "kind": "function",
-          "line": 143
+          "line": 141
         },
         {
           "name": "_date_cursor",
           "kind": "function",
-          "line": 155
+          "line": 153
         },
         {
           "name": "_parse_sensitive_json",
           "kind": "function",
-          "line": 164
+          "line": 162
         },
         {
           "name": "BaleProviderApplicationAdapter",
           "kind": "class",
-          "line": 172
+          "line": 170
         },
         {
           "name": "BaleProviderApplicationAdapter.__init__",
           "kind": "method",
-          "line": 175
+          "line": 173
         },
         {
           "name": "BaleProviderApplicationAdapter.manifest",
           "kind": "method",
-          "line": 189
+          "line": 187
         },
         {
           "name": "BaleProviderApplicationAdapter._get_backend",
           "kind": "method",
-          "line": 192
+          "line": 190
         },
         {
           "name": "BaleProviderApplicationAdapter._prepare",
           "kind": "method",
-          "line": 205
+          "line": 203
         },
         {
           "name": "BaleProviderApplicationAdapter._safe_client_failure",
           "kind": "method",
-          "line": 211
+          "line": 209
         },
         {
           "name": "BaleProviderApplicationAdapter.request_challenge",
           "kind": "method",
-          "line": 222
+          "line": 220
         },
         {
           "name": "BaleProviderApplicationAdapter.submit_challenge",
           "kind": "method",
-          "line": 248
+          "line": 246
         },
         {
           "name": "BaleProviderApplicationAdapter.submit_second_factor",
           "kind": "method",
-          "line": 283
+          "line": 281
         },
         {
           "name": "BaleProviderApplicationAdapter.validate_session",
           "kind": "method",
-          "line": 312
+          "line": 310
         },
         {
           "name": "BaleProviderApplicationAdapter.list_dialogs",
           "kind": "method",
-          "line": 333
+          "line": 331
         },
         {
           "name": "BaleProviderApplicationAdapter.load_history",
           "kind": "method",
-          "line": 362
+          "line": 360
         },
         {
           "name": "BaleProviderApplicationAdapter.send_text",
           "kind": "method",
-          "line": 398
+          "line": 396
         },
         {
           "name": "BaleProviderApplicationAdapter.list_contacts",
           "kind": "method",
-          "line": 430
+          "line": 423
         },
         {
           "name": "BaleProviderApplicationAdapter.upsert_contact",
           "kind": "method",
-          "line": 496
+          "line": 489
         },
         {
           "name": "BaleProviderApplicationAdapter.remove_contact",
           "kind": "method",
-          "line": 541
+          "line": 534
         },
         {
           "name": "BaleProviderApplicationAdapter.send_media",
           "kind": "method",
-          "line": 553
+          "line": 546
         },
         {
           "name": "BaleProviderApplicationAdapter.read_media",
           "kind": "method",
-          "line": 572
+          "line": 560
         },
         {
           "name": "BaleProviderApplicationAdapter.close",
           "kind": "method",
-          "line": 585
+          "line": 573
         }
       ]
     },
@@ -6237,7 +6237,7 @@
         {
           "name": "BaleProviderProcessWorker.close",
           "kind": "method",
-          "line": 943
+          "line": 935
         }
       ]
     },
@@ -15082,9 +15082,19 @@
           "line": 28
         },
         {
+          "name": "PreviewOwner.send_text",
+          "kind": "method",
+          "line": 38
+        },
+        {
+          "name": "PreviewOwner.send_file_bytes",
+          "kind": "method",
+          "line": 47
+        },
+        {
           "name": "main",
           "kind": "function",
-          "line": 43
+          "line": 65
         }
       ]
     },
@@ -17162,32 +17172,37 @@
         {
           "name": "_Backend.list_contacts",
           "kind": "method",
-          "line": 47
+          "line": 48
         },
         {
           "name": "_Backend.add_contact_by_phone",
           "kind": "method",
-          "line": 50
+          "line": 51
         },
         {
           "name": "_Backend.add_contact",
           "kind": "method",
-          "line": 54
+          "line": 55
         },
         {
           "name": "_Backend.send_text",
           "kind": "method",
-          "line": 58
+          "line": 59
+        },
+        {
+          "name": "_Backend.send_file_bytes",
+          "kind": "method",
+          "line": 64
         },
         {
           "name": "test_contact_protocol_lists_safe_references_and_imports_with_name",
           "kind": "function",
-          "line": 64
+          "line": 69
         },
         {
           "name": "test_group_send_keeps_type_and_legacy_reference_stays_rejected",
           "kind": "function",
-          "line": 84
+          "line": 89
         },
         {
           "name": "test_existing_id_only_contact_is_not_overwritten",
@@ -17302,59 +17317,59 @@
           "line": 105
         },
         {
-          "name": "test_bale_group_is_a_real_chat_and_channel_stays_read_only",
+          "name": "test_bale_group_and_channel_support_reading_and_sending",
           "kind": "function",
           "line": 118
         },
         {
           "name": "test_bale_contact_directory_is_paged_searchable_and_recoverable",
           "kind": "function",
-          "line": 136
+          "line": 137
         },
         {
           "name": "test_bale_navigation_shares_workspace_chrome_without_eitaa_operations",
           "kind": "function",
-          "line": 150
+          "line": 151
         },
         {
           "name": "test_bale_surface_never_calls_eitaa_only_routes",
           "kind": "function",
-          "line": 164
+          "line": 165
         },
         {
           "name": "test_bale_history_marks_end_and_cap_honestly",
           "kind": "function",
-          "line": 173
+          "line": 174
         },
         {
           "name": "test_bale_messages_dedupe_and_stay_sorted_by_reference",
           "kind": "function",
-          "line": 179
+          "line": 180
         },
         {
           "name": "test_bale_settings_show_worker_state_and_capability_reasons",
           "kind": "function",
-          "line": 185
+          "line": 186
         },
         {
           "name": "test_bale_auth_surface_covers_code_password_cancel_restore_and_errors",
           "kind": "function",
-          "line": 193
+          "line": 194
         },
         {
           "name": "test_bale_uses_shared_shell_and_mobile_list_pattern_without_class_names",
           "kind": "function",
-          "line": 215
+          "line": 216
         },
         {
           "name": "test_bale_mobile_header_and_search_clear_the_fixed_menu_button",
           "kind": "function",
-          "line": 228
+          "line": 229
         },
         {
           "name": "test_bale_privacy_secrets_never_enter_component_persistence",
           "kind": "function",
-          "line": 241
+          "line": 242
         }
       ]
     },
@@ -24495,12 +24510,12 @@
         {
           "name": "contactCanOpenChat",
           "kind": "script symbol",
-          "line": 304
+          "line": 303
         },
         {
           "name": "logoutSoftware",
           "kind": "script symbol",
-          "line": 308
+          "line": 307
         }
       ]
     },

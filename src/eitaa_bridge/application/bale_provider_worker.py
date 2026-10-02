@@ -744,10 +744,6 @@ class BaleProviderProcessWorker:
 
             peer_type = self._peer_type(payload)
 
-            if peer_type == 3:
-
-                raise WorkerIpcError("Sending into channels is not supported.", code="bale_channel_send_unsupported")
-
             try:
 
                 data = base64.b64decode(payload["data_base64"], validate=True)
@@ -925,10 +921,6 @@ class BaleProviderProcessWorker:
                 raise WorkerIpcError("Invalid Bale peer.", code="ipc_payload_invalid")
 
             peer_type = self._peer_type(payload)
-
-            if peer_type == 3:
-
-                raise WorkerIpcError("Sending into channels is not supported.", code="bale_channel_send_unsupported")
 
             text = self._text(payload["text"], maximum=100_000)
 

@@ -115,16 +115,17 @@ def test_bale_surface_gates_every_operation_on_account_capabilities() -> None:
     assert "can('contacts.write')" in directory
 
 
-def test_bale_group_is_a_real_chat_and_channel_stays_read_only() -> None:
+def test_bale_group_and_channel_support_reading_and_sending() -> None:
     workspace = read("BaleWorkspace.tsx")
     composer = read_bale("BaleComposer.tsx")
     # Group and channel history poll like private chats.
     assert "peer?.peer_kind === 'private' || peer?.peer_kind === 'group' || peer?.peer_kind === 'channel'" in workspace
-    # Groups compose like private chats; channels are honestly read-only and
-    # any other kind keeps the generic unsupported alert.
-    assert "ارسال در کانال پشتیبانی نمی‌شود؛ کانال‌ها فقط‌خواندنی‌اند." in workspace
+    # Groups and channels compose like private chats; any other kind keeps
+    # the generic unsupported alert.
+    assert "kind === 'private' || kind === 'group' || kind === 'channel'" in workspace
     assert "این نوع گفتگو پشتیبانی نمی‌شود." in workspace
-    assert "کانال — فقط‌خواندنی" in workspace
+    assert "ارسال در کانال پشتیبانی نمی‌شود" not in workspace
+    assert "کانال — فقط‌خواندنی" not in workspace
     assert "خواندن و ارسال در گروه/کانال فعلاً پشتیبانی نمی‌شود" not in workspace
     # Outgoing bubbles require a private peer (the contract exposes no self
     # reference for groups); group senders show their typed id label.
