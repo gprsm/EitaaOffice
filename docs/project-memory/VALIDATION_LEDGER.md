@@ -2677,3 +2677,10 @@
   ۵. به‌روزرسانی فیکسچر پذیرش محلی `tests/bale_ui_preview.py`.
 - شواهد: تمام آزمون‌های هدفمند، UI، integration و main_product سبزند؛ `npm run check` (TypeScript)، `package_clean.py` parity و `git diff --check` خروجی صفر دارند.
 - محدودیت‌ها: مانند گروه، پذیرش Live روی اکانت واقعی بله نیازمند حضور و تأیید مالک در لحظه است.
+
+### V-273 — بازبینی مستقل تحویل رابط بله روی نسخهٔ نهایی گروه و کانال
+
+- تاریخ: 2026-10-02؛ Trigger: درخواست مالک برای ارزیابی ادعای تحویل دستور تکمیل UI بله. از V-270 به بعد کد مرتبط با خواندن/ارسال گروه و کانال در V-271/V-272 تغییر کرده است؛ بنابراین شاهد مجموعهٔ کامل نسخهٔ پیشین برای HEAD `584b5ff5` کافی نبود. شروع بررسی روی شاخهٔ `codex/bale-web-client-instructions` با درخت تمیز و HEAD برابر GitHub بود.
+- بررسی مستقل: تطبیق `BaleWorkspace` و اجزای `ui/src/bale/` با دستور، گزارش V-269/V-270 و قرارداد حساب‌محور؛ درخواست‌های بله همچنان از `/api/v2/messenger-accounts/{account_id}` عبور می‌کنند و منوی مشترک عملیات اختصاصی ایتا را در بله نشان نمی‌دهد. پشتیبانی گروه/کانال در کد فعلی با V-272 هم‌خوان است. گزارش اولیهٔ UI بند تاریخی «پشتیبانی‌نشدن گروه/کانال» داشت؛ همان بند به‌عنوان وضعیت V-269 مشخص و ارجاع به رفتار جاری V-272 اضافه شد.
+- اجرای تازه روی HEAD نهایی: `pytest -q tests/test_bale_workspace_ui.py tests/test_bale_main_product.py tests/test_bale_product_integration.py` exit=0؛ مجموعهٔ کامل `pytest -q` exit=0 با یک skip و تنها هشدار deprecation شناخته‌شدهٔ `websockets.legacy`؛ `npm.cmd --prefix ui run check`، `npm.cmd --prefix ui run test:observability` و `npm.cmd --prefix ui run build` هر سه exit=0 (هشدار اندازهٔ chunk در build). پس از اصلاح گزارش، generator اسناد، integrity حافظه، freshness+links و `git diff --check` همگی exit=0 شدند.
+- سطح نتیجه: تکمیل رابط بله در دامنهٔ آفلاین/فیکسچر قابل تأیید است. پذیرش زندهٔ خواندن/ارسال گروه و کانال، پایداری بلندمدت Provider و توقف polling در تب پنهان با شاهد مرورگری واقعی از این اجرا نتیجه نمی‌شوند؛ هیچ ورود یا ارسال واقعی انجام نشد. آزمون مرورگری V-270/V-272 بدون تغییر source پس از آن معتبر است و بی‌دلیل تکرار نشد.
