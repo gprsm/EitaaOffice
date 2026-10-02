@@ -12,6 +12,7 @@ export function BaleMessageCard({
   text,
   sentAtUnixMs,
   outgoing,
+  author,
   hasMedia,
   canDownloadMedia,
   downloading,
@@ -20,6 +21,7 @@ export function BaleMessageCard({
   text?: string
   sentAtUnixMs: number
   outgoing: boolean
+  author?: string
   hasMedia: boolean
   canDownloadMedia: boolean
   downloading: boolean
@@ -50,6 +52,7 @@ export function BaleMessageCard({
     }}
   >
     <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: attachmentOnly ? 1.25 : 1 }}>
+      {author && <Typography variant="caption" component="div" fontWeight={750} color="primary.main" sx={{ pb: 0.25, direction: 'ltr', textAlign: 'start' }}># {author}</Typography>}
       {value && <>
         {collapsible && !expanded && <Typography component="div" variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, overflowWrap: 'anywhere' }}>{value.slice(0, 420).trimEnd()}…</Typography>}
         <Collapse in={!collapsible || expanded} timeout="auto" unmountOnExit={collapsible}>

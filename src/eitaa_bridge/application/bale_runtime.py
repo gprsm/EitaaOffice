@@ -481,31 +481,31 @@ class BaleRuntimeBackend:
 
 
 
-    async def read_history(self, user_id: int, *, limit: int, offset_date: int | None = None) -> list[dict[str, Any]]:
+    async def read_history(self, user_id: int, *, limit: int, offset_date: int | None = None, peer_type: int = 1) -> list[dict[str, Any]]:
 
-        return list((await self._request("bale.provider.history.query", {"user_id": user_id, "limit": limit, "offset_date": offset_date}, 90))["messages"])
-
-
-
-    async def send_text(self, user_id: int, text: str) -> dict[str, Any]:
-
-        return await self._request("bale.provider.messages.send_text", {"user_id": user_id, "text": text}, 30)
+        return list((await self._request("bale.provider.history.query", {"user_id": user_id, "limit": limit, "offset_date": offset_date, "peer_type": peer_type}, 90))["messages"])
 
 
 
-    async def send_file_bytes(self, user_id: int, filename: str, data: bytes, *, caption: str = "") -> dict[str, Any]:
+    async def send_text(self, user_id: int, text: str, *, peer_type: int = 1) -> dict[str, Any]:
+
+        return await self._request("bale.provider.messages.send_text", {"user_id": user_id, "text": text, "peer_type": peer_type}, 30)
+
+
+
+    async def send_file_bytes(self, user_id: int, filename: str, data: bytes, *, caption: str = "", peer_type: int = 1) -> dict[str, Any]:
 
         return await self._request("bale.provider.messages.send_media", {"user_id": user_id,
 
-            "filename": filename, "data_base64": base64.b64encode(data).decode("ascii"), "caption": caption}, 90)
+            "filename": filename, "data_base64": base64.b64encode(data).decode("ascii"), "caption": caption, "peer_type": peer_type}, 90)
 
 
 
-    async def read_media(self, user_id: int, message_id: int, *, max_bytes: int) -> dict[str, Any]:
+    async def read_media(self, user_id: int, message_id: int, *, max_bytes: int, peer_type: int = 1) -> dict[str, Any]:
 
         return await self._request("bale.provider.media.read", {"user_id": user_id,
 
-            "message_id": message_id, "max_bytes": max_bytes}, 90)
+            "message_id": message_id, "max_bytes": max_bytes, "peer_type": peer_type}, 90)
 
 
 

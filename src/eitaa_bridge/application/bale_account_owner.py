@@ -276,22 +276,25 @@ class BaleAccountOwner:
                 item["title"] = self._dialog_contact_names[peer["id"]]
         return items
 
-    async def read_history(self, user_id: int, *, limit: int = 20, offset_date: int | None = None) -> list[dict[str, Any]]:
-        kwargs = {"limit": limit}
+    async def read_history(self, user_id: int, *, limit: int = 20, offset_date: int | None = None,
+                           peer_type: int = 1) -> list[dict[str, Any]]:
+        kwargs = {"limit": limit, "peer_type": peer_type}
         if offset_date is not None:
             kwargs["offset_date"] = offset_date
         return await self._invoke("read_history", user_id, **kwargs)
 
-    async def send_text(self, user_id: int, text: str) -> dict[str, Any]:
-        return await self._invoke("send_text", user_id, text)
+    async def send_text(self, user_id: int, text: str, *, peer_type: int = 1) -> dict[str, Any]:
+        return await self._invoke("send_text", user_id, text, peer_type=peer_type)
 
-    async def send_file_bytes(self, user_id: int, name: str, data: bytes, *, caption: str = "") -> dict[str, Any]:
+    async def send_file_bytes(self, user_id: int, name: str, data: bytes, *, caption: str = "",
+                              peer_type: int = 1) -> dict[str, Any]:
         return await self._invoke("send_file_bytes", user_id, name, data,
-                                  caption=caption, staging_dir=self.directory / "uploads")
+                                  caption=caption, staging_dir=self.directory / "uploads", peer_type=peer_type)
 
-    async def read_media_bytes(self, user_id: int, message_id: int, *, max_bytes: int) -> dict[str, Any]:
+    async def read_media_bytes(self, user_id: int, message_id: int, *, max_bytes: int,
+                               peer_type: int = 1) -> dict[str, Any]:
         result = await self._invoke("read_message_media", user_id, message_id,
-                                    self.directory / "downloads", max_bytes=max_bytes)
+                                    self.directory / "downloads", max_bytes=max_bytes, peer_type=peer_type)
         path = Path(result["path"])
         if path.parent.resolve() != (self.directory / "downloads").resolve() or path.is_symlink():
             raise ProviderExtensionError("Invalid media storage.", code="bale_media_path_invalid")

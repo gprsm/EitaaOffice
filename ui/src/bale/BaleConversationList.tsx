@@ -39,6 +39,11 @@ const kindIcon = (kind: string) => {
   return <PersonOutlineRounded fontSize="small" />
 }
 
+const kindBadge = (kind: string) => ({
+  group: 'گروه — خواندن و ارسال گروهی فعال است',
+  channel: 'کانال — فقط‌خواندنی',
+}[kind] || '')
+
 const kindLabel = (kind: string) => ({
   private: 'شخصی',
   group: 'گروه',
@@ -168,7 +173,7 @@ export function BaleConversationList({
             secondaryTypographyProps={{ noWrap: true }}
           />
           <Stack direction="row" alignItems="center" spacing={0.5}>
-            {item.peer_kind !== 'private' && <Tooltip title={`${kindLabel(item.peer_kind)} — خواندن و ارسال خصوصی در این نسخه پشتیبانی نمی‌شود`}><Box sx={{ display: 'inline-flex', color: 'text.disabled' }}>{kindIcon(item.peer_kind)}</Box></Tooltip>}
+            {item.peer_kind !== 'private' && <Tooltip title={kindBadge(item.peer_kind)}><Box sx={{ display: 'inline-flex', color: item.peer_kind === 'channel' ? 'warning.main' : 'text.disabled' }}>{kindIcon(item.peer_kind)}</Box></Tooltip>}
             {item.unread_count > 0 && <Badge badgeContent={item.unread_count > 999 ? '999+' : item.unread_count} color="primary" max={999} />}
           </Stack>
         </ListItemButton>

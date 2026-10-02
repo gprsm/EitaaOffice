@@ -34,7 +34,7 @@ class OfflineOwner:
 
     def __init__(self, base, account):
         self.account = account
-        self.state = self.states.setdefault(account, {"vault": False, "calls": [], "contacts": {42: "Fixture"}, "messages": [], "phones": {}})
+        self.state = self.states.setdefault(account, {"vault": False, "calls": [], "contacts": {42: "Fixture"}, "messages": [], "chats": {}, "phones": {}})
 
     async def auth_start(self, phone):
         self.state["calls"].append("start")
@@ -89,19 +89,24 @@ class OfflineOwner:
         return [{"peer": {"id": 42, "type": 1}, "title": "Fixture", "unread_count": 2, "last_text": "Preview"},
                 {"peer": {"id": 42, "type": 2}, "title": "Group", "unread_count": 0}][:limit]
 
-    async def read_history(self, user_id, *, limit):
-        return list(self.state["messages"][-limit:])
+    def _chat_store(self, user_id, peer_type):
+        if peer_type == 1:
+            return self.state["messages"]
+        return self.state["chats"].setdefault((int(peer_type), int(user_id)), [])
 
-    async def send_text(self, user_id, text):
-        self.state["calls"].append("send")
-        self.state["messages"].append({"message_id": 17, "sender_id": 1, "date": 10, "text": text})
+    async def read_history(self, user_id, *, limit, peer_type=1):
+        return list(self._chat_store(user_id, peer_type)[-limit:])
+
+    async def send_text(self, user_id, text, *, peer_type=1):
+        self.state["calls"].append("send" if peer_type == 1 else f"send:{int(peer_type)}")
+        self._chat_store(user_id, peer_type).append({"message_id": 17, "sender_id": 1, "date": 10, "text": text})
         return {"sent": True, "random_id": 99}
 
-    async def send_file_bytes(self, user_id, name, data, *, caption):
-        self.state["calls"].append("media_send")
+    async def send_file_bytes(self, user_id, name, data, *, caption, peer_type=1):
+        self.state["calls"].append("media_send" if peer_type == 1 else f"media_send:{int(peer_type)}")
         return {"sent": True}
 
-    async def read_media_bytes(self, user_id, message_id, *, max_bytes):
+    async def read_media_bytes(self, user_id, message_id, *, max_bytes, peer_type=1):
         return {"data_base64": base64.b64encode(b"synthetic media").decode(), "mime_type": "text/plain"}
 
     async def close(self):
@@ -124,8 +129,8 @@ class DiskOfflineOwner(OfflineOwner):
         self.path.write_text(json.dumps(self.state), encoding="utf-8")
         return result
 
-    async def send_text(self, *args):
-        result = await super().send_text(*args)
+    async def send_text(self, *args, **kwargs):
+        result = await super().send_text(*args, **kwargs)
         self.path.write_text(json.dumps(self.state), encoding="utf-8")
         return result
 
@@ -429,7 +434,7 @@ def test_uncertain_send_is_persisted_and_never_retried(product, monkeypatch):
             events.append(event)
         return original_emit(event, **fields)
     monkeypatch.setattr(app._provider_orchestrator._logger, "emit", emit)
-    async def lost_reply(self, user_id, text):
+    async def lost_reply(self, user_id, text, **kwargs):
         self.state["calls"].append("send")
         raise TimeoutError("synthetic private detail must not escape")
     monkeypatch.setattr(OfflineOwner, "send_text", lost_reply)
@@ -440,7 +445,7 @@ def test_uncertain_send_is_persisted_and_never_retried(product, monkeypatch):
         assert result.payload["status"] == "uncertain"
         assert "private detail" not in repr(result.payload)
     assert OfflineOwner.states[account]["calls"].count("send") == 1
-    async def lost_media_reply(self, user_id, name, data, *, caption):
+    async def lost_media_reply(self, user_id, name, data, *, caption, **kwargs):
         self.state["calls"].append("media_send")
         raise TimeoutError("synthetic media reply lost")
     monkeypatch.setattr(OfflineOwner, "send_file_bytes", lost_media_reply)
@@ -1376,3 +1381,52 @@ def test_child_process_large_address_book_real_popen_paging_and_last_page(config
         assert prep.payload["results"][0]["peer_reference"] == "bale:user:2000"
     finally:
         app.close()
+
+
+def test_group_history_send_media_and_channel_send_rejection(product):
+    app, request = product
+    account = create_account(request)
+    base = login(request, account)
+    OfflineOwner.states[account]["messages"] = [{"message_id": 17, "sender_id": 1, "date": 100, "text": "Fixture reply"}]
+    OfflineOwner.states[account]["chats"][(2, 42)] = [
+        {"message_id": 71, "sender_id": 7, "date": 20, "text": "Group fixture reply"},
+    ]
+    OfflineOwner.states[account]["chats"][(3, 42)] = [
+        {"message_id": 81, "sender_id": 9, "date": 21, "text": "Channel broadcast"},
+    ]
+    # Group history is a separate store: private history must not leak into it.
+    private_history = request("POST", f"{base}/history/query", {"peer_reference": "bale:user:42", "peer_kind": "private", "limit": 50})
+    assert private_history.status == 200
+    assert [item["text"] for item in private_history.payload["messages"]] == ["Fixture reply"]
+    group_history = request("POST", f"{base}/history/query", {"peer_reference": "bale:group:42", "peer_kind": "group", "limit": 50})
+    assert group_history.status == 200
+    assert [item["text"] for item in group_history.payload["messages"]] == ["Group fixture reply"]
+    assert group_history.payload["messages"][0]["sender_reference"] == "bale:user:7"
+    channel_history = request("POST", f"{base}/history/query", {"peer_reference": "bale:channel:42", "peer_kind": "channel", "limit": 50})
+    assert channel_history.status == 200
+    assert [item["text"] for item in channel_history.payload["messages"]] == ["Channel broadcast"]
+    # Group text send routes with the group peer type and lands in the group store.
+    group_send = {"peer_reference": "bale:group:42", "peer_kind": "group", "text": "سلام گروه", "idempotency_key": "bale-group-send-0001", "confirm": True}
+    receipt = request("POST", f"{base}/messages/send-text", group_send)
+    assert receipt.status == 201
+    assert receipt.payload["status"] == "succeeded"
+    assert OfflineOwner.states[account]["calls"].count("send:2") == 1
+    assert OfflineOwner.states[account]["chats"][(2, 42)][-1]["text"] == "سلام گروه"
+    # Private store untouched by the group send.
+    assert all(item["text"] != "سلام گروه" for item in OfflineOwner.states[account]["messages"])
+    # Group media send and group media read work on the scoped reference.
+    group_media = {"peer_reference": "bale:group:42", "peer_kind": "group", "filename": "group-fixture.txt", "data_base64": base64.b64encode(b"group fixture").decode(), "idempotency_key": "bale-group-media-0001", "confirm": True}
+    assert request("POST", f"{base}/messages/send-media", group_media).status == 200
+    assert OfflineOwner.states[account]["calls"].count("media_send:2") == 1
+    group_media_read = request("POST", f"{base}/media/read", {"peer_reference": "bale:group:42", "peer_kind": "group", "message_reference": "bale:message:71", "media_reference": "bale:media:42:71", "variant": "full", "max_bytes": 512 * 1024})
+    assert group_media_read.status == 200
+    # A legacy untyped reference must never address a group (checked before
+    # the rejection-run opens the account circuit).
+    legacy = request("POST", f"{base}/messages/send-text", {"peer_reference": "bale:peer:42", "peer_kind": "group", "text": "مستقیم", "idempotency_key": "bale-legacy-group-0001", "confirm": True})
+    assert legacy.status == 400
+    assert (legacy.payload.get("error", {}).get("error_code") or legacy.payload.get("code")) == "provider_peer_reference_invalid"
+    # Channel read works, but channel send is rejected with its own safe code
+    # (one rejection per account circuit window; permanent errors open it).
+    rejected = request("POST", f"{base}/messages/send-text", {"peer_reference": "bale:channel:42", "peer_kind": "channel", "text": "به کانال", "idempotency_key": "bale-channel-send-0001", "confirm": True})
+    assert rejected.status == 400
+    assert (rejected.payload.get("error", {}).get("error_code") or rejected.payload.get("code")) == "bale_channel_send_unsupported"

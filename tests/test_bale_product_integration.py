@@ -13,6 +13,7 @@ from eitaa_bridge.application.bale_account_owner import BaleAccountOwner
 from eitaa_bridge.application.bale_provider_worker import BaleProviderProcessWorker
 from eitaa_bridge.errors import ProviderExtensionError, WorkerIpcError
 from eitaa_bridge.application.m2m_api import _DIALOG_REFERENCE
+from eitaa_bridge.providers.contracts import ProviderSendMediaRequest, ProviderSendStatus
 from eitaa_bridge.providers.bale import bale_extension_registration
 from eitaa_bridge.providers.contracts import (
     ProviderAccountContext,
@@ -39,6 +40,7 @@ def _adapter(backend):
 class _Backend:
     def __init__(self):
         self.sent = []
+        self.peer_types = []
         self.imported = []
         self.added = []
 
@@ -53,8 +55,9 @@ class _Backend:
         self.added.append(user_id)
         return {"added": True}
 
-    async def send_text(self, peer_id, text):
+    async def send_text(self, peer_id, text, peer_type=1):
         self.sent.append((peer_id, text))
+        self.peer_types.append(peer_type)
         return {"random_id": 17, "sent": True}
 
 
@@ -78,20 +81,50 @@ def test_contact_protocol_lists_safe_references_and_imports_with_name():
     asyncio.run(exercise())
 
 
-def test_peer_reference_keeps_type_for_colliding_numeric_ids():
+def test_group_send_keeps_type_and_legacy_reference_stays_rejected():
     async def exercise():
         backend = _Backend()
         adapter, operation = _adapter(backend)
-        request = ProviderSendTextRequest(
-            ProviderPeerReference("bale:group:42", "group"), "fixture", "bale-send-00000001",
+        # A typed group reference routes as a group chat, never as a private user.
+        receipt = await adapter.send_text(
+            operation, ProviderSendTextRequest(
+                ProviderPeerReference("bale:group:42", "group"), "fixture", "bale-send-00000001",
+            ),
+        )
+        assert receipt.status == ProviderSendStatus.SUCCEEDED
+        assert backend.sent == [(42, "fixture")]
+        assert backend.peer_types == [2]
+        # A legacy untyped reference must still not be silently redirected into a group.
+        try:
+            await adapter.send_text(
+                operation, ProviderSendTextRequest(
+                    ProviderPeerReference("bale:peer:42", "group"), "fixture", "bale-send-00000002",
+                ),
+            )
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "provider_peer_reference_invalid"
+        else:
+            raise AssertionError("A legacy peer reference must not address a group")
+        # Channel send is rejected with its own safe code, for text and media alike.
+        channel_text = ProviderSendTextRequest(
+            ProviderPeerReference("bale:channel:42", "channel"), "fixture", "bale-send-00000003",
         )
         try:
-            await adapter.send_text(operation, request)
+            await adapter.send_text(operation, channel_text)
         except Exception as exc:
-            assert getattr(exc, "code", None) == "provider_peer_kind_unsupported"
+            assert getattr(exc, "code", None) == "bale_channel_send_unsupported"
         else:
-            raise AssertionError("A group must not be sent as a private user")
-        assert backend.sent == []
+            raise AssertionError("Channel text send must stay unsupported")
+        channel_media = ProviderSendMediaRequest(
+            ProviderPeerReference("bale:channel:42", "channel"), "fixture.txt", b"fixture", "bale-media-00000004", "",
+        )
+        try:
+            await adapter.send_media(operation, channel_media)
+        except Exception as exc:
+            assert getattr(exc, "code", None) == "bale_channel_send_unsupported"
+        else:
+            raise AssertionError("Channel media send must stay unsupported")
+        assert backend.sent == [(42, "fixture")]
 
     asyncio.run(exercise())
 

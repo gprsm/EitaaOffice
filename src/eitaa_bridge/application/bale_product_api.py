@@ -119,6 +119,10 @@ def dispatch_product_extension(app: Any, session: Any, account_id: str, action: 
         app._require_provider_operation_fields(payload, {"peer_reference", "peer_kind", "filename", "data_base64", "caption", "idempotency_key", "confirm"})
         if payload.get("confirm") is not True:
             raise CompositionValidationError("Confirm media send.", code="provider_send_confirmation_required")
+        if str(payload.get("peer_kind") or "").strip().lower() == "channel" and app._provider_operation_account_context(
+            account_id
+        ).provider == "bale":
+            raise CompositionValidationError("Sending into Bale channels is not supported.", code="bale_channel_send_unsupported")
         try:
             data = base64.b64decode(payload.get("data_base64", ""), validate=True)
         except (ValueError, TypeError):

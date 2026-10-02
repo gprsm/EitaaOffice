@@ -231,6 +231,13 @@ class BaleProviderProcessWorker:
 
 
 
+    @staticmethod
+    def _peer_type(payload: Mapping[str, Any]) -> int:
+        value = payload.get("peer_type")
+        if isinstance(value, bool) or not isinstance(value, int) or value not in (1, 2, 3):
+            raise WorkerIpcError("Invalid peer type.", code="ipc_payload_invalid")
+        return value
+
     def _require_fields(self, payload: Mapping[str, Any], fields: set[str], *, started: bool = True) -> None:
 
         expected = fields | ({"worker_instance_id", "worker_generation", "session_generation"} if started else set())
@@ -684,13 +691,15 @@ class BaleProviderProcessWorker:
 
         if method == "bale.provider.media.read":
 
-            self._require_fields(payload, {"user_id", "message_id", "max_bytes"})
+            self._require_fields(payload, {"user_id", "message_id", "max_bytes", "peer_type"})
 
             if any(isinstance(payload[k], bool) or not isinstance(payload[k], int) or payload[k] <= 0 for k in ("user_id", "message_id", "max_bytes")) or payload["max_bytes"] > 512 * 1024:
 
                 raise WorkerIpcError("Invalid media query.", code="ipc_payload_invalid")
 
-            result = self._run(self._owner().read_media_bytes(payload["user_id"], payload["message_id"], max_bytes=payload["max_bytes"]), request.deadline_unix_ms)
+            peer_type = self._peer_type(payload)
+
+            result = self._run(self._owner().read_media_bytes(payload["user_id"], payload["message_id"], max_bytes=payload["max_bytes"], peer_type=peer_type), request.deadline_unix_ms)
 
             if len(base64.b64decode(result["data_base64"], validate=True)) > payload["max_bytes"]:
 
@@ -725,13 +734,19 @@ class BaleProviderProcessWorker:
 
         if method == "bale.provider.messages.send_media":
 
-            self._require_fields(payload, {"user_id", "filename", "data_base64", "caption"})
+            self._require_fields(payload, {"user_id", "filename", "data_base64", "caption", "peer_type"})
 
             user_id = payload["user_id"]
 
             if isinstance(user_id, bool) or not isinstance(user_id, int) or user_id <= 0:
 
                 raise WorkerIpcError("Invalid media peer.", code="ipc_payload_invalid")
+
+            peer_type = self._peer_type(payload)
+
+            if peer_type == 3:
+
+                raise WorkerIpcError("Sending into channels is not supported.", code="bale_channel_send_unsupported")
 
             try:
 
@@ -743,11 +758,15 @@ class BaleProviderProcessWorker:
 
             from ..providers.contracts import ProviderPeerReference, ProviderSendMediaRequest
 
-            checked = ProviderSendMediaRequest(ProviderPeerReference(f"bale:user:{user_id}", "private"),
+            kind = {1: "private", 2: "group"}.get(peer_type, "private")
+
+            prefix = "bale:user:" if kind == "private" else f"bale:{kind}:"
+
+            checked = ProviderSendMediaRequest(ProviderPeerReference(f"{prefix}{user_id}", kind),
 
                 payload["filename"], data, "worker-validation-0001", payload["caption"])
 
-            result = self._run(self._owner().send_file_bytes(user_id, checked.filename, checked.data, caption=checked.caption), request.deadline_unix_ms)
+            result = self._run(self._owner().send_file_bytes(user_id, checked.filename, checked.data, caption=checked.caption, peer_type=peer_type), request.deadline_unix_ms)
 
             return ProviderWorkerDispatchResult({"sent": result.get("sent") is True, "submission_reference": f"bale:submission:{uuid4().hex}"})
 
@@ -867,13 +886,15 @@ class BaleProviderProcessWorker:
 
         if method == "bale.provider.history.query":
 
-            self._require_fields(payload, {"user_id", "limit", "offset_date"})
+            self._require_fields(payload, {"user_id", "limit", "offset_date", "peer_type"})
 
             user_id, limit = payload["user_id"], payload["limit"]
 
             if any(isinstance(item, bool) or not isinstance(item, int) for item in (user_id, limit)) or not 0 < user_id or not 1 <= limit <= 500:
 
                 raise WorkerIpcError("Invalid Bale history query.", code="ipc_payload_invalid")
+
+            peer_type = self._peer_type(payload)
 
             offset = payload["offset_date"]
 
@@ -883,7 +904,7 @@ class BaleProviderProcessWorker:
 
             kwargs = {"limit": limit, **({"offset_date": offset} if offset is not None else {})}
 
-            items = self._run(self._owner().read_history(user_id, **kwargs), request.deadline_unix_ms)
+            items = self._run(self._owner().read_history(user_id, peer_type=peer_type, **kwargs), request.deadline_unix_ms)
 
             return ProviderWorkerDispatchResult({"messages": [
 
@@ -895,7 +916,7 @@ class BaleProviderProcessWorker:
 
         if method == "bale.provider.messages.send_text":
 
-            self._require_fields(payload, {"user_id", "text"})
+            self._require_fields(payload, {"user_id", "text", "peer_type"})
 
             user_id = payload["user_id"]
 
@@ -903,9 +924,15 @@ class BaleProviderProcessWorker:
 
                 raise WorkerIpcError("Invalid Bale peer.", code="ipc_payload_invalid")
 
+            peer_type = self._peer_type(payload)
+
+            if peer_type == 3:
+
+                raise WorkerIpcError("Sending into channels is not supported.", code="bale_channel_send_unsupported")
+
             text = self._text(payload["text"], maximum=100_000)
 
-            result = self._run(self._owner().send_text(user_id, text), request.deadline_unix_ms)
+            result = self._run(self._owner().send_text(user_id, text, peer_type=peer_type), request.deadline_unix_ms)
 
             return ProviderWorkerDispatchResult({"sent": result.get("sent") is True, "random_id": result.get("random_id")})
 

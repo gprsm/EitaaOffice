@@ -94,13 +94,13 @@ class FakeBaleBackend:
             {"peer": {"id": 55, "type": 2}, "unread_count": 0},
         ]
 
-    async def read_history(self, user_id, *, limit=20, offset_date=None):
+    async def read_history(self, user_id, *, limit=20, offset_date=None, peer_type=1):
         return [
             {"message_id": 11, "sender_id": 42, "date": 1758900000, "text": "پیام آزمایشی"},
             {"message_id": 12, "sender_id": None, "date": 1758900001, "text": None},
         ]
 
-    async def send_text(self, user_id, text, *, silent=False):
+    async def send_text(self, user_id, text, *, silent=False, peer_type=1):
         if self.fail_send_code is not None:
             from eitaa_bridge.application.bale_client.api import BaleApiError
 

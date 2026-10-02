@@ -107,6 +107,39 @@ def _user_id_from_reference(opaque_reference: str, kind: str = "private") -> int
     return user_id
 
 
+_CHAT_PEER_TYPE_BY_KIND = {"private": 1, "group": 2, "channel": 3}
+
+
+def _chat_address(opaque_reference: str, kind: str = "private") -> tuple[int, int]:
+    """Resolve a typed peer reference into (chat_id, wire peer_type).
+
+    Legacy untyped ``bale:peer:`` references stay private-only: pointing them
+    at a group would silently direct the operation to a different recipient.
+    Sending into channels is a product-level restriction enforced by the
+    send operations, not by this resolver.
+    """
+    selected = str(opaque_reference or "").strip()
+    if kind == "private":
+        return _user_id_from_reference(selected, kind), 1
+    peer_type = _CHAT_PEER_TYPE_BY_KIND.get(kind)
+    if peer_type is None:
+        raise ProviderExtensionError(
+            "The Bale peer kind is unsupported by this operation.",
+            code="provider_peer_kind_unsupported",
+        )
+    prefix = f"bale:{kind}:"
+    if not selected.startswith(prefix) or not selected[len(prefix):].isdigit():
+        raise ProviderExtensionError(
+            "The Bale peer reference is invalid.",
+            safe_context={"provider": "bale"},
+            code="provider_peer_reference_invalid",
+        )
+    chat_id = int(selected[len(prefix):])
+    if chat_id <= 0:
+        raise ProviderExtensionError("The Bale peer reference is invalid.", code="provider_peer_reference_invalid")
+    return chat_id, peer_type
+
+
 def _normalized_unix_ms(value: Any) -> int:
     try:
         raw = int(value or 0)
@@ -338,9 +371,9 @@ class BaleProviderApplicationAdapter:
         self._prepare(context)
         if limit < 1:
             return ProviderMessagePage(())
-        user_id = _user_id_from_reference(peer.opaque_reference, peer.kind)
+        chat_id, peer_type_id = _chat_address(peer.opaque_reference, peer.kind)
         try:
-            messages = await self._get_backend().read_history(user_id, limit=limit, **({"offset_date": offset} if offset is not None else {}))
+            messages = await self._get_backend().read_history(chat_id, limit=limit, peer_type=peer_type_id, **({"offset_date": offset} if offset is not None else {}))
         except Exception as exc:
             raise self._safe_client_failure(exc) from None
         page = []
@@ -355,7 +388,7 @@ class BaleProviderApplicationAdapter:
                     ),
                     sent_at_unix_ms=_normalized_unix_ms(item.get("date")),
                     text=(str(item.get("text")) if item.get("text") else None),
-                    media_reference=f"bale:media:{user_id}:{int(item.get('message_id') or 0)}" if item.get("media") else None,
+                    media_reference=f"bale:media:{chat_id}:{int(item.get('message_id') or 0)}" if item.get("media") else None,
                 )
             )
         dates = [int(item["date"]) for item in messages[:limit] if item.get("date") and int(item["date"]) > 0]
@@ -368,9 +401,14 @@ class BaleProviderApplicationAdapter:
         request: ProviderSendTextRequest,
     ) -> ProviderSendReceipt:
         self._prepare(context)
-        user_id = _user_id_from_reference(request.peer.opaque_reference, request.peer.kind)
+        if request.peer.kind == "channel":
+            raise ProviderExtensionError(
+                "Sending into Bale channels is not supported.",
+                code="bale_channel_send_unsupported",
+            )
+        chat_id, peer_type_id = _chat_address(request.peer.opaque_reference, request.peer.kind)
         try:
-            result = await self._get_backend().send_text(user_id, request.text)
+            result = await self._get_backend().send_text(chat_id, request.text, peer_type=peer_type_id)
         except Exception as exc:
             code = str(getattr(exc, "code", "bale_api_error"))
             if code in _UNCERTAIN_CODES:
@@ -514,9 +552,14 @@ class BaleProviderApplicationAdapter:
 
     async def send_media(self, context: ProviderOperationContext, request: ProviderSendMediaRequest) -> ProviderSendReceipt:
         self._prepare(context)
-        user_id = _user_id_from_reference(request.peer.opaque_reference, request.peer.kind)
+        if request.peer.kind == "channel":
+            raise ProviderExtensionError(
+                "Sending into Bale channels is not supported.",
+                code="bale_channel_send_unsupported",
+            )
+        chat_id, peer_type_id = _chat_address(request.peer.opaque_reference, request.peer.kind)
         try:
-            result = await self._get_backend().send_file_bytes(user_id, request.filename, request.data, caption=request.caption)
+            result = await self._get_backend().send_file_bytes(chat_id, request.filename, request.data, caption=request.caption, peer_type=peer_type_id)
         except Exception as exc:
             code = getattr(exc, "code", "bale_api_error")
             if code in _UNCERTAIN_CODES:
@@ -528,12 +571,12 @@ class BaleProviderApplicationAdapter:
 
     async def read_media(self, context: ProviderOperationContext, request: ProviderMediaReadRequest) -> ProviderMediaReadReceipt:
         self._prepare(context)
-        user_id = _user_id_from_reference(request.peer.opaque_reference, request.peer.kind)
+        chat_id, peer_type_id = _chat_address(request.peer.opaque_reference, request.peer.kind)
         selected = request.message_reference.removeprefix("bale:message:")
-        if not selected.isdigit() or int(selected) <= 0 or request.media_reference != f"bale:media:{user_id}:{selected}":
+        if not selected.isdigit() or int(selected) <= 0 or request.media_reference != f"bale:media:{chat_id}:{selected}":
             raise ProviderExtensionError("Media scope mismatch.", code="provider_media_reference_invalid")
         try:
-            result = await self._get_backend().read_media(user_id, int(selected), max_bytes=min(request.max_bytes, 512 * 1024))
+            result = await self._get_backend().read_media(chat_id, int(selected), max_bytes=min(request.max_bytes, 512 * 1024), peer_type=peer_type_id)
         except Exception as exc:
             raise self._safe_client_failure(exc) from None
         return ProviderMediaReadReceipt(request.media_reference, result["content_reference"],

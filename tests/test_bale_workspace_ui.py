@@ -67,7 +67,7 @@ def test_bale_polling_keeps_provider_friendly_cadences_and_hidden_tab_pause() ->
     # A hidden tab never issues requests while the live-updates capability holds.
     assert "document.visibilityState === 'hidden' && accounts.hasCapability('updates.live')" in workspace
     # A dialogs failure never blocks history: the two reads fail independently.
-    assert workspace.index("const result = await api<{ dialogs: BaleDialogItem[] }>(") < workspace.index("if (peer?.peer_kind === 'private' && accounts.hasCapability('history.read'))")
+    assert workspace.index("const result = await api<{ dialogs: BaleDialogItem[] }>(") < workspace.index("if ((peer?.peer_kind === 'private' || peer?.peer_kind === 'group' || peer?.peer_kind === 'channel') && accounts.hasCapability('history.read'))")
     # Poll errors clear on success and re-check the auth status while failing.
     assert "setPollError(dialogPoll.current.error || historyError)" in workspace
 
@@ -115,14 +115,22 @@ def test_bale_surface_gates_every_operation_on_account_capabilities() -> None:
     assert "can('contacts.write')" in directory
 
 
-def test_bale_group_and_channel_are_honestly_unsupported() -> None:
+def test_bale_group_is_a_real_chat_and_channel_stays_read_only() -> None:
     workspace = read("BaleWorkspace.tsx")
     composer = read_bale("BaleComposer.tsx")
-    assert "پشتیبانی نمی‌شود" in workspace
-    assert "unsupportedReason" in workspace
-    # History polling stays private-only instead of silently sending group RPCs.
-    assert "peer?.peer_kind === 'private' && accounts.hasCapability('history.read')" in workspace
-    assert "peer.peer_kind === 'private' ? { peer_reference: peer.peer_reference" in workspace
+    # Group and channel history poll like private chats.
+    assert "peer?.peer_kind === 'private' || peer?.peer_kind === 'group' || peer?.peer_kind === 'channel'" in workspace
+    # Groups compose like private chats; channels are honestly read-only and
+    # any other kind keeps the generic unsupported alert.
+    assert "ارسال در کانال پشتیبانی نمی‌شود؛ کانال‌ها فقط‌خواندنی‌اند." in workspace
+    assert "این نوع گفتگو پشتیبانی نمی‌شود." in workspace
+    assert "کانال — فقط‌خواندنی" in workspace
+    assert "خواندن و ارسال در گروه/کانال فعلاً پشتیبانی نمی‌شود" not in workspace
+    # Outgoing bubbles require a private peer (the contract exposes no self
+    # reference for groups); group senders show their typed id label.
+    assert "peer?.peer_kind === 'private'" in workspace
+    assert "authorFor" in workspace
+    assert "author?: string" in read_bale("BaleMessageCard.tsx")
 
 
 def test_bale_contact_directory_is_paged_searchable_and_recoverable() -> None:

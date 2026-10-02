@@ -3727,6 +3727,17 @@ class BridgeApplicationApi:
             str(payload.get("peer_reference") or "").strip(),
             str(payload.get("peer_kind") or "unknown").strip().lower(),
         )
+        # A definite pre-admission rejection, scoped to Bale: poisoning the
+        # send circuit with an uncertain record for an unsupported channel
+        # target would block later legitimate sends on this account. Other
+        # providers keep their own channel semantics.
+        if peer.kind == "channel" and self._provider_operation_account_context(
+            messenger_account_id
+        ).provider == "bale":
+            raise CompositionValidationError(
+                "Sending into Bale channels is not supported.",
+                code="bale_channel_send_unsupported",
+            )
         correlation = self._application_logger.correlation_id(request_id)
         selected_key = str(payload.get("idempotency_key") or "").strip()
         if not selected_key:

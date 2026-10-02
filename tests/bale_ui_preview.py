@@ -11,16 +11,26 @@ from test_bale_main_product import OfflineOwner, Protector, create_account, logi
 
 
 class PreviewOwner(OfflineOwner):
-    """Offline owner with real cursor paging for the UI preview fixture.
+    """Offline owner with real cursor paging and chat stores for the preview.
 
     The shared OfflineOwner keeps the full message list and ignores
-    offset_date; the workspace acceptance matrix needs older-page loads, so
-    paging messages are sliced by date here without touching the shared
-    fixture used by product tests.
+    offset_date; the workspace acceptance matrix needs older-page loads and
+    group/channel conversations, so history is sliced by date and group or
+    channel peers read their own stores, without touching the shared fixture
+    used by product tests.
     """
 
-    async def read_history(self, user_id, *, limit, offset_date=None):
-        items = sorted(self.state["messages"], key=lambda item: int(item.get("date") or 0))
+    async def list_dialogs(self, *, limit):
+        dialogs = await super().list_dialogs(limit=limit)
+        dialogs.append({"peer": {"id": 42, "type": 3}, "title": "Channel", "unread_count": 1, "last_text": "Channel notice"})
+        return dialogs[:limit]
+
+    async def read_history(self, user_id, *, limit, offset_date=None, peer_type=1):
+        if int(peer_type) == 1:
+            items = sorted(self.state["messages"], key=lambda item: int(item.get("date") or 0))
+        else:
+            items = sorted(self.state.get("chats", {}).get((int(peer_type), int(user_id)), []),
+                           key=lambda item: int(item.get("date") or 0))
         if offset_date is not None:
             items = [item for item in items if int(item.get("date") or 0) < int(offset_date)]
         return list(items[-limit:])
@@ -62,6 +72,13 @@ def main():
         eitaa = create_account(request, "+10000000003", "eitaa")
         OfflineOwner.states[first]["messages"] = [{"message_id": 17, "sender_id": 1, "date": 100, "text": "Fixture reply"},
                                                   {"message_id": 19, "sender_id": 42, "date": 105, "text": "پیوست آزمایشی", "media": {"type": "document"}}]
+        OfflineOwner.states[first]["chats"][(2, 42)] = [
+            {"message_id": 51, "sender_id": 42, "date": 400, "text": "پیام گروهی از عضو"},
+            {"message_id": 52, "sender_id": 7, "date": 401, "text": "پاسخ گروهی دیگر"},
+        ]
+        OfflineOwner.states[first]["chats"][(3, 42)] = [
+            {"message_id": 61, "sender_id": 9, "date": 402, "text": "Channel notice"},
+        ]
         paging_messages = int(os.environ.get("BALE_UI_PREVIEW_MESSAGE_COUNT", "0"))
         if paging_messages:
             if not 1 <= paging_messages <= 5000:

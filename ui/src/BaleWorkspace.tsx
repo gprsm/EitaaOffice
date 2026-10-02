@@ -143,7 +143,7 @@ export function BaleWorkspace() {
           dialogPoll.current.error = reason instanceof Error ? reason.message : 'ارتباط برقرار نشد.'
         }
       }
-      if (peer?.peer_kind === 'private' && accounts.hasCapability('history.read')) {
+      if ((peer?.peer_kind === 'private' || peer?.peer_kind === 'group' || peer?.peer_kind === 'channel') && accounts.hasCapability('history.read')) {
         try {
           const result = await api<{ messages: Message[]; next_cursor?: string }>('POST', `${base}/history/query`, { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, limit: 100 })
           if (active) {
@@ -284,7 +284,23 @@ export function BaleWorkspace() {
   const liveState: 'idle' | 'connecting' | 'retrying' = pollError
     ? 'retrying'
     : (accounts.capabilityLoading || (auth?.auth_state === 'authenticated' && !dialogsLoaded)) ? 'connecting' : 'idle'
-  const outgoingFor = (message: Message) => Boolean(peer && message.sender_reference && message.sender_reference !== peer.peer_reference)
+  const outgoingFor = (message: Message) => Boolean(
+    peer?.peer_kind === 'private'
+    && message.sender_reference
+    && message.sender_reference !== peer.peer_reference,
+  )
+  // Group/channel senders have no display name in the Bale contract; the
+  // short typed reference is shown instead of inventing one.
+  const authorFor = (message: Message) => {
+    if (peer?.peer_kind === 'private' || !message.sender_reference) return ''
+    const suffix = message.sender_reference.replace(/^bale:user:/, '')
+    return suffix === message.sender_reference ? '' : suffix
+  }
+  const sendDisabledReason = (kind: string) => {
+    if (kind === 'channel') return 'ارسال در کانال پشتیبانی نمی‌شود؛ کانال‌ها فقط‌خواندنی‌اند.'
+    if (kind === 'private' || kind === 'group') return ''
+    return 'این نوع گفتگو پشتیبانی نمی‌شود.'
+  }
   const contactCanOpenChat = (contact: Contact) => {
     setPeer({ peer_reference: contact.contact_reference, peer_kind: 'private', title: contact.display_name, unread_count: 0 })
     setSection('all')
@@ -339,8 +355,6 @@ export function BaleWorkspace() {
       </DialogActions></Dialog>
     </Stack></LoginSurface>
   }
-
-  const unsupportedReason = peer && peer.peer_kind !== 'private' ? 'خواندن و ارسال در گروه/کانال فعلاً پشتیبانی نمی‌شود.' : ''
 
   return <Box sx={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden', bgcolor: 'background.default' }} data-provider-workspace="bale">
     <Box component="main" sx={{
@@ -411,7 +425,8 @@ export function BaleWorkspace() {
             {historyCursor && messages.length < 500 && <Button size="small" variant="outlined" disabled={busy || !accounts.hasCapability('history.read')} onClick={() => void run(loadOlder)}>پیام‌های قدیمی‌تر</Button>}
             {messages.length >= 500 && <Typography variant="caption" color="text.secondary">حد نمایش این گفتگو ۵۰۰ پیام است.</Typography>}
             {Boolean(messages.length) && !historyCursor && <Chip size="small" variant="outlined" label="ابتدای گفتگو نمایش داده شد" />}
-            {peer.peer_kind !== 'private' && <Alert severity="info" sx={{ py: 0.25 }}>این کلاینت فعلاً خواندن و ارسال در گروه/کانال را پشتیبانی نمی‌کند.</Alert>}
+            {peer.peer_kind === 'channel' && <Chip size="small" variant="outlined" color="warning" label="کانال — فقط‌خواندنی" />}
+            {peer.peer_kind !== 'private' && peer.peer_kind !== 'group' && peer.peer_kind !== 'channel' && <Alert severity="info" sx={{ py: 0.25 }}>این کلاینت خواندن و ارسال در این نوع گفتگو را پشتیبانی نمی‌کند.</Alert>}
           </Stack>
           <Box ref={scrollBoxRef} onScroll={() => {
             const box = scrollBoxRef.current
@@ -422,6 +437,7 @@ export function BaleWorkspace() {
               text={message.text}
               sentAtUnixMs={message.sent_at_unix_ms}
               outgoing={outgoingFor(message)}
+              author={authorFor(message)}
               hasMedia={Boolean(message.media_reference)}
               canDownloadMedia={accounts.hasCapability('media.read')}
               downloading={downloadingKey === message.message_reference}
@@ -431,8 +447,8 @@ export function BaleWorkspace() {
           </Box>
           <BaleComposer
             key={peer.peer_reference}
-            peer={peer.peer_kind === 'private' ? { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, title: peer.title } : null}
-            unsupportedReason={unsupportedReason}
+            peer={sendDisabledReason(peer.peer_kind) ? null : { peer_reference: peer.peer_reference, peer_kind: peer.peer_kind, title: peer.title }}
+            unsupportedReason={sendDisabledReason(peer.peer_kind)}
             canSendText={accounts.hasCapability('messages.send')}
             canSendMedia={accounts.hasCapability('media.send')}
             capabilityLoading={accounts.capabilityLoading}

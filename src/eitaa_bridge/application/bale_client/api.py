@@ -19,6 +19,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import secrets
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -34,6 +35,7 @@ from .codecs_ext import (
     decode_dialog_summaries,
     decode_users,
     peer_from_identifier,
+    peer_from_dialog_summary,
 )
 from .config import BaleConfig, SERVICES
 from .errors import AuthenticationError, BaleError, ProtocolError, RpcError
@@ -111,9 +113,16 @@ class BaleApi:
         await api.close()
     """
 
+    _CHAT_PEER_TTL_SECONDS = 300
+    _CHAT_PEER_MAX_DIALOG_PAGES = 20
+
     def __init__(self, client: BaleClient) -> None:
         self._client = client
         self._auth_start_hint: bool | None = None
+        # Group/channel peers are addressed by (type, id) plus the access hash
+        # learned from LoadDialogs; the cache keeps that lookup from turning
+        # into an extra RPC on every operation.
+        self._chat_peer_cache: dict[tuple[int, int], tuple[float, Peer]] = {}
 
     # ------------------------------- lifecycle -------------------------------
 
@@ -155,6 +164,7 @@ class BaleApi:
         subscribe: bool = True,
         presence: bool = True,
     ) -> dict[str, Any]:
+        self._invalidate_chat_peer_cache()
         """Load the vault session (when needed) and connect the WebSocket.
 
         Returns the connection handshake summary (server proto/api versions).
@@ -192,6 +202,39 @@ class BaleApi:
     def _require_ws(self) -> None:
         if not self._client.ws or not self._client.ws.connected:
             raise BaleNotConnected()
+
+    def _invalidate_chat_peer_cache(self) -> None:
+        self._chat_peer_cache.clear()
+
+    async def _chat_peer(self, chat_id: int, peer_type: PeerType) -> Peer:
+        """Build a full chat peer, learning group/channel access hashes from
+        the raw dialog summaries (bounded paging). The access hash never
+        leaves this layer: list_dialogs() strips it from its JSON dicts."""
+        if peer_type == PeerType.PRIVATE:
+            return Peer(id=int(chat_id), type=PeerType.PRIVATE)
+        key = (int(peer_type), int(chat_id))
+        now = time.monotonic()
+        cached = self._chat_peer_cache.get(key)
+        if cached and cached[0] > now:
+            return cached[1]
+        offset_date = (1 << 63) - 1
+        for _page in range(self._CHAT_PEER_MAX_DIALOG_PAGES):
+            payload = _build_load_dialogs(limit=100, offset_date=offset_date)
+            summaries = decode_dialog_summaries(await self._rpc("messaging", "LoadDialogs", payload))
+            if not summaries:
+                break
+            for summary in summaries:
+                if summary.peer.id == int(chat_id) and int(summary.peer.type) == int(peer_type):
+                    self._chat_peer_cache[key] = (now + self._CHAT_PEER_TTL_SECONDS, summary.peer)
+                    return summary.peer
+            dates = [int(s.sort_date) for s in summaries if s.sort_date]
+            if len(summaries) < 100 or not dates:
+                break
+            offset_date = min(dates)
+        raise BaleApiError(
+            f"Chat peer {int(chat_id)} of type {int(peer_type)} is not in the dialog list",
+            code="bale_chat_peer_unresolved",
+        )
 
     # -------------------------------- auth ----------------------------------
 
@@ -421,16 +464,25 @@ class BaleApi:
         text: str,
         *,
         silent: bool = False,
+        peer_type: int = PeerType.PRIVATE,
     ) -> dict[str, Any]:
-        """Send a text message to a private peer (contact user id)."""
+        """Send a text message to a chat (private contact, group or channel
+        peer; groups/channels are resolved with their dialog access hash)."""
         self._require_ws()
         if not text or not text.strip():
             raise BaleApiError("Message text cannot be empty", code="bale_empty_text")
-        peer = peer_from_identifier(user_id)
+        peer = await self._chat_peer(user_id, self._normalized_peer_type(peer_type))
         random_id = secrets.randbits(63)
         payload = _build_send_text(peer, random_id, text, silent=silent)
         response = await self._rpc("messaging", "SendMessage", payload)
         return {"user_id": peer.id, "random_id": random_id, "sent": True, "response_size": len(response)}
+
+    @staticmethod
+    def _normalized_peer_type(value: int) -> PeerType:
+        try:
+            return PeerType(int(value))
+        except ValueError as exc:
+            raise BaleApiError("Unsupported peer type", code="bale_peer_type_unsupported") from exc
 
     async def send_file_bytes(
         self,
@@ -440,6 +492,7 @@ class BaleApi:
         *,
         caption: str | None = None,
         staging_dir: str | Path | None = None,
+        peer_type: int = PeerType.PRIVATE,
     ) -> dict[str, Any]:
         """Send in-memory bytes (browser upload) by staging them to disk.
 
@@ -455,7 +508,7 @@ class BaleApi:
         staged = base / f"{secrets.token_hex(8)}_{name}"
         try:
             staged.write_bytes(data)
-            return await self.send_file(user_id, staged, caption=caption)
+            return await self.send_file(user_id, staged, caption=caption, peer_type=peer_type)
         finally:
             with contextlib.suppress(OSError):
                 staged.unlink(missing_ok=True)
@@ -468,6 +521,7 @@ class BaleApi:
         caption: str | None = None,
         media_kind: str | None = None,
         progress: ProgressCallback | None = None,
+        peer_type: int = PeerType.PRIVATE,
     ) -> dict[str, Any]:
         """Upload a file and send it as photo/video/audio/document.
 
@@ -475,7 +529,7 @@ class BaleApi:
         "video", "audio", "document").
         """
         self._require_ws()
-        peer = peer_from_identifier(user_id)
+        peer = await self._chat_peer(user_id, self._normalized_peer_type(peer_type))
         p = Path(path)
         if not p.is_file():
             raise BaleApiError(f"File not found: {p}", code="bale_file_missing")
@@ -524,10 +578,11 @@ class BaleApi:
         *,
         limit: int = 20,
         offset_date: int | None = None,
+        peer_type: int = PeerType.PRIVATE,
     ) -> list[dict[str, Any]]:
-        """Read recent messages of a private conversation."""
+        """Read recent messages of a chat (private, group or channel)."""
         self._require_ws()
-        peer = peer_from_identifier(user_id)
+        peer = await self._chat_peer(user_id, self._normalized_peer_type(peer_type))
         messages = await self._client.load_history(peer, limit=limit, offset_date=offset_date or (1 << 63) - 1)
         return [_message_to_dict(m) for m in messages]
 
@@ -537,13 +592,14 @@ class BaleApi:
         message_id: int,
         destination_dir: str | Path,
         *, max_bytes: int = 512 * 1024,
+        peer_type: int = PeerType.PRIVATE,
     ) -> dict[str, Any]:
         """Download the document/photo attached to a history message.
 
         Finds the message by id in recent history and downloads its file.
         """
         self._require_ws()
-        peer = peer_from_identifier(user_id)
+        peer = await self._chat_peer(user_id, self._normalized_peer_type(peer_type))
         history = await self._client.load_history(peer, limit=100)
         target = next((m for m in history if m.message_id == message_id and m.document), None)
         if target is None or target.document is None:

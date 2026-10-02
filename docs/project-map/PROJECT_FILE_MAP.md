@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 406
-- اثرانگشت منبع: `36b633c3ee7ce514`
+- اثرانگشت منبع: `6490b337df042abd`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -111,7 +111,7 @@
 | `src/eitaa_bridge/application/api.py` | Application | 291 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_account_owner.py` | Application | 28 | Account-owned Bale connection on one persistent asyncio loop. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
-| `src/eitaa_bridge/application/bale_client/api.py` | Application | 52 | Stable Python API facade for the Bale personal client. |
+| `src/eitaa_bridge/application/bale_client/api.py` | Application | 55 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
 | `src/eitaa_bridge/application/bale_client/auth.py` | Application | 9 | — |
 | `src/eitaa_bridge/application/bale_client/catalog.py` | Application | 0 | — |
@@ -128,8 +128,8 @@
 | `src/eitaa_bridge/application/bale_client/wire.py` | Application | 39 | — |
 | `src/eitaa_bridge/application/bale_client/ws.py` | Application | 26 | — |
 | `src/eitaa_bridge/application/bale_product_api.py` | Application | 2 | Account-scoped product auth for the Bale worker; no legacy Eitaa state. |
-| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 24 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
-| `src/eitaa_bridge/application/bale_provider_worker.py` | Application | 16 | Bounded account-owned Bale worker operations for in-process and Child hosts. |
+| `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 25 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
+| `src/eitaa_bridge/application/bale_provider_worker.py` | Application | 17 | Bounded account-owned Bale worker operations for in-process and Child hosts. |
 | `src/eitaa_bridge/application/bale_runtime.py` | Application | 38 | Account runtime and bounded parent-side proxy for Bale personal accounts. |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
 | `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
@@ -242,7 +242,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/service.py` | Project | 13 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/version.py` | Project | 0 | — |
-| `tests/bale_ui_preview.py` | Python test | 3 | Opt-in local acceptance fixture. Never connects to a messaging provider. |
+| `tests/bale_ui_preview.py` | Python test | 4 | Opt-in local acceptance fixture. Never connects to a messaging provider. |
 | `tests/conftest.py` | Python test | 8 | — |
 | `tests/test_account_auth_lifecycle.py` | Python test | 35 | — |
 | `tests/test_account_runtime.py` | Python test | 12 | — |
@@ -258,7 +258,7 @@
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
 | `tests/test_bale_bot_adapter.py` | Python test | 13 | Offline tests for the Bale Bot scaffold adapter and its fail-closed status. |
 | `tests/test_bale_branch_api.py` | Python test | 61 | Offline tests for the Bale branch modular API (Phase 1). |
-| `tests/test_bale_main_product.py` | Python test | 51 | Main application acceptance with a stateful offline provider, not source regex. |
+| `tests/test_bale_main_product.py` | Python test | 53 | Main application acceptance with a stateful offline provider, not source regex. |
 | `tests/test_bale_personal_authorization.py` | Python test | 26 | Owner-authorized Bale personal provider: contract tests (F-086/ADR-60). |
 | `tests/test_bale_pilot.py` | Python test | 3 | Pilot defaults must never prompt for credentials or touch the network. |
 | `tests/test_bale_product_integration.py` | Python test | 21 | Offline regression for Bale's product boundary; no provider network access. |
@@ -373,9 +373,9 @@
 | `ui/src/bale/BaleChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/bale/BaleComposer.tsx` | React UI | 4 | — |
 | `ui/src/bale/BaleContactDirectory.tsx` | React UI | 6 | — |
-| `ui/src/bale/BaleConversationList.tsx` | React UI | 4 | — |
+| `ui/src/bale/BaleConversationList.tsx` | React UI | 5 | — |
 | `ui/src/bale/BaleMessageCard.tsx` | React UI | 1 | — |
-| `ui/src/BaleWorkspace.tsx` | React UI | 13 | — |
+| `ui/src/BaleWorkspace.tsx` | React UI | 15 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
