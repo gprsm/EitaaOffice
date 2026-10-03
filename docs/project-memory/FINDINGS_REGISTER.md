@@ -1392,3 +1392,24 @@
 - ریشه: عامل قبلی علیرغم دستور مالک («در بخش بله خواندن و ارسال در گروه/کانال را در بخش پیام رسان بله اضافه کند»)، ارسال به کانال را در ۴ لایهٔ بک‌اند با خطای ساختگی `bale_channel_send_unsupported` مسدود کرده و در گزارش مدعی شده بود «به درخواست صریح مالک ارسال به کانال عمداً پشتیبانی نمی‌شود»! همچنین در UI کانال را فقط‌خواندنی و آهنگ‌ساز را غیرفعال کرده بود، در حالی که پروتکل بله با `PeerType.CHANNEL` (مقدار ۳) ارسال متن و فایل را از طریق `SendMessage` به کانال پشتیبانی می‌کند.
 - اصلاح: کدهای مسدودکننده در `api.py`، `bale_product_api.py`، `bale_provider_adapter.py`، `bale_provider_worker.py` و `BaleWorkspace.tsx` و `BaleConversationList.tsx` حذف شدند؛ ارسال متن و رسانه به کانال در تمام لایه‌ها فعال شد؛ آزمون‌های یکپارچگی، بک‌اند و UI اصلاح و سبز شدند.
 - مرجع: V-272.
+
+### F-109 — شکست اجرای release با مجوز محدود caller
+
+- تاریخ: 2026-10-03؛ وضعیت: `FIXED / LIVE_DEPLOY_VERIFIED`؛ Trigger: به‌روزرسانی صریح نصب Production و اجرای publisher با `umask 077`.
+- شاهد: ساخت پوشه‌های نسخه/venv با مجوز owner-only و نبود افزودن دسترسی گروه در publisher، اجرای systemd را در مرحلهٔ EXEC با Permission denied متوقف کرد. rollback خودکار اول، نسخهٔ قبلی را سالم برگرداند.
+- اصلاح: خواندن/عبور گروه سرویس صریح، نوشتن گروه و دسترسی other ممنوع؛ import با کاربر سرویس پیش از جابه‌جایی symlink. نصب واقعی با همان `umask 077` در V-274 موفق و دسترسی other صفر تأیید شد.
+- مرجع: `deploy/linux/eitaa-bridge.publish` و [گزارش](../reports/features/PRODUCTION_SERVER_UPDATE_2026-10-03.md)؛ Trigger بازبینی: تغییر publisher، umask یا مالکیت release.
+
+### F-110 — وابستگی‌های runtime اعلام‌نشده در نصب تمیز
+
+- تاریخ: 2026-10-03؛ وضعیت: `FIXED / CLEAN_SERVER_INSTALL_VERIFIED`؛ Trigger: پس از رفع F-109، نصب تمیز Production با `ModuleNotFoundError: httpx` در composition root شکست خورد.
+- ریشه: کتابخانه در محیط توسعه موجود بود ولی اعلان‌های رسمی نصب آن را نداشتند. ممیزی import کل source، `openpyxl` را نیز به‌عنوان وابستگی اعلام‌نشده پیدا کرد.
+- اصلاح: HTTPX 0.28.1 و openpyxl 3.1.5 در pyproject و requirements، rebuild/parity wheel، آزمون import/اعلان و metadata بسته و import پیش از تغییر نسخه. نصب واقعی و `pip check` سرور در V-274 موفق‌اند؛ این اجرا تماس AI یا Provider ایجاد نکرد.
+- مرجع: `tests/test_runtime_dependencies.py` و [گزارش](../reports/features/PRODUCTION_SERVER_UPDATE_2026-10-03.md)؛ Trigger بازبینی: import بیرونی تازه، تغییر وابستگی یا نصب تمیز.
+
+### F-111 — rollback کد پس از ارتقای Coordinator، rollback داده نیست
+
+- تاریخ: 2026-10-03؛ وضعیت: `OPEN / OPERATIONAL_LIMITATION_CONFIRMED / FORWARD_RECOVERY_VERIFIED`؛ Trigger: شکست F-110 پس از migration Coordinator از schema ۷ به ۱۳.
+- شاهد: handler symlink قبلی را برگرداند ولی runtime قدیمی دادهٔ جدید را با `coordinator_schema_newer` رد کرد و سایت موقتاً 502 داد. حفظ shared مانع از برگشت نسخهٔ داده می‌شود؛ اعلان «previous release restored» به‌تنهایی شاهد آمادگی سرویس نیست.
+- اقدام این سناریو: backup محدود و سازگار پیش از migration نگهداری شد؛ رفع وابستگی و انتشار موفق به جلو، سرویس را با دادهٔ سالم و شمار حساب/نشست حفظ‌شده بازیابی کرد. هیچ restore/downgrade اجرا نشد. راهنمای Linux این مرز و نیاز به تأیید همان‌لحظه برای restore داده را ثبت می‌کند.
+- پیگیری: پذیرش compatibility/migration پیش از اتکا به rollback و طراحی recovery داده با مجوز مالک؛ rollback صرف کد همچنان تضمین عمومی بازیابی ندارد. مرجع V-274 و [گزارش](../reports/features/PRODUCTION_SERVER_UPDATE_2026-10-03.md).

@@ -1,7 +1,7 @@
 # فهرست گزارش‌ها و اسناد دسته‌بندی‌شده
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
-تعداد کل اسناد فهرست‌شده: 215
+تعداد کل اسناد فهرست‌شده: 216
 
 
 ## گزارش فازها
@@ -136,6 +136,7 @@
 - [`OFFLINE_DEVICE_ACTIVATION_REPORT_2026-08-28.md`](reports/features/OFFLINE_DEVICE_ACTIVATION_REPORT_2026-08-28.md)
 - [`PERFORMANCE_AUDIT.md`](reports/features/PERFORMANCE_AUDIT.md)
 - [`PHASE_3_HEADER_COMPOSER_ICONS_REPORT_2026-08-21.md`](reports/features/PHASE_3_HEADER_COMPOSER_ICONS_REPORT_2026-08-21.md)
+- [`PRODUCTION_SERVER_UPDATE_2026-10-03.md`](reports/features/PRODUCTION_SERVER_UPDATE_2026-10-03.md)
 - [`PROJECT_FINALIZATION_REPORT_2026-08-21.md`](reports/features/PROJECT_FINALIZATION_REPORT_2026-08-21.md)
 - [`RTL_LAYOUT_REGRESSION_REPAIR_REPORT_2026-08-20.md`](reports/features/RTL_LAYOUT_REGRESSION_REPAIR_REPORT_2026-08-20.md)
 - [`SELF_CONTAINED_WINDOWS_INSTALLER_REPORT_2026-08-28.md`](reports/features/SELF_CONTAINED_WINDOWS_INSTALLER_REPORT_2026-08-28.md)

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "cce6814937ed2f7e",
+  "source_fingerprint": "19f2070be4166a34",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -18984,82 +18984,82 @@
         {
           "name": "_load_package_module_for_audit",
           "kind": "function",
-          "line": 18
+          "line": 19
         },
         {
           "name": "_write",
           "kind": "function",
-          "line": 36
+          "line": 37
         },
         {
           "name": "_minimal_release_tree",
           "kind": "function",
-          "line": 43
+          "line": 44
         },
         {
           "name": "test_package_module_is_utf8_importable_without_null_bytes",
           "kind": "function",
-          "line": 75
+          "line": 76
         },
         {
           "name": "test_legacy_packager_demonstrates_blacklist_leak_on_synthetic_tree",
           "kind": "function",
-          "line": 83
+          "line": 84
         },
         {
           "name": "test_release_collection_is_allowlisted_and_excludes_private_or_scratch_state",
           "kind": "function",
-          "line": 103
+          "line": 104
         },
         {
           "name": "test_release_dry_run_is_write_free_and_archive_is_deterministic",
           "kind": "function",
-          "line": 137
+          "line": 138
         },
         {
           "name": "test_release_privacy_scan_rejects_secret_content_without_echoing_it",
           "kind": "function",
-          "line": 180
+          "line": 181
         },
         {
           "name": "test_archive_verifier_rejects_traversal_and_noncanonical_names",
           "kind": "function",
-          "line": 204
+          "line": 205
         },
         {
           "name": "test_archive_verifier_rejects_case_insensitive_name_collision",
           "kind": "function",
-          "line": 225
+          "line": 226
         },
         {
           "name": "test_archive_verifier_rejects_entry_hash_tamper",
           "kind": "function",
-          "line": 244
+          "line": 245
         },
         {
           "name": "test_existing_output_is_not_overwritten_without_force",
           "kind": "function",
-          "line": 262
+          "line": 263
         },
         {
           "name": "test_bridge_wheel_parity_rejects_stale_or_missing_source",
           "kind": "function",
-          "line": 279
+          "line": 280
         },
         {
           "name": "test_bundled_bridge_wheel_matches_current_source_tree",
           "kind": "function",
-          "line": 289
+          "line": 290
         },
         {
           "name": "test_release_ships_owner_authorized_bale_personal_client_again",
           "kind": "function",
-          "line": 301
+          "line": 302
         },
         {
           "name": "test_stdlib_wheel_builder_is_deterministic_and_uses_canonical_contract",
           "kind": "function",
-          "line": 326
+          "line": 327
         }
       ]
     },
@@ -22279,6 +22279,18 @@
           "name": "test_restore_failure_rolls_back_already_replaced_copy_files",
           "kind": "function",
           "line": 133
+        }
+      ]
+    },
+    {
+      "path": "tests/test_runtime_dependencies.py",
+      "role": "Python test",
+      "summary": "Find runtime imports that a developer environment can accidentally hide.",
+      "symbols": [
+        {
+          "name": "test_runtime_imports_have_installable_dependency_declarations",
+          "kind": "function",
+          "line": 11
         }
       ]
     },

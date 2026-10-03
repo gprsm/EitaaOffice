@@ -30,6 +30,18 @@ release and restores the backup if restart or readiness fails.
 Each site has a root-owned handler in `/usr/local/lib/site-publisher`.  A failed
 health check restores the previous `current` symlink and restarts the prior
 release.  Releases are immutable; `shared` state is preserved across updates.
+Publication normalizes group read/traverse permissions even when the caller has
+`umask 077`, keeps all other-user permissions disabled, and verifies runtime
+imports as the service user before changing the active symlink. The dependency
+declarations include the HTTPX and Excel libraries required by the current code;
+a regression check compares runtime imports with those declarations.
+
+The symlink rollback restores code only. A release that has already migrated the
+Coordinator database may make an older release reject it with
+`coordinator_schema_newer`. Keep a restricted, consistent database backup before
+upgrading, and verify compatibility before relying on code rollback. Restoring
+operational data is a separate operation requiring the owner's current approval;
+do not automatically restore or delete shared state after a failed startup.
 For Eitaa Bridge, the publication gate checks both readiness and the unauthenticated
 AppUser status response through the same-host gateway.  A `401` or malformed
 status response fails the release and triggers the existing rollback path.

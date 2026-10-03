@@ -6,6 +6,7 @@ from importlib import util as importlib_util
 from pathlib import Path
 import shutil
 from types import ModuleType
+import tomllib
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -346,11 +347,17 @@ def test_stdlib_wheel_builder_is_deterministic_and_uses_canonical_contract(
             entry_points = wheel.read("eitaa_bridge-0.7.0.dev31.dist-info/entry_points.txt")
         assert "eitaa_bridge/providers/bale/slot.py" in names
         assert any(name.startswith("eitaa_bridge/application/bale_client/") for name in names)
-        assert metadata.count(b"Requires-Dist:") == 5
+        project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        expected_dependencies = len(project["dependencies"]) + sum(
+            len(items) for items in project.get("optional-dependencies", {}).values()
+        )
+        assert metadata.count(b"Requires-Dist:") == expected_dependencies
         assert b"Requires-Dist: eitaa-core==0.6.0.dev19" in metadata
         assert b"Requires-Dist: requests>=2.31,<3" in metadata
         assert b"Requires-Dist: cryptography==46.0.7" in metadata
         assert b"Requires-Dist: websockets>=12,<17" in metadata
+        assert b"Requires-Dist: httpx==0.28.1" in metadata
+        assert b"Requires-Dist: openpyxl==3.1.5" in metadata
         assert b"Provides-Extra: dev" in metadata
         assert entry_points.count(b" = eitaa_bridge.") == 4
     finally:
