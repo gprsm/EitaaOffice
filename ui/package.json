@@ -20,7 +20,8 @@
     "test:phase11-onboarding": "node scripts/run-phase11-onboarding-tests.mjs",
     "test:phase11b2": "node scripts/run-phase11b2-orchestration-tests.mjs",
     "test:mobile-auth-live": "node scripts/run-mobile-auth-live-tests.mjs",
-    "test:reporting-ui": "node scripts/run-reporting-ui-tests.mjs"
+    "test:reporting-ui": "node scripts/run-reporting-ui-tests.mjs",
+    "test:reporting-chat-surface": "node scripts/run-reporting-chat-surface-tests.mjs"
   },
   "dependencies": {
     "@emotion/cache": "11.14.0",

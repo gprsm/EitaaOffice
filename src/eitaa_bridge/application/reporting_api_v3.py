@@ -36,7 +36,13 @@ def _ok(payload: dict, status: int = 200, headers: dict | None = None):
 
 
 def _error(status: int, message: str, **extra):
-    return (status, {"ok": False, "error": message, **extra}, {})
+    """Uniform v3 error payload matching the client ApiError contract."""
+    error_code = extra.pop("error_code", "reporting_v3_error")
+    return (
+        status,
+        {"ok": False, "error": {"message": message, "error_code": error_code, "safe_context": extra}},
+        {},
+    )
 
 
 def _forbidden(roles, needed: str):

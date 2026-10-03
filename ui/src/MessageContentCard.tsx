@@ -25,6 +25,9 @@ import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded'
 import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import ReplayRounded from '@mui/icons-material/ReplayRounded'
 import VideoFileRounded from '@mui/icons-material/VideoFileRounded'
+import AssignmentRounded from '@mui/icons-material/AssignmentRounded'
+import AddTaskRounded from '@mui/icons-material/AddTaskRounded'
+import type { ReportingWitnessStatus } from './lib/api'
 import type { MessageGroup } from './lib/groupedMedia'
 import { playableMediaKind } from './lib/messageMedia'
 import { stableMessageKey } from './lib/scrollMath'
@@ -50,6 +53,9 @@ type MessageContentCardProps = {
   toggle: () => void
   editIndex: () => void
   openUsage: () => void
+  reportUsageByMessage?: Record<string, ReportingWitnessStatus>
+  openReportEvent: (eventId: string) => void
+  openRegistration: (messageIds: number[]) => void
 }
 
 type MessageContentBlock =
@@ -218,9 +224,15 @@ export function MessageContentCard({
   toggle,
   editIndex,
   openUsage,
+  reportUsageByMessage,
+  openReportEvent,
+  openRegistration,
 }: MessageContentCardProps) {
   const [expanded, setExpanded] = useState(false)
   const members = group?.messages || [message]
+  const reportUsage = reportUsageByMessage?.[String(message.id)]
+    || members.map(item => reportUsageByMessage?.[String(item.id)]).find(Boolean)
+    || undefined
   const contentBlocks = buildContentBlocks(members)
   const images = members.filter(item => item.media?.is_image)
   const memberKeys = members.map(item => stableMessageKey(dialog.peer_key, item.id))
@@ -369,6 +381,17 @@ export function MessageContentCard({
       {dialog.display_kind === 'personal' && <Typography variant="caption" color="text.secondary" sx={{ direction: 'ltr' }}>{members.length > 1 ? `#${firstId}–#${lastId}` : `#${message.id}`}</Typography>}
       <Typography variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>{firstTime === lastTime ? firstTime : `${firstTime}–${lastTime}`}</Typography>
       <Box sx={{ flex: 1 }} />
+      {reportUsage?.registered && reportUsage.events.length > 0 && <Chip
+        size="small"
+        color={reportUsage.events[0].review_status === 'approved' ? 'success' : reportUsage.events[0].review_status === 'conflict' ? 'error' : 'warning'}
+        variant="filled"
+        icon={<AssignmentRounded />}
+        label={`ثبت‌شده · ${reportUsage.events.length > 1 ? `${reportUsage.events.length} پرونده` : reportUsage.events[0].review_status === 'draft' ? 'پیش‌نویس' : reportUsage.events[0].review_status === 'needs_review' ? 'نیازمند بازبینی' : reportUsage.events[0].review_status === 'approved' ? 'تأییدشده' : 'تعارض'}`}
+        title="این پیام به پروندهٔ گزارش پیوند دارد"
+        onClick={event => { event.stopPropagation(); openReportEvent(reportUsage.events[0].event_id) }}
+        sx={{ minHeight: 28 }}
+      />}
+      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id)) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
       {anyUsed && <Button size="small" color={anyStale ? 'warning' : 'error'} variant="outlined" onClick={event => { event.stopPropagation(); openUsage() }} sx={{ minHeight: 28, py: 0 }}>{anyStale ? 'تغییرکرده' : allUsed ? 'وردپرس' : 'بخشی در وردپرس'}</Button>}
       {collapsible && <IconButton
         aria-label={expanded ? 'بستن ادامه پیام' : 'نمایش ادامه پیام'}

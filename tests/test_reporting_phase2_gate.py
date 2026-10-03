@@ -69,7 +69,8 @@ def test_full_lifecycle_with_etag(tmp_path: Path) -> None:
     )
     assert status == 409
     assert body["ok"] is False
-    assert body["current_etag"] == new_etag
+    # Uniform v3 error contract: details live in error.safe_context
+    assert body["error"]["safe_context"]["current_etag"] == new_etag
 
     # 4. GET /events/{id} yields 200 with review_status == "draft" and event.etag == new_etag
     status, body, _ = v3.dispatch(

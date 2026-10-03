@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 399
-- اثرانگشت منبع: `5d2692831b07e6f7`
+- تعداد فایل‌های نقشه: 401
+- اثرانگشت منبع: `d01e3d4d720028f6`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -142,7 +142,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 31 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 16 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 17 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -241,7 +241,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 29 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 81 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 82 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -360,6 +360,7 @@
 | `ui/scripts/run-phase11b2-orchestration-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase9-acceptance-tests.mjs` | UI validation | 2 | — |
 | `ui/scripts/run-phase9-workspace-tests.mjs` | UI validation | 3 | — |
+| `ui/scripts/run-reporting-chat-surface-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-reporting-ui-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
@@ -375,7 +376,7 @@
 | `ui/src/ConversationListPage.tsx` | React UI | 4 | — |
 | `ui/src/HeaderMessageSearch.tsx` | React UI | 3 | — |
 | `ui/src/lib/accountScope.mjs` | React UI | 3 | — |
-| `ui/src/lib/api.ts` | React UI | 17 | — |
+| `ui/src/lib/api.ts` | React UI | 18 | — |
 | `ui/src/lib/authStartupRecovery.mjs` | React UI | 3 | — |
 | `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
 | `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
@@ -385,7 +386,7 @@
 | `ui/src/lib/scrollMath.ts` | React UI | 8 | — |
 | `ui/src/lib/types.ts` | React UI | 0 | — |
 | `ui/src/LoginExperience.tsx` | React UI | 6 | — |
-| `ui/src/main.tsx` | React UI | 7 | — |
+| `ui/src/main.tsx` | React UI | 9 | — |
 | `ui/src/MaterialToast.tsx` | React UI | 3 | — |
 | `ui/src/MessageContentCard.tsx` | React UI | 11 | — |
 | `ui/src/MessageFilterDialog.tsx` | React UI | 1 | — |
@@ -393,6 +394,7 @@
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
+| `ui/src/ReportingRegistrationPanel.tsx` | React UI | 5 | — |
 | `ui/src/ReportingWorkbench.tsx` | React UI | 23 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 6 | — |

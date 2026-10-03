@@ -7,7 +7,7 @@ import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded'
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded'
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
-import { api, ApiError, AUTH_SESSION_INVALID_EVENT, query, scopedStorageKey } from './lib/api'
+import { api, ApiError, AUTH_SESSION_INVALID_EVENT, fetchReportingWitnessStatus, query, scopedStorageKey, type ReportingWitnessStatus } from './lib/api'
 import { buildMessageGroupLookup, messageGroupText } from './lib/groupedMedia'
 import type { MessageGroup } from './lib/groupedMedia'
 import { mediaPreviewRequest } from './lib/messageMedia'
@@ -32,6 +32,7 @@ const MessageFilterDialog = lazy(() => import('./MessageFilterDialog').then(modu
 const ContentIndexDialog = lazy(() => import('./ContentIndexDialog').then(module => ({ default: module.ContentIndexDialog })))
 const MessageIndexEditor = lazy(() => import('./MessageIndexEditor').then(module => ({ default: module.MessageIndexEditor })))
 const ReportingWorkbench = lazy(() => import('./ReportingWorkbench').then(module => ({ default: module.ReportingWorkbench })))
+const ReportingRegistrationPanel = lazy(() => import('./ReportingRegistrationPanel').then(module => ({ default: module.ReportingRegistrationPanel })))
 import {
   AddMessengerAccountButton,
   MessengerAccountGate,
@@ -386,6 +387,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [liveMessageState, setLiveMessageState] = useState<'idle' | 'connecting' | 'live' | 'retrying'>('idle')
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [selectionMode, setSelectionMode] = useState(false)
+  const [reportUsageByMessage, setReportUsageByMessage] = useState<Record<string, ReportingWitnessStatus>>({})
+  const [reportUsageRefresh, setReportUsageRefresh] = useState(0)
+  const [registrationPanel, setRegistrationPanel] = useState<{ open: boolean; messageIds: number[] }>({ open: false, messageIds: [] })
   const [activeUsage, setActiveUsage] = useState<{ message: MessageItem; usage: MessageUsage } | null>(null)
   const [categories, setCategories] = useState<Term[]>([])
   const [tags, setTags] = useState<Term[]>([])
@@ -1471,6 +1475,17 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   )
 
   const selectedMessages = useMemo(() => selectedKeys.map(key => indexedMessages.find(m => dialog && messageKey(dialog, m) === key)).filter(Boolean) as MessageItem[], [selectedKeys, indexedMessages, dialog])
+
+  useEffect(() => {
+    if (!dialog) { setReportUsageByMessage({}); return }
+    const ids = messages.slice(0, 150).map(item => String(item.id))
+    if (ids.length === 0) { setReportUsageByMessage({}); return }
+    let active = true
+    void fetchReportingWitnessStatus(dialog.peer_key, ids)
+      .then(byMessage => { if (active) setReportUsageByMessage(byMessage) })
+      .catch(() => { if (active) setReportUsageByMessage({}) })
+    return () => { active = false }
+  }, [dialog, messages, reportUsageRefresh])
   const suggestedCategoryIds = useMemo(() => {
     const available = new Set(categories.map(item => item.id))
     const mapped = new Map(indexDefinitions.map(item => [item.id, item.wordpressCategoryId || null]))
@@ -1672,7 +1687,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           onSearch={setMessageSearch}
           onOpenComposer={() => { setCommunityOpen(!wordpressPanelAvailable); setComposerOpen(true) }}
         />
-        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={messageIds => setRegistrationPanel({ open: true, messageIds })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
@@ -1699,6 +1714,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         </Suspense>
       </DialogContent>
     </Dialog>
+    {registrationPanel.open && <Suspense fallback={null}>
+      <ReportingRegistrationPanel siteKey={siteKey} dialogPeerKey={dialog?.peer_key || ''} messageIds={registrationPanel.messageIds} onClose={() => { setRegistrationPanel({ open: false, messageIds: [] }); setReportUsageRefresh(value => value + 1) }} />
+    </Suspense>}
     {bulkOpen && <BulkOperationsModal siteKey={siteKey} dialog={dialog} initialMode={bulkMode} initialMemberIds={bulkMemberIds} initialMemberScope={bulkMemberScope} initialNumbers={bulkInitialNumbers} close={() => setBulkOpen(false)} />}
     {membersOpen && <CommunityMembersModal siteKey={siteKey} dialog={dialog} dialogs={dialogs} close={() => setMembersOpen(false)} openBulk={selection => { setMembersOpen(false); openBulk('members', selection.memberIds, [], selection.scope) }} />}
     {manualOpen && <ManualDialogModal siteKey={siteKey} close={() => setManualOpen(false)} onAdded={item => { applyDialogs([item, ...dialogs.filter(d => d.peer_key !== item.peer_key)]); selectDialog(item); setManualOpen(false) }} />}
@@ -1812,7 +1830,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   </Box>
 }
 
-function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void }) {
+function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void; reportUsageByMessage: Record<string, ReportingWitnessStatus>; openReportEvent: (eventId: string) => void; openRegistration: (messageIds: number[]) => void }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastScroll = useRef(0)
   const nearBottomRef = useRef(true)
@@ -2115,7 +2133,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
           {!isGroupFollower && <>
           {(row.index === 0 || dayKeys[row.index - 1] !== dayKeys[row.index]) && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'text.secondary' }}><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /><Chip label={jalaliDayLabel(message.date)} size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /></Stack>}
           {row.index === firstUnreadIndex && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'error.main' }}><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /><Chip label={`${props.dialog.unread_count.toLocaleString('fa-IR')} پیام خوانده‌نشده`} size="small" color="error" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /></Stack>}
-          <MessageContentCard siteKey={props.siteKey} dialog={props.dialog} message={message} group={group} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, group?.messages || [message])} openUsage={() => props.openUsage(group?.messages.find(item => item.usage.used) || message)} />
+          <MessageContentCard siteKey={props.siteKey} dialog={props.dialog} message={message} group={group} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, group?.messages || [message])} openUsage={() => props.openUsage(group?.messages.find(item => item.usage.used) || message)} reportUsageByMessage={props.reportUsageByMessage} openReportEvent={props.openReportEvent} openRegistration={props.openRegistration} />
           </>}
         </Box>
       })}

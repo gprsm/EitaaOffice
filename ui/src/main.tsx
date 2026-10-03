@@ -98,6 +98,20 @@ function storeBrowserLoginAppearance(value: LoginAppearanceValue) {
 const visualFixtureEnabled = (import.meta.env.DEV || import.meta.env.VITE_PHASE9_VISUAL_FIXTURE === '1')
   && new URLSearchParams(window.location.search).get('__phase9_visual_fixture') === '1'
 
+type Phase9FixtureWitness = { peer_id: string; message_id: string; messenger_account: string; role: string; note: string }
+type Phase9FixtureEvent = { etag: number; review_status: string; notes: string; unit_name: string; witnesses: Phase9FixtureWitness[] }
+const PHASE9_REPORTING_STORE_KEY = 'phase9-visual-reporting-store'
+function readPhase9ReportingStore(): { nextId: number; events: Record<string, Phase9FixtureEvent> } {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PHASE9_REPORTING_STORE_KEY) || '')
+    if (parsed && parsed.events) return parsed as { nextId: number; events: Record<string, Phase9FixtureEvent> }
+  } catch { /* fresh fixture store */ }
+  return { nextId: 1, events: {} }
+}
+function writePhase9ReportingStore(value: { nextId: number; events: Record<string, Phase9FixtureEvent> }) {
+  localStorage.setItem(PHASE9_REPORTING_STORE_KEY, JSON.stringify(value))
+}
+
 function phase9VisualFixtureApi(method: string, rawPath: string, body?: unknown, _csrf?: string, accountId?: string, _correlationId?: string) {
   const path = rawPath.split('?', 1)[0]
   const params = new URLSearchParams(window.location.search)
@@ -176,6 +190,64 @@ function phase9VisualFixtureApi(method: string, rawPath: string, body?: unknown,
   else if (path === '/api/v2/phone-accounts') payload = { ok: true, phone_accounts: [] }
   else if (path === '/api/v2/app-integrations') payload = { ok: true, can_manage: userKind === 'admin', integrations: [{ integration_id: '77777777-7777-4777-8777-777777777777', integration_type: 'wordpress', integration_key: 'main', display_name: 'WordPress (main)', status: 'active' }] }
   else if (method === 'POST' && path === '/api/v1/dialogs/read') payload = { ok: true }
+  else if (method === 'GET' && path === '/api/v3/reporting/witness-status') {
+    const query = new URLSearchParams(rawPath.split('?')[1] || '')
+    const peerId = query.get('peer_id') || ''
+    const ids = (query.get('message_id') || '').split(',').filter(Boolean)
+    const reporting = readPhase9ReportingStore()
+    const statuses = Object.entries(reporting.events).flatMap(([eventId, event]) => event.witnesses
+      .filter(w => w.peer_id === peerId && ids.includes(w.message_id))
+      .map(w => ({ peer_id: w.peer_id, message_id: w.message_id, registered: true, events: [{ event_id: eventId, role: w.role, review_status: event.review_status }] })))
+    payload = { ok: true, statuses }
+  } else if (method === 'POST' && path === '/api/v3/reporting/events') {
+    const request = (body || {}) as Record<string, unknown>
+    const reporting = readPhase9ReportingStore()
+    const eventId = `evt-fixture-${reporting.nextId}`
+    reporting.nextId += 1
+    reporting.events[eventId] = { etag: 1, review_status: 'draft', notes: String(request.notes || ''), unit_name: String(request.unit_name || ''), witnesses: [] }
+    writePhase9ReportingStore(reporting)
+    payload = { ok: true, event_id: eventId, etag: `fixture-${eventId}-1` }
+  } else if (method === 'POST' && /^\/api\/v3\/reporting\/events\/[^/]+\/witnesses$/.test(path)) {
+    const eventId = path.split('/')[5]
+    const request = (body || {}) as Record<string, unknown>
+    const reporting = readPhase9ReportingStore()
+    const event = reporting.events[eventId]
+    if (!event) payload = { ok: false, error: { message: 'event not found', error_code: 'event_not_found', safe_context: {} } }
+    else {
+      const duplicate = Object.entries(reporting.events).find(([otherId, other]) => otherId !== eventId
+        && other.witnesses.some(w => w.peer_id === String(request.peer_id || '') && w.message_id === String(request.message_id || '')
+          && w.messenger_account === String(request.messenger_account || '') && w.role === 'primary'))
+      if (duplicate && String(request.role || 'primary') === 'primary') {
+        payload = { ok: false, error: { message: 'witness already primary-linked to another event', error_code: 'witness_conflict', safe_context: { existing_event_id: duplicate[0] } } }
+      } else {
+        event.witnesses.push({ peer_id: String(request.peer_id || ''), message_id: String(request.message_id || ''), messenger_account: String(request.messenger_account || ''), role: String(request.role || 'primary'), note: String(request.note || '') })
+        writePhase9ReportingStore(reporting)
+        payload = { ok: true, witness_id: 'w-fixture', link_id: 'wl-fixture' }
+      }
+    }
+  } else if (method === 'GET' && /^\/api\/v3\/reporting\/events\/[^/]+$/.test(path)) {
+    const eventId = path.split('/')[5]
+    const event = readPhase9ReportingStore().events[eventId]
+    payload = event
+      ? { ok: true, event: { event_id: eventId, etag: `fixture-${eventId}-${event.etag}`, notes: event.notes, unit_name: event.unit_name, review_status: event.review_status } }
+      : { ok: false, error: { message: 'event not found', error_code: 'event_not_found', safe_context: {} } }
+  } else if (method === 'PUT' && /^\/api\/v3\/reporting\/events\/[^/]+$/.test(path)) {
+    const eventId = path.split('/')[5]
+    const request = (body || {}) as Record<string, unknown>
+    const reporting = readPhase9ReportingStore()
+    const event = reporting.events[eventId]
+    if (!event) payload = { ok: false, error: { message: 'event not found', error_code: 'event_not_found', safe_context: {} } }
+    else if (String(request.if_match || '') !== `fixture-${eventId}-${event.etag}`) {
+      payload = { ok: false, error: { message: 'etag conflict on event', error_code: 'etag_conflict', safe_context: { current_etag: `fixture-${eventId}-${event.etag}`, event_id: eventId } } }
+    } else {
+      event.etag += 1
+      const fields = (request.fields || {}) as Record<string, unknown>
+      if ('notes' in fields) event.notes = String(fields.notes || '')
+      if ('unit_name' in fields) event.unit_name = String(fields.unit_name || '')
+      writePhase9ReportingStore(reporting)
+      payload = { ok: true, event_id: eventId, etag: `fixture-${eventId}-${event.etag}` }
+    }
+  }
   void body
   return Promise.resolve({ status: 200, payload })
 }

@@ -204,3 +204,34 @@ export function query(path: string, params: Record<string, string | number | und
   })
   return `${path}?${search.toString()}`
 }
+
+export type ReportingWitnessEventRef = {
+  event_id: string
+  role: string
+  review_status: string
+}
+
+export type ReportingWitnessStatus = {
+  peer_id: string
+  message_id: string
+  registered: boolean
+  events: ReportingWitnessEventRef[]
+}
+
+export async function fetchReportingWitnessStatus(
+  peerId: string,
+  messageIds: string[],
+): Promise<Record<string, ReportingWitnessStatus>> {
+  const ids = messageIds.filter(id => String(id).trim())
+  if (!peerId || ids.length === 0) return {}
+  const query = new URLSearchParams({ peer_id: peerId, message_id: ids.join(',') })
+  const payload = await api<{ ok?: boolean; statuses?: ReportingWitnessStatus[] }>(
+    'GET',
+    `/api/v3/reporting/witness-status?${query.toString()}`,
+  )
+  const byMessage: Record<string, ReportingWitnessStatus> = {}
+  for (const status of payload.statuses || []) {
+    byMessage[String(status.message_id)] = status
+  }
+  return byMessage
+}
