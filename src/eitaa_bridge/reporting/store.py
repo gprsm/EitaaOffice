@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import sqlite3
 import threading
+import time
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 import uuid
 
@@ -38,7 +39,7 @@ from .registry import EntityFact, ImamRecord, NomokalafRecord, PersonRecord, Uni
 from .sections import OFFICE_SECTIONS
 from .wp_links import WpPostLink
 
-REPORTING_SCHEMA_VERSION = 5
+REPORTING_SCHEMA_VERSION = 6
 
 
 def _utc_now() -> str:
@@ -579,6 +580,43 @@ class ReportingStore:
                         ),
                         _v5_now,
                     ),
+                )
+
+            # Migration v5→v6: roles, audit trail and event versioning
+            # (phase 2 of the unified reporting strategy; design doc
+            # docs/specifications/REPORTING_TRANSACTIONAL_CORE_2026-10-03.md).
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS reporting_user_roles (
+                    user_id TEXT PRIMARY KEY,
+                    roles_json TEXT NOT NULL DEFAULT '[]',
+                    updated_by TEXT,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS reporting_audit_log (
+                    audit_id TEXT PRIMARY KEY,
+                    actor TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT NOT NULL,
+                    diff_json TEXT NOT NULL DEFAULT '{}',
+                    etag_before TEXT,
+                    etag_after TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_audit_entity
+                    ON reporting_audit_log(entity_type, entity_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_audit_actor
+                    ON reporting_audit_log(actor, created_at);
+                """
+            )
+
+            # Event version column for etag concurrency (design doc §3).
+            _v6_event_cols = {row[1] for row in conn.execute("PRAGMA table_info(reported_events)")}
+            if _v6_event_cols and "version" not in _v6_event_cols:
+                conn.execute(
+                    "ALTER TABLE reported_events ADD COLUMN version INTEGER NOT NULL DEFAULT 1"
                 )
 
             # Self-healing seed (F-096): canonical mandates upsert on every

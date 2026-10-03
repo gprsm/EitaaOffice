@@ -27,7 +27,7 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from eitaa_bridge.reporting.store import ReportingStore
+from eitaa_bridge.reporting.store import REPORTING_SCHEMA_VERSION, ReportingStore
 
 TABLES_TO_CHECK: tuple[str, ...] = (
     "reported_events",
@@ -206,7 +206,7 @@ def write_markdown_report(workdir: Path, data: dict[str, Any]) -> Path:
     """Write Persian markdown summary reconciliation report without absolute paths or identifiers."""
     report_path = workdir / "reconciliation_report.md"
     lines: list[str] = [
-        "# گزارش تطبیق مهاجرت ایزوله نسخه ۵ (v5 Reconciliation Report)",
+        f"# گزارش تطبیق مهاجرت ایزوله نسخه {REPORTING_SCHEMA_VERSION} (Reconciliation Report)",
         "",
         "## جدول شمارش رکوردهای پایگاه داده",
         "",
@@ -244,7 +244,7 @@ def write_markdown_report(workdir: Path, data: dict[str, Any]) -> Path:
     counts_matched = "تایید شد" if repeatability.get("counts_match") else "عدم تطابق"
 
     lines.append(f"- **تطابق شمارش بعد از بازگشایی مجدد (Reopen == After):** {counts_matched}")
-    lines.append(f"- **تعداد رکوردهای نسخه ۵ در reporting_schema:** {v5_rows}")
+    lines.append(f"- **تعداد رکوردهای نسخه {REPORTING_SCHEMA_VERSION} در reporting_schema:** {v5_rows}")
     lines.append(f"- **نتیجه تکرارپذیری:** {rep_status}")
     lines.append("")
     lines.append("## تمرین بازگشت (Rollback Rehearsal)")
@@ -333,7 +333,10 @@ def main() -> None:
     try:
         reopen_counts = get_table_counts(conn_reopen)
         reopen_versions = get_schema_versions(conn_reopen)
-        cur = conn_reopen.execute("SELECT COUNT(*) FROM reporting_schema WHERE version = 5")
+        cur = conn_reopen.execute(
+            "SELECT COUNT(*) FROM reporting_schema WHERE version = ?",
+            (REPORTING_SCHEMA_VERSION,),
+        )
         v5_row_count = int(cur.fetchone()[0])
     finally:
         conn_reopen.close()

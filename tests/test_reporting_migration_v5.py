@@ -10,6 +10,7 @@ import sys
 import pytest
 
 from eitaa_bridge.reporting import ReportingStore
+from eitaa_bridge.reporting.store import REPORTING_SCHEMA_VERSION
 from eitaa_bridge.reporting.model import (
     Fact,
     FactValueKind,
@@ -70,10 +71,10 @@ def test_v5_schema_objects_created(store: ReportingStore) -> None:
         assert "value_type" in entity_facts_cols
         assert "value_decimal" in entity_facts_cols
 
-        # Check version 5 in reporting_schema
+        # Check the current schema version is recorded exactly once
         cursor.execute("SELECT version FROM reporting_schema")
         versions = cursor.fetchall()
-        assert versions == [(5,)], f"Expected [(5,)], got {versions}"
+        assert versions == [(REPORTING_SCHEMA_VERSION,)], f"Expected [(REPORTING_SCHEMA_VERSION,)], got {versions}"
 
 
 def test_witness_identity_unique(store: ReportingStore) -> None:
@@ -296,11 +297,13 @@ def test_isolated_migration_script_rollback(tmp_path: Path) -> None:
             """,
             ("ev-legacy-rollback", '["trip"]', "2026-06-15", "judicial_domain", "Test Unit", "2026-06-15T00:00:00Z", "test-suite"),
         )
-        conn.execute("DELETE FROM reporting_schema WHERE version = 5")
+        conn.execute("DELETE FROM reporting_schema WHERE version >= 5")
         conn.execute("DROP TABLE IF EXISTS reporting_message_witnesses")
         conn.execute("DROP TABLE IF EXISTS reporting_event_witness_links")
         conn.execute("DROP TABLE IF EXISTS reporting_review_queue")
         conn.execute("DROP TABLE IF EXISTS event_documents")
+        conn.execute("DROP TABLE IF EXISTS reporting_user_roles")
+        conn.execute("DROP TABLE IF EXISTS reporting_audit_log")
         conn.commit()
 
     cmd = [
