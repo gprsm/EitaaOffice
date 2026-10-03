@@ -1,7 +1,7 @@
 # فهرست گزارش‌ها و اسناد دسته‌بندی‌شده
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
-تعداد کل اسناد فهرست‌شده: 197
+تعداد کل اسناد فهرست‌شده: 198
 
 
 ## گزارش فازها
@@ -229,6 +229,7 @@
 - [`MESSAGE_TEMPLATE_ARCHITECTURE.md`](specifications/MESSAGE_TEMPLATE_ARCHITECTURE.md)
 - [`PHASED_UI_NETWORK_ROADMAP_2026-08-20.md`](specifications/PHASED_UI_NETWORK_ROADMAP_2026-08-20.md)
 - [`REPORTING_DOMAIN_MODEL_MIGRATION_2026-10-03.md`](specifications/REPORTING_DOMAIN_MODEL_MIGRATION_2026-10-03.md)
+- [`REPORTING_TRANSACTIONAL_CORE_2026-10-03.md`](specifications/REPORTING_TRANSACTIONAL_CORE_2026-10-03.md)
 - [`UNIFIED_REPORTING_ARCHITECTURE_PLAN.md`](specifications/UNIFIED_REPORTING_ARCHITECTURE_PLAN.md)
 - [`UNIFIED_REPORTING_ARCHITECTURE_PLAN_V2.md`](specifications/UNIFIED_REPORTING_ARCHITECTURE_PLAN_V2.md)
 - [`UNIFIED_REPORTING_ARCHITECTURE_PLAN_V3.md`](specifications/UNIFIED_REPORTING_ARCHITECTURE_PLAN_V3.md)
