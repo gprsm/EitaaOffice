@@ -1501,6 +1501,48 @@ class ReportingStore:
             results.append(item)
         return results
 
+    def find_witness_status(self, peer_id: str, message_ids) -> list[dict]:
+        """Per-message report-registration status for chat-surface chips."""
+        ids = [str(m) for m in message_ids if str(m).strip()]
+        if not peer_id or not ids:
+            return []
+        placeholders = ", ".join("?" for _ in ids)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT w.peer_id, w.message_id, l.role, l.detached_at,
+                       e.event_id, e.review_status
+                FROM reporting_message_witnesses w
+                JOIN reporting_event_witness_links l ON l.witness_id = w.witness_id
+                JOIN reported_events e ON e.event_id = l.event_id
+                WHERE w.provider = 'eitaa' AND w.peer_id = ?
+                  AND w.message_id IN ({placeholders})
+                """,
+                (peer_id, *ids),
+            ).fetchall()
+        grouped: dict[tuple[str, str], dict] = {}
+        for row in rows:
+            key = (row["peer_id"], row["message_id"])
+            entry = grouped.setdefault(
+                key,
+                {
+                    "peer_id": row["peer_id"],
+                    "message_id": row["message_id"],
+                    "registered": False,
+                    "events": [],
+                },
+            )
+            if row["detached_at"] is None:
+                entry["registered"] = True
+                entry["events"].append(
+                    {
+                        "event_id": row["event_id"],
+                        "role": row["role"],
+                        "review_status": row["review_status"],
+                    }
+                )
+        return [grouped[key] for key in sorted(grouped)]
+
     def save_event(self, event: ReportedEvent) -> None:
         event.validate()
         now = _utc_now()

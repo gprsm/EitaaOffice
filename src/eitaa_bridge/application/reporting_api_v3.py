@@ -238,6 +238,20 @@ def get_event_audit(store: ReportingStore, actor: str, roles, event_id: str):
     return _ok({"event_id": event_id, "audit": store.get_event_audit(event_id)})
 
 
+_WITNESS_STATUS_ROUTE = re.compile(r"^/api/v3/reporting/witness-status$")
+
+
+def witness_status(store: ReportingStore, query: Mapping[str, Any] | None):
+    """Batched per-message report-registration status for the chat surface."""
+    peer_id = str((query or {}).get("peer_id", "")).strip()
+    raw_ids = str((query or {}).get("message_id", ""))
+    message_ids = [part.strip() for part in raw_ids.split(",") if part.strip()]
+    if not peer_id or not message_ids:
+        return _error(400, "peer_id and message_id (comma separated) are required")
+    statuses = store.find_witness_status(peer_id, message_ids)
+    return _ok({"statuses": statuses})
+
+
 def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
              payload: Mapping[str, Any] | None = None,
              query: Mapping[str, Any] | None = None):
@@ -293,6 +307,8 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if _ROLES_ROUTE.match(path):
             return set_roles(store, actor, roles, payload)
     if method == "GET":
+        if _WITNESS_STATUS_ROUTE.match(path):
+            return witness_status(store, query)
         if _QUEUE_ROUTE.match(path):
             return list_queue(store, query)
         audit = _EVENT_AUDIT_ROUTE.match(path)
