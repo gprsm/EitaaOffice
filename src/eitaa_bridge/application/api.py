@@ -110,6 +110,7 @@ from ..infrastructure.diagnostics import (
 )
 from ..infrastructure.eitaa.dialog_permissions import consume_dialog_account_roles
 from ..providers.registry import default_provider_registry
+from .reporting_api_v3 import dispatch as _reporting_v3_route_dispatch
 from ..providers.contracts import (
     ProviderAccountContext,
     ProviderContactMutationReceipt,
@@ -1632,6 +1633,16 @@ class BridgeApplicationApi:
                 return self._reporting_export(payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/reporting/exports":
                 return self._reporting_list_exports(query)
+            # Reporting transactional core (v3, phase 2 of the unified
+            # reporting strategy): delegated dispatcher returns None for
+            # unknown paths so the route chain continues.
+            reporting_v3_response = self._reporting_v3_dispatch(
+                selected_method, path, payload=payload, query=query,
+                app_session=app_session,
+            )
+            if reporting_v3_response is not None:
+                v3_status, v3_payload, v3_headers = reporting_v3_response
+                return ApiResponse(v3_status, v3_payload, v3_headers)
             # Office product (v3): sections, registry, queues, dossier
             if selected_method == "GET" and path == "/api/v3/office/sections":
                 return self._office_sections(query)
@@ -3982,6 +3993,38 @@ class BridgeApplicationApi:
             )
         return ApiResponse(200, {"ok": True, "suggestion": suggestion.to_dict()})
 
+
+    def _reporting_v3_dispatch(
+        self,
+        method: str,
+        path: str,
+        *,
+        payload: Mapping[str, Any] | None = None,
+        query: Mapping[str, Any] | None = None,
+        app_session: Any = None,
+    ):
+        """Delegate /api/v3/reporting/* to the phase-2 transactional core.
+
+        Actor and roles derive from the app session when present; the
+        unauthenticated desktop-loopback fallback keeps the historical
+        central_staff operator, which bootstraps its own roles through the
+        audited empty-table path.
+        """
+        principal = getattr(app_session, "principal", None) if app_session else None
+        if principal is not None and getattr(principal, "app_user_id", None):
+            actor = str(principal.app_user_id)
+        elif principal is not None and getattr(principal, "display_name", None):
+            actor = str(principal.display_name)
+        else:
+            actor = "central_staff"
+        if principal is not None and getattr(principal, "global_role", None) == "admin":
+            roles = ["editor", "approver", "admin"]
+        else:
+            roles = self._reporting_store.get_user_roles(actor)
+        return _reporting_v3_route_dispatch(
+            self._reporting_store, actor, roles, method, path,
+            payload=payload, query=query,
+        )
 
     def _reporting_create_event(
         self,

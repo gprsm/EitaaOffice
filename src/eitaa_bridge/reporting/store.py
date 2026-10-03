@@ -1451,6 +1451,56 @@ class ReportingStore:
             rows = conn.execute(query, tuple(params)).fetchall()
         return [dict(row) for row in rows]
 
+    def get_event_file(self, event_id: str) -> dict | None:
+        """Load the event file: raw fields, etag, witnesses and documents."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM reported_events WHERE event_id = ?", (event_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            version = int(row["version"])
+            file = dict(row)
+            file.pop("version", None)
+            witnesses = conn.execute(
+                """
+                SELECT l.link_id, l.witness_id, l.role, l.linked_by, l.linked_at,
+                       l.note, l.detached_at, l.detached_reason,
+                       w.provider, w.messenger_account, w.peer_id, w.message_id
+                FROM reporting_event_witness_links l
+                JOIN reporting_message_witnesses w ON w.witness_id = l.witness_id
+                WHERE l.event_id = ?
+                ORDER BY l.linked_at, l.link_id
+                """,
+                (event_id,),
+            ).fetchall()
+            documents = conn.execute(
+                """
+                SELECT document_id, media_id, sha256, kind, size_bytes, display_order,
+                       is_cover, added_by, added_at
+                FROM event_documents WHERE event_id = ?
+                ORDER BY display_order, added_at
+                """,
+                (event_id,),
+            ).fetchall()
+        file["etag"] = self._compute_etag(event_id, version)
+        file["witnesses"] = [dict(w) for w in witnesses]
+        file["documents"] = [dict(d) for d in documents]
+        return file
+
+    def list_user_role_entries(self) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT user_id, roles_json, updated_by, updated_at "
+                "FROM reporting_user_roles ORDER BY user_id"
+            ).fetchall()
+        results = []
+        for row in rows:
+            item = dict(row)
+            item["roles"] = list(json.loads(item.pop("roles_json") or "[]"))
+            results.append(item)
+        return results
+
     def save_event(self, event: ReportedEvent) -> None:
         event.validate()
         now = _utc_now()
