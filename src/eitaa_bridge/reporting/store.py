@@ -38,7 +38,7 @@ from .registry import EntityFact, ImamRecord, NomokalafRecord, PersonRecord, Uni
 from .sections import OFFICE_SECTIONS
 from .wp_links import WpPostLink
 
-REPORTING_SCHEMA_VERSION = 4
+REPORTING_SCHEMA_VERSION = 5
 
 
 def _utc_now() -> str:
@@ -457,6 +457,129 @@ class ReportingStore:
             mandate_columns = {row[1] for row in conn.execute("PRAGMA table_info(mandates)")}
             if mandate_columns and "program_code" not in mandate_columns:
                 conn.execute("ALTER TABLE mandates ADD COLUMN program_code TEXT NOT NULL DEFAULT ''")
+
+            # Migration v4→v5: witness/evidence layer, typed facts, review
+            # lifecycle (phase 1 of the unified reporting strategy; design doc
+            # docs/specifications/REPORTING_DOMAIN_MODEL_MIGRATION_2026-10-03.md).
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS reporting_message_witnesses (
+                    witness_id TEXT PRIMARY KEY,
+                    provider TEXT NOT NULL DEFAULT 'eitaa',
+                    messenger_account TEXT NOT NULL DEFAULT '',
+                    peer_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL,
+                    observed_at TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_witness_identity
+                    ON reporting_message_witnesses(provider, COALESCE(messenger_account, ''), peer_id, message_id);
+                CREATE INDEX IF NOT EXISTS idx_witness_peer_msg
+                    ON reporting_message_witnesses(peer_id, message_id);
+
+                CREATE TABLE IF NOT EXISTS reporting_event_witness_links (
+                    link_id TEXT PRIMARY KEY,
+                    event_id TEXT NOT NULL,
+                    witness_id TEXT NOT NULL,
+                    role TEXT NOT NULL CHECK(role IN ('primary', 'supporting')),
+                    linked_by TEXT,
+                    linked_at TEXT NOT NULL,
+                    note TEXT,
+                    detached_at TEXT,
+                    detached_reason TEXT,
+                    FOREIGN KEY (event_id) REFERENCES reported_events(event_id) ON DELETE CASCADE,
+                    FOREIGN KEY (witness_id) REFERENCES reporting_message_witnesses(witness_id) ON DELETE RESTRICT
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_witness_active_primary
+                    ON reporting_event_witness_links(witness_id) WHERE role = 'primary' AND detached_at IS NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_event_witness
+                    ON reporting_event_witness_links(event_id, witness_id) WHERE detached_at IS NULL;
+                CREATE INDEX IF NOT EXISTS idx_links_event_id ON reporting_event_witness_links(event_id);
+                CREATE INDEX IF NOT EXISTS idx_links_witness_id ON reporting_event_witness_links(witness_id);
+
+                CREATE TABLE IF NOT EXISTS reporting_review_queue (
+                    queue_id TEXT PRIMARY KEY,
+                    item_type TEXT NOT NULL,
+                    ref_table TEXT NOT NULL,
+                    ref_id TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved', 'dismissed')),
+                    created_at TEXT NOT NULL,
+                    resolved_at TEXT,
+                    resolved_by TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_review_queue_lookup
+                    ON reporting_review_queue(ref_table, ref_id, status);
+                CREATE INDEX IF NOT EXISTS idx_review_queue_status
+                    ON reporting_review_queue(status, item_type);
+
+                CREATE TABLE IF NOT EXISTS event_documents (
+                    document_id TEXT PRIMARY KEY,
+                    event_id TEXT NOT NULL,
+                    media_id TEXT NOT NULL,
+                    sha256 TEXT NOT NULL DEFAULT '',
+                    kind TEXT NOT NULL DEFAULT '',
+                    size_bytes INTEGER,
+                    display_order INTEGER NOT NULL DEFAULT 0,
+                    is_cover INTEGER NOT NULL DEFAULT 0,
+                    added_by TEXT,
+                    added_at TEXT NOT NULL,
+                    storage_ref TEXT NOT NULL DEFAULT '',
+                    FOREIGN KEY (event_id) REFERENCES reported_events(event_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_documents_event ON event_documents(event_id, display_order);
+                CREATE INDEX IF NOT EXISTS idx_documents_media_sha ON event_documents(media_id, sha256);
+                """
+            )
+
+            # Typed-fact columns: value_kind already carries the quality axis
+            # (FactValueKind); v5 adds the data-type axis and exact decimals.
+            for _typed_table in ("event_facts", "entity_facts"):
+                _typed_cols = {row[1] for row in conn.execute(f"PRAGMA table_info({_typed_table})")}
+                if _typed_cols and "value_type" not in _typed_cols:
+                    conn.execute(
+                        f"ALTER TABLE {_typed_table} ADD COLUMN value_type TEXT NOT NULL DEFAULT 'unknown' "
+                        "CHECK(value_type IN ('integer', 'decimal', 'text', 'bool', 'unknown'))"
+                    )
+                if _typed_cols and "value_decimal" not in _typed_cols:
+                    conn.execute(f"ALTER TABLE {_typed_table} ADD COLUMN value_decimal TEXT")
+
+            # Event review lifecycle: new column; legacy rows land on
+            # needs_review (conservative, no guessing) — design doc §1.3.
+            _event_cols = {row[1] for row in conn.execute("PRAGMA table_info(reported_events)")}
+            if _event_cols and "review_status" not in _event_cols:
+                conn.execute(
+                    "ALTER TABLE reported_events ADD COLUMN review_status TEXT NOT NULL DEFAULT 'needs_review' "
+                    "CHECK(review_status IN ('draft', 'needs_review', 'approved', 'conflict'))"
+                )
+
+            # Legacy reconciliation: one review-queue item per unreviewed
+            # historical event; deterministic id keeps re-init idempotent.
+            _v5_now = _utc_now()
+            for _legacy_row in conn.execute(
+                "SELECT event_id FROM reported_events WHERE review_status = 'needs_review'"
+            ).fetchall():
+                _legacy_event_id = _legacy_row["event_id"]
+                _unknown_facts = conn.execute(
+                    "SELECT COUNT(*) FROM event_facts WHERE event_id = ?",
+                    (_legacy_event_id,),
+                ).fetchone()[0]
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO reporting_review_queue (
+                        queue_id, item_type, ref_table, ref_id, reason, status, created_at
+                    ) VALUES (?, 'legacy_event_review', 'reported_events', ?, ?, 'open', ?)
+                    """,
+                    (
+                        f"rq-legacy-{_legacy_event_id}",
+                        _legacy_event_id,
+                        (
+                            "رویداد تاریخی بدون شاهد پیام ثبتشده؛ وضعیت تأیید نیازمند تأیید انسانی؛ "
+                            f"{_unknown_facts} فکت با value_type=unknown"
+                        ),
+                        _v5_now,
+                    ),
+                )
 
             # Self-healing seed (F-096): canonical mandates upsert on every
             # init so corrected titles/numbers/codes from the official
@@ -912,8 +1035,8 @@ class ReportingStore:
                     event_id, program_kinds_json, occurred_on, unit, unit_name,
                     occasion, occasion_class, official_present, is_standalone_titled,
                     duration_minutes, prior_announcement, had_reception,
-                    is_ashura_pilgrimage, contains_inner_contest, campaign, notes, created_at, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_ashura_pilgrimage, contains_inner_contest, campaign, notes, created_at, created_by, review_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
                 ON CONFLICT(event_id) DO UPDATE SET
                     program_kinds_json = excluded.program_kinds_json,
                     occurred_on = excluded.occurred_on,

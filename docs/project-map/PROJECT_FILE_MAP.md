@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 393
-- اثرانگشت منبع: `483c53f00498ac5f`
+- تعداد فایل‌های نقشه: 395
+- اثرانگشت منبع: `5d672b05e78fae2f`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -72,6 +72,7 @@
 | `scripts/get_prompt.js` | Operations/tooling | 0 | — |
 | `scripts/gmi4_smoke.py` | Operations/tooling | 2 | Deterministic no-network smoke suite for source and installed-wheel validation. |
 | `scripts/migrate_legacy_account.py` | Operations/tooling | 6 | Interactive, no-network migration utility for the initial legacy Eitaa account. |
+| `scripts/migrate_reporting_v5_isolated.py` | Operations/tooling | 11 | Isolated reporting v5 migration rehearsal and reconciliation checker. |
 | `scripts/new_internal_code_signing_certificate.ps1` | Operations/tooling | 0 | — |
 | `scripts/office_runtime.py` | Operations/tooling | 55 | — |
 | `scripts/phase10_auth_failure_verify.py` | Operations/tooling | 1 | Print only safe recent authentication failure metadata from the live coordinator. |
@@ -322,6 +323,7 @@
 | `tests/test_reporting_api.py` | Python test | 16 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
+| `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |

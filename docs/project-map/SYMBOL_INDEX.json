@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "483c53f00498ac5f",
+  "source_fingerprint": "5d672b05e78fae2f",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -894,6 +894,68 @@
           "name": "main",
           "kind": "function",
           "line": 89
+        }
+      ]
+    },
+    {
+      "path": "scripts/migrate_reporting_v5_isolated.py",
+      "role": "Operations/tooling",
+      "summary": "Isolated reporting v5 migration rehearsal and reconciliation checker.",
+      "symbols": [
+        {
+          "name": "parse_args",
+          "kind": "function",
+          "line": 47
+        },
+        {
+          "name": "compute_sha256",
+          "kind": "function",
+          "line": 75
+        },
+        {
+          "name": "connect_readonly",
+          "kind": "function",
+          "line": 84
+        },
+        {
+          "name": "table_exists",
+          "kind": "function",
+          "line": 90
+        },
+        {
+          "name": "get_schema_versions",
+          "kind": "function",
+          "line": 99
+        },
+        {
+          "name": "get_table_counts",
+          "kind": "function",
+          "line": 107
+        },
+        {
+          "name": "get_reconciliation_metrics",
+          "kind": "function",
+          "line": 119
+        },
+        {
+          "name": "verify_unique_constraints",
+          "kind": "function",
+          "line": 154
+        },
+        {
+          "name": "write_json_report",
+          "kind": "function",
+          "line": 197
+        },
+        {
+          "name": "write_markdown_report",
+          "kind": "function",
+          "line": 205
+        },
+        {
+          "name": "main",
+          "kind": "function",
+          "line": 276
         }
       ]
     },
@@ -14232,267 +14294,267 @@
         {
           "name": "ReportingStore.list_targets",
           "kind": "method",
-          "line": 620
+          "line": 743
         },
         {
           "name": "ReportingStore.save_target",
           "kind": "method",
-          "line": 634
+          "line": 757
         },
         {
           "name": "ReportingStore.delete_target",
           "kind": "method",
-          "line": 656
+          "line": 779
         },
         {
           "name": "ReportingStore.record_decision",
           "kind": "method",
-          "line": 664
+          "line": 787
         },
         {
           "name": "ReportingStore.list_decisions",
           "kind": "method",
-          "line": 705
+          "line": 828
         },
         {
           "name": "ReportingStore.save_candidate",
           "kind": "method",
-          "line": 754
+          "line": 877
         },
         {
           "name": "ReportingStore.list_candidates",
           "kind": "method",
-          "line": 794
+          "line": 917
         },
         {
           "name": "ReportingStore.get_candidate",
           "kind": "method",
-          "line": 844
+          "line": 967
         },
         {
           "name": "ReportingStore.approve_candidate",
           "kind": "method",
-          "line": 871
+          "line": 994
         },
         {
           "name": "ReportingStore.reject_candidate",
           "kind": "method",
-          "line": 886
+          "line": 1009
         },
         {
           "name": "ReportingStore.save_event",
           "kind": "method",
-          "line": 904
+          "line": 1027
         },
         {
           "name": "ReportingStore.list_events",
           "kind": "method",
-          "line": 985
+          "line": 1108
         },
         {
           "name": "ReportingStore.get_event",
           "kind": "method",
-          "line": 1051
+          "line": 1174
         },
         {
           "name": "ReportingStore.delete_event",
           "kind": "method",
-          "line": 1106
+          "line": 1229
         },
         {
           "name": "ReportingStore.save_filled_form",
           "kind": "method",
-          "line": 1114
+          "line": 1237
         },
         {
           "name": "ReportingStore.get_filled_form",
           "kind": "method",
-          "line": 1156
+          "line": 1279
         },
         {
           "name": "ReportingStore.list_filled_forms",
           "kind": "method",
-          "line": 1196
+          "line": 1319
         },
         {
           "name": "ReportingStore.record_export",
           "kind": "method",
-          "line": 1210
+          "line": 1333
         },
         {
           "name": "ReportingStore.list_exports",
           "kind": "method",
-          "line": 1243
+          "line": 1366
         },
         {
           "name": "ReportingStore.get_config",
           "kind": "method",
-          "line": 1253
+          "line": 1376
         },
         {
           "name": "ReportingStore.set_config",
           "kind": "method",
-          "line": 1258
+          "line": 1381
         },
         {
           "name": "ReportingStore.find_unit_by_name",
           "kind": "method",
-          "line": 1276
+          "line": 1399
         },
         {
           "name": "ReportingStore.save_unit",
           "kind": "method",
-          "line": 1290
+          "line": 1413
         },
         {
           "name": "ReportingStore.list_units",
           "kind": "method",
-          "line": 1316
+          "line": 1439
         },
         {
           "name": "ReportingStore.save_imam",
           "kind": "method",
-          "line": 1334
+          "line": 1457
         },
         {
           "name": "ReportingStore.list_imams",
           "kind": "method",
-          "line": 1376
+          "line": 1499
         },
         {
           "name": "ReportingStore.save_venue",
           "kind": "method",
-          "line": 1402
+          "line": 1525
         },
         {
           "name": "ReportingStore.list_venues",
           "kind": "method",
-          "line": 1433
+          "line": 1556
         },
         {
           "name": "ReportingStore.save_nomokalaf",
           "kind": "method",
-          "line": 1454
+          "line": 1577
         },
         {
           "name": "ReportingStore.list_nomokalaf",
           "kind": "method",
-          "line": 1507
+          "line": 1630
         },
         {
           "name": "ReportingStore.save_entity_fact",
           "kind": "method",
-          "line": 1550
+          "line": 1673
         },
         {
           "name": "ReportingStore.list_entity_facts",
           "kind": "method",
-          "line": 1596
+          "line": 1719
         },
         {
           "name": "ReportingStore.save_normalization_candidate",
           "kind": "method",
-          "line": 1647
+          "line": 1770
         },
         {
           "name": "ReportingStore.list_normalization_candidates",
           "kind": "method",
-          "line": 1695
+          "line": 1818
         },
         {
           "name": "ReportingStore.approve_normalization_candidate",
           "kind": "method",
-          "line": 1706
+          "line": 1829
         },
         {
           "name": "ReportingStore.reject_normalization_candidate",
           "kind": "method",
-          "line": 1812
+          "line": 1935
         },
         {
           "name": "ReportingStore.approve_imam_candidate",
           "kind": "method",
-          "line": 1824
+          "line": 1947
         },
         {
           "name": "ReportingStore.save_plan_item",
           "kind": "method",
-          "line": 1853
+          "line": 1976
         },
         {
           "name": "ReportingStore.list_plan_items",
           "kind": "method",
-          "line": 1894
+          "line": 2017
         },
         {
           "name": "ReportingStore.seed_default_plans",
           "kind": "method",
-          "line": 1918
+          "line": 2041
         },
         {
           "name": "ReportingStore.save_mandate",
           "kind": "method",
-          "line": 1927
+          "line": 2050
         },
         {
           "name": "ReportingStore.list_mandates",
           "kind": "method",
-          "line": 1958
+          "line": 2081
         },
         {
           "name": "ReportingStore.delete_mandate",
           "kind": "method",
-          "line": 1981
+          "line": 2104
         },
         {
           "name": "ReportingStore.list_form_definitions",
           "kind": "method",
-          "line": 1989
+          "line": 2112
         },
         {
           "name": "ReportingStore.get_form_definition",
           "kind": "method",
-          "line": 1994
+          "line": 2117
         },
         {
           "name": "ReportingStore.list_sections",
           "kind": "method",
-          "line": 2004
+          "line": 2127
         },
         {
           "name": "ReportingStore.upsert_section",
           "kind": "method",
-          "line": 2023
+          "line": 2146
         },
         {
           "name": "ReportingStore.save_person",
           "kind": "method",
-          "line": 2060
+          "line": 2183
         },
         {
           "name": "ReportingStore.list_persons",
           "kind": "method",
-          "line": 2109
+          "line": 2232
         },
         {
           "name": "ReportingStore.person_family",
           "kind": "method",
-          "line": 2151
+          "line": 2274
         },
         {
           "name": "ReportingStore.save_wp_link",
           "kind": "method",
-          "line": 2158
+          "line": 2281
         },
         {
           "name": "ReportingStore.link_wp_post_to_event",
           "kind": "method",
-          "line": 2193
+          "line": 2316
         },
         {
           "name": "ReportingStore.list_wp_links",
           "kind": "method",
-          "line": 2204
+          "line": 2327
         }
       ]
     },
@@ -20557,6 +20619,58 @@
           "name": "TestBaleMessaging.test_index_records_reuses_eitaa_pipeline",
           "kind": "method",
           "line": 337
+        }
+      ]
+    },
+    {
+      "path": "tests/test_reporting_migration_v5.py",
+      "role": "Python test",
+      "summary": "Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy).",
+      "symbols": [
+        {
+          "name": "store",
+          "kind": "function",
+          "line": 24
+        },
+        {
+          "name": "_make_event",
+          "kind": "function",
+          "line": 29
+        },
+        {
+          "name": "test_v5_schema_objects_created",
+          "kind": "function",
+          "line": 41
+        },
+        {
+          "name": "test_witness_identity_unique",
+          "kind": "function",
+          "line": 79
+        },
+        {
+          "name": "test_single_active_primary_link",
+          "kind": "function",
+          "line": 116
+        },
+        {
+          "name": "test_legacy_backfill_creates_review_items",
+          "kind": "function",
+          "line": 193
+        },
+        {
+          "name": "test_new_event_is_draft_and_resave_preserves_status",
+          "kind": "function",
+          "line": 232
+        },
+        {
+          "name": "test_typed_fact_columns_defaults",
+          "kind": "function",
+          "line": 262
+        },
+        {
+          "name": "test_isolated_migration_script_rollback",
+          "kind": "function",
+          "line": 283
         }
       ]
     },
