@@ -39,7 +39,7 @@ from .registry import EntityFact, ImamRecord, NomokalafRecord, PersonRecord, Uni
 from .sections import OFFICE_SECTIONS
 from .wp_links import WpPostLink
 
-REPORTING_SCHEMA_VERSION = 6
+REPORTING_SCHEMA_VERSION = 7
 
 
 def _utc_now() -> str:
@@ -643,6 +643,20 @@ class ReportingStore:
                 conn.execute(
                     "ALTER TABLE reported_events ADD COLUMN version INTEGER NOT NULL DEFAULT 1"
                 )
+
+            # Migration v6→v7: versioned official exports (phase 4 of the
+            # unified reporting strategy; design doc
+            # docs/specifications/REPORTING_OFFICIAL_OUTPUT_2026-10-03.md).
+            _v7_export_cols = {row[1] for row in conn.execute("PRAGMA table_info(report_exports)")}
+            if _v7_export_cols:
+                if "template_version" not in _v7_export_cols:
+                    conn.execute("ALTER TABLE report_exports ADD COLUMN template_version TEXT NOT NULL DEFAULT '1'")
+                if "rules_version" not in _v7_export_cols:
+                    conn.execute("ALTER TABLE report_exports ADD COLUMN rules_version TEXT NOT NULL DEFAULT '1'")
+                if "traceability_json" not in _v7_export_cols:
+                    conn.execute("ALTER TABLE report_exports ADD COLUMN traceability_json TEXT")
+                if "wp_opt_in" not in _v7_export_cols:
+                    conn.execute("ALTER TABLE report_exports ADD COLUMN wp_opt_in INTEGER NOT NULL DEFAULT 0")
 
             # Self-healing seed (F-096): canonical mandates upsert on every
             # init so corrected titles/numbers/codes from the official
@@ -1858,6 +1872,10 @@ class ReportingStore:
         province_name: str,
         total_events: int,
         exported_by: str = "",
+        template_version: str = "1",
+        rules_version: str = "1",
+        traceability: Mapping[str, Any] | None = None,
+        wp_opt_in: bool = False,
     ) -> str:
         export_id = f"exp-{uuid.uuid4().hex[:10]}"
         now = _utc_now()
@@ -1866,8 +1884,9 @@ class ReportingStore:
                 """
                 INSERT INTO report_exports (
                     export_id, export_path, file_sha256, report_period,
-                    province_name, total_events, exported_at, exported_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    province_name, total_events, exported_at, exported_by,
+                    template_version, rules_version, traceability_json, wp_opt_in
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     export_id,
@@ -1878,6 +1897,10 @@ class ReportingStore:
                     total_events,
                     now,
                     exported_by,
+                    template_version,
+                    rules_version,
+                    json.dumps(traceability, ensure_ascii=False) if traceability is not None else None,
+                    1 if wp_opt_in else 0,
                 ),
             )
         return export_id

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "d01e3d4d720028f6",
+  "source_fingerprint": "12b23c1fb3c7803f",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -14538,352 +14538,352 @@
         {
           "name": "ReportingStore.list_targets",
           "kind": "method",
-          "line": 806
+          "line": 820
         },
         {
           "name": "ReportingStore.save_target",
           "kind": "method",
-          "line": 820
+          "line": 834
         },
         {
           "name": "ReportingStore.delete_target",
           "kind": "method",
-          "line": 842
+          "line": 856
         },
         {
           "name": "ReportingStore.record_decision",
           "kind": "method",
-          "line": 850
+          "line": 864
         },
         {
           "name": "ReportingStore.list_decisions",
           "kind": "method",
-          "line": 891
+          "line": 905
         },
         {
           "name": "ReportingStore.save_candidate",
           "kind": "method",
-          "line": 940
+          "line": 954
         },
         {
           "name": "ReportingStore.list_candidates",
           "kind": "method",
-          "line": 980
+          "line": 994
         },
         {
           "name": "ReportingStore.get_candidate",
           "kind": "method",
-          "line": 1030
+          "line": 1044
         },
         {
           "name": "ReportingStore.approve_candidate",
           "kind": "method",
-          "line": 1057
+          "line": 1071
         },
         {
           "name": "ReportingStore.reject_candidate",
           "kind": "method",
-          "line": 1072
+          "line": 1086
         },
         {
           "name": "ReportingStore._run_in_transaction",
           "kind": "method",
-          "line": 1097
+          "line": 1111
         },
         {
           "name": "ReportingStore._compute_etag",
           "kind": "method",
-          "line": 1114
+          "line": 1128
         },
         {
           "name": "ReportingStore._append_audit",
           "kind": "method",
-          "line": 1118
+          "line": 1132
         },
         {
           "name": "ReportingStore.get_event_etag",
           "kind": "method",
-          "line": 1134
+          "line": 1148
         },
         {
           "name": "ReportingStore.create_event_draft",
           "kind": "method",
-          "line": 1143
+          "line": 1157
         },
         {
           "name": "ReportingStore.update_event_fields",
           "kind": "method",
-          "line": 1163
+          "line": 1177
         },
         {
           "name": "ReportingStore.transition_event_status",
           "kind": "method",
-          "line": 1207
+          "line": 1221
         },
         {
           "name": "ReportingStore.link_witness",
           "kind": "method",
-          "line": 1245
+          "line": 1259
         },
         {
           "name": "ReportingStore.detach_witness_link",
           "kind": "method",
-          "line": 1330
+          "line": 1344
         },
         {
           "name": "ReportingStore.resolve_review_item",
           "kind": "method",
-          "line": 1366
+          "line": 1380
         },
         {
           "name": "ReportingStore.set_user_roles",
           "kind": "method",
-          "line": 1388
+          "line": 1402
         },
         {
           "name": "ReportingStore.get_user_roles",
           "kind": "method",
-          "line": 1414
+          "line": 1428
         },
         {
           "name": "ReportingStore.get_event_audit",
           "kind": "method",
-          "line": 1424
+          "line": 1438
         },
         {
           "name": "ReportingStore.list_review_queue",
           "kind": "method",
-          "line": 1439
+          "line": 1453
         },
         {
           "name": "ReportingStore.get_event_file",
           "kind": "method",
-          "line": 1454
+          "line": 1468
         },
         {
           "name": "ReportingStore.list_user_role_entries",
           "kind": "method",
-          "line": 1491
+          "line": 1505
         },
         {
           "name": "ReportingStore.find_witness_status",
           "kind": "method",
-          "line": 1504
+          "line": 1518
         },
         {
           "name": "ReportingStore.save_event",
           "kind": "method",
-          "line": 1546
+          "line": 1560
         },
         {
           "name": "ReportingStore.list_events",
           "kind": "method",
-          "line": 1627
+          "line": 1641
         },
         {
           "name": "ReportingStore.get_event",
           "kind": "method",
-          "line": 1693
+          "line": 1707
         },
         {
           "name": "ReportingStore.delete_event",
           "kind": "method",
-          "line": 1748
+          "line": 1762
         },
         {
           "name": "ReportingStore.save_filled_form",
           "kind": "method",
-          "line": 1756
+          "line": 1770
         },
         {
           "name": "ReportingStore.get_filled_form",
           "kind": "method",
-          "line": 1798
+          "line": 1812
         },
         {
           "name": "ReportingStore.list_filled_forms",
           "kind": "method",
-          "line": 1838
+          "line": 1852
         },
         {
           "name": "ReportingStore.record_export",
           "kind": "method",
-          "line": 1852
+          "line": 1866
         },
         {
           "name": "ReportingStore.list_exports",
           "kind": "method",
-          "line": 1885
+          "line": 1908
         },
         {
           "name": "ReportingStore.get_config",
           "kind": "method",
-          "line": 1895
+          "line": 1918
         },
         {
           "name": "ReportingStore.set_config",
           "kind": "method",
-          "line": 1900
+          "line": 1923
         },
         {
           "name": "ReportingStore.find_unit_by_name",
           "kind": "method",
-          "line": 1918
+          "line": 1941
         },
         {
           "name": "ReportingStore.save_unit",
           "kind": "method",
-          "line": 1932
+          "line": 1955
         },
         {
           "name": "ReportingStore.list_units",
           "kind": "method",
-          "line": 1958
+          "line": 1981
         },
         {
           "name": "ReportingStore.save_imam",
           "kind": "method",
-          "line": 1976
+          "line": 1999
         },
         {
           "name": "ReportingStore.list_imams",
           "kind": "method",
-          "line": 2018
+          "line": 2041
         },
         {
           "name": "ReportingStore.save_venue",
           "kind": "method",
-          "line": 2044
+          "line": 2067
         },
         {
           "name": "ReportingStore.list_venues",
           "kind": "method",
-          "line": 2075
+          "line": 2098
         },
         {
           "name": "ReportingStore.save_nomokalaf",
           "kind": "method",
-          "line": 2096
+          "line": 2119
         },
         {
           "name": "ReportingStore.list_nomokalaf",
           "kind": "method",
-          "line": 2149
+          "line": 2172
         },
         {
           "name": "ReportingStore.save_entity_fact",
           "kind": "method",
-          "line": 2192
+          "line": 2215
         },
         {
           "name": "ReportingStore.list_entity_facts",
           "kind": "method",
-          "line": 2238
+          "line": 2261
         },
         {
           "name": "ReportingStore.save_normalization_candidate",
           "kind": "method",
-          "line": 2289
+          "line": 2312
         },
         {
           "name": "ReportingStore.list_normalization_candidates",
           "kind": "method",
-          "line": 2337
+          "line": 2360
         },
         {
           "name": "ReportingStore.approve_normalization_candidate",
           "kind": "method",
-          "line": 2348
+          "line": 2371
         },
         {
           "name": "ReportingStore.reject_normalization_candidate",
           "kind": "method",
-          "line": 2454
+          "line": 2477
         },
         {
           "name": "ReportingStore.approve_imam_candidate",
           "kind": "method",
-          "line": 2466
+          "line": 2489
         },
         {
           "name": "ReportingStore.save_plan_item",
           "kind": "method",
-          "line": 2495
+          "line": 2518
         },
         {
           "name": "ReportingStore.list_plan_items",
           "kind": "method",
-          "line": 2536
+          "line": 2559
         },
         {
           "name": "ReportingStore.seed_default_plans",
           "kind": "method",
-          "line": 2560
+          "line": 2583
         },
         {
           "name": "ReportingStore.save_mandate",
           "kind": "method",
-          "line": 2569
+          "line": 2592
         },
         {
           "name": "ReportingStore.list_mandates",
           "kind": "method",
-          "line": 2600
+          "line": 2623
         },
         {
           "name": "ReportingStore.delete_mandate",
           "kind": "method",
-          "line": 2623
+          "line": 2646
         },
         {
           "name": "ReportingStore.list_form_definitions",
           "kind": "method",
-          "line": 2631
+          "line": 2654
         },
         {
           "name": "ReportingStore.get_form_definition",
           "kind": "method",
-          "line": 2636
+          "line": 2659
         },
         {
           "name": "ReportingStore.list_sections",
           "kind": "method",
-          "line": 2646
+          "line": 2669
         },
         {
           "name": "ReportingStore.upsert_section",
           "kind": "method",
-          "line": 2665
+          "line": 2688
         },
         {
           "name": "ReportingStore.save_person",
           "kind": "method",
-          "line": 2702
+          "line": 2725
         },
         {
           "name": "ReportingStore.list_persons",
           "kind": "method",
-          "line": 2751
+          "line": 2774
         },
         {
           "name": "ReportingStore.person_family",
           "kind": "method",
-          "line": 2793
+          "line": 2816
         },
         {
           "name": "ReportingStore.save_wp_link",
           "kind": "method",
-          "line": 2800
+          "line": 2823
         },
         {
           "name": "ReportingStore.link_wp_post_to_event",
           "kind": "method",
-          "line": 2835
+          "line": 2858
         },
         {
           "name": "ReportingStore.list_wp_links",
           "kind": "method",
-          "line": 2846
+          "line": 2869
         }
       ]
     },
