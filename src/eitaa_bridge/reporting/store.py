@@ -50,6 +50,31 @@ class ReportingStoreError(Exception):
     """Base error for reporting storage operations."""
 
 
+class EventNotFoundError(ReportingStoreError):
+    """Raised when an event id does not exist."""
+
+
+class EtagConflictError(ReportingStoreError):
+    """Raised when an etag does not match the stored version."""
+
+    def __init__(self, event_id: str, current_etag: str) -> None:
+        super().__init__(f"etag conflict on event {event_id}; current etag {current_etag}")
+        self.event_id = event_id
+        self.current_etag = current_etag
+
+
+class InvalidStatusTransitionError(ReportingStoreError):
+    """Raised for illegal review-status transitions."""
+
+
+class WitnessConflictError(ReportingStoreError):
+    """Raised when a witness identity or link conflicts with stored rows."""
+
+    def __init__(self, message: str, details: dict | None = None) -> None:
+        super().__init__(message)
+        self.details = details or {}
+
+
 class ReportingStore:
     """Thread-safe SQLite store for reporting entities and candidate workflows."""
 
@@ -1062,6 +1087,370 @@ class ReportingStore:
     # ----------------------------------------------------------------------
     # Reported Events & Facts
     # ----------------------------------------------------------------------
+    _TRANSIENT_LOCK_ATTEMPTS = 3
+    _EDITABLE_EVENT_FIELDS = frozenset({
+        "unit_name", "occasion", "occasion_class", "notes", "campaign",
+        "duration_minutes", "official_present", "prior_announcement",
+        "had_reception", "is_ashura_pilgrimage", "contains_inner_contest",
+    })
+
+    def _run_in_transaction(self, operation):
+        """Run operation(conn) inside BEGIN IMMEDIATE with bounded lock retry."""
+        last_exc: sqlite3.OperationalError | None = None
+        for attempt in range(self._TRANSIENT_LOCK_ATTEMPTS):
+            try:
+                with self._connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    return operation(conn)
+            except sqlite3.OperationalError as exc:
+                if "locked" in str(exc).lower() and attempt < self._TRANSIENT_LOCK_ATTEMPTS - 1:
+                    last_exc = exc
+                    time.sleep(0.2 * (attempt + 1))
+                    continue
+                raise
+        raise last_exc
+
+    @staticmethod
+    def _compute_etag(event_id: str, version: int) -> str:
+        """Etag = short hash of event id plus monotonic version."""
+        return hashlib.sha256(f"{event_id}:{version}".encode()).hexdigest()[:16]
+
+    def _append_audit(self, conn, *, actor: str, action: str, entity_type: str,
+                      entity_id: str, diff: dict, etag_before: str | None = None,
+                      etag_after: str | None = None) -> None:
+        conn.execute(
+            """
+            INSERT INTO reporting_audit_log (
+                audit_id, actor, action, entity_type, entity_id, diff_json,
+                etag_before, etag_after, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"audit-{uuid.uuid4().hex[:12]}", actor, action, entity_type, entity_id,
+                json.dumps(diff, ensure_ascii=False), etag_before, etag_after, _utc_now(),
+            ),
+        )
+
+    def get_event_etag(self, event_id: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT version FROM reported_events WHERE event_id = ?", (event_id,)
+            ).fetchone()
+        if row is None:
+            return None
+        return self._compute_etag(event_id, int(row["version"]))
+
+    def create_event_draft(self, event: ReportedEvent, *, actor: str) -> tuple[str, str]:
+        self.save_event(event)
+
+        def _op(conn):
+            row = conn.execute(
+                "SELECT version FROM reported_events WHERE event_id = ?",
+                (event.event_id,),
+            ).fetchone()
+            if row is None:
+                raise EventNotFoundError(f"event {event.event_id} not found")
+            etag = self._compute_etag(event.event_id, int(row["version"]))
+            self._append_audit(
+                conn, actor=actor, action="event.create_draft",
+                entity_type="reported_events", entity_id=event.event_id,
+                diff={"event_id": event.event_id}, etag_after=etag,
+            )
+            return (event.event_id, etag)
+
+        return self._run_in_transaction(_op)
+
+    def update_event_fields(self, event_id: str, *, actor: str, expected_etag: str,
+                            fields: dict) -> str:
+        unknown = set(fields) - self._EDITABLE_EVENT_FIELDS
+        if unknown:
+            raise ValueError(f"fields not editable: {sorted(unknown)}")
+
+        def _op(conn):
+            row = conn.execute(
+                "SELECT version FROM reported_events WHERE event_id = ?",
+                (event_id,),
+            ).fetchone()
+            if row is None:
+                raise EventNotFoundError(f"event {event_id} not found")
+            version = int(row["version"])
+            current_etag = self._compute_etag(event_id, version)
+            if current_etag != expected_etag:
+                raise EtagConflictError(event_id, current_etag)
+            assignments = [f"{key} = ?" for key in fields]
+            values = [int(v) if isinstance(v, bool) else v for v in fields.values()]
+            assignments.append("version = ?")
+            values.append(version + 1)
+            values.append(event_id)
+            conn.execute(
+                f"UPDATE reported_events SET {', '.join(assignments)} WHERE event_id = ?",
+                tuple(values),
+            )
+            new_etag = self._compute_etag(event_id, version + 1)
+            self._append_audit(
+                conn, actor=actor, action="event.update",
+                entity_type="reported_events", entity_id=event_id,
+                diff={"changed": sorted(fields)},
+                etag_before=current_etag, etag_after=new_etag,
+            )
+            return new_etag
+
+        return self._run_in_transaction(_op)
+
+    _STATUS_TRANSITIONS = {
+        "submit_review": {"draft": "needs_review"},
+        "approve": {"needs_review": "approved"},
+        "mark_conflict": {"needs_review": "conflict", "approved": "conflict"},
+        "reopen": {"conflict": "needs_review"},
+    }
+
+    def transition_event_status(self, event_id: str, *, action: str, actor: str,
+                                reason: str = "") -> str:
+        if action not in self._STATUS_TRANSITIONS:
+            raise InvalidStatusTransitionError(f"unknown action {action}")
+        if action == "mark_conflict" and not reason.strip():
+            raise InvalidStatusTransitionError("mark_conflict requires a reason")
+
+        def _op(conn):
+            row = conn.execute(
+                "SELECT version, review_status FROM reported_events WHERE event_id = ?",
+                (event_id,),
+            ).fetchone()
+            if row is None:
+                raise EventNotFoundError(f"event {event_id} not found")
+            version = int(row["version"])
+            current = row["review_status"]
+            targets = self._STATUS_TRANSITIONS[action]
+            if current not in targets:
+                raise InvalidStatusTransitionError(
+                    f"{action} not allowed from status {current}"
+                )
+            new_status = targets[current]
+            etag_before = self._compute_etag(event_id, version)
+            conn.execute(
+                "UPDATE reported_events SET review_status = ?, version = ? WHERE event_id = ?",
+                (new_status, version + 1, event_id),
+            )
+            etag_after = self._compute_etag(event_id, version + 1)
+            self._append_audit(
+                conn, actor=actor, action=f"event.{action}",
+                entity_type="reported_events", entity_id=event_id,
+                diff={"from": current, "to": new_status, "reason": reason},
+                etag_before=etag_before, etag_after=etag_after,
+            )
+            return etag_after
+
+        return self._run_in_transaction(_op)
+
+    def link_witness(self, event_id: str, *, peer_id: str, message_id: str,
+                     provider: str = "eitaa", messenger_account: str = "",
+                     role: str = "primary", note: str = "", actor: str,
+                     observed_at: str | None = None) -> dict:
+        if role not in {"primary", "supporting"}:
+            raise ValueError(f"invalid witness role {role}")
+        if role == "supporting" and not note.strip():
+            raise ValueError("supporting links require a note/reason")
+        identity = f"{provider}|{messenger_account}|{peer_id}|{message_id}"
+        witness_id = f"w-{hashlib.sha256(identity.encode()).hexdigest()[:16]}"
+
+        def _op(conn):
+            event_row = conn.execute(
+                "SELECT version FROM reported_events WHERE event_id = ?", (event_id,)
+            ).fetchone()
+            if event_row is None:
+                raise EventNotFoundError(f"event {event_id} not found")
+            now = _utc_now()
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO reporting_message_witnesses (
+                    witness_id, provider, messenger_account, peer_id, message_id,
+                    observed_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (witness_id, provider, messenger_account, peer_id, message_id,
+                 observed_at or now, now),
+            )
+            if role == "primary":
+                existing = conn.execute(
+                    "SELECT event_id FROM reporting_event_witness_links "
+                    "WHERE witness_id = ? AND role = 'primary' AND detached_at IS NULL",
+                    (witness_id,),
+                ).fetchone()
+                if existing is not None and existing["event_id"] != event_id:
+                    raise WitnessConflictError(
+                        f"witness already primary-linked to event {existing['event_id']}",
+                        {"existing_event_id": existing["event_id"], "witness_id": witness_id},
+                    )
+            pair = conn.execute(
+                "SELECT link_id FROM reporting_event_witness_links "
+                "WHERE event_id = ? AND witness_id = ? AND detached_at IS NULL",
+                (event_id, witness_id),
+            ).fetchone()
+            if pair is not None:
+                raise WitnessConflictError(
+                    "witness already linked to this event",
+                    {"event_id": event_id, "witness_id": witness_id},
+                )
+            link_id = f"wl-{uuid.uuid4().hex[:12]}"
+            conn.execute(
+                """
+                INSERT INTO reporting_event_witness_links (
+                    link_id, event_id, witness_id, role, linked_by, linked_at, note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (link_id, event_id, witness_id, role, actor, now, note),
+            )
+            if messenger_account == "":
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO reporting_review_queue (
+                        queue_id, item_type, ref_table, ref_id, reason, status, created_at
+                    ) VALUES (?, 'witness_missing_account', 'reporting_message_witnesses',
+                              ?, 'witness recorded without a messenger account; needs human confirmation',
+                              'open', ?)
+                    """,
+                    (f"rq-witness-{witness_id}", witness_id, now),
+                )
+            version = int(event_row["version"])
+            etag_after = self._compute_etag(event_id, version + 1)
+            conn.execute(
+                "UPDATE reported_events SET version = ? WHERE event_id = ?",
+                (version + 1, event_id),
+            )
+            self._append_audit(
+                conn, actor=actor, action=f"witness.link.{role}",
+                entity_type="reported_events", entity_id=event_id,
+                diff={"witness_id": witness_id, "role": role},
+                etag_after=etag_after,
+            )
+            return {"witness_id": witness_id, "link_id": link_id, "etag": etag_after}
+
+        return self._run_in_transaction(_op)
+
+    def detach_witness_link(self, link_id: str, *, reason: str, actor: str) -> bool:
+        def _op(conn):
+            row = conn.execute(
+                "SELECT event_id FROM reporting_event_witness_links "
+                "WHERE link_id = ? AND detached_at IS NULL",
+                (link_id,),
+            ).fetchone()
+            if row is None:
+                return False
+            now = _utc_now()
+            conn.execute(
+                "UPDATE reporting_event_witness_links SET detached_at = ?, detached_reason = ? "
+                "WHERE link_id = ?",
+                (now, reason, link_id),
+            )
+            version_row = conn.execute(
+                "SELECT version FROM reported_events WHERE event_id = ?",
+                (row["event_id"],),
+            ).fetchone()
+            etag_after = None
+            if version_row is not None:
+                conn.execute(
+                    "UPDATE reported_events SET version = ? WHERE event_id = ?",
+                    (int(version_row["version"]) + 1, row["event_id"]),
+                )
+                etag_after = self._compute_etag(row["event_id"], int(version_row["version"]) + 1)
+            self._append_audit(
+                conn, actor=actor, action="witness.detach",
+                entity_type="reported_events", entity_id=row["event_id"],
+                diff={"link_id": link_id, "reason": reason},
+                etag_after=etag_after,
+            )
+            return True
+
+        return self._run_in_transaction(_op)
+
+    def resolve_review_item(self, queue_id: str, *, actor: str, decision: str,
+                            note: str = "") -> bool:
+        if decision not in {"resolved", "dismissed"}:
+            raise ValueError(f"invalid decision {decision}")
+
+        def _op(conn):
+            cur = conn.execute(
+                "UPDATE reporting_review_queue SET status = ?, resolved_at = ?, resolved_by = ? "
+                "WHERE queue_id = ? AND status = 'open'",
+                (decision, _utc_now(), actor, queue_id),
+            )
+            if cur.rowcount == 0:
+                return False
+            self._append_audit(
+                conn, actor=actor, action="queue.resolve",
+                entity_type="reporting_review_queue", entity_id=queue_id,
+                diff={"decision": decision, "note": note},
+            )
+            return True
+
+        return self._run_in_transaction(_op)
+
+    def set_user_roles(self, user_id: str, roles, *, actor: str) -> None:
+        allowed = {"editor", "approver", "admin"}
+        unknown = set(roles) - allowed
+        if unknown:
+            raise ValueError(f"unknown roles: {sorted(unknown)}")
+
+        def _op(conn):
+            conn.execute(
+                """
+                INSERT INTO reporting_user_roles (user_id, roles_json, updated_by, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    roles_json = excluded.roles_json,
+                    updated_by = excluded.updated_by,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, json.dumps(sorted(roles), ensure_ascii=False), actor, _utc_now()),
+            )
+            self._append_audit(
+                conn, actor=actor, action="roles.set",
+                entity_type="reporting_user_roles", entity_id=user_id,
+                diff={"roles": sorted(roles)},
+            )
+
+        self._run_in_transaction(_op)
+
+    def get_user_roles(self, user_id: str) -> list[str]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT roles_json FROM reporting_user_roles WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return []
+        return list(json.loads(row["roles_json"]))
+
+    def get_event_audit(self, event_id: str) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM reporting_audit_log "
+                "WHERE entity_type = 'reported_events' AND entity_id = ? "
+                "ORDER BY created_at, audit_id",
+                (event_id,),
+            ).fetchall()
+        results = []
+        for row in rows:
+            item = dict(row)
+            item["diff"] = json.loads(item.pop("diff_json") or "{}")
+            results.append(item)
+        return results
+
+    def list_review_queue(self, *, status: str | None = None,
+                          item_type: str | None = None) -> list[dict]:
+        query = "SELECT * FROM reporting_review_queue WHERE 1=1"
+        params: list = []
+        if status is not None:
+            query += " AND status = ?"
+            params.append(status)
+        if item_type is not None:
+            query += " AND item_type = ?"
+            params.append(item_type)
+        query += " ORDER BY created_at, queue_id"
+        with self._connect() as conn:
+            rows = conn.execute(query, tuple(params)).fetchall()
+        return [dict(row) for row in rows]
+
     def save_event(self, event: ReportedEvent) -> None:
         event.validate()
         now = _utc_now()
