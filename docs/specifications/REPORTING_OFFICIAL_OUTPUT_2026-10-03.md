@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **شناسه** | `P4-DESIGN-2026-10-03` |
 | **تاریخ** | ۲۰۲۶-۱۰-۰۳ |
-| **سند حاکم** | [UNIFIED_REPORTING_FINAL_STRATEGY_2026-10-01.md](file:///C:/Users/mohse/AppData/Local/Programs/EitaaBridge/docs/specifications/UNIFIED_REPORTING_FINAL_STRATEGY_2026-10-01.md) (بخش ۹ فاز چهار و بخش ۳: قرارداد دامنه) |
+| **سند حاکم** | [UNIFIED_REPORTING_FINAL_STRATEGY_2026-10-01.md](UNIFIED_REPORTING_FINAL_STRATEGY_2026-10-01.md) (بخش ۹ فاز چهار و بخش ۳: قرارداد دامنه) |
 | **اسناد پیش‌نیاز** | سندهای طراحی فاز ۱ تا ۳ |
 | **وضعیت** | `PHASE4_DESIGN_DRAFT` |
 | **مبنای کد واقعی** | `reporting/aggregate.py`، `reporting/projections.py`، `reporting/excel_export.py`، جدول `report_exports` (۸ رکورد؛ ستون‌ها: `export_id`, `export_path`, `file_sha256`, `report_period`, `province_name`, `total_events`, `exported_at`, `exported_by`) |

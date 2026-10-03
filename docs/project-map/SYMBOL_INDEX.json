@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "12b23c1fb3c7803f",
+  "source_fingerprint": "c2b6b9a2df42b473",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -13178,6 +13178,11 @@
           "name": "ProvincialAggregator.unified_summary",
           "kind": "method",
           "line": 117
+        },
+        {
+          "name": "build_traceability_manifest",
+          "kind": "function",
+          "line": 129
         }
       ]
     },
@@ -13365,47 +13370,47 @@
         {
           "name": "ReportingExportError",
           "kind": "class",
-          "line": 24
+          "line": 27
         },
         {
           "name": "TemplateNotFoundError",
           "kind": "class",
-          "line": 28
+          "line": 31
         },
         {
           "name": "UnresolvedStarCellsError",
           "kind": "class",
-          "line": 32
+          "line": 35
         },
         {
           "name": "UnresolvedStarCellsError.__init__",
           "kind": "method",
-          "line": 35
+          "line": 38
         },
         {
           "name": "find_template",
           "kind": "function",
-          "line": 40
+          "line": 43
         },
         {
           "name": "_ensure_int",
           "kind": "function",
-          "line": 48
+          "line": 51
         },
         {
           "name": "_answers_by_key",
           "kind": "function",
-          "line": 57
+          "line": 60
         },
         {
           "name": "export_unified_report",
           "kind": "function",
-          "line": 61
+          "line": 64
         },
         {
           "name": "star_cell_report",
           "kind": "function",
-          "line": 208
+          "line": 241
         }
       ]
     },
@@ -14326,147 +14331,162 @@
         {
           "name": "ReportingService",
           "kind": "class",
-          "line": 45
+          "line": 46
         },
         {
           "name": "ReportingService.candidates_from_message",
           "kind": "method",
-          "line": 56
+          "line": 57
         },
         {
           "name": "ReportingService.index_message",
           "kind": "method",
-          "line": 59
+          "line": 60
         },
         {
           "name": "ReportingService.scan_texts",
           "kind": "method",
-          "line": 64
+          "line": 65
         },
         {
           "name": "ReportingService.scan_and_record_texts",
           "kind": "method",
-          "line": 69
+          "line": 70
         },
         {
           "name": "ReportingService.scan_provider_once",
           "kind": "method",
-          "line": 79
+          "line": 80
         },
         {
           "name": "ReportingService.scan_and_record_provider",
           "kind": "method",
-          "line": 84
+          "line": 85
         },
         {
           "name": "ReportingService.list_review_candidates",
           "kind": "method",
-          "line": 94
+          "line": 95
         },
         {
           "name": "ReportingService.approve_candidate_to_event",
           "kind": "method",
-          "line": 100
+          "line": 101
         },
         {
           "name": "ReportingService.create_manual_event",
           "kind": "method",
-          "line": 218
+          "line": 219
         },
         {
           "name": "ReportingService.reject_candidate",
           "kind": "method",
-          "line": 313
+          "line": 314
         },
         {
           "name": "ReportingService.event_from_candidate",
           "kind": "method",
-          "line": 320
+          "line": 321
         },
         {
           "name": "ReportingService.prefill",
           "kind": "method",
-          "line": 362
+          "line": 363
         },
         {
           "name": "ReportingService.definitions",
           "kind": "method",
-          "line": 366
+          "line": 367
         },
         {
           "name": "ReportingService.aggregate",
           "kind": "method",
-          "line": 372
+          "line": 373
         },
         {
           "name": "ReportingService.program_report",
           "kind": "method",
-          "line": 375
+          "line": 376
         },
         {
           "name": "ReportingService.human_gate_questions",
           "kind": "method",
-          "line": 378
+          "line": 379
+        },
+        {
+          "name": "ReportingService.wordpress_export_opt_in",
+          "kind": "method",
+          "line": 385
+        },
+        {
+          "name": "ReportingService.set_wordpress_export_opt_in",
+          "kind": "method",
+          "line": 391
+        },
+        {
+          "name": "ReportingService.ensure_wordpress_export_allowed",
+          "kind": "method",
+          "line": 396
         },
         {
           "name": "ReportingService.export",
           "kind": "method",
-          "line": 382
+          "line": 407
         },
         {
           "name": "ReportingService.pre_export_blockers",
           "kind": "method",
-          "line": 406
+          "line": 433
         },
         {
           "name": "ReportingService.save_filled_form",
           "kind": "method",
-          "line": 413
+          "line": 440
         },
         {
           "name": "ReportingService.load_filled_forms",
           "kind": "method",
-          "line": 418
+          "line": 445
         },
         {
           "name": "ReportingService.get_stored_events",
           "kind": "method",
-          "line": 424
+          "line": 451
         },
         {
           "name": "ReportingService.export_with_audit",
           "kind": "method",
-          "line": 430
+          "line": 457
         },
         {
           "name": "ReportingService.suggest_candidate_review",
           "kind": "method",
-          "line": 487
+          "line": 520
         },
         {
           "name": "ReportingService.list_mandates",
           "kind": "method",
-          "line": 525
+          "line": 558
         },
         {
           "name": "ReportingService.save_mandate",
           "kind": "method",
-          "line": 530
+          "line": 563
         },
         {
           "name": "ReportingService.delete_mandate",
           "kind": "method",
-          "line": 535
+          "line": 568
         },
         {
           "name": "ReportingService.form_definitions",
           "kind": "method",
-          "line": 541
+          "line": 574
         },
         {
           "name": "ReportingService.form_definition",
           "kind": "method",
-          "line": 547
+          "line": 580
         }
       ]
     },
@@ -21231,6 +21251,53 @@
           "name": "test_witness_identity_unique_index_enforced",
           "kind": "function",
           "line": 331
+        }
+      ]
+    },
+    {
+      "path": "tests/test_reporting_phase4_gate.py",
+      "role": "Python test",
+      "summary": "Phase-4 gate tests: versioned official output, traceability, WP opt-in.",
+      "symbols": [
+        {
+          "name": "_make_store",
+          "kind": "function",
+          "line": 36
+        },
+        {
+          "name": "_add_trip_event",
+          "kind": "function",
+          "line": 41
+        },
+        {
+          "name": "test_accepted_sample_artifact_reconciliation",
+          "kind": "function",
+          "line": 53
+        },
+        {
+          "name": "test_export_traceability_manifest_roundtrip",
+          "kind": "function",
+          "line": 70
+        },
+        {
+          "name": "test_estimated_facts_separated_from_official_totals",
+          "kind": "function",
+          "line": 100
+        },
+        {
+          "name": "test_unresolved_star_cells_block_official_export",
+          "kind": "function",
+          "line": 123
+        },
+        {
+          "name": "test_wordpress_opt_in_default_off_and_guard",
+          "kind": "function",
+          "line": 132
+        },
+        {
+          "name": "test_isolated_migration_rehearsal_covers_current_version",
+          "kind": "function",
+          "line": 155
         }
       ]
     },

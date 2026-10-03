@@ -14,9 +14,10 @@ import hashlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .aggregate import ProvincialAggregator, aggregate_program_report, ProgramReport
+from .aggregate import ProvincialAggregator, aggregate_program_report, build_traceability_manifest, ProgramReport
 from .eitaa_extraction import EitaaCandidateExtractor, EventCandidate
-from .excel_export import ASHURA_ANNEX_SHEET_NAME, export_unified_report, star_cell_report
+from .excel_export import ASHURA_ANNEX_SHEET_NAME, export_unified_report, star_cell_report, TEMPLATE_VERSION
+from .rules import RULES_VERSION
 from .forms import (
     ALL_FORMS,
     FORMS_BY_PROGRAM,
@@ -379,6 +380,30 @@ class ReportingService:
         return FORMS_BY_PROGRAM[program_id.value].human_gate_keys()
 
     # -- Export --------------------------------------------------------------
+    WORDPRESS_EXPORT_OPT_IN_KEY = "wordpress_export_opt_in"
+
+    def wordpress_export_opt_in(self) -> bool:
+        """WordPress is a flagged one-way export adapter; default OFF (phase 4)."""
+        if self.store is None:
+            return False
+        return bool(self.store.get_config().get(self.WORDPRESS_EXPORT_OPT_IN_KEY, False))
+
+    def set_wordpress_export_opt_in(self, enabled: bool) -> None:
+        if self.store is None:
+            raise RuntimeError("wordpress export opt-in requires a reporting store")
+        self.store.set_config({self.WORDPRESS_EXPORT_OPT_IN_KEY: bool(enabled)})
+
+    def ensure_wordpress_export_allowed(self) -> None:
+        """Guard for any WP publisher: refuse unless the opt-in flag is on.
+
+        WordPress being unreachable or disabled must never block native
+        registration or Excel export (strategy section 9, phase-4 gate).
+        """
+        if not self.wordpress_export_opt_in():
+            raise PermissionError(
+                "wordpress export adapter is opt-in and currently disabled"
+            )
+
     def export(
         self,
         events: Sequence[ReportedEvent],
@@ -389,6 +414,7 @@ class ReportingService:
         report_period: str = "۱۴۰۵",
         template_root: Path | None = None,
         allow_unresolved_star: bool = False,
+        traceability: Mapping[str, Any] | None = None,
     ) -> Path:
         unified = self.aggregate(events)
         ashura_events = [event for event in events if event.is_ashura_pilgrimage]
@@ -401,6 +427,7 @@ class ReportingService:
             report_period=report_period,
             allow_unresolved_star=allow_unresolved_star,
             ashura_events=ashura_events,
+            traceability=traceability,
         )
 
     def pre_export_blockers(self, filled_forms: Mapping[str, FilledForm]) -> dict[str, list[str]]:
@@ -463,6 +490,7 @@ class ReportingService:
         else:
             forms = dict(filled_forms) if filled_forms is not None else self.load_filled_forms()
         dest = destination or Path("unified_report_1405.xlsx")
+        manifest = build_traceability_manifest(evs)
         out_path = self.export(
             evs,
             forms,
@@ -471,6 +499,7 @@ class ReportingService:
             report_period=report_period,
             template_root=template_root,
             allow_unresolved_star=allow_unresolved_star,
+            traceability=manifest,
         )
         if self.store is not None and out_path.exists():
             file_sha = hashlib.sha256(out_path.read_bytes()).hexdigest()
@@ -481,6 +510,10 @@ class ReportingService:
                 province_name=province_name,
                 total_events=len(evs),
                 exported_by=exported_by,
+                template_version=TEMPLATE_VERSION,
+                rules_version=RULES_VERSION,
+                traceability=manifest,
+                wp_opt_in=self.wordpress_export_opt_in(),
             )
         return out_path
 

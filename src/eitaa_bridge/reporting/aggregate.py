@@ -124,3 +124,42 @@ class ProvincialAggregator:
                 "total_excluded": sum(len(report.excluded) for report in reports.values()),
             },
         }
+
+
+def build_traceability_manifest(
+    events: Sequence[ReportedEvent],
+    *,
+    engine: CountingRuleEngine | None = None,
+) -> dict[str, Any]:
+    """Per-program contributing event ids for official-export traceability.
+
+    Mirrors ``aggregate_program_report`` counting so every exported number
+    traces back to its events (strategy section 3). Embedded in the workbook
+    traceability sheet and in ``report_exports.traceability_json``.
+    """
+    engine = engine or CountingRuleEngine()
+    programs: dict[str, dict[str, Any]] = {}
+    excluded: list[dict[str, str]] = []
+    for event in events:
+        shares = engine.classify(event)
+        if not shares:
+            excluded.append({"event_id": event.event_id, "reason": "no_program_share"})
+        for share in shares:
+            program = programs.setdefault(
+                share.program_id.value,
+                {"count": 0, "event_ids": [], "attendees_total": 0, "attendee_event_ids": []},
+            )
+            if event.is_ashura_pilgrimage and share.program_id is ProgramId.CEREMONIES:
+                excluded.append({"event_id": event.event_id, "reason": "ashura_pilgrimage_separate_annex_c12"})
+                continue
+            if not share.counts:
+                excluded.append({"event_id": event.event_id, "reason": share.reason})
+                continue
+            program["count"] += 1
+            program["event_ids"].append(event.event_id)
+            for fact in event.facts:
+                if fact.metric == "attendees" and _exportable(fact.value_kind):
+                    program["attendees_total"] += int(fact.value)
+                    if event.event_id not in program["attendee_event_ids"]:
+                        program["attendee_event_ids"].append(event.event_id)
+    return {"programs": programs, "excluded": excluded}

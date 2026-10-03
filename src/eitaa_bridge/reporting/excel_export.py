@@ -16,6 +16,9 @@ import openpyxl
 from .aggregate import ProgramReport
 from .forms import QuestionnaireDefinition
 from .model import FactValueKind, ProgramId, ReportedEvent
+from .rules import RULES_VERSION
+
+TEMPLATE_VERSION = "workbook-1405-template-v1"
 
 TEMPLATE_FILENAME = "-_امور_فرهنگي_.فرمت_گزارش__برنامه_هاي_متناظر_استاني_1405.xlsx"
 ASHURA_ANNEX_SHEET_NAME = "ضمیمه زیارت عاشورا"
@@ -68,6 +71,7 @@ def export_unified_report(
     report_period: str = "۱۴۰۵",
     allow_unresolved_star: bool = False,
     ashura_events: Sequence[ReportedEvent] = (),
+    traceability: Mapping[str, Any] | None = None,
 ) -> Path:
     """Write one aggregate row per program sheet onto a copy of the template.
 
@@ -200,6 +204,35 @@ def export_unified_report(
 
     if blockers and not allow_unresolved_star:
         raise UnresolvedStarCellsError(blockers)
+
+    # Phase 4: traceability sheet + version stamps (strategy sections 3 and 9).
+    if "ردیابی" in workbook.sheetnames:
+        del workbook["ردیابی"]
+    trace_sheet = workbook.create_sheet("ردیابی")
+    trace_sheet["A1"] = "نسخهٔ قالب"
+    trace_sheet["B1"] = TEMPLATE_VERSION
+    trace_sheet["A2"] = "نسخهٔ قواعد"
+    trace_sheet["B2"] = RULES_VERSION
+    trace_sheet["A4"] = "برنامه"
+    trace_sheet["B4"] = "سنجه"
+    trace_sheet["C4"] = "مقدار"
+    trace_sheet["D4"] = "شناسهٔ رویدادها"
+    row_cursor = 5
+    for program_id, payload in sorted((traceability or {}).get("programs", {}).items()):
+        trace_sheet.cell(row=row_cursor, column=1, value=program_id)
+        trace_sheet.cell(row=row_cursor, column=2, value="count")
+        trace_sheet.cell(row=row_cursor, column=3, value=payload.get("count", 0))
+        trace_sheet.cell(row=row_cursor, column=4, value="،".join(payload.get("event_ids", [])))
+        row_cursor += 1
+        trace_sheet.cell(row=row_cursor, column=2, value="attendees_total")
+        trace_sheet.cell(row=row_cursor, column=3, value=payload.get("attendees_total", 0))
+        trace_sheet.cell(row=row_cursor, column=4, value="،".join(payload.get("attendee_event_ids", [])))
+        row_cursor += 1
+    for item in (traceability or {}).get("excluded", []):
+        trace_sheet.cell(row=row_cursor, column=1, value="خارج‌شده")
+        trace_sheet.cell(row=row_cursor, column=2, value=item.get("reason", ""))
+        trace_sheet.cell(row=row_cursor, column=4, value=item.get("event_id", ""))
+        row_cursor += 1
 
     workbook.save(destination)
     return destination

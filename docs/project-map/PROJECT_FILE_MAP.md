@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 401
-- اثرانگشت منبع: `12b23c1fb3c7803f`
+- تعداد فایل‌های نقشه: 402
+- اثرانگشت منبع: `c2b6b9a2df42b473`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -223,7 +223,7 @@
 | `src/eitaa_bridge/providers/registry.py` | Project | 2 | Built-in allowlisted provider composition root. |
 | `src/eitaa_bridge/providers/testing.py` | Project | 9 | Offline-only contract harness for provider-extension authors. |
 | `src/eitaa_bridge/reporting/__init__.py` | Project | 0 | Local reporting core for the 1405 provincial cultural programs. |
-| `src/eitaa_bridge/reporting/aggregate.py` | Project | 8 | Provincial aggregation: events + facts -> one workbook row per program. |
+| `src/eitaa_bridge/reporting/aggregate.py` | Project | 9 | Provincial aggregation: events + facts -> one workbook row per program. |
 | `src/eitaa_bridge/reporting/assessment_import.py` | Project | 9 | Import of the 1405 وضعیت‌سنجی workbook into the shell (F-088 / design doc §8). |
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
@@ -240,7 +240,7 @@
 | `src/eitaa_bridge/reporting/registry.py` | Project | 17 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
-| `src/eitaa_bridge/reporting/service.py` | Project | 29 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
+| `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
 | `src/eitaa_bridge/reporting/store.py` | Project | 82 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
@@ -329,6 +329,7 @@
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
 | `tests/test_reporting_ownership.py` | Python test | 5 | Tests for single-process reporting store ownership lease. |
 | `tests/test_reporting_phase2_gate.py` | Python test | 9 | Gate tests for reporting phase 2: transactional core, ETag concurrency, and RBAC. |
+| `tests/test_reporting_phase4_gate.py` | Python test | 8 | Phase-4 gate tests: versioned official output, traceability, WP opt-in. |
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
