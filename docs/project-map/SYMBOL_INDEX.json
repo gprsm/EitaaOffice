@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "8347640e5be27791",
+  "source_fingerprint": "5d2692831b07e6f7",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -21169,6 +21169,58 @@
           "name": "test_heartbeat_thread",
           "kind": "function",
           "line": 87
+        }
+      ]
+    },
+    {
+      "path": "tests/test_reporting_phase2_gate.py",
+      "role": "Python test",
+      "summary": "Gate tests for reporting phase 2: transactional core, ETag concurrency, and RBAC.",
+      "symbols": [
+        {
+          "name": "_make_store",
+          "kind": "function",
+          "line": 20
+        },
+        {
+          "name": "_bootstrap",
+          "kind": "function",
+          "line": 24
+        },
+        {
+          "name": "test_full_lifecycle_with_etag",
+          "kind": "function",
+          "line": 29
+        },
+        {
+          "name": "test_two_concurrent_users_same_message",
+          "kind": "function",
+          "line": 85
+        },
+        {
+          "name": "test_conflict_resolution_requires_approver_role",
+          "kind": "function",
+          "line": 145
+        },
+        {
+          "name": "test_rollback_on_witness_link_failure",
+          "kind": "function",
+          "line": 200
+        },
+        {
+          "name": "test_review_queue_lifecycle",
+          "kind": "function",
+          "line": 225
+        },
+        {
+          "name": "test_audit_trail_records_actions",
+          "kind": "function",
+          "line": 271
+        },
+        {
+          "name": "test_witness_identity_unique_index_enforced",
+          "kind": "function",
+          "line": 330
         }
       ]
     },

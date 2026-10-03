@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 398
-- اثرانگشت منبع: `8347640e5be27791`
+- تعداد فایل‌های نقشه: 399
+- اثرانگشت منبع: `5d2692831b07e6f7`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -328,6 +328,7 @@
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
 | `tests/test_reporting_ownership.py` | Python test | 5 | Tests for single-process reporting store ownership lease. |
+| `tests/test_reporting_phase2_gate.py` | Python test | 9 | Gate tests for reporting phase 2: transactional core, ETag concurrency, and RBAC. |
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
