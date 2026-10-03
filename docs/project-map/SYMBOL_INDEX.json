@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "5d672b05e78fae2f",
+  "source_fingerprint": "a66c86d4ac726502",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -13820,6 +13820,123 @@
       ]
     },
     {
+      "path": "src/eitaa_bridge/reporting/ownership.py",
+      "role": "Project",
+      "summary": "Single-process ownership lease for reporting store (resolves F-104).",
+      "symbols": [
+        {
+          "name": "ReportingStoreOwnershipError",
+          "kind": "class",
+          "line": 16
+        },
+        {
+          "name": "ReportingStoreOwnershipError.__init__",
+          "kind": "method",
+          "line": 19
+        },
+        {
+          "name": "StoreOwnershipLease",
+          "kind": "class",
+          "line": 24
+        },
+        {
+          "name": "StoreOwnershipLease.__init__",
+          "kind": "method",
+          "line": 27
+        },
+        {
+          "name": "StoreOwnershipLease.holder_id",
+          "kind": "method",
+          "line": 56
+        },
+        {
+          "name": "StoreOwnershipLease.lock_path",
+          "kind": "method",
+          "line": 61
+        },
+        {
+          "name": "StoreOwnershipLease.lost",
+          "kind": "method",
+          "line": 66
+        },
+        {
+          "name": "StoreOwnershipLease.db_path",
+          "kind": "method",
+          "line": 71
+        },
+        {
+          "name": "StoreOwnershipLease.runtime_dir",
+          "kind": "method",
+          "line": 76
+        },
+        {
+          "name": "StoreOwnershipLease.ttl_seconds",
+          "kind": "method",
+          "line": 81
+        },
+        {
+          "name": "StoreOwnershipLease.heartbeat_interval",
+          "kind": "method",
+          "line": 86
+        },
+        {
+          "name": "StoreOwnershipLease.owner_label",
+          "kind": "method",
+          "line": 91
+        },
+        {
+          "name": "StoreOwnershipLease._read_lock_data",
+          "kind": "method",
+          "line": 95
+        },
+        {
+          "name": "StoreOwnershipLease._write_lock_file",
+          "kind": "method",
+          "line": 120
+        },
+        {
+          "name": "StoreOwnershipLease.acquire",
+          "kind": "method",
+          "line": 142
+        },
+        {
+          "name": "StoreOwnershipLease.heartbeat",
+          "kind": "method",
+          "line": 239
+        },
+        {
+          "name": "StoreOwnershipLease._heartbeat_loop",
+          "kind": "method",
+          "line": 269
+        },
+        {
+          "name": "StoreOwnershipLease.start_heartbeat",
+          "kind": "method",
+          "line": 282
+        },
+        {
+          "name": "StoreOwnershipLease.stop_heartbeat",
+          "kind": "method",
+          "line": 295
+        },
+        {
+          "name": "StoreOwnershipLease.release",
+          "kind": "method",
+          "line": 305
+        },
+        {
+          "name": "StoreOwnershipLease.__enter__",
+          "kind": "method",
+          "line": 315
+        },
+        {
+          "name": "StoreOwnershipLease.__exit__",
+          "kind": "method",
+          "line": 320
+        }
+      ]
+    },
+    {
       "path": "src/eitaa_bridge/reporting/plans.py",
       "role": "Project",
       "summary": "Mandate layer and approved program plans (F-088 / design doc §3, §10).",
@@ -20818,6 +20935,38 @@
           "name": "TestNarrativeForm.test_prefill_narrative_form_direct",
           "kind": "method",
           "line": 246
+        }
+      ]
+    },
+    {
+      "path": "tests/test_reporting_ownership.py",
+      "role": "Python test",
+      "summary": "Tests for single-process reporting store ownership lease.",
+      "symbols": [
+        {
+          "name": "test_second_acquire_rejected",
+          "kind": "function",
+          "line": 17
+        },
+        {
+          "name": "test_stale_takeover",
+          "kind": "function",
+          "line": 34
+        },
+        {
+          "name": "test_release_then_reacquire",
+          "kind": "function",
+          "line": 57
+        },
+        {
+          "name": "test_context_manager_releases",
+          "kind": "function",
+          "line": 76
+        },
+        {
+          "name": "test_heartbeat_thread",
+          "kind": "function",
+          "line": 87
         }
       ]
     },

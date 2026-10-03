@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 395
-- اثرانگشت منبع: `5d672b05e78fae2f`
+- تعداد فایل‌های نقشه: 397
+- اثرانگشت منبع: `a66c86d4ac726502`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -233,6 +233,7 @@
 | `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
 | `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
 | `src/eitaa_bridge/reporting/office_import.py` | Project | 18 | Bulk import of every dataset the owner provided (F-090/V-221 follow-up, |
+| `src/eitaa_bridge/reporting/ownership.py` | Project | 22 | Single-process ownership lease for reporting store (resolves F-104). |
 | `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-088 / design doc §3, §10). |
 | `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-088). |
 | `src/eitaa_bridge/reporting/registry.py` | Project | 17 | Registry layer of the reporting section shell (F-088 / ADR-61). |
@@ -325,6 +326,7 @@
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
+| `tests/test_reporting_ownership.py` | Python test | 5 | Tests for single-process reporting store ownership lease. |
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
