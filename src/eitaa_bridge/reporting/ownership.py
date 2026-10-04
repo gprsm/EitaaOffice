@@ -187,7 +187,7 @@ class StoreOwnershipLease:
                 age = now - heartbeat_val
 
                 # Active lease held by someone else (allowing small clock jitter)
-                if -5.0 <= age < effective_ttl:
+                if data.get("holder_id") != self._holder_id and -5.0 <= age < effective_ttl:
                     details = {
                         "holder_id": data.get("holder_id"),
                         "pid": data.get("pid"),

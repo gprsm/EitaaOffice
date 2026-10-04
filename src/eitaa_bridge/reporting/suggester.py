@@ -37,6 +37,10 @@ class AgentSuggestion:
     official_present_suggested: bool | None = None
     is_ashura_pilgrimage: bool = False
     star_field_hints: dict[str, Any] = field(default_factory=dict)
+    rule_version: str = "1.0"
+    rule_name: str = "general"
+    provenance: dict[str, Any] = field(default_factory=dict)
+    is_abstain: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +54,10 @@ class AgentSuggestion:
             "official_present_suggested": self.official_present_suggested,
             "is_ashura_pilgrimage": self.is_ashura_pilgrimage,
             "star_field_hints": self.star_field_hints,
+            "rule_version": self.rule_version,
+            "rule_name": self.rule_name,
+            "provenance": self.provenance,
+            "is_abstain": self.is_abstain,
         }
 
 
@@ -89,6 +97,8 @@ def _to_int(digit_str: str) -> int | None:
 class ReportingSuggester:
     """Agent assistant that generates suggestions for reporting candidates."""
 
+    RULE_VERSION = "1.0"
+
     def analyze(
         self,
         candidate_id: str,
@@ -96,6 +106,7 @@ class ReportingSuggester:
         matched_programs: Sequence[str] = (),
         existing_attendees: int | None = None,
         dialog_label: str = "",
+        scoped_aliases: Sequence[Mapping[str, Any]] = (),
     ) -> AgentSuggestion:
         content = text or ""
         dialog = dialog_label or ""
@@ -103,53 +114,99 @@ class ReportingSuggester:
 
         reasons: list[str] = []
         star_hints: dict[str, Any] = {}
+        rule_name = "general"
+        is_abstain = False
 
-        # 1. Check Ashura Pilgrimage
-        is_ashura = bool(_ASHURA_PATTERNS.search(combined))
-        if is_ashura:
-            reasons.append("شناسایی قرائت زیارت عاشورا (موضوع بند C12 دستورالعمل)")
-            recommended_prog = "ceremonies"
-            confidence = 0.95
-        # 2. Check Honor / Appreciation
-        elif any(k in combined for k in ("تکریم", "تجلیل", "تقدیر از", "بازنشستگان", "کارمند نمونه")):
-            recommended_prog = "honor"
-            confidence = 0.88
-            reasons.append("شناسایی کلیدواژه‌های تکریم و تجلیل")
-        # 3. Check Prayer
-        elif any(k in combined for k in ("نماز جماعت", "اقامه نماز", "جشن تکلیف", "نمازخانه", "ستاد اقامه نماز")):
-            recommended_prog = "prayer"
-            confidence = 0.90
-            reasons.append("شناسایی فعالیت‌های توسعه فرهنگ اقامه نماز")
-        # 4. Check Contests
-        elif any(k in combined for k in ("مسابقه", "مسابقات", "رقابت", "جشنواره فرهنگی", "کتابخوانی")):
-            recommended_prog = "contest"
-            confidence = 0.85
-            reasons.append("شناسایی رویداد مسابقه/رقابت")
-        # 5. Check Trip
-        elif any(k in combined for k in ("اردو", "اردوی", "بازدید زیارتی", "کاروان")):
-            recommended_prog = "trip"
-            confidence = 0.88
-            reasons.append("شناسایی اردوی فرهنگی یا زیارتی")
-        # 6. Check Customer Care
-        elif any(k in combined for k in ("ارباب رجوع", "تکریم مراجعین", "میز خدمت")):
-            recommended_prog = "customer_care"
-            confidence = 0.82
-            reasons.append("شناسایی تشویق و تکریم ارباب رجوع")
-        # 7. Check Charter
-        elif any(k in combined for k in ("منشور اخلاقی", "منشور حقوق")):
-            recommended_prog = "charter"
-            confidence = 0.80
-            reasons.append("شناسایی اقدامات منشور اخلاقی")
-        # Fallback to matched programs or ceremonies
-        else:
-            if matched_programs:
-                recommended_prog = matched_programs[0]
-                confidence = 0.70
-                reasons.append(f"استفاده از دسته‌بندی اولیه ایندکسر ({recommended_prog})")
-            else:
+        # 0. Check scoped aliases first (ADR-42, ADR-46, Strategy §7).
+        # Scope gate (Strategy §9.5): a scoped alias must not leak into an
+        # unrelated context — global applies everywhere, local only to its
+        # own candidate, program only when the indexer matched that program,
+        # and unit only when the target unit is evidenced in the message or
+        # dialog label text.
+        alias_matched = False
+        matched_program_set = {str(p) for p in matched_programs}
+        if scoped_aliases:
+            for alias in scoped_aliases:
+                if alias.get("status") != "active":
+                    continue
+                scope_kind = str(alias.get("scope_kind") or "global").strip()
+                scope_target = str(alias.get("scope_target") or "").strip()
+                if scope_kind == "local" and scope_target != candidate_id:
+                    continue
+                if scope_kind == "program" and scope_target not in matched_program_set:
+                    continue
+                if scope_kind == "unit" and (not scope_target or scope_target not in combined):
+                    continue
+                alias_word = str(alias.get("alias_text") or "").strip()
+                if alias_word and alias_word in combined:
+                    if alias.get("target_type") == "program":
+                        recommended_prog = str(alias["canonical_target"])
+                        confidence = min(0.95, float(alias.get("weight", 0.90)))
+                        rule_name = "rule_scoped_alias"
+                        reasons.append(f"انطباق با الیاس دامنه‌دار «{alias_word}» ({recommended_prog})")
+                        alias_matched = True
+                        break
+
+        if not alias_matched:
+            # 1. Check Ashura Pilgrimage
+            is_ashura = bool(_ASHURA_PATTERNS.search(combined))
+            if is_ashura:
+                reasons.append("شناسایی قرائت زیارت عاشورا (موضوع بند C12 دستورالعمل)")
                 recommended_prog = "ceremonies"
-                confidence = 0.60
-                reasons.append("دسته‌بندی در مراسم عمومی فرهنگی")
+                confidence = 0.95
+                rule_name = "rule_c12_ashura"
+            # 2. Check Honor / Appreciation
+            elif any(k in combined for k in ("تکریم", "تجلیل", "تقدیر از", "بازنشستگان", "کارمند نمونه")):
+                recommended_prog = "honor"
+                confidence = 0.88
+                rule_name = "rule_keyword_honor"
+                reasons.append("شناسایی کلیدواژه‌های تکریم و تجلیل")
+            # 3. Check Prayer
+            elif any(k in combined for k in ("نماز جماعت", "اقامه نماز", "جشن تکلیف", "نمازخانه", "ستاد اقامه نماز")):
+                recommended_prog = "prayer"
+                confidence = 0.90
+                rule_name = "rule_keyword_prayer"
+                reasons.append("شناسایی فعالیت‌های توسعه فرهنگ اقامه نماز")
+            # 4. Check Contests
+            elif any(k in combined for k in ("مسابقه", "مسابقات", "رقابت", "جشنواره فرهنگی", "کتابخوانی")):
+                recommended_prog = "contest"
+                confidence = 0.85
+                rule_name = "rule_keyword_contest"
+                reasons.append("شناسایی رویداد مسابقه/رقابت")
+            # 5. Check Trip
+            elif any(k in combined for k in ("اردو", "اردوی", "بازدید زیارتی", "کاروان")):
+                recommended_prog = "trip"
+                confidence = 0.88
+                rule_name = "rule_keyword_trip"
+                reasons.append("شناسایی اردوی فرهنگی یا زیارتی")
+            # 6. Check Customer Care
+            elif any(k in combined for k in ("ارباب رجوع", "تکریم مراجعین", "میز خدمت")):
+                recommended_prog = "customer_care"
+                confidence = 0.82
+                rule_name = "rule_keyword_customer_care"
+                reasons.append("شناسایی تشویق و تکریم ارباب رجوع")
+            # 7. Check Charter
+            elif any(k in combined for k in ("منشور اخلاقی", "منشور حقوق")):
+                recommended_prog = "charter"
+                confidence = 0.80
+                rule_name = "rule_keyword_charter"
+                reasons.append("شناسایی اقدامات منشور اخلاقی")
+            # Fallback to matched programs or abstain on ambiguity (Strategy §7 & §9.5)
+            else:
+                if matched_programs:
+                    recommended_prog = matched_programs[0]
+                    confidence = 0.70
+                    rule_name = "rule_indexer_match"
+                    reasons.append(f"استفاده از دسته‌بندی اولیه ایندکسر ({recommended_prog})")
+                else:
+                    # Conservative Abstain: Do not guess or default to ceremonies without evidence!
+                    recommended_prog = "unknown"
+                    confidence = 0.0
+                    rule_name = "rule_abstain"
+                    is_abstain = True
+                    reasons.append("متن فاقد کلیدواژه‌های قطعی برنامه‌هاست؛ دستیار از پیشنهاد خودکار خودداری می‌کند (Abstain)")
+        else:
+            is_ashura = bool(_ASHURA_PATTERNS.search(combined))
 
         # Official presence check
         official_present: bool | None = None
@@ -204,6 +261,17 @@ class ReportingSuggester:
             star_hints["gifts"] = 1
             star_hints["culture_pack"] = 1
 
+        provenance = {
+            "candidate_id": candidate_id,
+            "rule_name": rule_name,
+            "rule_version": self.RULE_VERSION,
+            "matched_programs": list(matched_programs),
+            "text_length": len(content),
+            "is_ashura": is_ashura,
+            "official_present": official_present,
+            "is_abstain": is_abstain,
+        }
+
         return AgentSuggestion(
             candidate_id=candidate_id,
             recommended_program=recommended_prog,
@@ -215,4 +283,8 @@ class ReportingSuggester:
             official_present_suggested=official_present,
             is_ashura_pilgrimage=is_ashura,
             star_field_hints=star_hints,
+            rule_version=self.RULE_VERSION,
+            rule_name=rule_name,
+            provenance=provenance,
+            is_abstain=is_abstain,
         )

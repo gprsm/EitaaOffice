@@ -518,7 +518,12 @@ class BridgeApplicationApi:
                     "persistent_jobs_recovered", fields=recovery.safe_summary()
                 )
         reporting_db = self.base_directory / "data" / "reporting" / "reporting.sqlite3"
-        self._reporting_store = ReportingStore(reporting_db)
+        self._reporting_store = ReportingStore(
+            reporting_db,
+            acquire_lease=True,
+            runtime_dir=self.base_directory / "runtime",
+            owner_label="BridgeApplicationApi",
+        )
         self._reporting_service = ReportingService(store=self._reporting_store)
         self._request_runtime: ContextVar[
             EitaaAccountRuntime | EitaaProcessRuntime | None
@@ -1215,6 +1220,11 @@ class BridgeApplicationApi:
                 fields={"reason_code": "application_close_completed"},
             )
         finally:
+            if hasattr(self, "_reporting_store") and self._reporting_store is not None:
+                try:
+                    self._reporting_store.close()
+                except Exception:
+                    pass
             self._application_logger.close()
 
     def dispatch(
@@ -1230,6 +1240,7 @@ class BridgeApplicationApi:
         client_address: str | None = None,
         messenger_account_id: str | None = None,
         correlation_id: str | None = None,
+        if_match: str | None = None,
     ) -> ApiResponse:
         started = time.perf_counter()
         request_id = self._application_logger.correlation_id(correlation_id)
@@ -1252,6 +1263,7 @@ class BridgeApplicationApi:
                 client_address=client_address,
                 request_id=request_id,
                 messenger_account_id=messenger_account_id,
+                if_match=if_match,
             )
         except Exception as exc:
             response = self._error_response(exc)
@@ -1320,6 +1332,7 @@ class BridgeApplicationApi:
         client_address: str | None = None,
         request_id: str | None = None,
         messenger_account_id: str | None = None,
+        if_match: str | None = None,
     ) -> ApiResponse:
         try:
             selected_method = method.upper().strip()
@@ -1638,6 +1651,7 @@ class BridgeApplicationApi:
             # unknown paths so the route chain continues.
             reporting_v3_response = self._reporting_v3_dispatch(
                 selected_method, path, payload=payload, query=query,
+                if_match=if_match,
                 app_session=app_session,
             )
             if reporting_v3_response is not None:
@@ -4001,6 +4015,7 @@ class BridgeApplicationApi:
         *,
         payload: Mapping[str, Any] | None = None,
         query: Mapping[str, Any] | None = None,
+        if_match: str | None = None,
         app_session: Any = None,
     ):
         """Delegate /api/v3/reporting/* to the phase-2 transactional core.
@@ -4023,7 +4038,7 @@ class BridgeApplicationApi:
             roles = self._reporting_store.get_user_roles(actor)
         return _reporting_v3_route_dispatch(
             self._reporting_store, actor, roles, method, path,
-            payload=payload, query=query,
+            payload=payload, query=query, if_match=if_match,
         )
 
     def _reporting_create_event(

@@ -28,6 +28,7 @@ _EVENT_APPROVE_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za
 _EVENT_CONFLICT_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/mark-conflict$")
 _EVENT_REOPEN_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/reopen$")
 _EVENT_WITNESSES_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/witnesses$")
+_EVENT_DOCUMENTS_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents$")
 _LINK_DETACH_ROUTE = re.compile(r"^/api/v3/reporting/witness-links/(?P<link_id>[A-Za-z0-9_-]+)/detach$")
 
 
@@ -108,8 +109,8 @@ def create_event(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
 
 
 def update_event(store: ReportingStore, actor: str, event_id: str,
-                 payload: Mapping[str, Any]):
-    expected_etag = str(payload.get("if_match", ""))
+                 payload: Mapping[str, Any], if_match: str | None = None):
+    expected_etag = (if_match or str(payload.get("if_match", ""))).strip('"')
     fields = payload.get("fields")
     if not isinstance(fields, Mapping) or not fields:
         return _error(400, "fields mapping is required")
@@ -120,14 +121,41 @@ def update_event(store: ReportingStore, actor: str, event_id: str,
     except (ReportingStoreError, ValueError) as exc:
         mapped = _mapped_error(exc)
         return mapped if mapped else _error(400, str(exc))
-    return _ok({"event_id": event_id, "etag": etag})
+    return _ok({"event_id": event_id, "etag": etag}, headers={"ETag": f'"{etag}"'})
 
 
 def get_event_file(store: ReportingStore, event_id: str):
     file = store.get_event_file(event_id)
     if file is None:
         return _error(404, "event not found")
-    return _ok({"event": file})
+    etag = file.get("etag", "")
+    headers = {"ETag": f'"{etag}"'} if etag else {}
+    return _ok({"event": file}, headers=headers)
+
+
+def attach_document(store: ReportingStore, actor: str, roles, event_id: str,
+                    payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    media_id = str(payload.get("media_id", "")).strip()
+    if not media_id:
+        return _error(400, "media_id is required")
+    try:
+        doc = store.attach_document(
+            event_id,
+            media_id=media_id,
+            sha256=str(payload.get("sha256", "")),
+            kind=str(payload.get("kind", "")),
+            size_bytes=payload.get("size_bytes"),
+            display_order=int(payload.get("display_order", 0)),
+            is_cover=bool(payload.get("is_cover", False)),
+            added_by=actor,
+        )
+        return _ok({"document": doc}, status=201)
+    except Exception as exc:
+        mapped = _mapped_error(exc)
+        return mapped if mapped else _error(400, str(exc))
 
 
 def transition_event(store: ReportingStore, actor: str, event_id: str, action: str,
@@ -258,15 +286,133 @@ def witness_status(store: ReportingStore, query: Mapping[str, Any] | None):
     return _ok({"statuses": statuses})
 
 
+_ASSISTANT_FEEDBACK_ROUTE = re.compile(r"^/api/v3/reporting/assistant/feedback$")
+_ASSISTANT_FEEDBACK_REVOKE_ROUTE = re.compile(
+    r"^/api/v3/reporting/assistant/feedback/(?P<feedback_id>[a-zA-Z0-9_-]+)/revoke$"
+)
+_ASSISTANT_ALIASES_ROUTE = re.compile(r"^/api/v3/reporting/assistant/aliases$")
+_ASSISTANT_ALIAS_REVOKE_ROUTE = re.compile(
+    r"^/api/v3/reporting/assistant/aliases/(?P<alias_id>[a-zA-Z0-9_-]+)/revoke$"
+)
+
+
+def record_feedback(store: ReportingStore, actor: str, roles, payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    candidate_id = str(payload.get("candidate_id") or "").strip()
+    action = str(payload.get("action") or "").strip()
+    if not candidate_id or not action:
+        return _error(400, "candidate_id and action are required")
+    try:
+        rec = store.record_assistant_feedback(
+            candidate_id=candidate_id,
+            actor=actor,
+            action=action,
+            scope_kind=str(payload.get("scope_kind") or "local"),
+            scope_target=str(payload.get("scope_target") or ""),
+            suggested_program=str(payload.get("suggested_program") or ""),
+            suggested_unit=str(payload.get("suggested_unit") or ""),
+            chosen_program=str(payload.get("chosen_program") or ""),
+            chosen_unit=str(payload.get("chosen_unit") or ""),
+            rule_version=str(payload.get("rule_version") or "1.0"),
+            notes=str(payload["notes"]) if "notes" in payload else None,
+        )
+    except (ValueError, ReportingStoreError) as exc:
+        return _error(400, str(exc))
+    return _ok(rec, status=201)
+
+
+def revoke_feedback(store: ReportingStore, actor: str, roles, feedback_id: str):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    try:
+        store.revoke_assistant_feedback(feedback_id, actor=actor)
+    except LookupError as exc:
+        return _error(404, str(exc))
+    except (ValueError, ReportingStoreError) as exc:
+        return _error(400, str(exc))
+    return _ok({"revoked": True, "feedback_id": feedback_id})
+
+
+def list_feedback(store: ReportingStore, query: Mapping[str, Any] | None):
+    q = query or {}
+    candidate_id = q.get("candidate_id")
+    scope_kind = q.get("scope_kind")
+    include_revoked = q.get("include_revoked") in ("1", "true", "True")
+    items = store.list_assistant_feedback(
+        candidate_id=candidate_id,
+        scope_kind=scope_kind,
+        include_revoked=include_revoked,
+    )
+    return _ok({"feedback": items})
+
+
+def add_alias(store: ReportingStore, actor: str, roles, payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    alias_text = str(payload.get("alias_text") or "").strip()
+    target = str(payload.get("canonical_target") or "").strip()
+    target_type = str(payload.get("target_type") or "program").strip()
+    scope_kind = str(payload.get("scope_kind") or "local").strip()
+    if scope_kind == "global":
+        admin_denied = _forbidden(roles, "admin")
+        if admin_denied:
+            return admin_denied
+    try:
+        res = store.add_scoped_alias(
+            alias_text=alias_text,
+            canonical_target=target,
+            target_type=target_type,
+            approved_by=actor,
+            scope_kind=scope_kind,
+            scope_target=str(payload.get("scope_target") or ""),
+            weight=float(payload.get("weight", 1.0)),
+        )
+    except (ValueError, ReportingStoreError) as exc:
+        return _error(400, str(exc))
+    return _ok(res, status=201)
+
+
+def revoke_alias(store: ReportingStore, actor: str, roles, alias_id: str):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    try:
+        store.revoke_scoped_alias(alias_id, actor=actor)
+    except LookupError as exc:
+        return _error(404, str(exc))
+    except (ValueError, ReportingStoreError) as exc:
+        return _error(400, str(exc))
+    return _ok({"revoked": True, "alias_id": alias_id})
+
+
+def list_aliases(store: ReportingStore, query: Mapping[str, Any] | None):
+    q = query or {}
+    items = store.list_scoped_aliases(
+        scope_kind=q.get("scope_kind"),
+        scope_target=q.get("scope_target"),
+        target_type=q.get("target_type"),
+        status=q.get("status", "active"),
+    )
+    return _ok({"aliases": items})
+
+
 def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
              payload: Mapping[str, Any] | None = None,
-             query: Mapping[str, Any] | None = None):
+             query: Mapping[str, Any] | None = None,
+             if_match: str | None = None):
     """Route /api/v3/reporting/* requests; None when the path is unknown."""
     payload = payload or {}
     query = query or {}
     if method == "POST" and _EVENTS_ROUTE.match(path):
         denied = _forbidden(roles, "editor")
         return denied if denied else create_event(store, actor, payload)
+    doc_match = _EVENT_DOCUMENTS_ROUTE.match(path)
+    if doc_match and method in {"POST", "PUT"}:
+        return attach_document(store, actor, roles, doc_match.group("event_id"), payload)
     match = _EVENT_ID_ROUTE.match(path)
     if match:
         event_id = match.group("event_id")
@@ -276,8 +422,18 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
             denied = _forbidden(roles, "editor")
             if denied:
                 return denied
-            return update_event(store, actor, event_id, payload)
+            return update_event(store, actor, event_id, payload, if_match=if_match)
     if method == "POST":
+        if _ASSISTANT_FEEDBACK_ROUTE.match(path):
+            return record_feedback(store, actor, roles, payload)
+        fb_revoke_match = _ASSISTANT_FEEDBACK_REVOKE_ROUTE.match(path)
+        if fb_revoke_match:
+            return revoke_feedback(store, actor, roles, fb_revoke_match.group("feedback_id"))
+        if _ASSISTANT_ALIASES_ROUTE.match(path):
+            return add_alias(store, actor, roles, payload)
+        alias_revoke_match = _ASSISTANT_ALIAS_REVOKE_ROUTE.match(path)
+        if alias_revoke_match:
+            return revoke_alias(store, actor, roles, alias_revoke_match.group("alias_id"))
         submit = _EVENT_SUBMIT_ROUTE.match(path)
         if submit:
             return transition_event(store, actor, submit.group("event_id"),
@@ -313,6 +469,10 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if _ROLES_ROUTE.match(path):
             return set_roles(store, actor, roles, payload)
     if method == "GET":
+        if _ASSISTANT_FEEDBACK_ROUTE.match(path):
+            return list_feedback(store, query)
+        if _ASSISTANT_ALIASES_ROUTE.match(path):
+            return list_aliases(store, query)
         if _WITNESS_STATUS_ROUTE.match(path):
             return witness_status(store, query)
         if _QUEUE_ROUTE.match(path):

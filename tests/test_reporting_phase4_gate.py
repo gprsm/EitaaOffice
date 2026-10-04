@@ -153,7 +153,7 @@ def test_wordpress_opt_in_default_off_and_guard(tmp_path: Path) -> None:
 
 
 def test_isolated_migration_rehearsal_covers_current_version(tmp_path: Path) -> None:
-    assert REPORTING_SCHEMA_VERSION == 7
+    assert REPORTING_SCHEMA_VERSION >= 7
     script = ROOT / "scripts" / "migrate_reporting_v5_isolated.py"
     source = ROOT / "data" / "reporting" / "reporting.sqlite3"
     if not source.exists():

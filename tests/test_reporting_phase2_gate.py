@@ -368,3 +368,110 @@ def test_witness_identity_unique_index_enforced(tmp_path: Path) -> None:
         )
         count = conn.execute("SELECT COUNT(*) FROM reporting_message_witnesses").fetchone()[0]
         assert count == 2
+
+
+def test_reporting_v3_if_match_header_and_etag_propagation(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+    roles = _bootstrap(store)
+
+    # 1. Create event
+    status, body, headers = v3.dispatch(
+        store, "boss", roles, "POST", "/api/v3/reporting/events",
+        {"program_kinds": ["ceremony"], "unit_name": "مرکز", "notes": "initial"}
+    )
+    assert status == 201
+    event_id = body["event_id"]
+    etag1 = body["etag"]
+
+    # 2. GET returns ETag header matching body
+    status, body, headers = v3.dispatch(
+        store, "boss", roles, "GET", f"/api/v3/reporting/events/{event_id}"
+    )
+    assert status == 200
+    assert headers.get("ETag") == f'"{etag1}"'
+    assert body["event"]["etag"] == etag1
+
+    # 3. PUT with If-Match header succeeds and updates etag
+    status, body, headers = v3.dispatch(
+        store, "boss", roles, "PUT", f"/api/v3/reporting/events/{event_id}",
+        {"fields": {"notes": "updated via header"}},
+        if_match=etag1,
+    )
+    assert status == 200
+    etag2 = body["etag"]
+    assert etag2 != etag1
+    assert headers.get("ETag") == f'"{etag2}"'
+
+    # 4. PUT with stale If-Match header yields 409
+    status, body, _ = v3.dispatch(
+        store, "boss", roles, "PUT", f"/api/v3/reporting/events/{event_id}",
+        {"fields": {"notes": "stale update"}},
+        if_match=etag1,
+    )
+    assert status == 409
+    assert body["error"]["safe_context"]["current_etag"] == etag2
+
+
+def test_reporting_attach_document_via_api(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+    roles = _bootstrap(store)
+
+    status, body, _ = v3.dispatch(
+        store, "boss", roles, "POST", "/api/v3/reporting/events",
+        {"program_kinds": ["ceremony"], "unit_name": "مرکز"}
+    )
+    event_id = body["event_id"]
+
+    # Attach document
+    status, body, _ = v3.dispatch(
+        store, "boss", roles, "PUT", f"/api/v3/reporting/events/{event_id}/documents",
+        {
+            "media_id": "media-sha256-opaque-12345",
+            "sha256": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            "kind": "photo",
+            "is_cover": True,
+        }
+    )
+    assert status == 201, f"Failed with {body}"
+    assert body["ok"] is True
+    doc = body["document"]
+    assert doc["media_id"] == "media-sha256-opaque-12345"
+    assert doc["is_cover"] is True
+
+    # Verify document is in event file
+    status, body, _ = v3.dispatch(
+        store, "boss", roles, "GET", f"/api/v3/reporting/events/{event_id}"
+    )
+    assert len(body["event"]["documents"]) == 1
+    assert body["event"]["documents"][0]["media_id"] == "media-sha256-opaque-12345"
+
+
+def test_reporting_real_multithreaded_concurrency(tmp_path: Path) -> None:
+    import concurrent.futures
+
+    store = _make_store(tmp_path)
+    roles = _bootstrap(store)
+
+    status, body, _ = v3.dispatch(
+        store, "boss", roles, "POST", "/api/v3/reporting/events",
+        {"program_kinds": ["ceremony"], "unit_name": "مرکز"}
+    )
+    event_id = body["event_id"]
+    initial_etag = body["etag"]
+
+    # Concurrently attempt updates with the same initial ETag from 5 threads
+    def _attempt_update(worker_idx: int) -> int:
+        status, _, _ = v3.dispatch(
+            store, "boss", roles, "PUT", f"/api/v3/reporting/events/{event_id}",
+            {"fields": {"notes": f"worker {worker_idx}"}},
+            if_match=initial_etag,
+        )
+        return status
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(_attempt_update, i) for i in range(5)]
+        statuses = [f.result() for f in futures]
+
+    # Exactly one thread must succeed (200), and all others must get 409 conflict
+    assert statuses.count(200) == 1
+    assert statuses.count(409) == 4

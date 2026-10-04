@@ -31,6 +31,34 @@ def test_second_acquire_rejected(tmp_path: Path) -> None:
         lease1.release()
 
 
+def test_reporting_store_shares_lease_within_process(tmp_path: Path) -> None:
+    # Multi-account installations build several BridgeApplicationApi instances
+    # against one reporting DB inside a single process; the stores must share
+    # one ownership lease (refcounted) instead of fighting over the lock file.
+    from eitaa_bridge.reporting.store import ReportingStore
+
+    db_path = tmp_path / "reporting.db"
+    runtime_dir = tmp_path / "runtime"
+    first = ReportingStore(db_path, acquire_lease=True, runtime_dir=runtime_dir)
+    try:
+        second = ReportingStore(db_path, acquire_lease=True, runtime_dir=runtime_dir)
+        try:
+            assert first.ownership_lease is second.ownership_lease
+            assert first.ownership_lease.lock_path.is_file()
+
+            second.close()
+            # Lease must stay alive while at least one store still holds it.
+            assert first.ownership_lease is not None
+            assert first.ownership_lease.lock_path.is_file()
+        finally:
+            second.close()
+    finally:
+        lease = first.ownership_lease
+        first.close()
+        assert lease is not None
+        assert not lease.lock_path.exists()
+
+
 def test_stale_takeover(tmp_path: Path) -> None:
     # Stale lease should be taken over and recorded in takeovers list with reason 'stale'
     db_path = tmp_path / "reporting.db"

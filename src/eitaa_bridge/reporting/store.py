@@ -39,7 +39,7 @@ from .registry import EntityFact, ImamRecord, NomokalafRecord, PersonRecord, Uni
 from .sections import OFFICE_SECTIONS
 from .wp_links import WpPostLink
 
-REPORTING_SCHEMA_VERSION = 7
+REPORTING_SCHEMA_VERSION = 8
 
 
 def _utc_now() -> str:
@@ -75,13 +75,69 @@ class WitnessConflictError(ReportingStoreError):
         self.details = details or {}
 
 
+# Process-wide registry so several ReportingStore instances for the same
+# database inside one process share a single ownership lease (multi-account
+# installations construct multiple BridgeApplicationApi instances against one
+# reporting DB). Cross-process single-writer exclusivity is still enforced by
+# the lease file itself.
+_SHARED_REPORTING_LEASES: dict[str, list[Any]] = {}
+_SHARED_LEASES_LOCK = threading.Lock()
+
+
 class ReportingStore:
     """Thread-safe SQLite store for reporting entities and candidate workflows."""
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        *,
+        acquire_lease: bool = False,
+        runtime_dir: Path | None = None,
+        owner_label: str = "",
+    ) -> None:
         self.db_path = Path(db_path).resolve()
         self._local = threading.local()
+        self._lease: Any = None
+        self._lease_key: str = ""
+        if acquire_lease:
+            from .ownership import StoreOwnershipLease
+            key = str(self.db_path)
+            with _SHARED_LEASES_LOCK:
+                entry = _SHARED_REPORTING_LEASES.get(key)
+                if entry is None:
+                    lease = StoreOwnershipLease(
+                        self.db_path,
+                        runtime_dir=runtime_dir,
+                        owner_label=owner_label or "ReportingStore",
+                    )
+                    lease.acquire()
+                    lease.start_heartbeat()
+                    entry = [lease, 0]
+                    _SHARED_REPORTING_LEASES[key] = entry
+                entry[1] += 1
+                self._lease = entry[0]
+                self._lease_key = key
         self.initialize()
+
+    def close(self) -> None:
+        """Release the process-shared ownership lease (refcounted)."""
+        if getattr(self, "_lease", None) is None:
+            return
+        with _SHARED_LEASES_LOCK:
+            entry = _SHARED_REPORTING_LEASES.get(self._lease_key)
+            if entry is not None and entry[0] is self._lease:
+                entry[1] -= 1
+                if entry[1] <= 0:
+                    try:
+                        entry[0].release()
+                    except Exception:
+                        pass
+                    _SHARED_REPORTING_LEASES.pop(self._lease_key, None)
+        self._lease = None
+
+    @property
+    def ownership_lease(self) -> Any:
+        return getattr(self, "_lease", None)
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -657,6 +713,47 @@ class ReportingStore:
                     conn.execute("ALTER TABLE report_exports ADD COLUMN traceability_json TEXT")
                 if "wp_opt_in" not in _v7_export_cols:
                     conn.execute("ALTER TABLE report_exports ADD COLUMN wp_opt_in INTEGER NOT NULL DEFAULT 0")
+
+            # Migration v7→v8: Assistant scoped feedback and aliases
+            # (phase 5 of the unified reporting strategy; design doc
+            # docs/specifications/REPORTING_ASSISTANT_PHASE5_2026-10-03.md).
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS assistant_feedback (
+                    feedback_id TEXT PRIMARY KEY,
+                    candidate_id TEXT NOT NULL,
+                    scope_kind TEXT NOT NULL CHECK(scope_kind IN ('local', 'program', 'unit', 'global')),
+                    scope_target TEXT NOT NULL DEFAULT '',
+                    suggested_program TEXT NOT NULL DEFAULT '',
+                    suggested_unit TEXT NOT NULL DEFAULT '',
+                    chosen_program TEXT NOT NULL DEFAULT '',
+                    chosen_unit TEXT NOT NULL DEFAULT '',
+                    rule_version TEXT NOT NULL DEFAULT '1.0',
+                    actor TEXT NOT NULL,
+                    action TEXT NOT NULL CHECK(action IN ('accept', 'correct', 'reject', 'abstain')),
+                    revoked_at TEXT,
+                    revoked_by TEXT,
+                    notes TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_feedback_candidate ON assistant_feedback(candidate_id);
+                CREATE INDEX IF NOT EXISTS idx_feedback_scope ON assistant_feedback(scope_kind, scope_target);
+
+                CREATE TABLE IF NOT EXISTS assistant_scoped_aliases (
+                    alias_id TEXT PRIMARY KEY,
+                    alias_text TEXT NOT NULL,
+                    canonical_target TEXT NOT NULL,
+                    target_type TEXT NOT NULL CHECK(target_type IN ('program', 'unit', 'occasion')),
+                    scope_kind TEXT NOT NULL CHECK(scope_kind IN ('local', 'program', 'unit', 'global')),
+                    scope_target TEXT NOT NULL DEFAULT '',
+                    weight REAL NOT NULL DEFAULT 1.0,
+                    approved_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'revoked'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_alias_lookup ON assistant_scoped_aliases(alias_text, scope_kind, status);
+                """
+            )
 
             # Self-healing seed (F-096): canonical mandates upsert on every
             # init so corrected titles/numbers/codes from the official
@@ -1502,6 +1599,68 @@ class ReportingStore:
         file["documents"] = [dict(d) for d in documents]
         return file
 
+    def attach_document(
+        self,
+        event_id: str,
+        *,
+        media_id: str,
+        sha256: str = "",
+        kind: str = "",
+        size_bytes: int | None = None,
+        display_order: int = 0,
+        is_cover: bool = False,
+        added_by: str = "",
+        document_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Attach document metadata to an event in event_documents."""
+        doc_id = document_id or f"doc-{uuid.uuid4().hex[:12]}"
+        now = _utc_now()
+        def _op(conn):
+            cur = conn.execute("SELECT event_id FROM reported_events WHERE event_id = ?", (event_id,))
+            if not cur.fetchone():
+                raise EventNotFoundError(f"event {event_id} does not exist")
+            conn.execute(
+                """
+                INSERT INTO event_documents (
+                    document_id, event_id, media_id, sha256, kind,
+                    size_bytes, display_order, is_cover, added_by, added_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    doc_id,
+                    event_id,
+                    media_id,
+                    sha256,
+                    kind,
+                    size_bytes,
+                    int(display_order),
+                    1 if is_cover else 0,
+                    added_by,
+                    now,
+                ),
+            )
+            self._append_audit(
+                conn,
+                actor=added_by or "system",
+                action="document.attach",
+                entity_type="event",
+                entity_id=event_id,
+                diff={"document_id": doc_id, "media_id": media_id, "sha256": sha256},
+            )
+        self._run_in_transaction(_op)
+        return {
+            "document_id": doc_id,
+            "event_id": event_id,
+            "media_id": media_id,
+            "sha256": sha256,
+            "kind": kind,
+            "size_bytes": size_bytes,
+            "display_order": display_order,
+            "is_cover": is_cover,
+            "added_by": added_by,
+            "added_at": now,
+        }
+
     def list_user_role_entries(self) -> list[dict]:
         with self._connect() as conn:
             rows = conn.execute(
@@ -1514,6 +1673,266 @@ class ReportingStore:
             item["roles"] = list(json.loads(item.pop("roles_json") or "[]"))
             results.append(item)
         return results
+
+    # ----------------------------------------------------------------------
+    # Assistant Feedback and Scoped Aliases (Phase 5 of Unified Strategy)
+    # ----------------------------------------------------------------------
+
+    def record_assistant_feedback(
+        self,
+        *,
+        candidate_id: str,
+        actor: str,
+        action: str,
+        scope_kind: str = "local",
+        scope_target: str = "",
+        suggested_program: str = "",
+        suggested_unit: str = "",
+        chosen_program: str = "",
+        chosen_unit: str = "",
+        rule_version: str = "1.0",
+        notes: str | None = None,
+        feedback_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Record human reviewer feedback on assistant suggestion (ADR-42/ADR-46/Strategy §7)."""
+        valid_actions = {"accept", "correct", "reject", "abstain"}
+        if action not in valid_actions:
+            raise ValueError(f"action must be one of {sorted(valid_actions)}")
+        valid_scopes = {"local", "program", "unit", "global"}
+        if scope_kind not in valid_scopes:
+            raise ValueError(f"scope_kind must be one of {sorted(valid_scopes)}")
+        fid = feedback_id or f"afb-{uuid.uuid4().hex[:12]}"
+        now = _utc_now()
+
+        def _op(conn):
+            conn.execute(
+                """
+                INSERT INTO assistant_feedback (
+                    feedback_id, candidate_id, scope_kind, scope_target,
+                    suggested_program, suggested_unit, chosen_program, chosen_unit,
+                    rule_version, actor, action, notes, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    fid,
+                    candidate_id,
+                    scope_kind,
+                    scope_target,
+                    suggested_program,
+                    suggested_unit,
+                    chosen_program,
+                    chosen_unit,
+                    rule_version,
+                    actor,
+                    action,
+                    notes,
+                    now,
+                ),
+            )
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="assistant.feedback.record",
+                entity_type="assistant_feedback",
+                entity_id=fid,
+                diff={"candidate_id": candidate_id, "action": action, "scope_kind": scope_kind},
+            )
+
+        self._run_in_transaction(_op)
+        return {
+            "feedback_id": fid,
+            "candidate_id": candidate_id,
+            "scope_kind": scope_kind,
+            "scope_target": scope_target,
+            "suggested_program": suggested_program,
+            "suggested_unit": suggested_unit,
+            "chosen_program": chosen_program,
+            "chosen_unit": chosen_unit,
+            "rule_version": rule_version,
+            "actor": actor,
+            "action": action,
+            "notes": notes,
+            "created_at": now,
+        }
+
+    def revoke_assistant_feedback(self, feedback_id: str, *, actor: str) -> None:
+        """Revoke a previously recorded feedback (ADR-46 revocable learning)."""
+        now = _utc_now()
+
+        def _op(conn):
+            cur = conn.execute(
+                "SELECT feedback_id FROM assistant_feedback WHERE feedback_id = ?",
+                (feedback_id,),
+            )
+            if not cur.fetchone():
+                raise LookupError(f"feedback {feedback_id} not found")
+            conn.execute(
+                "UPDATE assistant_feedback SET revoked_at = ?, revoked_by = ? WHERE feedback_id = ?",
+                (now, actor, feedback_id),
+            )
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="assistant.feedback.revoke",
+                entity_type="assistant_feedback",
+                entity_id=feedback_id,
+                diff={"revoked_at": now},
+            )
+
+        self._run_in_transaction(_op)
+
+    def list_assistant_feedback(
+        self,
+        *,
+        candidate_id: str | None = None,
+        scope_kind: str | None = None,
+        include_revoked: bool = False,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List feedback records with optional filtering."""
+        clauses = []
+        params: list[Any] = []
+        if candidate_id:
+            clauses.append("candidate_id = ?")
+            params.append(candidate_id)
+        if scope_kind:
+            clauses.append("scope_kind = ?")
+            params.append(scope_kind)
+        if not include_revoked:
+            clauses.append("revoked_at IS NULL")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT * FROM assistant_feedback {where} ORDER BY created_at DESC LIMIT ?",
+                (*params, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+    def add_scoped_alias(
+        self,
+        *,
+        alias_text: str,
+        canonical_target: str,
+        target_type: str,
+        approved_by: str,
+        scope_kind: str = "local",
+        scope_target: str = "",
+        weight: float = 1.0,
+        alias_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Add a scoped alias without polluting global namespace without approval."""
+        valid_targets = {"program", "unit", "occasion"}
+        if target_type not in valid_targets:
+            raise ValueError(f"target_type must be one of {sorted(valid_targets)}")
+        valid_scopes = {"local", "program", "unit", "global"}
+        if scope_kind not in valid_scopes:
+            raise ValueError(f"scope_kind must be one of {sorted(valid_scopes)}")
+        if scope_kind == "global" and not approved_by:
+            raise ValueError("global aliases require explicit approval (approved_by)")
+        clean_alias = alias_text.strip()
+        if not clean_alias:
+            raise ValueError("alias_text cannot be empty")
+        aid = alias_id or f"alias-{uuid.uuid4().hex[:12]}"
+        now = _utc_now()
+
+        def _op(conn):
+            conn.execute(
+                """
+                INSERT INTO assistant_scoped_aliases (
+                    alias_id, alias_text, canonical_target, target_type,
+                    scope_kind, scope_target, weight, approved_by, created_at, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+                """,
+                (
+                    aid,
+                    clean_alias,
+                    canonical_target,
+                    target_type,
+                    scope_kind,
+                    scope_target,
+                    float(weight),
+                    approved_by,
+                    now,
+                ),
+            )
+            self._append_audit(
+                conn,
+                actor=approved_by,
+                action="assistant.alias.create",
+                entity_type="assistant_scoped_aliases",
+                entity_id=aid,
+                diff={"alias_text": clean_alias, "target": canonical_target, "scope_kind": scope_kind},
+            )
+
+        self._run_in_transaction(_op)
+        return {
+            "alias_id": aid,
+            "alias_text": clean_alias,
+            "canonical_target": canonical_target,
+            "target_type": target_type,
+            "scope_kind": scope_kind,
+            "scope_target": scope_target,
+            "weight": weight,
+            "approved_by": approved_by,
+            "created_at": now,
+            "status": "active",
+        }
+
+    def revoke_scoped_alias(self, alias_id: str, *, actor: str) -> None:
+        """Revoke a scoped alias."""
+        def _op(conn):
+            cur = conn.execute(
+                "SELECT alias_id FROM assistant_scoped_aliases WHERE alias_id = ?",
+                (alias_id,),
+            )
+            if not cur.fetchone():
+                raise LookupError(f"alias {alias_id} not found")
+            conn.execute(
+                "UPDATE assistant_scoped_aliases SET status = 'revoked' WHERE alias_id = ?",
+                (alias_id,),
+            )
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="assistant.alias.revoke",
+                entity_type="assistant_scoped_aliases",
+                entity_id=alias_id,
+                diff={"status": "revoked"},
+            )
+
+        self._run_in_transaction(_op)
+
+    def list_scoped_aliases(
+        self,
+        *,
+        scope_kind: str | None = None,
+        scope_target: str | None = None,
+        target_type: str | None = None,
+        status: str = "active",
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """List active/revoked scoped aliases."""
+        clauses = []
+        params: list[Any] = []
+        if scope_kind:
+            clauses.append("scope_kind = ?")
+            params.append(scope_kind)
+        if scope_target:
+            clauses.append("scope_target = ?")
+            params.append(scope_target)
+        if target_type:
+            clauses.append("target_type = ?")
+            params.append(target_type)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            cur = conn.execute(
+                f"SELECT * FROM assistant_scoped_aliases {where} ORDER BY created_at DESC LIMIT ?",
+                (*params, limit),
+            )
+            return [dict(r) for r in cur.fetchall()]
 
     def find_witness_status(self, peer_id: str, message_ids) -> list[dict]:
         """Per-message report-registration status for chat-surface chips."""

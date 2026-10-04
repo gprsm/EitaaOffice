@@ -475,13 +475,18 @@ class _ApiHandler(BaseHTTPRequestHandler):
         else:
             self._dispatch("POST")
 
+    def do_PUT(self) -> None:  # noqa: N802
+        if not self._enforce_deployment_policy("PUT"):
+            return
+        self._dispatch("PUT")
+
     def do_HEAD(self) -> None:  # noqa: N802
         """Reject HEAD without dispatching application code or mutating state."""
 
         if not self._enforce_deployment_policy("HEAD"):
             return
         self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
-        self.send_header("Allow", "GET, POST, OPTIONS")
+        self.send_header("Allow", "GET, POST, PUT, OPTIONS")
         self.send_header("Content-Length", "0")
         self._send_security_headers(
             cache_control="no-store, max-age=0",
@@ -578,7 +583,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
 
     def _dispatch(self, method: str) -> None:
         try:
-            body = self._read_json() if method == "POST" else None
+            body = self._read_json() if method in {"POST", "PUT", "PATCH"} else None
             response = self.api.dispatch(
                 method,
                 self.path,
@@ -599,6 +604,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
                     self._single_header("X-Request-Id")
                     or self._single_header("X-Eitaa-Correlation-Id")
                 ),
+                if_match=self._single_header("If-Match"),
             )
             request_path = urlsplit(self.path).path.rstrip("/") or "/"
             if (

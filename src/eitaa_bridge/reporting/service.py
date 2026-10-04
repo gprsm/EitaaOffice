@@ -545,6 +545,10 @@ class ReportingService:
             if not label:
                 label = cand_info.get("dialog_label") or ""
 
+        scoped_aliases = ()
+        if self.store is not None:
+            scoped_aliases = tuple(self.store.list_scoped_aliases(status="active"))
+
         suggester = ReportingSuggester()
         return suggester.analyze(
             candidate_id=candidate_id,
@@ -552,6 +556,7 @@ class ReportingService:
             matched_programs=matched_progs,
             existing_attendees=attendees,
             dialog_label=label,
+            scoped_aliases=scoped_aliases,
         )
 
     # -- Mandates (اسناد بالادستی و مستندات ابلاغی) ----------------------------

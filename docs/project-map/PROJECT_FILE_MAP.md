@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 402
-- اثرانگشت منبع: `c2b6b9a2df42b473`
+- تعداد فایل‌های نقشه: 406
+- اثرانگشت منبع: `47dc7c68665fabc5`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -142,7 +142,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 31 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 17 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 24 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -202,7 +202,7 @@
 | `src/eitaa_bridge/infrastructure/worker_ipc/secret_file.py` | Infrastructure | 11 | Short-lived, current-user-only authentication material for worker IPC. |
 | `src/eitaa_bridge/interfaces/__init__.py` | Interface | 0 | — |
 | `src/eitaa_bridge/interfaces/cli.py` | Interface | 5 | — |
-| `src/eitaa_bridge/interfaces/http_api.py` | Interface | 64 | Config-bound loopback/trusted-LAN HTTP adapter for the application API. |
+| `src/eitaa_bridge/interfaces/http_api.py` | Interface | 65 | Config-bound loopback/trusted-LAN HTTP adapter for the application API. |
 | `src/eitaa_bridge/interfaces/license_activation.py` | Interface | 5 | First-run Windows activation dialog and safe command-line checks. |
 | `src/eitaa_bridge/interfaces/provider_worker.py` | Interface | 6 | Independent provider-worker process entrypoint for the Phase 7 IPC contract. |
 | `src/eitaa_bridge/interfaces/windows_lan.py` | Interface | 3 | — |
@@ -225,6 +225,7 @@
 | `src/eitaa_bridge/reporting/__init__.py` | Project | 0 | Local reporting core for the 1405 provincial cultural programs. |
 | `src/eitaa_bridge/reporting/aggregate.py` | Project | 9 | Provincial aggregation: events + facts -> one workbook row per program. |
 | `src/eitaa_bridge/reporting/assessment_import.py` | Project | 9 | Import of the 1405 وضعیت‌سنجی workbook into the shell (F-088 / design doc §8). |
+| `src/eitaa_bridge/reporting/backup.py` | Project | 6 | High-reliability disaster recovery and backup/restore module for ReportingStore. |
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
 | `src/eitaa_bridge/reporting/excel_export.py` | Project | 9 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
@@ -237,11 +238,12 @@
 | `src/eitaa_bridge/reporting/ownership.py` | Project | 22 | Single-process ownership lease for reporting store (resolves F-104). |
 | `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-088 / design doc §3, §10). |
 | `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-088). |
+| `src/eitaa_bridge/reporting/reconcile.py` | Project | 3 | Reconciliation and audit tools for WordPress legacy archive and native store. |
 | `src/eitaa_bridge/reporting/registry.py` | Project | 17 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 82 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 91 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -327,9 +329,11 @@
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
-| `tests/test_reporting_ownership.py` | Python test | 5 | Tests for single-process reporting store ownership lease. |
-| `tests/test_reporting_phase2_gate.py` | Python test | 9 | Gate tests for reporting phase 2: transactional core, ETag concurrency, and RBAC. |
+| `tests/test_reporting_ownership.py` | Python test | 6 | Tests for single-process reporting store ownership lease. |
+| `tests/test_reporting_phase2_gate.py` | Python test | 12 | Gate tests for reporting phase 2: transactional core, ETag concurrency, and RBAC. |
 | `tests/test_reporting_phase4_gate.py` | Python test | 8 | Phase-4 gate tests: versioned official output, traceability, WP opt-in. |
+| `tests/test_reporting_phase5_gate.py` | Python test | 16 | Gate tests for Unified Reporting Phase 5: Assistant and Scoped Feedback. |
+| `tests/test_reporting_phase6_gate.py` | Python test | 8 | Gate tests for Unified Reporting Phase 6: Pilot, Migration Reconciliation, and WordPress Cutover. |
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
