@@ -167,12 +167,25 @@ def restore_reporting_database(
     wal_file = Path(f"{dst}-wal")
     shm_file = Path(f"{dst}-shm")
     if wal_file.exists():
-        wal_file.unlink(missing_ok=True)
+        try:
+            wal_file.unlink(missing_ok=True)
+        except OSError:
+            pass
     if shm_file.exists():
-        shm_file.unlink(missing_ok=True)
+        try:
+            shm_file.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     # Atomic swap
-    temp_target.replace(dst)
+    try:
+        temp_target.replace(dst)
+    except Exception:
+        try:
+            temp_target.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     rto_ms = (time.perf_counter() - t0) * 1000.0
 
     return {

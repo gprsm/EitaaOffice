@@ -69,6 +69,69 @@ class IndexPrediction:
         }
 
 
+@dataclass(slots=True, frozen=True)
+class InferenceRule:
+    """Explicit explainable heuristic inference rule for deep rule chains."""
+
+    rule_id: str
+    label_id: int
+    name: str
+    patterns: tuple[str, ...]
+    negative_patterns: tuple[str, ...] = ()
+    confidence_boost: float = 0.25
+    evidence_tag: str = ""
+
+    def validate(self) -> None:
+        if not self.rule_id.strip():
+            raise ValueError("rule_id must not be empty.")
+        if self.label_id <= 0:
+            raise ValueError("label_id must be positive.")
+        if not self.patterns:
+            raise ValueError("Rule must have at least one pattern.")
+        if not 0.0 <= self.confidence_boost <= 1.0:
+            raise ValueError("confidence_boost must be between 0.0 and 1.0.")
+
+    def evaluate(self, normalized_text: str, features: Mapping[str, float] | None = None) -> bool:
+        for neg in self.negative_patterns:
+            norm_neg = PersianNormalizer.normalize(neg)
+            if norm_neg and norm_neg in normalized_text:
+                return False
+        for pat in self.patterns:
+            norm_pat = PersianNormalizer.normalize(pat)
+            if norm_pat and norm_pat in normalized_text:
+                return True
+        return False
+
+
+class RuleInferenceEngine:
+    """Modular rule-based inference engine supporting extensible heuristic chains."""
+
+    def __init__(self, rules: Sequence[InferenceRule] = ()) -> None:
+        self._rules_by_label: dict[int, list[InferenceRule]] = defaultdict(list)
+        for rule in rules:
+            self.add_rule(rule)
+
+    def add_rule(self, rule: InferenceRule) -> None:
+        rule.validate()
+        self._rules_by_label[rule.label_id].append(rule)
+
+    def evaluate_label(
+        self, label_id: int, normalized_text: str, features: Mapping[str, float] | None = None
+    ) -> list[InferenceRule]:
+        rules = self._rules_by_label.get(label_id, [])
+        matches: list[InferenceRule] = []
+        for rule in rules:
+            if rule.evaluate(normalized_text, features):
+                matches.append(rule)
+        return matches
+
+    def list_rules(self) -> list[InferenceRule]:
+        all_rules: list[InferenceRule] = []
+        for rules in self._rules_by_label.values():
+            all_rules.extend(rules)
+        return all_rules
+
+
 class PersianNormalizer:
     """Normalize common Persian/Arabic variants without external libraries."""
 
@@ -203,6 +266,7 @@ class LightweightContentClassifier:
         self,
         labels: Sequence[IndexLabel],
         *,
+        rules: Sequence[InferenceRule] = (),
         score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     ) -> None:
         if not 0.05 <= score_threshold <= 0.95:
@@ -218,9 +282,16 @@ class LightweightContentClassifier:
         self._idf: dict[str, float] = {}
         self._positive: dict[int, dict[str, float]] = {}
         self._negative: dict[int, dict[str, float]] = {}
+        self.rules: list[InferenceRule] = list(rules)
+        self.inference_engine = RuleInferenceEngine(rules)
         self.model_version = ""
         self.confirmed_document_count = 0
         self.seed_only = True
+
+    def add_rule(self, rule: InferenceRule) -> "LightweightContentClassifier":
+        self.rules.append(rule)
+        self.inference_engine.add_rule(rule)
+        return self
 
     def fit(self, documents: Iterable[TrainingDocument]) -> "LightweightContentClassifier":
         selected = list(documents)
@@ -361,6 +432,11 @@ class LightweightContentClassifier:
             )
             if any(phrase in normalized_text for phrase in phrases):
                 score = min(1.0, score + 0.20)
+            
+            rule_matches = self.inference_engine.evaluate_label(label.id, normalized_text, raw)
+            for r in rule_matches:
+                score = min(1.0, score + r.confidence_boost)
+
             accepted = score >= self.score_threshold
             contributions = sorted(
                 (
@@ -371,9 +447,9 @@ class LightweightContentClassifier:
                 key=lambda item: item[1],
                 reverse=True,
             )
-            evidence = tuple(
-                key.split(":", 1)[1] for key, _ in contributions[:4]
-            )
+            rule_evidence = [r.evidence_tag or f"قاعده: {r.name}" for r in rule_matches]
+            token_evidence = [key.split(":", 1)[1] for key, _ in contributions[:4]]
+            evidence = tuple((rule_evidence + token_evidence)[:4])
             ranked.append(
                 IndexPrediction(
                     label_id=label.id,

@@ -464,3 +464,281 @@ def test_manual_feedback_is_visible_immediately_without_reindex(config_file, tmp
     assert [item["label_id"] for item in predictions] == [15]
     assert predictions[0]["manual"] is True
     api.close()
+
+
+def test_custom_indexes_store_crud(tmp_path):
+    store = SQLiteContentIndexStore(tmp_path / "content_index.sqlite3")
+    store.initialize()
+
+    # Initial list is empty
+    assert store.list_custom_indexes(site_key="medical-site") == []
+
+    # Save a custom index
+    saved = store.save_custom_index(
+        site_key="medical-site",
+        index_id=200001,
+        name="اخبار سلامت",
+        aliases=["بهداشت", "درمان"],
+        kind="custom",
+        wordpress_category_id=45,
+    )
+    assert saved["id"] == 200001
+    assert saved["name"] == "اخبار سلامت"
+    assert saved["aliases"] == ["بهداشت", "درمان"]
+    assert saved["wordpress_category_id"] == 45
+
+    # List items
+    items = store.list_custom_indexes(site_key="medical-site")
+    assert len(items) == 1
+    assert items[0]["id"] == 200001
+    assert items[0]["name"] == "اخبار سلامت"
+
+    # Update item
+    store.save_custom_index(
+        site_key="medical-site",
+        index_id=200001,
+        name="اخبار سلامت و درمان",
+        aliases=["بهداشت", "دارو"],
+        kind="custom",
+        wordpress_category_id=50,
+    )
+    items_updated = store.list_custom_indexes(site_key="medical-site")
+    assert len(items_updated) == 1
+    assert items_updated[0]["name"] == "اخبار سلامت و درمان"
+    assert items_updated[0]["aliases"] == ["بهداشت", "دارو"]
+    assert items_updated[0]["wordpress_category_id"] == 50
+
+    # Delete item
+    deleted = store.delete_custom_index(site_key="medical-site", index_id=200001)
+    assert deleted is True
+    assert store.list_custom_indexes(site_key="medical-site") == []
+
+
+def test_custom_indexes_api_dispatch(config_file):
+    api = BridgeApplicationApi(config_file)
+
+    # List initial
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/list",
+        body={"site_key": "medical-site"},
+    )
+    assert resp.status == 200
+    assert resp.payload["items"] == []
+
+    # Save
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/save",
+        body={
+            "site_key": "medical-site",
+            "id": 200005,
+            "name": "رویدادها",
+            "aliases": ["همایش", "کارگاه"],
+            "kind": "custom",
+            "wordpress_category_id": 99,
+        },
+    )
+    assert resp.status == 200
+    assert resp.payload["item"]["id"] == 200005
+    assert resp.payload["item"]["name"] == "رویدادها"
+
+    # List again
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/list",
+        body={"site_key": "medical-site"},
+    )
+    assert resp.status == 200
+    assert len(resp.payload["items"]) == 1
+    assert resp.payload["items"][0]["name"] == "رویدادها"
+
+    # Delete
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/delete",
+        body={"site_key": "medical-site", "id": 200005},
+    )
+    assert resp.status == 200
+    assert resp.payload["deleted"] is True
+
+    # List after delete
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/list",
+        body={"site_key": "medical-site"},
+    )
+    assert resp.status == 200
+    assert resp.payload["items"] == []
+    api.close()
+
+
+def _schema3(path: Path) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE index_results (
+                site_key TEXT, peer_type TEXT, peer_id INTEGER, message_id INTEGER,
+                text_hash TEXT, model_version TEXT, predictions_json TEXT,
+                indexed_at TEXT,
+                PRIMARY KEY (site_key,peer_type,peer_id,message_id)
+            );
+            CREATE TABLE index_feedback (
+                feedback_id INTEGER PRIMARY KEY, site_key TEXT, source_key TEXT,
+                label_id INTEGER, label_name TEXT, decision TEXT, created_at TEXT
+            );
+            CREATE TABLE index_runs (
+                job_id TEXT PRIMARY KEY, site_key TEXT, peer_type TEXT,
+                peer_id INTEGER, state TEXT, model_version TEXT, labels_json TEXT,
+                summary_json TEXT, started_at TEXT, completed_at TEXT
+            );
+            CREATE TABLE index_staging_results (
+                job_id TEXT, site_key TEXT, peer_type TEXT, peer_id INTEGER,
+                message_id INTEGER, text_hash TEXT, model_version TEXT,
+                predictions_json TEXT, indexed_at TEXT,
+                PRIMARY KEY (job_id, message_id)
+            );
+            CREATE TABLE content_index_scopes (
+                scope_key TEXT PRIMARY KEY, provider TEXT, messenger_account_id TEXT,
+                created_at TEXT
+            );
+            PRAGMA user_version = 3;
+            """
+        )
+
+
+def test_schema3_migration_creates_backup_and_custom_indexes_table(tmp_path):
+    path = tmp_path / "content_index.sqlite3"
+    _schema3(path)
+    SQLiteContentIndexStore(path).initialize()
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == CONTENT_INDEX_SCHEMA
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+    assert "custom_indexes" in tables
+    backups = list(tmp_path.glob("content_index.schema3.*.bak.sqlite3"))
+    assert len(backups) == 1
+    with sqlite3.connect(backups[0]) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+
+
+def test_custom_indexes_api_validation(config_file):
+    api = BridgeApplicationApi(config_file)
+    # Invalid kind
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/save",
+        body={
+            "site_key": "medical-site",
+            "id": 200010,
+            "name": "تست دسته‌بندی",
+            "aliases": ["تست"],
+            "kind": "unsupported_kind",
+        },
+    )
+    assert resp.status == 400
+    assert resp.payload["error"]["error_code"] == "api_invalid_kind"
+
+    # Non-string alias
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/save",
+        body={
+            "site_key": "medical-site",
+            "id": 200011,
+            "name": "تست دسته‌بندی ۲",
+            "aliases": [12345],
+            "kind": "custom",
+        },
+    )
+    assert resp.status == 400
+    assert resp.payload["error"]["error_code"] == "api_invalid_aliases"
+    api.close()
+
+
+def test_deep_inference_rule_engine_matching_and_evidence():
+    from eitaa_bridge.application.content_index import InferenceRule
+
+    rule = InferenceRule(
+        rule_id="rule-ceremony-01",
+        label_id=201,
+        name="مراسم نماز جماعت و ادعیه",
+        patterns=("اقامه نماز", "نماز جماعت", "دعای توسل"),
+        negative_patterns=("لغو نماز",),
+        confidence_boost=0.30,
+        evidence_tag="الگوی اقامه نماز جماعت",
+    )
+    classifier = LightweightContentClassifier(
+        labels=(IndexLabel(201, "اقامه نماز", ("فریضه ظهر",)),),
+        rules=(rule,),
+    ).fit(
+        (
+            TrainingDocument(
+                text="برگزاری نماز جماعت در نمازخانه اداره کل",
+                positive_label_ids=(201,),
+            ),
+        )
+    )
+
+    # Positive match through inference rule
+    predictions = classifier.predict("مراسم اقامه نماز ظهر با حضور همکاران برگزار گردید")
+    assert len(predictions) > 0
+    assert predictions[0].label_id == 201
+    assert any("الگوی اقامه نماز جماعت" in ev for ev in predictions[0].evidence)
+    assert predictions[0].score >= 0.30
+
+    # Negative pattern inhibits the rule
+    assert rule.evaluate("مراسم به علت لغو نماز برگزار نگردید") is False
+
+
+def test_content_index_decoupled_from_wordpress_site(config_file):
+    api = BridgeApplicationApi(config_file)
+    # Using local or non-existent WordPress site must succeed without error
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/save",
+        body={
+            "site_key": "independent_local_scope",
+            "id": "idx_cultural_01",
+            "name": "برنامه فرهنگی مستقل",
+            "aliases": ["کارگاه آموزشی", "نمایشگاه"],
+            "kind": "custom",
+        },
+    )
+    assert resp.status == 200
+    assert resp.payload["ok"] is True
+    assert resp.payload["item"]["name"] == "برنامه فرهنگی مستقل"
+
+    # List also succeeds with the independent local scope
+    list_resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/list",
+        body={"site_key": "independent_local_scope"},
+    )
+    assert list_resp.status == 200
+    assert list_resp.payload["ok"] is True
+    assert any(item["id"] == "idx_cultural_01" for item in list_resp.payload["items"])
+    api.close()
+
+
+def test_media_cache_deterministic_tokens(config_file, tmp_path):
+    api = BridgeApplicationApi(config_file)
+    test_file = tmp_path / "test_thumb.jpg"
+    test_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)
+
+    token1 = api.register_media_cache_file(test_file, "image/jpeg")
+    token2 = api.register_media_cache_file(test_file, "image/jpeg")
+    # Same file path and scope must produce identical deterministic token
+    assert token1 == token2
+    assert len(token1) == 32
+
+    resolved = api.resolve_media_cache_file(token1)
+    assert resolved is not None
+    assert resolved[0] == test_file.resolve()
+    api.close()
+

@@ -6,13 +6,13 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from ..errors import LocalContentIndexStoreError
 from .data_scope import DataScopeError, ProviderAccountScope
 
 
-CONTENT_INDEX_SCHEMA = 3
+CONTENT_INDEX_SCHEMA = 4
 
 
 def _now() -> str:
@@ -110,7 +110,20 @@ class SQLiteContentIndexStore:
                             created_at TEXT NOT NULL,
                             UNIQUE(provider,messenger_account_id)
                         );
-                        PRAGMA user_version = 3;
+                        CREATE TABLE custom_indexes (
+                            site_key TEXT NOT NULL,
+                            id TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            aliases_json TEXT NOT NULL,
+                            kind TEXT NOT NULL DEFAULT 'custom',
+                            wordpress_category_id INTEGER,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            PRIMARY KEY (site_key, id)
+                        );
+                        CREATE INDEX idx_custom_indexes_site
+                            ON custom_indexes(site_key, id);
+                        PRAGMA user_version = 4;
                         COMMIT;
                         """
                     )
@@ -140,9 +153,14 @@ class SQLiteContentIndexStore:
                         """
                     )
                     self._upgrade_scope_schema(connection, source_version=2)
+                    self._upgrade_custom_indexes_schema(connection)
                 elif version == 2:
                     self._backup_connection(connection, version=2)
                     self._upgrade_scope_schema(connection, source_version=2)
+                    self._upgrade_custom_indexes_schema(connection)
+                elif version == 3:
+                    self._backup_connection(connection, version=3)
+                    self._upgrade_custom_indexes_schema(connection)
                 self._register_scope(connection)
         except LocalContentIndexStoreError:
             raise
@@ -567,6 +585,134 @@ class SQLiteContentIndexStore:
                 safe_context={"error_type": type(exc).__name__},
             ) from exc
 
+    def list_custom_indexes(
+        self,
+        *,
+        site_key: str,
+    ) -> list[dict[str, Any]]:
+        try:
+            with self._connect() as connection:
+                scoped_site_key = self._site_key(site_key)
+                rows = connection.execute(
+                    """
+                    SELECT id, name, aliases_json, kind, wordpress_category_id, created_at, updated_at
+                    FROM custom_indexes
+                    WHERE site_key = ?
+                    ORDER BY id ASC
+                    """,
+                    (scoped_site_key,),
+                ).fetchall()
+                results: list[dict[str, Any]] = []
+                for row in rows:
+                    raw_id = row["id"]
+                    try:
+                        item_id: int | str = int(raw_id) if str(raw_id).lstrip("-").isdigit() else str(raw_id)
+                    except (ValueError, TypeError):
+                        item_id = str(raw_id)
+                    try:
+                        aliases = json.loads(row["aliases_json"])
+                    except (ValueError, TypeError):
+                        aliases = []
+                    results.append({
+                        "id": item_id,
+                        "name": str(row["name"]),
+                        "aliases": aliases,
+                        "kind": str(row["kind"]),
+                        "wordpress_category_id": row["wordpress_category_id"],
+                        "created_at": str(row["created_at"]),
+                        "updated_at": str(row["updated_at"]),
+                    })
+                results.sort(key=lambda x: (0 if isinstance(x["id"], int) else 1, x["id"]))
+                return results
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Custom indexes could not be retrieved.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def save_custom_index(
+        self,
+        *,
+        site_key: str,
+        index_id: str | int,
+        name: str,
+        aliases: Sequence[str],
+        kind: str = "custom",
+        wordpress_category_id: int | None = None,
+    ) -> dict[str, Any]:
+        str_id = str(index_id).strip()
+        str_name = str(name).strip()
+        cleaned_aliases = [str(a).strip() for a in aliases if str(a).strip()]
+        aliases_json = json.dumps(cleaned_aliases, ensure_ascii=False, separators=(",", ":"))
+        now = _now()
+        try:
+            with self._connect() as connection:
+                scoped_site_key = self._site_key(site_key)
+                connection.execute(
+                    """
+                    INSERT INTO custom_indexes (
+                        site_key, id, name, aliases_json, kind, wordpress_category_id, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(site_key, id) DO UPDATE SET
+                        name = excluded.name,
+                        aliases_json = excluded.aliases_json,
+                        kind = excluded.kind,
+                        wordpress_category_id = excluded.wordpress_category_id,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        scoped_site_key,
+                        str_id,
+                        str_name,
+                        aliases_json,
+                        str(kind),
+                        wordpress_category_id,
+                        now,
+                        now,
+                    ),
+                )
+                try:
+                    res_id: int | str = int(str_id) if str_id.lstrip("-").isdigit() else str_id
+                except (ValueError, TypeError):
+                    res_id = str_id
+                return {
+                    "id": res_id,
+                    "name": str_name,
+                    "aliases": cleaned_aliases,
+                    "kind": str(kind),
+                    "wordpress_category_id": wordpress_category_id,
+                    "updated_at": now,
+                }
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Custom index could not be saved.",
+                safe_context={"error_type": type(exc).__name__, "index_id": str_id},
+            ) from exc
+
+    def delete_custom_index(
+        self,
+        *,
+        site_key: str,
+        index_id: str | int,
+    ) -> bool:
+        str_id = str(index_id).strip()
+        try:
+            with self._connect() as connection:
+                scoped_site_key = self._site_key(site_key)
+                cursor = connection.execute(
+                    """
+                    DELETE FROM custom_indexes
+                    WHERE site_key = ? AND id = ?
+                    """,
+                    (scoped_site_key, str_id),
+                )
+                return cursor.rowcount > 0
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Custom index could not be deleted.",
+                safe_context={"error_type": type(exc).__name__, "index_id": str_id},
+            ) from exc
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
@@ -660,7 +806,7 @@ class SQLiteContentIndexStore:
                     _now(),
                 ),
             )
-            connection.execute(f"PRAGMA user_version={CONTENT_INDEX_SCHEMA}")
+            connection.execute("PRAGMA user_version=3")
             connection.commit()
         except sqlite3.Error:
             connection.rollback()
@@ -673,6 +819,39 @@ class SQLiteContentIndexStore:
                 "The content-index scope migration violated repository integrity.",
                 safe_context={"violation_count": len(violations)},
             )
+
+    def _upgrade_custom_indexes_schema(
+        self,
+        connection: sqlite3.Connection,
+    ) -> None:
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS custom_indexes (
+                    site_key TEXT NOT NULL,
+                    id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    aliases_json TEXT NOT NULL,
+                    kind TEXT NOT NULL DEFAULT 'custom',
+                    wordpress_category_id INTEGER,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (site_key, id)
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_custom_indexes_site
+                    ON custom_indexes(site_key, id)
+                """
+            )
+            connection.execute(f"PRAGMA user_version = {CONTENT_INDEX_SCHEMA}")
+            connection.commit()
+        except sqlite3.Error:
+            connection.rollback()
+            raise
 
     def _register_scope(self, connection: sqlite3.Connection) -> None:
         try:

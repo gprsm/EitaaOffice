@@ -1256,3 +1256,189 @@ def test_api_registers_media_cache_with_opaque_token(config_file, tmp_path, monk
     assert api.resolve_media_cache_file(token) == (media.resolve(), "image/jpeg")
     assert api.resolve_media_cache_file("../preview.jpg") is None
     api.close()
+
+
+def test_api_messages_search_uses_active_message_priority_and_returns_matches(
+    config_file, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "peer-search.json"
+    save_peer_file(peer_file, PEER)
+    captured = {}
+
+    class FakeBridge:
+        def search_application_messages(self, peer, **kwargs):
+            captured.update(kwargs)
+            return {
+                "site_key": "medical-site",
+                "peer": peer.safe_summary(),
+                "query": kwargs.get("query"),
+                "message_count": 1,
+                "messages": [
+                    {
+                        "id": 101,
+                        "date": "2026-07-20T10:00:00+00:00",
+                        "text": "پیام آزمایشی مرتبط با جستجو",
+                        "sender_key": "user:123",
+                    }
+                ],
+                "next_cursor_present": False,
+                "next_cursor": None,
+            }
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(EitaaBridge, "open", lambda *args, **kwargs: Context(FakeBridge()))
+    api_instance = BridgeApplicationApi(config_file)
+    response = api_instance.dispatch(
+        "POST",
+        "/api/v1/messages/search",
+        body={
+            "site_key": "medical-site",
+            "peer_file": str(peer_file),
+            "query": "جستجو",
+            "limit": 50,
+        },
+    )
+    assert response.status == 200
+    assert response.payload["ok"] is True
+    assert response.payload["query"] == "جستجو"
+    assert response.payload["message_count"] == 1
+    assert response.payload["messages"][0]["id"] == 101
+    assert captured["query"] == "جستجو"
+    assert captured["limit"] == 50
+    api_instance.close()
+
+
+def test_api_media_preview_fast_path_cache_hit(config_file, tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "peer-fastpath.json"
+    save_peer_file(peer_file, PEER)
+
+    api_instance = BridgeApplicationApi(config_file)
+    cache_dir = api_instance._runtime.ownership.core.media_directory / "ui-cache" / "thumbnail"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cached_file = cache_dir / f"{PEER.type.value}_{PEER.id}_9999_thumb.jpg"
+    cached_file.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 200)
+
+    # Ensure _run_eitaa is NOT called when fast-path succeeds
+    def fail_if_scheduled(*args, **kwargs):
+        raise AssertionError("_run_eitaa should not have been called on fast-path cache hit")
+
+    monkeypatch.setattr(api_instance, "_run_eitaa", fail_if_scheduled)
+
+    response = api_instance.dispatch(
+        "POST",
+        "/api/v1/messages/media-preview",
+        body={
+            "site_key": "medical-site",
+            "peer_file": str(peer_file),
+            "message_id": 9999,
+            "quality": "thumbnail",
+        },
+    )
+    assert response.status == 200
+    assert response.payload["ok"] is True
+    assert response.payload["cache_hit"] is True
+    assert response.payload["message_id"] == 9999
+    token = response.payload["media_url"].split("/")[-1]
+    resolved = api_instance.resolve_media_cache_file(token)
+    assert resolved is not None
+    assert resolved[0] == cached_file.resolve()
+    api_instance.close()
+
+
+def test_api_media_preview_fast_path_size_exceeded(config_file, tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "peer-large.json"
+    save_peer_file(peer_file, PEER)
+
+    api_instance = BridgeApplicationApi(config_file)
+    cache_dir = api_instance._runtime.ownership.core.media_directory / "ui-cache" / "thumbnail"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cached_file = cache_dir / f"{PEER.type.value}_{PEER.id}_9998_large.jpg"
+    cached_file.write_bytes(b"\x00" * (64 * 1024))
+
+    response = api_instance.dispatch(
+        "POST",
+        "/api/v1/messages/media-preview",
+        body={
+            "site_key": "medical-site",
+            "peer_file": str(peer_file),
+            "message_id": 9998,
+            "quality": "thumbnail",
+            "max_bytes": 32 * 1024,
+        },
+    )
+    assert response.status == 400
+    assert response.payload["error"]["error_code"] == "api_media_preview_too_large"
+    api_instance.close()
+
+
+def test_api_messages_search_negative_validations(config_file, tmp_path, monkeypatch):
+    monkeypatch.setenv("TEST_WP_USERNAME", "editor")
+    monkeypatch.setenv("TEST_WP_APP_PASSWORD", "password")
+    peer_file = tmp_path / "peer-validation.json"
+    save_peer_file(peer_file, PEER)
+
+    api_instance = BridgeApplicationApi(config_file)
+
+    # Empty query without date range must fail with api_message_search_filter_required
+    response_no_query = api_instance.dispatch(
+        "POST",
+        "/api/v1/messages/search",
+        body={
+            "site_key": "medical-site",
+            "peer_file": str(peer_file),
+            "query": "   ",
+        },
+    )
+    assert response_no_query.status == 400
+    assert response_no_query.payload["error"]["error_code"] == "api_message_search_filter_required"
+
+    # after_id >= before_id must fail with api_invalid_message_cursor_range
+    response_bad_range = api_instance.dispatch(
+        "POST",
+        "/api/v1/messages/search",
+        body={
+            "site_key": "medical-site",
+            "peer_file": str(peer_file),
+            "query": "test",
+            "before_id": 100,
+            "after_id": 150,
+        },
+    )
+    assert response_bad_range.status == 400
+    assert response_bad_range.payload["error"]["error_code"] == "api_invalid_message_cursor_range"
+
+    api_instance.close()
+
+
+def test_facade_search_application_messages_numeric_id_fallback(config_file, tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+    from eitaa_core import MessageSearchPage
+
+    peer = PEER
+    target_msg = Message(
+        id=777,
+        peer=peer,
+        date=datetime(2026, 7, 20, 10, 0, 0, tzinfo=timezone.utc),
+        text="پیام با شناسه عددی مشخص",
+    )
+
+    core_mock = MagicMock()
+    # Search query returns empty, but messages.get finds the message
+    core_mock.messages.search.return_value = MessageSearchPage(messages=(), next_cursor=None)
+    core_mock.messages.get.return_value = target_msg
+
+    with EitaaBridge.open(config_file, site_key="medical-site") as bridge:
+        monkeypatch.setattr(bridge, "_core", core_mock)
+        result = bridge.search_application_messages(peer, query="777")
+        assert result["message_count"] == 1
+        assert result["messages"][0]["id"] == 777
+        assert result["messages"][0]["text"] == "پیام با شناسه عددی مشخص"
+

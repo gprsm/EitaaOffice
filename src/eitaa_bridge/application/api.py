@@ -8,6 +8,7 @@ import base64
 import binascii
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
+import hashlib
 import hmac
 import json
 import mimetypes
@@ -725,7 +726,8 @@ class BridgeApplicationApi:
                     "The media cache file is outside the selected account.",
                     code="api_media_cache_account_boundary",
                 ) from exc
-        token = uuid.uuid4().hex
+        token_seed = f"{self._runtime.data_scope.scope_key}:{resolved.name}".encode("utf-8")
+        token = hashlib.sha256(token_seed).hexdigest()[:32]
         with self._media_cache_lock:
             now = time.monotonic()
             self._media_cache_files[token] = (
@@ -738,8 +740,8 @@ class BridgeApplicationApi:
                 self._media_token_accounts[token] = (
                     self._runtime.ownership.messenger_account_id
                 )
-            if len(self._media_cache_files) > 256:
-                oldest = sorted(self._media_cache_files.items(), key=lambda item: item[1][2])[:64]
+            if len(self._media_cache_files) > 32768:
+                oldest = sorted(self._media_cache_files.items(), key=lambda item: item[1][2])[:4096]
                 for key, _ in oldest:
                     self._media_cache_files.pop(key, None)
                     with self._media_token_scope_lock:
@@ -2060,6 +2062,8 @@ class BridgeApplicationApi:
                 return ApiResponse(200, self._background_status(query))
             if selected_method == "POST" and path == "/api/v1/messages/list":
                 return ApiResponse(200, self._messages_list(payload))
+            if selected_method == "POST" and path == "/api/v1/messages/search":
+                return ApiResponse(200, self._messages_search(payload))
             if selected_method == "POST" and path == "/api/v1/messages/media-preview":
                 return ApiResponse(200, self._media_preview(payload))
             if selected_method == "POST" and path == "/api/v1/messages/send":
@@ -2084,6 +2088,12 @@ class BridgeApplicationApi:
                 return ApiResponse(200, self._content_index_results(payload))
             if selected_method == "POST" and path == "/api/v1/messages/index/feedback":
                 return ApiResponse(201, self._content_index_feedback(payload))
+            if selected_method == "POST" and path == "/api/v1/messages/index/custom/list":
+                return ApiResponse(200, self._content_index_custom_list(payload))
+            if selected_method == "POST" and path == "/api/v1/messages/index/custom/save":
+                return ApiResponse(200, self._content_index_custom_save(payload))
+            if selected_method == "POST" and path == "/api/v1/messages/index/custom/delete":
+                return ApiResponse(200, self._content_index_custom_delete(payload))
             if selected_method == "POST" and path == "/api/v1/eitaa-contacts/list":
                 return ApiResponse(200, self._eitaa_contacts_list(payload))
             if selected_method == "POST" and path == "/api/v1/eitaa-contacts/add":
@@ -8190,6 +8200,68 @@ class BridgeApplicationApi:
             callback=operation,
         )
 
+    def _messages_search(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        site_key = self._site_key(payload)
+        peer = load_peer_file(self._peer_path(payload))
+        query = str(payload.get("query") or "").strip()
+        limit = self._integer(payload.get("limit", 100), "limit", minimum=1, maximum=10_000)
+        before_raw = payload.get("before_id")
+        before_id = None if before_raw in (None, "") else self._integer(before_raw, "before_id", minimum=1)
+        after_raw = payload.get("after_id")
+        after_id = None if after_raw in (None, "") else self._integer(after_raw, "after_id", minimum=1)
+        date_from_raw = payload.get("date_from")
+        date_to_raw = payload.get("date_to")
+        date_from = self._aware_datetime(date_from_raw, "date_from") if date_from_raw not in (None, "") else None
+        date_to = self._aware_datetime(date_to_raw, "date_to") if date_to_raw not in (None, "") else None
+        if (date_from is None) != (date_to is None):
+            raise CompositionValidationError(
+                "date_from and date_to must be supplied together.",
+                code="api_message_date_range_incomplete",
+            )
+        if date_from and date_to and date_from > date_to:
+            raise CompositionValidationError(
+                "date_from cannot be after date_to.", code="api_invalid_message_date_range"
+            )
+        if not query and not date_from:
+            raise CompositionValidationError(
+                "Search query or date range is required.",
+                code="api_message_search_filter_required",
+            )
+        if len(query) > 500:
+            raise CompositionValidationError(
+                "Search query must not exceed 500 characters.",
+                code="api_invalid_message_search_query",
+            )
+        if before_id and after_id and after_id >= before_id:
+            raise CompositionValidationError(
+                "after_id must be less than before_id.",
+                code="api_invalid_message_cursor_range",
+            )
+
+        def operation() -> dict[str, Any]:
+            with self._open_bridge(
+                self.config_path, env_file=self.env_file, site_key=site_key, open_core=True
+            ) as bridge:
+                response = {
+                    "ok": True,
+                    **bridge.search_application_messages(
+                        peer,
+                        query=query,
+                        limit=limit,
+                        before_id=before_id,
+                        after_id=after_id,
+                        date_from=date_from,
+                        date_to=date_to,
+                    ),
+                }
+                return self._enrich_message_senders(bridge, peer, response)
+
+        return self._run_eitaa(
+            priority=EitaaPriority.ACTIVE_MESSAGES,
+            kind="messages.search",
+            callback=operation,
+        )
+
     @staticmethod
     def _thumbnail_type(media: Any, *, target_edge: int = 420) -> str | None:
         candidates = [item for item in getattr(media, "photo_sizes", ()) if getattr(item, "type", None)]
@@ -8306,6 +8378,56 @@ class BridgeApplicationApi:
             minimum=32 * 1024,
             maximum=maximum,
         )
+
+        # Fast path: if media is already cached on disk, return immediately without
+        # acquiring the provider scheduler queue or blocking UI operations.
+        try:
+            cache_directory = self._runtime.ownership.core.media_directory / "ui-cache" / quality
+            if cache_directory.exists():
+                prefix = f"{peer.type.value}_{peer.id}_{message_id}_"
+                candidates = [
+                    item for item in cache_directory.glob(f"{prefix}*")
+                    if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
+                ]
+                if candidates:
+                    cache_path = max(candidates, key=lambda item: item.stat().st_mtime)
+                    file_size = cache_path.stat().st_size
+                    if file_size > max_bytes:
+                        raise CompositionValidationError(
+                            f"Media preview exceeds maximum allowed size ({max_bytes} bytes).",
+                            safe_context={"bytes": file_size, "max_bytes": max_bytes},
+                            code="api_media_preview_too_large",
+                        )
+                    mime_type = mimetypes.guess_type(cache_path.name)[0] or (
+                        "image/jpeg" if quality == "thumbnail" else "application/octet-stream"
+                    )
+                    token = self.register_media_cache_file(cache_path, mime_type)
+                    self._runtime_logger.emit(
+                        "media_cache",
+                        fields={
+                            "quality": quality,
+                            "cache_hit": True,
+                            "bytes": file_size,
+                            "media_type": "cached",
+                            "thumb_type": None,
+                        },
+                    )
+                    return {
+                        "ok": True,
+                        "message_id": message_id,
+                        "media_present": True,
+                        "preview_available": True,
+                        "quality": quality,
+                        "cache_hit": True,
+                        "thumb_type": None,
+                        "mime_type": mime_type,
+                        "bytes": file_size,
+                        "media_url": f"/api/v1/media-cache/{token}",
+                    }
+        except CompositionValidationError:
+            raise
+        except Exception:
+            pass
 
         def operation() -> dict[str, Any]:
             with self._open_bridge(
@@ -8685,8 +8807,27 @@ class BridgeApplicationApi:
             copied["error"] = dict(copied["error"])
         return copied
 
+    def _content_index_scope_key(self, payload: Mapping[str, Any]) -> str:
+        raw = payload.get("site_key")
+        if raw is not None and str(raw).strip():
+            candidate = str(raw).strip()
+            try:
+                config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
+                if candidate in config.sites:
+                    return candidate
+            except Exception:
+                pass
+            return candidate
+        try:
+            config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
+            if config.default_site_key:
+                return config.default_site_key
+        except Exception:
+            pass
+        return "local"
+
     def _content_index_start(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        site_key = self._site_key(payload)
+        site_key = self._content_index_scope_key(payload)
         peer_path = self._peer_path(payload)
         peer = load_peer_file(peer_path)
         labels = self._content_index_labels(payload)
@@ -8930,7 +9071,7 @@ class BridgeApplicationApi:
         return {"ok": True, "job": copied}
 
     def _content_index_results(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        site_key = self._site_key(payload)
+        site_key = self._content_index_scope_key(payload)
         peer = load_peer_file(self._peer_path(payload))
         limit = self._integer(
             payload.get("limit", 50_000), "limit", minimum=1, maximum=50_000
@@ -9022,7 +9163,7 @@ class BridgeApplicationApi:
         }
 
     def _content_index_feedback(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        site_key = self._site_key(payload)
+        site_key = self._content_index_scope_key(payload)
         peer = load_peer_file(self._peer_path(payload))
         message_id = self._integer(payload.get("message_id"), "message_id", minimum=1)
         label_id = self._integer(payload.get("label_id"), "label_id", minimum=1)
@@ -9054,6 +9195,71 @@ class BridgeApplicationApi:
             "decision": decision,
             "applies_on_next_run": False,
         }
+
+    def _content_index_custom_list(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        site_key = self._content_index_scope_key(payload)
+        self._content_index_store.initialize()
+        items = self._content_index_store.list_custom_indexes(site_key=site_key)
+        return {"ok": True, "site_key": site_key, "items": items}
+
+    def _content_index_custom_save(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        site_key = self._content_index_scope_key(payload)
+        index_id = payload.get("id")
+        if index_id is None or str(index_id).strip() == "":
+            raise CompositionValidationError("id is required.", code="api_missing_index_id")
+        name = str(payload.get("name") or "").strip()
+        if not name or len(name) > 200:
+            raise CompositionValidationError(
+                "name must contain 1 to 200 characters.",
+                code="api_invalid_content_index_label",
+            )
+        aliases = payload.get("aliases", [])
+        if not isinstance(aliases, (list, tuple)):
+            raise CompositionValidationError("aliases must be a list.", code="api_invalid_aliases")
+        cleaned_aliases: list[str] = []
+        for alias in aliases:
+            if not isinstance(alias, str):
+                raise CompositionValidationError("aliases must contain only strings.", code="api_invalid_aliases")
+            alias_str = alias.strip()
+            if alias_str:
+                if len(alias_str) > 200:
+                    raise CompositionValidationError("alias length must not exceed 200 characters.", code="api_invalid_aliases")
+                cleaned_aliases.append(alias_str)
+        VALID_KINDS = {"custom", "wordpress-category", "wordpress-tag"}
+        kind = str(payload.get("kind") or "custom").strip()
+        if kind not in VALID_KINDS:
+            raise CompositionValidationError(
+                f"kind must be one of {sorted(VALID_KINDS)}.",
+                code="api_invalid_kind",
+            )
+        wordpress_category_id = payload.get("wordpress_category_id")
+        if wordpress_category_id is not None:
+            try:
+                wordpress_category_id = int(wordpress_category_id)
+            except (ValueError, TypeError):
+                wordpress_category_id = None
+        self._content_index_store.initialize()
+        item = self._content_index_store.save_custom_index(
+            site_key=site_key,
+            index_id=index_id,
+            name=name,
+            aliases=cleaned_aliases,
+            kind=kind,
+            wordpress_category_id=wordpress_category_id,
+        )
+        return {"ok": True, "site_key": site_key, "item": item}
+
+    def _content_index_custom_delete(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        site_key = self._content_index_scope_key(payload)
+        index_id = payload.get("id")
+        if index_id is None or str(index_id).strip() == "":
+            raise CompositionValidationError("id is required.", code="api_missing_index_id")
+        self._content_index_store.initialize()
+        deleted = self._content_index_store.delete_custom_index(
+            site_key=site_key,
+            index_id=index_id,
+        )
+        return {"ok": True, "site_key": site_key, "deleted": deleted}
 
     @staticmethod
     def _eitaa_contact_status(user: Any) -> dict[str, Any] | None:

@@ -518,6 +518,63 @@ class EitaaBridge:
             "next_cursor_present": page.next_cursor is not None,
         }
 
+    def search_application_messages(
+        self,
+        peer: Peer,
+        *,
+        query: str,
+        limit: int = 100,
+        before_id: int | None = None,
+        after_id: int | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> dict[str, object]:
+        if not 1 <= limit <= 10_000:
+            raise CompositionValidationError(
+                "Search message limit must be between 1 and 10000.",
+                code="api_invalid_message_limit",
+            )
+        cleaned_query = query.strip()
+        page = self.core.messages.search(
+            MessageSearchQuery(
+                peer=peer,
+                text=cleaned_query if cleaned_query else None,
+                limit=limit,
+                before_id=before_id,
+                after_id=after_id,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        )
+        found_messages = list(page.messages)
+        if cleaned_query.isdigit() and before_id is None and after_id is None:
+            target_id = int(cleaned_query)
+            if not any(m.id == target_id for m in found_messages):
+                try:
+                    direct_msg = self.core.messages.get(peer, target_id)
+                    if direct_msg is not None:
+                        in_range = (
+                            (date_from is None or direct_msg.date >= date_from)
+                            and (date_to is None or direct_msg.date <= date_to)
+                        )
+                        if in_range:
+                            found_messages.append(direct_msg)
+                            found_messages.sort(key=lambda m: m.id, reverse=True)
+                            if len(found_messages) > limit:
+                                found_messages = found_messages[:limit]
+                except Exception:
+                    pass
+        items = self._application_message_items(peer, found_messages)
+        return {
+            "site_key": self.site_key,
+            "peer": peer.safe_summary(),
+            "query": cleaned_query,
+            "message_count": len(items),
+            "messages": items,
+            "next_cursor_present": page.next_cursor is not None,
+            "next_cursor": page.next_cursor,
+        }
+
     def sync_application_messages(
         self,
         peer: Peer,

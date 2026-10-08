@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Avatar,
   Box,
@@ -19,6 +19,7 @@ import {
   Typography,
 } from '@mui/material'
 import EditRounded from '@mui/icons-material/EditRounded'
+import TuneRounded from '@mui/icons-material/TuneRounded'
 import AudioFileRounded from '@mui/icons-material/AudioFileRounded'
 import DownloadRounded from '@mui/icons-material/DownloadRounded'
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded'
@@ -130,11 +131,25 @@ function buildContentBlocks(members: MessageItem[]): MessageContentBlock[] {
   return blocks
 }
 
+const loadedMediaUrls = new Set<string>()
+
 function ImageWithSkeleton({ src, gallery, mediaDisplay, onClick, onDragStart }: any) {
-  const [loaded, setLoaded] = useState(false)
+  const [loaded, setLoaded] = useState(() => Boolean(src && loadedMediaUrls.has(src)))
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    if (src && loadedMediaUrls.has(src)) {
+      setLoaded(true)
+    } else if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+      if (src) loadedMediaUrls.add(src)
+      setLoaded(true)
+    }
+  }, [src])
+
   return <>
     {!loaded && <Skeleton variant="rounded" animation="wave" width="100%" height={gallery ? '100%' : 240} sx={{ position: 'absolute', inset: 0, borderRadius: 0, zIndex: 1 }} />}
     <CardMedia
+      ref={imgRef}
       component="img"
       src={src}
       alt="پیش‌نمایش رسانه پیام"
@@ -143,8 +158,11 @@ function ImageWithSkeleton({ src, gallery, mediaDisplay, onClick, onDragStart }:
       draggable
       onClick={onClick}
       onDragStart={onDragStart}
-      onLoad={() => setLoaded(true)}
-      sx={{ display: 'block', width: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxWidth: '100%', height: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxHeight: gallery || mediaDisplay === 'framed' ? '100%' : 'min(78vh, 1280px)', objectFit: gallery ? 'cover' : 'contain', cursor: 'zoom-in', opacity: loaded ? 1 : 0, transition: 'opacity 0.3s ease' }}
+      onLoad={() => {
+        if (src) loadedMediaUrls.add(src)
+        setLoaded(true)
+      }}
+      sx={{ display: 'block', width: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxWidth: '100%', height: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxHeight: gallery || mediaDisplay === 'framed' ? '100%' : 'min(78vh, 1280px)', objectFit: gallery ? 'cover' : 'contain', cursor: 'zoom-in', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease' }}
     />
   </>
 }
@@ -380,6 +398,16 @@ export function MessageContentCard({
       />
       {dialog.display_kind === 'personal' && <Typography variant="caption" color="text.secondary" sx={{ direction: 'ltr' }}>{members.length > 1 ? `#${firstId}–#${lastId}` : `#${message.id}`}</Typography>}
       <Typography variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>{firstTime === lastTime ? firstTime : `${firstTime}–${lastTime}`}</Typography>
+      <Tooltip title="ثبت یا اصلاح ایندکس محتوا">
+        <IconButton
+          size="small"
+          aria-label="ثبت یا اصلاح ایندکس پیام"
+          onClick={event => { event.stopPropagation(); editIndex() }}
+          sx={{ minHeight: 28, p: 0.5 }}
+        >
+          <TuneRounded fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <Box sx={{ flex: 1 }} />
       {reportUsage?.registered && reportUsage.events.length > 0 && <Chip
         size="small"

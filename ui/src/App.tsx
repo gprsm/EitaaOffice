@@ -377,6 +377,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [tab, setTab] = useState<Tab>(() => readStored<Tab>(STORAGE.tab, 'all'))
   const [dialogSearch, setDialogSearch] = useState('')
   const [messageSearch, setMessageSearch] = useState('')
+  const [databaseSearchResults, setDatabaseSearchResults] = useState<MessageItem[] | null>(null)
+  const [searchingDatabase, setSearchingDatabase] = useState(false)
   const [jalaliFrom, setJalaliFrom] = useState('')
   const [dateMode, setDateMode] = useState<'day' | 'from'>('from')
   const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(null)
@@ -399,8 +401,28 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const fullMediaCacheRef = useRef<Record<string, string | null>>({})
   const mediaRequestsRef = useRef<Set<string>>(new Set())
   const fullMediaRequestsRef = useRef<Set<string>>(new Set())
+  const thumbnailQueueRef = useRef<{ dialog: DialogItem; message: MessageItem; key: string }[]>([])
+  const activeThumbnailLoadsRef = useRef(0)
   useEffect(() => { mediaCacheRef.current = media }, [media])
   useEffect(() => { fullMediaCacheRef.current = fullMedia }, [fullMedia])
+  useEffect(() => {
+    const cancelledKeys = thumbnailQueueRef.current.map(item => item.key)
+    for (const key of cancelledKeys) {
+      mediaRequestsRef.current.delete(key)
+      delete mediaCacheRef.current[key]
+    }
+    if (cancelledKeys.length > 0) {
+      setMedia(current => {
+        const next = { ...current }
+        for (const key of cancelledKeys) {
+          delete next[key]
+        }
+        return next
+      })
+    }
+    thumbnailQueueRef.current = []
+  }, [dialog?.peer_key])
+  const contentIndexScope = siteKey || 'local'
   const [mediaViewer, setMediaViewer] = useState<{ key: string; title: string } | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
   const [chatsOpen, setChatsOpen] = useState(() => window.matchMedia('(max-width: 899px)').matches)
@@ -477,6 +499,22 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     return () => window.removeEventListener('keydown', closeTransientPanels)
   }, [])
   useEffect(() => {
+    const preload = () => {
+      void import('./ReportingWorkbench')
+      void import('./ContactDirectoryModal')
+      void import('./SettingsPage')
+      void import('./MessageFilterDialog')
+      void import('./ContentIndexDialog')
+    }
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const handle = (window as any).requestIdleCallback(preload, { timeout: 3500 })
+      return () => (window as any).cancelIdleCallback(handle)
+    } else {
+      const timer = setTimeout(preload, 2500)
+      return () => clearTimeout(timer)
+    }
+  }, [])
+  useEffect(() => {
     if (sessionWarning) toast.warn(sessionWarning, { toastId: 'session-remote-warning' })
   }, [sessionWarning])
   useEffect(() => { writeStored(STORAGE.tab, tab) }, [tab])
@@ -528,6 +566,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     setContentIndexJob(null)
     setIndexEditor(null)
     setDateJump(null)
+    setMessageSearch('')
+    setDatabaseSearchResults(null)
+    setSearchingDatabase(false)
     setContentFiltersOpen(false)
     setDialog(selected)
     setChatsOpen(false)
@@ -791,22 +832,72 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     return () => { cancelled = true }
   }, [dialogsSupported, liveSyncDialogs, siteKey])
   useEffect(() => {
-    if (!siteKey) {
-      setContentIndexAliases({})
-      setContentIndexNames({})
-      setCustomIndexes([])
-      setIndexKeywordCategoryId(null)
-      setIndexNameDraft('')
-      setIndexKeywordDraft('')
-      return
-    }
-    setContentIndexAliases(readStored<Record<number, string[]>>(`${STORAGE.indexAliases}.${siteKey}`, {}))
-    setContentIndexNames(readStored<Record<number, string>>(`${STORAGE.indexNames}.${siteKey}`, {}))
-    setCustomIndexes(readStored<IndexDefinition[]>(`${STORAGE.customIndexes}.${siteKey}`, []))
+    const localAliases = readStored<Record<number, string[]>>(`${STORAGE.indexAliases}.${contentIndexScope}`, {})
+    const localNames = readStored<Record<number, string>>(`${STORAGE.indexNames}.${contentIndexScope}`, {})
+    const localCustom = readStored<IndexDefinition[]>(`${STORAGE.customIndexes}.${contentIndexScope}`, [])
+    setContentIndexAliases(localAliases)
+    setContentIndexNames(localNames)
+    setCustomIndexes(localCustom)
     setIndexKeywordCategoryId(null)
     setIndexNameDraft('')
     setIndexKeywordDraft('')
-  }, [siteKey])
+
+    const migratedKey = `${STORAGE.customIndexes}.${contentIndexScope}.migrated`
+    const alreadyMigrated = Boolean(readStored(migratedKey, false))
+
+    api<{ ok: boolean; items: Array<{ id: number | string; name: string; aliases: string[]; kind: string; wordpress_category_id: number | null }> }>(
+      'POST',
+      '/api/v1/messages/index/custom/list',
+      { site_key: contentIndexScope }
+    ).then(res => {
+      if (res.items && res.items.length > 0) {
+        writeStored(migratedKey, true)
+        const remoteCustom: IndexDefinition[] = []
+        const remoteNames: Record<number, string> = { ...localNames }
+        const remoteAliases: Record<number, string[]> = { ...localAliases }
+        for (const item of res.items) {
+          const numId = typeof item.id === 'number' ? item.id : parseInt(String(item.id), 10)
+          if (isNaN(numId)) continue
+          if (item.kind === 'custom') {
+            remoteCustom.push({
+              id: numId,
+              name: item.name,
+              aliases: item.aliases || [],
+              kind: 'custom',
+              wordpressCategoryId: item.wordpress_category_id,
+            })
+          }
+          if (item.name) {
+            remoteNames[numId] = item.name
+          }
+          if (item.aliases) {
+            remoteAliases[numId] = item.aliases
+          }
+        }
+        setCustomIndexes(remoteCustom)
+        setContentIndexNames(remoteNames)
+        setContentIndexAliases(remoteAliases)
+        writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, remoteCustom)
+        writeStored(`${STORAGE.indexNames}.${contentIndexScope}`, remoteNames)
+        writeStored(`${STORAGE.indexAliases}.${contentIndexScope}`, remoteAliases)
+      } else if (!alreadyMigrated && localCustom.length > 0) {
+        writeStored(migratedKey, true)
+        for (const item of localCustom) {
+          api('POST', '/api/v1/messages/index/custom/save', {
+            site_key: contentIndexScope,
+            id: item.id,
+            name: item.name,
+            aliases: item.aliases,
+            kind: item.kind,
+            wordpress_category_id: item.wordpressCategoryId,
+          }).catch(() => {})
+        }
+      } else if (alreadyMigrated) {
+        setCustomIndexes([])
+        writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, [])
+      }
+    }).catch(() => {})
+  }, [contentIndexScope])
   const indexDefinitions = useMemo<IndexDefinition[]>(() => {
     const categoryDefinitions = categories.map(item => ({
       id: item.id,
@@ -1090,31 +1181,46 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     if (dialog) setMessages(current => applyUsage(dialog.peer_key, current))
   }, [dialog, rememberDialogMessages])
 
+  const pumpThumbnailQueue = useCallback(() => {
+    while (activeThumbnailLoadsRef.current < 3 && thumbnailQueueRef.current.length > 0) {
+      const task = thumbnailQueueRef.current.shift()
+      if (!task) break
+      const { dialog: taskDialog, message: taskMessage, key } = task
+      activeThumbnailLoadsRef.current += 1
+      const previewRequest = mediaPreviewRequest(taskMessage.media)
+      api<{ media_url?: string; data_url?: string }>('POST', '/api/v1/messages/media-preview', {
+        site_key: siteKey,
+        peer_file: taskDialog.peer_file,
+        message_id: taskMessage.id,
+        ...previewRequest,
+      })
+        .then(response => {
+          const resolved = response.media_url ? mediaUrl(response.media_url) : response.data_url || ''
+          mediaCacheRef.current[key] = resolved
+          setMedia(current => ({ ...current, [key]: resolved }))
+        })
+        .catch(() => {
+          mediaCacheRef.current[key] = ''
+          setMedia(current => ({ ...current, [key]: '' }))
+        })
+        .finally(() => {
+          mediaRequestsRef.current.delete(key)
+          activeThumbnailLoadsRef.current = Math.max(0, activeThumbnailLoadsRef.current - 1)
+          pumpThumbnailQueue()
+        })
+    }
+  }, [siteKey])
+
   const loadMedia = useCallback(async (message: MessageItem) => {
     if (!dialog || !mediaReadSupported) return
     const key = messageKey(dialog, message)
-    if ((key in mediaCacheRef.current && mediaCacheRef.current[key] !== '') || mediaRequestsRef.current.has(key)) return
+    if (typeof mediaCacheRef.current[key] === 'string' || mediaRequestsRef.current.has(key)) return
     mediaRequestsRef.current.add(key)
     mediaCacheRef.current[key] = null
     setMedia(current => ({ ...current, [key]: null }))
-    try {
-      const previewRequest = mediaPreviewRequest(message.media)
-      const response = await api<{ media_url?: string; data_url?: string }>('POST', '/api/v1/messages/media-preview', {
-        site_key: siteKey,
-        peer_file: dialog.peer_file,
-        message_id: message.id,
-        ...previewRequest,
-      })
-      const resolved = response.media_url ? mediaUrl(response.media_url) : response.data_url || ''
-      mediaCacheRef.current[key] = resolved
-      setMedia(current => ({ ...current, [key]: resolved }))
-    } catch {
-      mediaCacheRef.current[key] = ''
-      setMedia(current => ({ ...current, [key]: '' }))
-    } finally {
-      mediaRequestsRef.current.delete(key)
-    }
-  }, [dialog, mediaReadSupported, siteKey])
+    thumbnailQueueRef.current.push({ dialog, message, key })
+    pumpThumbnailQueue()
+  }, [dialog, mediaReadSupported, pumpThumbnailQueue])
 
   const openFullMedia = useCallback(async (message: MessageItem) => {
     if (!dialog || !mediaReadSupported) return
@@ -1150,7 +1256,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         results: ContentIndexResult[]
         labels: Array<{ id: number; name: string }>
       }>('POST', '/api/v1/messages/index/results', {
-        site_key: siteKey,
+        site_key: contentIndexScope,
         peer_file: selected.peer_file,
         limit: 5_000,
       })
@@ -1161,12 +1267,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       setContentIndexResults({})
       setContentIndexLabels([])
     }
-  }, [siteKey])
+  }, [contentIndexScope])
 
   useEffect(() => {
-    if (!dialog || !siteKey) return
+    if (!dialog) return
     void loadContentIndexResults(dialog)
-  }, [dialog?.peer_key, siteKey, loadContentIndexResults]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dialog?.peer_key, contentIndexScope, loadContentIndexResults]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const startContentIndex = useCallback(async () => {
     if (!dialog) return
@@ -1196,7 +1302,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         toast.warning(`به‌دلیل سقف محاسباتی، ${labels.length.toLocaleString('fa-IR')} ایندکس با اولویت دسته‌ها و ایندکس‌های پیشنهادی بررسی می‌شود.`)
       }
       const started = await api<{ job: ContentIndexJob }>('POST', '/api/v1/messages/index/start', {
-        site_key: siteKey,
+        site_key: contentIndexScope,
         peer_file: dialog.peer_file,
         labels,
         max_messages: 5_000,
@@ -1222,10 +1328,10 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'ایندکس‌گذاری محلی ناموفق بود.')
     }
-  }, [categories, dialog, indexDefinitions, loadContentIndexResults, siteKey])
+  }, [categories, contentIndexScope, dialog, indexDefinitions, loadContentIndexResults])
 
   const saveIndexKeywords = useCallback(() => {
-    if (!siteKey || indexKeywordCategoryId === null) return
+    if (indexKeywordCategoryId === null) return
     const name = indexNameDraft.trim()
     if (!name || name.length > 200) {
       toast.error('نام نمایشی ایندکس باید بین ۱ تا ۲۰۰ نویسه باشد.')
@@ -1243,28 +1349,41 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     }
     setContentIndexAliases(current => {
       const next = { ...current, [indexKeywordCategoryId]: aliases }
-      writeStored(`${STORAGE.indexAliases}.${siteKey}`, next)
+      writeStored(`${STORAGE.indexAliases}.${contentIndexScope}`, next)
       return next
     })
     setContentIndexNames(current => {
       const next = { ...current, [indexKeywordCategoryId]: name }
-      writeStored(`${STORAGE.indexNames}.${siteKey}`, next)
+      writeStored(`${STORAGE.indexNames}.${contentIndexScope}`, next)
       return next
     })
+    const targetDef = indexDefinitions.find(item => item.id === indexKeywordCategoryId)
+    const effectiveCategoryId = targetDef?.kind === 'wordpress-category'
+      ? targetDef.id
+      : (targetDef?.wordpressCategoryId ?? customIndexCategoryId)
     setCustomIndexes(current => {
       const next = current.map(item => item.id === indexKeywordCategoryId
-        ? { ...item, name, aliases, wordpressCategoryId: customIndexCategoryId }
+        ? { ...item, name, aliases, wordpressCategoryId: effectiveCategoryId }
         : item)
-      writeStored(`${STORAGE.customIndexes}.${siteKey}`, next)
+      writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, next)
       return next
     })
     setIndexNameDraft(name)
     setIndexKeywordDraft(aliases.join('، '))
-    toast.success('نام محلی، نگاشت و واژه‌های راهنما ذخیره شدند و در اجرای بعدی به‌کار می‌روند.')
-  }, [customIndexCategoryId, indexKeywordCategoryId, indexKeywordDraft, indexNameDraft, siteKey])
+    api('POST', '/api/v1/messages/index/custom/save', {
+      site_key: contentIndexScope,
+      id: indexKeywordCategoryId,
+      name,
+      aliases,
+      kind: targetDef?.kind || 'custom',
+      wordpress_category_id: effectiveCategoryId,
+    }).catch(err => {
+      console.warn('Failed to persist custom index to database', err)
+    })
+    toast.success('نام محلی، نگاشت و واژه‌های راهنما ذخیره شدند و در دیتابیس پایدار ماندند.')
+  }, [contentIndexScope, customIndexCategoryId, indexDefinitions, indexKeywordCategoryId, indexKeywordDraft, indexNameDraft])
 
   const addCustomIndex = useCallback(() => {
-    if (!siteKey) return
     const name = customIndexName.trim()
     if (!name || name.length > 200) {
       toast.error('برای ایندکس پیشنهادی یک نام معتبر وارد کنید.')
@@ -1289,8 +1408,18 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     }
     setCustomIndexes(current => {
       const next = [...current, created]
-      writeStored(`${STORAGE.customIndexes}.${siteKey}`, next)
+      writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, next)
       return next
+    })
+    api('POST', '/api/v1/messages/index/custom/save', {
+      site_key: contentIndexScope,
+      id: created.id,
+      name: created.name,
+      aliases: created.aliases,
+      kind: created.kind,
+      wordpress_category_id: created.wordpressCategoryId,
+    }).catch(err => {
+      console.warn('Failed to persist custom index to database', err)
     })
     setCustomIndexName('')
     setCustomIndexKeywords('')
@@ -1298,22 +1427,39 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     setIndexKeywordCategoryId(null)
     setIndexNameDraft('')
     setIndexKeywordDraft('')
-    toast.success('ایندکس پیشنهادی محلی ساخته شد.')
-  }, [customIndexCategoryId, customIndexKeywords, customIndexName, customIndexes, indexDefinitions, siteKey])
+    toast.success('ایندکس پیشنهادی محلی در دیتابیس ساخته شد.')
+  }, [contentIndexScope, customIndexCategoryId, customIndexKeywords, customIndexName, customIndexes, indexDefinitions])
 
   const deleteCustomIndex = useCallback((id: number) => {
-    if (!siteKey) return
     setCustomIndexes(current => {
       const next = current.filter(item => item.id !== id)
-      writeStored(`${STORAGE.customIndexes}.${siteKey}`, next)
+      writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, next)
       return next
+    })
+    setContentIndexNames(current => {
+      const next = { ...current }
+      delete next[id]
+      writeStored(`${STORAGE.indexNames}.${contentIndexScope}`, next)
+      return next
+    })
+    setContentIndexAliases(current => {
+      const next = { ...current }
+      delete next[id]
+      writeStored(`${STORAGE.indexAliases}.${contentIndexScope}`, next)
+      return next
+    })
+    api('POST', '/api/v1/messages/index/custom/delete', {
+      site_key: contentIndexScope,
+      id,
+    }).catch(err => {
+      console.warn('Failed to delete custom index from database', err)
     })
     setSelectedIndexLabel(current => current === id ? null : current)
     setIndexKeywordCategoryId(null)
     setIndexNameDraft('')
     setIndexKeywordDraft('')
     toast.info('ایندکس پیشنهادی حذف شد؛ دسته یا کلمهٔ کلیدی وردپرس حذف نشده است.')
-  }, [siteKey])
+  }, [contentIndexScope])
 
   const cancelContentIndex = useCallback(async () => {
     if (!contentIndexJob || !['queued', 'running'].includes(contentIndexJob.state)) return
@@ -1334,14 +1480,62 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }), [dialogs, tab, dialogSearch])
   const visibleDialogs = useMemo(() => filteredDialogs.slice(0, 500), [filteredDialogs])
 
+  useEffect(() => {
+    const q = messageSearch.trim()
+    if (!q || !dialog || !siteKey || !historySupported) {
+      setDatabaseSearchResults(null)
+      setSearchingDatabase(false)
+      return
+    }
+    setDatabaseSearchResults(null)
+    let cancelled = false
+    setSearchingDatabase(true)
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api<{ messages: MessageItem[]; message_count: number }>(
+          'POST',
+          '/api/v1/messages/search',
+          {
+            site_key: siteKey,
+            peer_file: dialog.peer_file,
+            query: q,
+            limit: 500,
+          }
+        )
+        if (!cancelled) {
+          const chronological = [...response.messages].sort((left, right) => (
+            new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
+          ))
+          setDatabaseSearchResults(chronological)
+        }
+      } catch {
+        if (!cancelled) {
+          setDatabaseSearchResults(null)
+        }
+      } finally {
+        if (!cancelled) setSearchingDatabase(false)
+      }
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [messageSearch, dialog?.peer_file, siteKey, historySupported])
+
+  const activeMessagePool = useMemo(() => {
+    if (databaseSearchResults !== null) return databaseSearchResults
+    return messages
+  }, [databaseSearchResults, messages])
+
   const hasContentIndex = contentIndexLabels.length > 0 || Object.keys(contentIndexResults).length > 0
-  const indexedMessages = useMemo(() => messages.map(item => ({
+  const indexedMessages = useMemo(() => activeMessagePool.map(item => ({
     ...item,
     index_predictions: [
       ...(contentIndexResults[item.id]?.predictions || []),
       ...(hasContentIndex ? temporalIndexPredictions(item.date) : []),
     ],
-  })), [contentIndexResults, hasContentIndex, messages])
+  })), [contentIndexResults, hasContentIndex, activeMessagePool])
 
   const messageGroupLookup = useMemo(() => buildMessageGroupLookup(indexedMessages, {
     fallbackIncomingSenderKey: dialog && dialog.display_kind !== 'group' ? dialog.peer_key : null,
@@ -1361,19 +1555,27 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       if (selectedSenderKey !== null && !members.some(member => member.sender_key === selectedSenderKey)) return false
       if (
         q
+        && databaseSearchResults === null
         && !members.some(member => member.text.toLowerCase().includes(q) || String(member.id).includes(q))
       ) return false
       return true
     })
-  }, [indexedMessages, messageGroupLookup, messageSearch, selectedIndexLabel, selectedSenderKey, showWordPressUsed])
+  }, [indexedMessages, messageGroupLookup, messageSearch, selectedIndexLabel, selectedSenderKey, showWordPressUsed, databaseSearchResults])
 
   const indexFilterLabels = useMemo(() => {
     const labels = new Map<number, string>()
+    for (const def of indexDefinitions) {
+      labels.set(def.id, def.name)
+    }
     for (const message of indexedMessages) {
-      for (const prediction of message.index_predictions || []) labels.set(prediction.label_id, prediction.label_name)
+      for (const prediction of message.index_predictions || []) {
+        if (!labels.has(prediction.label_id)) {
+          labels.set(prediction.label_id, prediction.label_name)
+        }
+      }
     }
     return [...labels].map(([id, name]) => ({ id, name })).sort((left, right) => left.name.localeCompare(right.name, 'fa'))
-  }, [indexedMessages])
+  }, [indexDefinitions, indexedMessages])
   const senderFilterOptions = useMemo<SenderFilterOption[]>(() => {
     const options = new Map<string, SenderFilterOption>()
     const resolutionRank: Record<SenderFilterOption['resolution'], number> = {
@@ -1515,7 +1717,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     setSavingIndexEditor(true)
     try {
       await Promise.all(changes.map(({ messageId, definition }) => api('POST', '/api/v1/messages/index/feedback', {
-        site_key: siteKey,
+        site_key: contentIndexScope,
         peer_file: dialog.peer_file,
         message_id: messageId,
         label_id: definition.id,
@@ -1531,7 +1733,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     } finally {
       setSavingIndexEditor(false)
     }
-  }, [contentIndexResults, dialog, indexDefinitions, indexEditor, loadContentIndexResults, siteKey, startContentIndex])
+  }, [contentIndexResults, contentIndexScope, dialog, indexDefinitions, indexEditor, loadContentIndexResults, startContentIndex])
 
   const dialogCounts = useMemo(() => ({
     all: dialogs.length,
@@ -1656,7 +1858,15 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         {messengerAccounts.featureEnabled && !messengerAccounts.capabilityLoading && !dialogsSupported && <Alert severity="info" sx={{ borderRadius: 0 }}>خواندن گفتگوها برای حساب انتخاب‌شده پشتیبانی نمی‌شود.</Alert>}
         <ChatHeader
           title={titleFor(dialog)}
-          subtitle={dialog ? `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده` : 'گفتگویی انتخاب نشده'}
+          subtitle={
+            dialog
+              ? searchingDatabase
+                ? 'در حال جست‌وجو در پایگاه داده محلی…'
+                : databaseSearchResults !== null
+                  ? `${databaseSearchResults.length.toLocaleString('fa-IR')} پیام یافت‌شده در تاریخچه دیتابیس`
+                  : `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده`
+              : 'گفتگویی انتخاب نشده'
+          }
           avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small priority="active" />}
           selectionCount={selectionMode ? selectedKeys.length : 0}
           liveState={dialog && historySupported ? liveMessageState : 'idle'}
@@ -1665,7 +1875,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           filtersActive={contentFiltersOpen || !showWordPressUsed || selectedIndexLabel !== null || selectedSenderKey !== null}
           filterEnabled={Boolean(dialog && dialog.display_kind !== 'personal')}
           indexActive={indexDialogOpen}
-          indexEnabled={Boolean(dialog && (dialog.display_kind === "channel" || dialog.display_kind === "group") && tab === "favorite")}
+          indexEnabled={Boolean(dialog && (dialog.display_kind === 'channel' || dialog.display_kind === 'group' || dialog.favorite))}
           onToggleIndex={() => setIndexDialogOpen(v => !v)}
           datePicker={<JalaliDatePicker
             value={jalaliFrom}
@@ -1687,7 +1897,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           onSearch={setMessageSearch}
           onOpenComposer={() => { setCommunityOpen(!wordpressPanelAvailable); setComposerOpen(true) }}
         />
-        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} readReceiptsEnabled={!dateRange && !messageSearch.trim() && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={messageIds => setRegistrationPanel({ open: true, messageIds })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} paginationEnabled={databaseSearchResults === null && !dateRange} readReceiptsEnabled={!dateRange && !messageSearch.trim() && databaseSearchResults === null && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={messageIds => setRegistrationPanel({ open: true, messageIds })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
@@ -1779,7 +1989,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       setSelectedIndexLabel={setSelectedIndexLabel}
       selectedSenderKey={selectedSenderKey}
       setSelectedSenderKey={setSelectedSenderKey}
-      indexFilterLabels={indexDefinitions.map(def => ({ id: def.id, name: def.name }))}
+      indexFilterLabels={indexFilterLabels}
       senderFilterOptions={senderFilterOptions}
       senderResolutionState={senderResolutionState}
       unresolvedSenderCount={unresolvedSenderCount}
@@ -1830,7 +2040,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   </Box>
 }
 
-function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void; reportUsageByMessage: Record<string, ReportingWitnessStatus>; openReportEvent: (eventId: string) => void; openRegistration: (messageIds: number[]) => void }) {
+function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; paginationEnabled?: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void; reportUsageByMessage: Record<string, ReportingWitnessStatus>; openReportEvent: (eventId: string) => void; openRegistration: (messageIds: number[]) => void }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastScroll = useRef(0)
   const nearBottomRef = useRef(true)
@@ -1952,20 +2162,24 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
         setFloatingDate(previous => previous === nextDate ? previous : nextDate)
       }
       nearBottomRef.current = isNearBottom(element.scrollHeight, current, element.clientHeight)
-      if (!programmaticScroll.current && props.readReceiptsEnabled) {
-        const gateUpdate = updateTopPaginationGate(current, lastScroll.current, topPagination.current)
-        topPagination.current = gateUpdate.gate
-        if (gateUpdate.shouldRequest) {
-          const anchorRow = firstVisible
-          const anchorMessage = anchorRow ? props.messages[anchorRow.index] : undefined
-          prependAnchor.current = anchorRow && anchorMessage ? { key: messageKey(props.dialog, anchorMessage), viewportOffset: anchorRow.start - current } : null
-          topPagination.current = { ...topPagination.current, inFlight: true }
-          void props.loadOlder()
-            .then(added => { if (added <= 0) prependAnchor.current = null })
-            .finally(() => { topPagination.current = { ...topPagination.current, inFlight: false } })
+      if (!programmaticScroll.current) {
+        if (props.paginationEnabled ?? true) {
+          const gateUpdate = updateTopPaginationGate(current, lastScroll.current, topPagination.current)
+          topPagination.current = gateUpdate.gate
+          if (gateUpdate.shouldRequest) {
+            const anchorRow = firstVisible
+            const anchorMessage = anchorRow ? props.messages[anchorRow.index] : undefined
+            prependAnchor.current = anchorRow && anchorMessage ? { key: messageKey(props.dialog, anchorMessage), viewportOffset: anchorRow.start - current } : null
+            topPagination.current = { ...topPagination.current, inFlight: true }
+            void props.loadOlder()
+              .then(added => { if (added <= 0) prependAnchor.current = null })
+              .finally(() => { topPagination.current = { ...topPagination.current, inFlight: false } })
+          }
+          if (nearBottomRef.current && scrollingDown) void props.loadNewer()
         }
-        if (nearBottomRef.current && scrollingDown) void props.loadNewer()
-        scheduleVisibleRead(current, scrollingDown)
+        if (props.readReceiptsEnabled) {
+          scheduleVisibleRead(current, scrollingDown)
+        }
       }
       lastScroll.current = current
       persistScrollMemory()
@@ -1984,7 +2198,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
       element.removeEventListener('scroll', onScroll)
       if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)
     }
-  }, [persistScrollMemory, props.dialog, props.loadNewer, props.loadOlder, props.messages, props.readReceiptsEnabled, scheduleVisibleRead, virtualizer])
+  }, [persistScrollMemory, props.dialog, props.loadNewer, props.loadOlder, props.messages, props.paginationEnabled, props.readReceiptsEnabled, scheduleVisibleRead, virtualizer])
 
   useLayoutEffect(() => {
     const anchor = prependAnchor.current

@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 406
-- اثرانگشت منبع: `47dc7c68665fabc5`
+- اثرانگشت منبع: `67b55dbda032057d`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -109,7 +109,7 @@
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 49 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 23 | AI Agent Chat Gateway (chat-only surface). |
-| `src/eitaa_bridge/application/api.py` | Application | 304 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 309 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
@@ -130,7 +130,7 @@
 | `src/eitaa_bridge/application/bale_provider_adapter.py` | Application | 18 | Bale personal provider adapter (owner-authorized path, F-086/ADR-60). |
 | `src/eitaa_bridge/application/bale_provider_worker.py` | Application | 8 | Dedicated worker process / adapter for one Bale MessengerAccount runtime. |
 | `src/eitaa_bridge/application/contact_import.py` | Application | 4 | Dependency-free CSV/TXT/XLSX contact import parsing and explicit column mapping. |
-| `src/eitaa_bridge/application/content_index.py` | Application | 16 | Explainable, dependency-free Persian multi-label content indexing. |
+| `src/eitaa_bridge/application/content_index.py` | Application | 25 | Explainable, dependency-free Persian multi-label content indexing. |
 | `src/eitaa_bridge/application/content_index_service.py` | Application | 7 | Local-only indexing orchestration over public Core message services. |
 | `src/eitaa_bridge/application/doctor.py` | Application | 5 | — |
 | `src/eitaa_bridge/application/eitaa_auth_child_operations.py` | Application | 15 | Eitaa account authentication lifecycle executed inside one Child process. |
@@ -158,7 +158,7 @@
 | `src/eitaa_bridge/domain/publication.py` | Domain | 4 | — |
 | `src/eitaa_bridge/domain/wordpress.py` | Domain | 13 | — |
 | `src/eitaa_bridge/errors.py` | Project | 41 | Typed, safe exception hierarchy for Eitaa Bridge. |
-| `src/eitaa_bridge/facade.py` | Project | 40 | — |
+| `src/eitaa_bridge/facade.py` | Project | 41 | — |
 | `src/eitaa_bridge/infrastructure/__init__.py` | Infrastructure | 0 | — |
 | `src/eitaa_bridge/infrastructure/composition_manifest.py` | Infrastructure | 4 | — |
 | `src/eitaa_bridge/infrastructure/composition_store.py` | Infrastructure | 10 | — |
@@ -168,7 +168,7 @@
 | `src/eitaa_bridge/infrastructure/config/loader.py` | Infrastructure | 28 | — |
 | `src/eitaa_bridge/infrastructure/config/site_settings.py` | Infrastructure | 12 | Safe local editing of WordPress site configuration and credentials. |
 | `src/eitaa_bridge/infrastructure/contact_store.py` | Infrastructure | 31 | Bridge-owned local contact directory with conservative deduplication. |
-| `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 22 | Bridge-owned SQLite storage for local index suggestions and feedback. |
+| `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 26 | Bridge-owned SQLite storage for local index suggestions and feedback. |
 | `src/eitaa_bridge/infrastructure/coordinator/__init__.py` | Infrastructure | 0 | Coordinator persistence and safe legacy-migration primitives. |
 | `src/eitaa_bridge/infrastructure/coordinator/app_auth.py` | Infrastructure | 69 | Local AppUser credentials, sessions, throttling, roles, and safe audit. |
 | `src/eitaa_bridge/infrastructure/coordinator/audit.py` | Infrastructure | 21 | Authorized, tamper-evident Coordinator audit query and JSONL export. |
@@ -255,7 +255,7 @@
 | `tests/test_agent_gateway.py` | Python test | 18 | — |
 | `tests/test_app_user_api.py` | Python test | 9 | — |
 | `tests/test_app_user_auth.py` | Python test | 25 | — |
-| `tests/test_application_api.py` | Python test | 42 | — |
+| `tests/test_application_api.py` | Python test | 47 | — |
 | `tests/test_auth_child_ipc_summary.py` | Python test | 1 | Authentication results must remain valid across the Child IPC boundary. |
 | `tests/test_auth_child_rpc_regression.py` | Python test | 9 | E2E regression: v1 auth routes must work over the process Child RPC. |
 | `tests/test_bale_bot_adapter.py` | Python test | 13 | Offline tests for the Bale Bot scaffold adapter and its fail-closed status. |
@@ -269,7 +269,7 @@
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
 | `tests/test_contact_sources_handoff.py` | Python test | 3 | — |
-| `tests/test_content_index.py` | Python test | 13 | — |
+| `tests/test_content_index.py` | Python test | 21 | — |
 | `tests/test_coordinator_migration.py` | Python test | 9 | — |
 | `tests/test_coordinator_schema.py` | Python test | 13 | — |
 | `tests/test_core_binding.py` | Python test | 4 | — |
@@ -369,7 +369,7 @@
 | `ui/scripts/run-reporting-ui-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 69 | — |
+| `ui/src/App.tsx` | React UI | 70 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 3 | — |

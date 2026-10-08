@@ -82,10 +82,10 @@ type Props = {
 }
 
 const kindLabel = (kind: MaterialIndexDefinition['kind']) => kind === 'wordpress-category'
-  ? 'دسته وردپرس'
+  ? 'دسته سایت'
   : kind === 'wordpress-tag'
-    ? 'برچسب وردپرس'
-    : 'ایندکس سفارشی'
+    ? 'برچسب سایت'
+    : 'ایندکس محلی'
 
 
 
@@ -104,8 +104,8 @@ export function ContentIndexDialog(props: Props) {
     <DialogTitle id="content-index-title" sx={{ pb: 1 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
         <Box minWidth={0}>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>ایندکس‌گذاری محتوا<Tooltip title="دسته‌های وردپرس مبنای اصلی‌اند؛ برچسب‌های وردپرس و ایندکس‌های سفارشی نیز می‌توانند هم‌زمان به هر پیام یا گالری افزوده شوند. سال و ماه شمسی نیز خودکار ثبت می‌شوند."><IconButton size="small"><InfoOutlinedIcon fontSize="small" /></IconButton></Tooltip></Typography>
-          <Typography variant="body2" color="text.secondary">پردازش متن کاملاً محلی است و نتیجه‌ها پیش از استفاده در وردپرس قابل اصلاح‌اند.</Typography>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>ایندکس‌گذاری محتوا<Tooltip title="ایندکس‌ها بر اساس الگوهای استنتاجی و یادگیری عمیق سبک در دیتابیس محلی ذخیره و تحلیل می‌شوند. سال و ماه شمسی نیز خودکار ثبت می‌شوند."><IconButton size="small"><InfoOutlinedIcon fontSize="small" /></IconButton></Tooltip></Typography>
+          <Typography variant="body2" color="text.secondary">پردازش متن کاملاً مستقل، محلی و مبتنی بر یادگیری و استنتاج است.</Typography>
         </Box>
         <IconButton aria-label="بستن" onClick={props.close}><CloseRounded /></IconButton>
       </Stack>
@@ -142,14 +142,14 @@ export function ContentIndexDialog(props: Props) {
             <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, height: '100%' }}>
               <Stack spacing={1.5}>
                 <Box>
-                  <Typography fontWeight={900}>ایندکس سفارشی جدید</Typography>
-                  <Typography variant="body2" color="text.secondary">برای موضوعی که در وردپرس وجود ندارد، یک ایندکس محلی بسازید و در صورت نیاز آن را به یک دسته سایت وصل کنید.</Typography>
+                  <Typography fontWeight={900}>ایندکس محلی جدید</Typography>
+                  <Typography variant="body2" color="text.secondary">برای هر عنوان یا سرفصل موضوعی، یک ایندکس مستقل همراه با کلمات کلیدی و نشانه‌های استنتاج بسازید.</Typography>
                 </Box>
                 <TextField label="نام ایندکس" value={props.customIndexName} onChange={event => props.setCustomIndexName(event.target.value)} placeholder="مثلاً غبارروبی مزار شهدا" />
                 <TextField label="واژه‌ها و عبارت‌های راهنمای اختیاری" value={props.customIndexKeywords} onChange={event => props.setCustomIndexKeywords(event.target.value)} multiline minRows={2} placeholder="عطرافشانی، گلزار شهدا، ادای احترام" helperText="هر واژه یا عبارت را با «،» جدا کنید." />
                 <FormControl>
-                  <InputLabel>نگاشت به دسته وردپرس</InputLabel>
-                  <Select<string> label="نگاشت به دسته وردپرس" value={props.customIndexCategoryId == null ? '' : String(props.customIndexCategoryId)} onChange={event => props.setCustomIndexCategoryId(event.target.value ? Number(event.target.value) : null)}>
+                  <InputLabel>اتصال اختیاری به وردپرس</InputLabel>
+                  <Select<string> label="اتصال اختیاری به وردپرس" value={props.customIndexCategoryId == null ? '' : String(props.customIndexCategoryId)} onChange={event => props.setCustomIndexCategoryId(event.target.value ? Number(event.target.value) : null)}>
                     <MenuItem value="">بدون نگاشت</MenuItem>
                     {props.categories.map(item => <MenuItem key={item.id} value={String(item.id)}>{item.name}</MenuItem>)}
                   </Select>
@@ -157,7 +157,7 @@ export function ContentIndexDialog(props: Props) {
                 <Button variant="outlined" startIcon={<AddRounded />} onClick={props.addCustomIndex} disabled={!props.customIndexName.trim()}>افزودن ایندکس</Button>
                 <Divider />
                 <Box>
-                  <Typography fontWeight={900} gutterBottom>ایندکس‌های سفارشی من</Typography>
+                  <Typography fontWeight={900} gutterBottom>ایندکس‌های موضوعی من</Typography>
                   <Stack spacing={1} sx={{ maxHeight: 260, overflow: 'auto' }}>
                     {props.definitions.filter(item => item.kind === 'custom').length ? props.definitions.filter(item => item.kind === 'custom').map(item => <Paper key={item.id} variant="outlined" sx={{ p: 1.25 }}>
                       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={1}>

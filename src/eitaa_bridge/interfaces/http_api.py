@@ -659,6 +659,18 @@ class _ApiHandler(BaseHTTPRequestHandler):
         if authorization.status >= 400:
             self._write_json(authorization)
             return
+
+        client_etag = self._single_header("If-None-Match")
+        if client_etag and client_etag.strip('"') == token:
+            self.send_response(HTTPStatus.NOT_MODIFIED)
+            self.send_header("ETag", f'"{token}"')
+            self._send_security_headers(
+                cache_control="private, max-age=2592000, immutable",
+                content_security_policy=_API_CONTENT_SECURITY_POLICY,
+            )
+            self.end_headers()
+            return
+
         resolved = self.api.resolve_media_cache_file(
             token,
             messenger_account_id=authorization.payload.get("messenger_account_id"),
@@ -683,8 +695,9 @@ class _ApiHandler(BaseHTTPRequestHandler):
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", mime_type)
                 self.send_header("Content-Length", str(total))
+                self.send_header("ETag", f'"{token}"')
                 self._send_security_headers(
-                    cache_control="no-store, max-age=0",
+                    cache_control="private, max-age=2592000, immutable",
                     content_security_policy=_API_CONTENT_SECURITY_POLICY,
                 )
                 self.end_headers()
@@ -717,8 +730,9 @@ class _ApiHandler(BaseHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", mime_type)
             self.send_header("Content-Length", str(size))
+            self.send_header("ETag", f'"{token}"')
             self._send_security_headers(
-                cache_control="no-store, max-age=0",
+                cache_control="private, max-age=2592000, immutable",
                 content_security_policy=_API_CONTENT_SECURITY_POLICY,
             )
             self.end_headers()
