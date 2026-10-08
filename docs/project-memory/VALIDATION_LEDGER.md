@@ -2727,6 +2727,26 @@
 - نتیجه: استقلال کامل ایندکس‌گذاری محتوا، فعال‌سازی پایدار موتور استنتاج عمیق، و کش بی‌نقص تامب‌نیل‌ها با موفقیت پیاده‌سازی و اعتبارسنجی شدند.
 - Trigger تکرار: تغییر در ساختار قوانین استنتاج یا تغییر در قرارداد اندپوینت‌های کش رسانه.
 
+### V-259 — اعتبارسنجی ممیزی تکمیلی فرع بر ادعا: رفع توقف جاب ایندکس محلی، اعمال قوانین استنتاج، پوشش چنددایرکتوری کش تصاویر و پایداری فرانت‌اند
+
+- تاریخ: 2026-10-08
+- دامنه: `src/eitaa_bridge/facade.py`, `src/eitaa_bridge/application/api.py`, `src/eitaa_bridge/application/content_index_service.py`, `src/eitaa_bridge/application/eitaa_provider_runtime_operations.py`, `ui/src/App.tsx`, `ui/src/utils/helpers.tsx`, `tests/test_content_index.py`, `tests/test_application_api.py`.
+- سطح: UNIT + INTEGRATION + REGRESSION + UI_TYPECHECK + UI_OBSERVABILITY.
+- روش و نتایج:
+  1. آزمون‌های خودکار بک‌اند:
+     - اضافه شدن ۲ تست جدید در `tests/test_content_index.py`: `test_local_content_index_service_derives_rules_from_aliases` (تأیید استخراج خودکار ۲ قاعده استنتاج از الیاس‌ها، ارزیابی برچسب‌ها و اتمام موفق جاب) و `test_api_content_index_start_local_accepts_rules` (تأیید شروع جاب ایندکس محلی در اسکوپ `local` با قوانین سفارشی با کد وضعیت ۲۰۲).
+     - اجرای آزمون‌های کامل: ۲۰ تست در `tests/test_content_index.py` و ۴۳ تست در `tests/test_application_api.py` (مجموعاً ۶۳ تست متمرکز) با موفقیت ۱۰۰٪ سبز پاس شدند.
+     - تأیید رفتار مسیر سریع رسانه در هر دو تست `test_api_media_preview_fast_path_cache_hit` و `test_api_media_preview_fast_path_size_exceeded` بدون هیچ فراخوانی به هسته ایتا یا دیسک اضافی.
+  2. بررسی‌های کیفیت فرانت‌اند:
+     - اجرای `npm.cmd --prefix ui run check` (بررسی tsc) بدون خطا با کد خروجی ۰.
+     - اجرای `npm.cmd --prefix ui run test:observability` کاملاً سبز با موفقیت.
+  3. اعتبارسنجی یکپارچگی حافظه و اسناد پروژه:
+     - اجرای `check_project_memory_integrity.py` با کد خروجی ۰ (PASS: documentation UTF-8, control characters, IDs and command rows are clean).
+     - اجرای `refresh_project_docs.py` و اعتبارسنجی صحت لینک‌ها با کد خروجی ۰.
+- نتیجه: کلیه مواردی که در ممیزی موشکافانه کشف شدند، به طور ریشه‌ای اصلاح و با آزمون‌های دقیق به صورت سبز اعتبارسنجی شدند.
+- Trigger تکرار: تغییر در لود پیام‌های گفتگو یا قوانین استنتاج.
+
+
 
 
 

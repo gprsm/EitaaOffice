@@ -395,7 +395,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [activeUsage, setActiveUsage] = useState<{ message: MessageItem; usage: MessageUsage } | null>(null)
   const [categories, setCategories] = useState<Term[]>([])
   const [tags, setTags] = useState<Term[]>([])
-  const [media, setMedia] = useState<Record<string, string | null>>({})
+  const [media, setMedia] = useState<Record<string, string | null>>(() => readStored<Record<string, string | null>>(STORAGE.mediaCache, {}))
   const [fullMedia, setFullMedia] = useState<Record<string, string | null>>({})
   const mediaCacheRef = useRef<Record<string, string | null>>({})
   const fullMediaCacheRef = useRef<Record<string, string | null>>({})
@@ -933,7 +933,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     setIndexNameDraft(selectedDefinition?.name || '')
     setIndexKeywordDraft((selectedDefinition?.aliases || []).join('، '))
   }, [indexDefinitions, indexKeywordCategoryId])
-  useEffect(() => { if (dialog && siteKey) void loadDialogMessages(dialog) }, [dialog?.peer_key]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (dialog) void loadDialogMessages(dialog) }, [dialog?.peer_key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadOlder = useCallback(async () => {
     if (!dialog || loadingMessages || !messages.length) return 0
@@ -1197,7 +1197,20 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         .then(response => {
           const resolved = response.media_url ? mediaUrl(response.media_url) : response.data_url || ''
           mediaCacheRef.current[key] = resolved
-          setMedia(current => ({ ...current, [key]: resolved }))
+          setMedia(current => {
+            const next = { ...current, [key]: resolved }
+            try {
+              const stored = readStored<Record<string, string | null>>(STORAGE.mediaCache, {})
+              stored[key] = resolved
+              const entries = Object.entries(stored)
+              if (entries.length > 500) {
+                writeStored(STORAGE.mediaCache, Object.fromEntries(entries.slice(entries.length - 500)))
+              } else {
+                writeStored(STORAGE.mediaCache, stored)
+              }
+            } catch { /* best effort */ }
+            return next
+          })
         })
         .catch(() => {
           mediaCacheRef.current[key] = ''
@@ -1287,10 +1300,11 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         ...indexDefinitions.filter(item => item.kind === 'custom'),
         ...indexDefinitions.filter(item => item.kind === 'wordpress-tag'),
       ]
-      const labels = prioritized.slice(0, 200).map(item => ({
+      const hasWpCategories = indexDefinitions.some(item => item.kind === 'wordpress-category')
+      const labels = prioritized.slice(0, 200).map((item, index) => ({
         id: item.id,
         name: item.name,
-        is_primary: item.kind === 'wordpress-category',
+        is_primary: item.kind === 'wordpress-category' || (!hasWpCategories && index === 0),
         aliases: [...new Set([
           ...(item.kind === 'wordpress-category' && byId.get(item.id)?.parent_id && byId.get(byId.get(item.id)!.parent_id!)
             ? [byId.get(byId.get(item.id)!.parent_id!)!.name]

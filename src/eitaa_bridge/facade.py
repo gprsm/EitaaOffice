@@ -15,7 +15,7 @@ from .application.workflows import (
     PublishStoredMessageToWordPress,
     UploadWordPressMedia,
 )
-from .config import BridgeConfig, CoreDependencyConfig
+from .config import BridgeConfig, CoreDependencyConfig, WordPressSiteConfig
 from .errors import CompositionValidationError
 from .domain import (
     DoctorReport,
@@ -82,7 +82,15 @@ class EitaaBridge:
         EnvLoader.load(config.env_file)
         diagnostics = diagnostics or BridgeDiagnosticManager(config.diagnostics.root, enabled=config.diagnostics.enabled)
         selected_scope = data_scope or ProviderAccountScope.legacy()
-        site = config.site(site_key)
+        try:
+            site = config.site(site_key)
+        except Exception:
+            # Core/Eitaa operations must remain usable before WordPress is configured.
+            site = (
+                config.wordpress_sites[0]
+                if config.wordpress_sites
+                else WordPressSiteConfig(site_key=site_key or "local", url="http://127.0.0.1")
+            )
         # Core/Eitaa operations must remain usable before WordPress is configured.
         # Authenticated WordPress calls validate these credentials lazily in the
         # client, immediately before any network request is made.

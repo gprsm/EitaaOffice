@@ -65,6 +65,7 @@ export const STORAGE = {
   customIndexes: 'eitaa-bridge.ui.custom-indexes',
   mediaDisplay: 'eitaa-bridge.ui.media-display',
   showWordPressPanel: 'eitaa-bridge.ui.show-wordpress-panel',
+  mediaCache: 'eitaa-bridge.ui.media-cache',
 }
 
 export function readStored<T>(key: string, fallback: T): T {

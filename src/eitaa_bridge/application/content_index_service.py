@@ -14,6 +14,7 @@ from ..infrastructure.eitaa.sender_directory import current_sender_directory
 from .content_index import (
     DEFAULT_SCORE_THRESHOLD,
     IndexLabel,
+    InferenceRule,
     LightweightContentClassifier,
     PersianNormalizer,
     TrainingDocument,
@@ -139,6 +140,7 @@ class LocalContentIndexService:
         site_key: str,
         peer: Peer,
         labels: Sequence[IndexLabel],
+        rules: Sequence[InferenceRule] = (),
         cancel_event: threading.Event,
         progress: ProgressCallback,
         max_messages: int = 20_000,
@@ -148,8 +150,24 @@ class LocalContentIndexService:
             raise ValueError("max_messages must be between 1 and 50000.")
         self.store.initialize()
         documents = self.training_documents(bridge, site_key=site_key, labels=labels)
+        derived_rules: list[InferenceRule] = []
+        for label in labels:
+            for i, alias in enumerate(label.aliases):
+                alias_clean = alias.strip()
+                if alias_clean:
+                    derived_rules.append(
+                        InferenceRule(
+                            rule_id=f"rule_alias_{label.id}_{i}",
+                            label_id=label.id,
+                            name=f"الگوی {alias_clean}",
+                            patterns=(alias_clean,),
+                            confidence_boost=0.25,
+                            evidence_tag=f"الگو: {alias_clean}",
+                        )
+                    )
+        all_rules = [*rules, *derived_rules]
         classifier = LightweightContentClassifier(
-            labels, score_threshold=score_threshold
+            labels, rules=all_rules, score_threshold=score_threshold
         ).fit(documents)
         available = int(bridge.core.messages.count(peer))
         target = min(available, max_messages)
@@ -161,6 +179,7 @@ class LocalContentIndexService:
             "indexed_messages": 0,
             "prediction_count": 0,
             "training_documents": len(documents),
+            "rules_count": len(all_rules),
             "cold_start": classifier.seed_only,
             "truncated": available > max_messages,
             "model_version": classifier.model_version,

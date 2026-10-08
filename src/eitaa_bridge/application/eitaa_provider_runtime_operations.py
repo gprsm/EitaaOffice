@@ -471,23 +471,41 @@ class EitaaProviderRuntimeOperations:
     def _cached_media_file(directory: Path, prefix: str) -> Path | None:
         if not directory.exists():
             return None
+        glob_pattern = f"{prefix}*" if prefix.endswith("_") else f"{prefix}.*"
         candidates = [
             item
-            for item in directory.glob(f"{prefix}.*")
-            if item.is_file() and not item.name.endswith(".partial")
+            for item in directory.glob(glob_pattern)
+            if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
         ]
+        if not candidates and not prefix.endswith("_"):
+            candidates = [
+                item
+                for item in directory.glob(f"{prefix}*")
+                if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
+            ]
         return max(candidates, key=lambda item: item.stat().st_mtime, default=None)
 
     def _register_media_file(self, path: Path, mime_type: str) -> str:
         resolved = path.expanduser().resolve()
         media_root = self.runtime.ownership.core.media_directory.resolve()
+        config_media_root = self.config.core.media_directory.resolve()
+        in_boundary = False
         try:
             resolved.relative_to(media_root)
-        except ValueError as exc:
+            in_boundary = True
+        except ValueError:
+            pass
+        if not in_boundary:
+            try:
+                resolved.relative_to(config_media_root)
+                in_boundary = True
+            except ValueError:
+                pass
+        if not in_boundary:
             raise CompositionValidationError(
                 "The provider media is outside the selected account.",
                 code="api_media_cache_account_boundary",
-            ) from exc
+            )
         reference = uuid.uuid4().hex
         with self.runtime.media_cache_lock:
             self.runtime.media_cache_files[reference] = (
@@ -578,6 +596,12 @@ class EitaaProviderRuntimeOperations:
                 remote_id = int(getattr(media, "remote_id", 0) or 0)
                 prefix = f"{peer.type.value}_{peer.id}_{message_id}_{remote_id}"
                 cache_path = self._cached_media_file(cache_directory, prefix)
+                if cache_path is None:
+                    fallback_prefix = f"{peer.type.value}_{peer.id}_{message_id}_"
+                    cache_path = self._cached_media_file(cache_directory, fallback_prefix)
+                if cache_path is None and bridge.config.core.media_directory != self.runtime.ownership.core.media_directory:
+                    alt_dir = self.runtime.ownership.core.media_directory / "ui-cache" / selected_variant
+                    cache_path = self._cached_media_file(alt_dir, prefix) or self._cached_media_file(alt_dir, fallback_prefix)
                 if cache_path is None:
                     result = bridge.core.media.download(
                         media,

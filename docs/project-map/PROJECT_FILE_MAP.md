@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 406
-- اثرانگشت منبع: `67b55dbda032057d`
+- اثرانگشت منبع: `7864a7a08e65160a`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -109,7 +109,7 @@
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 49 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 23 | AI Agent Chat Gateway (chat-only surface). |
-| `src/eitaa_bridge/application/api.py` | Application | 309 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 310 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 50 | Stable Python API facade for the Bale personal client. |
 | `src/eitaa_bridge/application/bale_client/api_server.py` | Application | 42 | Loopback JSON/HTTP server exposing the BaleApi facade. |
@@ -269,7 +269,7 @@
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
 | `tests/test_contact_sources_handoff.py` | Python test | 3 | — |
-| `tests/test_content_index.py` | Python test | 21 | — |
+| `tests/test_content_index.py` | Python test | 23 | — |
 | `tests/test_coordinator_migration.py` | Python test | 9 | — |
 | `tests/test_coordinator_schema.py` | Python test | 13 | — |
 | `tests/test_core_binding.py` | Python test | 4 | — |

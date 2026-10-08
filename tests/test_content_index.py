@@ -742,3 +742,80 @@ def test_media_cache_deterministic_tokens(config_file, tmp_path):
     assert resolved[0] == test_file.resolve()
     api.close()
 
+
+def test_local_content_index_service_derives_rules_from_aliases(tmp_path):
+    store = SQLiteContentIndexStore(tmp_path / "test_idx.sqlite3")
+    store.initialize()
+    service = LocalContentIndexService(store)
+    peer = PEER
+
+    bridge_mock = SimpleNamespace(
+        compose_messages_workflow=SimpleNamespace(
+            store=SimpleNamespace(list=lambda *args, **kwargs: [])
+        ),
+        core=SimpleNamespace(
+            messages=SimpleNamespace(
+                count=lambda p: 1,
+                list=lambda p, limit=500, before_id=None: [
+                    Message(id=1, peer=peer, date=datetime.now(timezone.utc), text="حضور در گلزار شهدای مدافع حرم")
+                ] if before_id is None else [],
+                get=lambda p, mid: None,
+            )
+        ),
+    )
+
+    labels = [
+        IndexLabel(id=101, name="ایثار و شهادت", aliases=("گلزار شهدا", "مدافع حرم")),
+    ]
+    progress_calls = []
+    result = service.run(
+        bridge_mock,
+        job_id="test-job-rules-1",
+        site_key="local",
+        peer=peer,
+        labels=labels,
+        cancel_event=threading.Event(),
+        progress=lambda s: progress_calls.append(dict(s)),
+        max_messages=10,
+    )
+    assert result["state"] == "completed"
+    assert result["rules_count"] == 2
+    assert result["indexed_messages"] == 1
+
+
+def test_api_content_index_start_local_accepts_rules(config_file, tmp_path):
+    peer_file = tmp_path / "peer_idx_local.json"
+    save_peer_file(peer_file, PEER)
+    api = BridgeApplicationApi(config_file)
+
+    resp = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/start",
+        body={
+            "site_key": "local",
+            "peer_file": str(peer_file),
+            "labels": [
+                {"id": 501, "name": "امور خیریه", "aliases": ["ایتام", "کمک مؤمنانه"]},
+            ],
+            "rules": [
+                {
+                    "rule_id": "charity_boost_1",
+                    "label_id": 501,
+                    "name": "خیریه و احسان",
+                    "patterns": ["احسان", "نیکوکاری"],
+                    "confidence_boost": 0.35,
+                    "evidence_tag": "قاعده: نیکوکاری",
+                }
+            ],
+            "max_messages": 100,
+        },
+    )
+    assert resp.status == 202
+    assert resp.payload["ok"] is True
+    job = resp.payload["job"]
+    assert job["site_key"] == "local"
+    assert job["label_count"] == 1
+    assert job["rule_count"] == 1
+    api.close()
+
+

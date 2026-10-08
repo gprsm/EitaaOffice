@@ -135,7 +135,7 @@ from ..providers.eitaa import (
     EitaaProviderApplicationAdapter,
 )
 from ..version import __version__
-from .content_index import DEFAULT_SCORE_THRESHOLD, IndexLabel
+from .content_index import DEFAULT_SCORE_THRESHOLD, IndexLabel, InferenceRule
 from .content_index_service import LocalContentIndexService
 from .contact_import import map_contact_rows, parse_tabular
 from .account_auth import AccountAuthChallenge, LegacyAuthChallenge
@@ -719,13 +719,24 @@ class BridgeApplicationApi:
         resolved = path.expanduser().resolve()
         if self._runtime.ownership.account_data_directory is not None:
             media_root = self._runtime.ownership.core.media_directory.resolve()
+            config_media_root = self.config.core.media_directory.resolve()
+            in_boundary = False
             try:
                 resolved.relative_to(media_root)
-            except ValueError as exc:
+                in_boundary = True
+            except ValueError:
+                pass
+            if not in_boundary:
+                try:
+                    resolved.relative_to(config_media_root)
+                    in_boundary = True
+                except ValueError:
+                    pass
+            if not in_boundary:
                 raise CompositionValidationError(
                     "The media cache file is outside the selected account.",
                     code="api_media_cache_account_boundary",
-                ) from exc
+                )
         token_seed = f"{self._runtime.data_scope.scope_key}:{resolved.name}".encode("utf-8")
         token = hashlib.sha256(token_seed).hexdigest()[:32]
         with self._media_cache_lock:
@@ -8286,10 +8297,16 @@ class BridgeApplicationApi:
     def _cached_media_file(directory: Path, prefix: str) -> Path | None:
         if not directory.exists():
             return None
+        glob_pattern = f"{prefix}*" if prefix.endswith("_") else f"{prefix}.*"
         candidates = [
-            item for item in directory.glob(f"{prefix}.*")
-            if item.is_file() and not item.name.endswith(".partial")
+            item for item in directory.glob(glob_pattern)
+            if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
         ]
+        if not candidates and not prefix.endswith("_"):
+            candidates = [
+                item for item in directory.glob(f"{prefix}*")
+                if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
+            ]
         return max(candidates, key=lambda item: item.stat().st_mtime, default=None)
 
     def _message_send(self, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -8382,48 +8399,54 @@ class BridgeApplicationApi:
         # Fast path: if media is already cached on disk, return immediately without
         # acquiring the provider scheduler queue or blocking UI operations.
         try:
-            cache_directory = self._runtime.ownership.core.media_directory / "ui-cache" / quality
-            if cache_directory.exists():
-                prefix = f"{peer.type.value}_{peer.id}_{message_id}_"
-                candidates = [
-                    item for item in cache_directory.glob(f"{prefix}*")
-                    if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
-                ]
-                if candidates:
-                    cache_path = max(candidates, key=lambda item: item.stat().st_mtime)
-                    file_size = cache_path.stat().st_size
-                    if file_size > max_bytes:
-                        raise CompositionValidationError(
-                            f"Media preview exceeds maximum allowed size ({max_bytes} bytes).",
-                            safe_context={"bytes": file_size, "max_bytes": max_bytes},
-                            code="api_media_preview_too_large",
-                        )
-                    mime_type = mimetypes.guess_type(cache_path.name)[0] or (
-                        "image/jpeg" if quality == "thumbnail" else "application/octet-stream"
+            candidate_dirs = [
+                self._runtime.ownership.core.media_directory / "ui-cache" / quality,
+            ]
+            if self.config.core.media_directory != self._runtime.ownership.core.media_directory:
+                candidate_dirs.append(self.config.core.media_directory / "ui-cache" / quality)
+            prefix = f"{peer.type.value}_{peer.id}_{message_id}_"
+            candidates: list[Path] = []
+            for cache_directory in candidate_dirs:
+                if cache_directory.exists():
+                    candidates.extend(
+                        item for item in cache_directory.glob(f"{prefix}*")
+                        if item.is_file() and not item.name.endswith(".partial") and item.stat().st_size > 0
                     )
-                    token = self.register_media_cache_file(cache_path, mime_type)
-                    self._runtime_logger.emit(
-                        "media_cache",
-                        fields={
-                            "quality": quality,
-                            "cache_hit": True,
-                            "bytes": file_size,
-                            "media_type": "cached",
-                            "thumb_type": None,
-                        },
+            if candidates:
+                cache_path = max(candidates, key=lambda item: item.stat().st_mtime)
+                file_size = cache_path.stat().st_size
+                if file_size > max_bytes:
+                    raise CompositionValidationError(
+                        f"Media preview exceeds maximum allowed size ({max_bytes} bytes).",
+                        safe_context={"bytes": file_size, "max_bytes": max_bytes},
+                        code="api_media_preview_too_large",
                     )
-                    return {
-                        "ok": True,
-                        "message_id": message_id,
-                        "media_present": True,
-                        "preview_available": True,
+                mime_type = mimetypes.guess_type(cache_path.name)[0] or (
+                    "image/jpeg" if quality == "thumbnail" else "application/octet-stream"
+                )
+                token = self.register_media_cache_file(cache_path, mime_type)
+                self._runtime_logger.emit(
+                    "media_cache",
+                    fields={
                         "quality": quality,
                         "cache_hit": True,
-                        "thumb_type": None,
-                        "mime_type": mime_type,
                         "bytes": file_size,
-                        "media_url": f"/api/v1/media-cache/{token}",
-                    }
+                        "media_type": "cached",
+                        "thumb_type": None,
+                    },
+                )
+                return {
+                    "ok": True,
+                    "message_id": message_id,
+                    "media_present": True,
+                    "preview_available": True,
+                    "quality": quality,
+                    "cache_hit": True,
+                    "thumb_type": None,
+                    "mime_type": mime_type,
+                    "bytes": file_size,
+                    "media_url": f"/api/v1/media-cache/{token}",
+                }
         except CompositionValidationError:
             raise
         except Exception:
@@ -8468,6 +8491,12 @@ class BridgeApplicationApi:
                 remote_id = int(getattr(media, "remote_id", 0) or 0)
                 prefix = f"{peer.type.value}_{peer.id}_{message_id}_{remote_id}"
                 cache_path = self._cached_media_file(cache_directory, prefix)
+                if cache_path is None:
+                    fallback_prefix = f"{peer.type.value}_{peer.id}_{message_id}_"
+                    cache_path = self._cached_media_file(cache_directory, fallback_prefix)
+                if cache_path is None and bridge.config.core.media_directory != self._runtime.ownership.core.media_directory:
+                    alt_dir = self._runtime.ownership.core.media_directory / "ui-cache" / quality
+                    cache_path = self._cached_media_file(alt_dir, prefix) or self._cached_media_file(alt_dir, fallback_prefix)
                 cache_hit = cache_path is not None
                 if cache_path is None:
                     result = bridge.core.media.download(
@@ -8759,7 +8788,7 @@ class BridgeApplicationApi:
         raw = payload.get("labels")
         if not isinstance(raw, list) or not 1 <= len(raw) <= 200:
             raise CompositionValidationError(
-                "labels must contain 1 to 200 WordPress categories.",
+                "labels must contain 1 to 200 categories or index labels.",
                 code="api_content_index_labels_required",
             )
         selected: list[IndexLabel] = []
@@ -8797,6 +8826,38 @@ class BridgeApplicationApi:
         return tuple(selected)
 
     @staticmethod
+    def _content_index_rules(payload: Mapping[str, Any]) -> tuple[InferenceRule, ...]:
+        raw = payload.get("rules")
+        if not isinstance(raw, list):
+            return ()
+        rules: list[InferenceRule] = []
+        for item in raw:
+            if not isinstance(item, Mapping):
+                continue
+            rule_id = str(item.get("rule_id") or "").strip()
+            label_id = int(item.get("label_id") or 0)
+            name = str(item.get("name") or "").strip()
+            patterns = tuple(str(p).strip() for p in item.get("patterns", ()) if str(p).strip())
+            negative_patterns = tuple(
+                str(p).strip() for p in item.get("negative_patterns", ()) if str(p).strip()
+            )
+            confidence_boost = float(item.get("confidence_boost", 0.25))
+            evidence_tag = str(item.get("evidence_tag") or "").strip()
+            if rule_id and label_id > 0 and patterns:
+                rules.append(
+                    InferenceRule(
+                        rule_id=rule_id,
+                        label_id=label_id,
+                        name=name or rule_id,
+                        patterns=patterns,
+                        negative_patterns=negative_patterns,
+                        confidence_boost=max(0.0, min(1.0, confidence_boost)),
+                        evidence_tag=evidence_tag,
+                    )
+                )
+        return tuple(rules)
+
+    @staticmethod
     def _content_index_job_copy(job: Mapping[str, Any]) -> dict[str, Any]:
         copied = dict(job)
         if isinstance(copied.get("progress"), Mapping):
@@ -8831,6 +8892,7 @@ class BridgeApplicationApi:
         peer_path = self._peer_path(payload)
         peer = load_peer_file(peer_path)
         labels = self._content_index_labels(payload)
+        rules = self._content_index_rules(payload)
         max_messages = self._integer(
             payload.get("max_messages", 20_000),
             "max_messages",
@@ -8871,6 +8933,7 @@ class BridgeApplicationApi:
                 "max_messages": max_messages,
                 "score_threshold": threshold,
                 "label_count": len(labels),
+                "rule_count": len(rules),
                 "progress": {
                     "processed_messages": 0,
                     "target_messages": 0,
@@ -8890,6 +8953,7 @@ class BridgeApplicationApi:
                 site_key,
                 peer,
                 labels,
+                rules,
                 max_messages,
                 threshold,
                 cancellation,
@@ -8906,6 +8970,7 @@ class BridgeApplicationApi:
         site_key: str,
         peer: Peer,
         labels: tuple[IndexLabel, ...],
+        rules: tuple[InferenceRule, ...],
         max_messages: int,
         threshold: float,
         cancellation: threading.Event,
@@ -8943,6 +9008,7 @@ class BridgeApplicationApi:
                     site_key=site_key,
                     peer=peer,
                     labels=labels,
+                    rules=rules,
                     cancel_event=cancellation,
                     progress=update_progress,
                     max_messages=max_messages,
@@ -11986,8 +12052,13 @@ class BridgeApplicationApi:
         config = BridgeConfigLoader.load(self.config_path, env_file=self.env_file)
         raw = payload.get("site_key")
         selected = str(raw).strip() if raw is not None and str(raw).strip() else config.default_site_key
-        config.site(selected)  # validate early
-        return selected
+        try:
+            config.site(selected)  # validate early
+            return selected
+        except Exception:
+            if config.wordpress_sites:
+                return config.wordpress_sites[0].site_key
+            return selected or "local"
 
     def _peer_path(self, payload: Mapping[str, Any]) -> Path:
         raw = payload.get("peer_file")
