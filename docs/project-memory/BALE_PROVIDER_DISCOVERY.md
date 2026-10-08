@@ -1,7 +1,7 @@
 # حافظهٔ Discovery پیام‌رسان بله
 
-آخرین بازبینی: ۲۰۲۶-۰۹-۲۷  
-وضعیت: `HISTORICAL_DISCOVERY / CURRENT_CONTRACT_F-086_PERSONAL_AUTHORIZED / BALE_BOT_SCAFFOLD_COEXISTS`  
+آخرین بازبینی: ۲۰۲۶-۰۹-۲۸
+وضعیت: `HISTORICAL_DISCOVERY / CURRENT_CONTRACT_F-086_PERSONAL_AUTHORIZED / BALE_PRODUCT_INTEGRATION_CONTRACT_VERIFIED / BALE_BOT_SCAFFOLD_COEXISTS`
 سطح شاهد: `STATIC LOCAL SOURCE REVIEW + CURRENT PRIMARY WEB SOURCES`
 
 > اصلاح دامنه در 2026-08-25: کاربر فصل‌های متأخر قرارداد توسعهٔ Bale را تصمیم محصولی جاری اعلام کرده و بازگردانی سایر قراردادهای متأخر را نخواسته است. این تصمیم تناقض تاریخی فصل‌های قدیمی و متأخر این سند را برای G-01 نیازمند همسان‌سازی می‌کند؛ در برنامهٔ تثبیت جاری هیچ قابلیت تازهٔ Bale توسعه نمی‌یابد و runtime شکسته فقط fail-closed و اصلاح می‌شود. مجوزهای عملیاتی Live مندرج در تاریخچه، جای تأیید همان لحظه برای Login/OTP/Session/Send/Capture را نمی‌گیرند.
@@ -112,7 +112,7 @@
 - `providers/bale/slot.py` با `authorization_reference=document:F-086`، capabilities واقعی کلاینت، `account_identity_kind=phone_e164` و مراحل auth تلفنی ثبت شده و `adapter_factory` به آداپتور واقعی متصل است.
 - `application/bale_provider_adapter.py` آداپتور واقعی متصل به `bale_client` است؛ probe قرارداد آفلاین را می‌گذراند، وضعیت‌های نامعلوم را صادقانه `uncertain` گزارش می‌کند و هرگز passphrase/OTP/رمز/شمارهٔ کامل را به لاگ، خطا یا receipt نمی‌برد.
 - قرنطینهٔ `application/bale_client/` از بسته‌بندی release و wheel برداشته شد؛ وابستگی `websockets` به وابستگی‌های محصول افزوده شد.
-- staging صادقانه: `runtime_enabled` و `onboarding_enabled` مسیر چندProvider تا اتصال onboarding/worker حساب‌های بله (فاز بعدیِ مجاز طبق ADR-60) False است؛ reason_code صادقانه `provider_onboarding_wiring_pending`.
+- یکپارچه‌سازی محصولی (F-092/ADR-61/V-228 و بازبینی F-093/V-230): پرچم‌های runtime/onboarding=True و اسلات CONTRACT_VERIFIED با worker/adapter متصل است. نقص media/content در Child اصلاح شد و API آفلاین پذیرفته است؛ ادعای تکمیل B0-B6 superseded است چون B4 مرورگر به اتصال Chrome نیاز دارد و B6 Live هنوز اجرا نشده. ابزار Pilot default-off اکنون مستقل از preview ساخته شده است.
 - عملیات Live (ورود تازه، OTP، ارسال واقعی) همچنان فقط با تأیید همان‌لحظهٔ مالک انجام می‌شود؛ هیچ رکورد تاریخی مجوز دائمی Live نیست.
 - Token، OTP، Cookie، Session، شمارهٔ کامل و متن خصوصی نباید وارد گزارش، لاگ یا artifact آزمون شوند.
 - شاهد فعال‌سازی: `tests/test_bale_personal_authorization.py`، V-216، wheel parity با دربرداشتن `bale_client` و پذیرش زندهٔ عملیات نشست روی شاخهٔ Bale (V-194/F-072، کامیت `b4491b7f`).
@@ -133,6 +133,8 @@
 
 
 ## فصل ۱۰ — بازیابی تصمیم تاریخی 2026-08-21
+
+> وضعیت جاری 2026-09-28 (F-093/V-230): پیاده‌سازی و gateهای آفلاین متصل‌اند؛ runtime/onboarding=True با CONTRACT_VERIFIED حفظ شده است. مرورگر disconnected و پذیرش UI/polling باز است؛ Pilot خاموش آماده ولی Live در انتظار حساب/گیرنده و تأیید همان‌لحظه است. V-228/V-229 به‌عنوان سابقه حفظ می‌شوند و شاهد اتمام مرورگر یا B6 نیستند.
 
 - وضعیت: `RECOVERED_FROM_PARTIAL_EVIDENCE / HISTORICAL / SUPERSEDED_BY_F-046`
 - متن اصلی این بخش دچار U+FFFD، علامت سؤال جایگزین و control character شده بود؛ متن لفظ‌به‌لفظ قابل‌بازیابی نیست و از خود سند حدس زده نشده است.

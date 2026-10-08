@@ -6,13 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import re
 import sqlite3
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from ...errors import CoordinatorSchemaError
 from .store import CoordinatorDatabase
 
 
-_OPERATIONS = frozenset({"messages.send_text", "contacts.upsert"})
+_OPERATIONS = frozenset({"messages.send_text", "messages.send_media", "contacts.upsert", "contacts.remove"})
 _OUTCOMES = frozenset({"in_progress", "succeeded", "uncertain"})
 _IDEMPOTENCY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -57,12 +57,18 @@ class ProviderOperationReceiptRecord:
     created_at: str
     updated_at: str
     completed_at: str | None
+    attempt_token: str | None = None
+    attempt_generation: int = 1
 
 
 @dataclass(frozen=True, slots=True)
 class ProviderOperationClaim:
     receipt: ProviderOperationReceiptRecord
     claimed: bool
+
+    @property
+    def attempt_token(self) -> str | None:
+        return self.receipt.attempt_token
 
 
 class ProviderOperationReceiptStore:
@@ -123,6 +129,49 @@ class ProviderOperationReceiptStore:
                         fingerprint,
                         service_credential_id=service_credential_id,
                     )
+                    if (
+                        str(existing["outcome"]) == "in_progress"
+                        and str(existing["safe_reason_code"] or "") == "claim_released"
+                    ):
+                        now = _timestamp()
+                        new_attempt_token = f"attempt-{uuid4().hex[:16]}"
+                        current_generation = (
+                            int(existing["attempt_generation"])
+                            if "attempt_generation" in existing.keys()
+                            and existing["attempt_generation"] is not None
+                            else 1
+                        )
+                        new_generation = current_generation + 1
+                        connection.execute(
+                            """
+                            UPDATE provider_operation_receipts
+                            SET claim_deadline_unix_ms=?,
+                                safe_reason_code=NULL,
+                                attempt_token=?,
+                                attempt_generation=?,
+                                updated_at=?
+                            WHERE messenger_account_id=? AND operation=? AND idempotency_key=?
+                              AND outcome='in_progress'
+                            """,
+                            (
+                                claim_deadline_unix_ms,
+                                new_attempt_token,
+                                new_generation,
+                                now,
+                                account_id,
+                                selected_operation,
+                                selected_key,
+                            ),
+                        )
+                        row = self._select(
+                            connection,
+                            account_id,
+                            selected_operation,
+                            selected_key,
+                        )
+                        connection.commit()
+                        assert row is not None
+                        return ProviderOperationClaim(self._record(row), True)
                     connection.commit()
                     return ProviderOperationClaim(self._record(existing), False)
                 scope = connection.execute(
@@ -132,8 +181,8 @@ class ProviderOperationReceiptStore:
                     FROM messenger_accounts ma
                     JOIN app_users au ON au.id=?
                     LEFT JOIN phone_account_memberships pm
-                      ON pm.phone_account_id=ma.phone_account_id
-                     AND pm.app_user_id=au.id
+                       ON pm.phone_account_id=ma.phone_account_id
+                      AND pm.app_user_id=au.id
                     WHERE ma.id=?
                     """,
                     (actor_id, account_id),
@@ -166,14 +215,17 @@ class ProviderOperationReceiptStore:
                         code="provider_receipt_access_denied",
                     )
                 now = _timestamp()
+                attempt_token = f"attempt-{uuid4().hex[:16]}"
+                attempt_generation = 1
                 connection.execute(
                     """
                     INSERT INTO provider_operation_receipts(
                         messenger_account_id,actor_app_user_id,service_credential_id,provider,operation,
                         idempotency_key,request_fingerprint,claim_deadline_unix_ms,
                         outcome,result_reference,
-                        contact_created,safe_reason_code,created_at,updated_at,completed_at
-                    ) VALUES(?,?,?,?,?,?,?,?,'in_progress',NULL,NULL,NULL,?,?,NULL)
+                        contact_created,safe_reason_code,created_at,updated_at,completed_at,
+                        attempt_token,attempt_generation
+                    ) VALUES(?,?,?,?,?,?,?,?,'in_progress',NULL,NULL,NULL,?,?,NULL,?,?)
                     """,
                     (
                         account_id,
@@ -186,6 +238,8 @@ class ProviderOperationReceiptStore:
                         claim_deadline_unix_ms,
                         now,
                         now,
+                        attempt_token,
+                        attempt_generation,
                     ),
                 )
                 row = self._select(
@@ -206,6 +260,106 @@ class ProviderOperationReceiptStore:
                 code="provider_receipt_claim_failed",
             ) from exc
 
+    def release(
+        self,
+        *,
+        messenger_account_id: str,
+        actor_app_user_id: str,
+        operation: str,
+        idempotency_key: str,
+        request_fingerprint: str,
+        service_credential_id: str | None = None,
+        attempt_token: str | None = None,
+    ) -> bool:
+        """Release THIS attempt's live claim when the attempt certainly never
+        started its external effect (for example local admission was denied).
+
+        The owner fence matches actor, fingerprint and service binding: a
+        rival's live claim and any terminal record are never touched, and a
+        completed or uncertain result is never deleted. Returning the key to
+        ``not_found`` is honest because no effect can have happened; the same
+        id may claim fresh once the blocker is gone.
+        """
+        account_id, actor_id, selected_operation, selected_key, fingerprint = (
+            self._validate_identity(
+                messenger_account_id=messenger_account_id,
+                actor_app_user_id=actor_app_user_id,
+                operation=operation,
+                idempotency_key=idempotency_key,
+                request_fingerprint=request_fingerprint,
+            )
+        )
+        bound_service = str(service_credential_id or "").strip() or None
+        try:
+            with self.database._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                row = self._select(
+                    connection,
+                    account_id,
+                    selected_operation,
+                    selected_key,
+                )
+                if row is None or str(row["outcome"]) != "in_progress":
+                    connection.commit()
+                    return False
+                if str(row["safe_reason_code"] or "") == "claim_released":
+                    # Already released! Duplicate cleanup returns False.
+                    connection.commit()
+                    return False
+                if (
+                    str(row["actor_app_user_id"]) != actor_id
+                    or str(row["request_fingerprint"]) != fingerprint
+                    or (row["service_credential_id"] or None) != bound_service
+                ):
+                    connection.commit()
+                    return False
+
+                row_token = (
+                    str(row["attempt_token"])
+                    if "attempt_token" in row.keys() and row["attempt_token"] is not None
+                    else None
+                )
+                row_gen = (
+                    int(row["attempt_generation"])
+                    if "attempt_generation" in row.keys() and row["attempt_generation"] is not None
+                    else 1
+                )
+
+                if attempt_token is not None:
+                    if row_token is not None and row_token != str(attempt_token):
+                        # Stale attempt token from a prior attempt: cannot release newer attempt!
+                        connection.commit()
+                        return False
+                else:
+                    # Untokened legacy release: only allowed on attempt generation 1!
+                    if row_gen > 1:
+                        connection.commit()
+                        return False
+
+                now = _timestamp()
+                connection.execute(
+                    """
+                    UPDATE provider_operation_receipts
+                    SET claim_deadline_unix_ms=1,
+                        safe_reason_code='claim_released',
+                        updated_at=?
+                    WHERE messenger_account_id=? AND operation=? AND idempotency_key=?
+                      AND outcome='in_progress'
+                      AND safe_reason_code IS NULL
+                    """,
+                    (now, account_id, selected_operation, selected_key),
+                )
+                connection.commit()
+                return True
+        except CoordinatorSchemaError:
+            raise
+        except sqlite3.Error as exc:
+            raise CoordinatorSchemaError(
+                "The provider operation claim could not be released.",
+                safe_context={"error_type": type(exc).__name__},
+                code="provider_receipt_release_failed",
+            ) from exc
+
     def complete(
         self,
         *,
@@ -219,6 +373,7 @@ class ProviderOperationReceiptStore:
         contact_created: bool | None,
         safe_reason_code: str | None,
         service_credential_id: str | None = None,
+        attempt_token: str | None = None,
     ) -> ProviderOperationReceiptRecord:
         account_id, actor_id, selected_operation, selected_key, fingerprint = (
             self._validate_identity(
@@ -247,7 +402,7 @@ class ProviderOperationReceiptStore:
                 "The provider receipt reason is invalid.",
                 code="provider_receipt_result_invalid",
             )
-        if selected_operation == "messages.send_text":
+        if selected_operation in {"messages.send_text", "messages.send_media"}:
             if contact_created is not None or (
                 selected_outcome == "succeeded" and reference is None
             ):
@@ -296,6 +451,37 @@ class ProviderOperationReceiptStore:
                     )
                     connection.commit()
                     return self._record(existing)
+
+                if str(existing["safe_reason_code"] or "") == "claim_released":
+                    raise CoordinatorSchemaError(
+                        "Cannot complete a released claim without re-claiming.",
+                        code="provider_receipt_claim_released",
+                    )
+
+                row_token = (
+                    str(existing["attempt_token"])
+                    if "attempt_token" in existing.keys() and existing["attempt_token"] is not None
+                    else None
+                )
+                row_generation = (
+                    int(existing["attempt_generation"])
+                    if "attempt_generation" in existing.keys()
+                    and existing["attempt_generation"] is not None
+                    else 1
+                )
+                if attempt_token is None and row_generation > 1:
+                    raise CoordinatorSchemaError(
+                        "The provider operation attempt token is required for this claim generation.",
+                        code="provider_receipt_attempt_mismatch",
+                    )
+                if attempt_token is not None and (
+                    row_token is None or row_token != str(attempt_token)
+                ):
+                    raise CoordinatorSchemaError(
+                        "The provider operation attempt token does not match the active claim.",
+                        code="provider_receipt_attempt_mismatch",
+                    )
+
                 now = _timestamp()
                 connection.execute(
                     """
@@ -304,6 +490,7 @@ class ProviderOperationReceiptStore:
                         safe_reason_code=?,updated_at=?,completed_at=?
                     WHERE messenger_account_id=? AND operation=? AND idempotency_key=?
                       AND outcome='in_progress'
+                      AND attempt_generation=? AND attempt_token IS ?
                     """,
                     (
                         selected_outcome,
@@ -319,8 +506,15 @@ class ProviderOperationReceiptStore:
                         account_id,
                         selected_operation,
                         selected_key,
+                        row_generation,
+                        row_token,
                     ),
                 )
+                if connection.execute("SELECT changes()").fetchone()[0] != 1:
+                    raise CoordinatorSchemaError(
+                        "The provider operation attempt is no longer active.",
+                        code="provider_receipt_attempt_mismatch",
+                    )
                 updated = self._select(
                     connection,
                     account_id,
@@ -486,6 +680,16 @@ class ProviderOperationReceiptStore:
                 str(row["completed_at"])
                 if row["completed_at"] is not None
                 else None
+            ),
+            attempt_token=(
+                str(row["attempt_token"])
+                if "attempt_token" in row.keys() and row["attempt_token"] is not None
+                else None
+            ),
+            attempt_generation=(
+                int(row["attempt_generation"])
+                if "attempt_generation" in row.keys() and row["attempt_generation"] is not None
+                else 1
             ),
         )
 

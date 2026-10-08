@@ -1144,8 +1144,8 @@ class EitaaRuntimeRegistry:
                 record, worker = self._coordinator.request_worker_start(
                     selected_id,
                     process_id=(
-                        existing.process_id
-                        if isinstance(existing, EitaaProcessRuntime)
+                    existing.process_id
+                        if isinstance(existing, EitaaProcessRuntime) or getattr(existing, "client", None) is not None
                         else os.getpid()
                     ),
                     actor_app_user_id=actor_app_user_id,
@@ -1192,6 +1192,13 @@ class EitaaRuntimeRegistry:
         actor_global_role: str | None,
         request_id: str | None,
     ) -> tuple[EitaaProcessRuntime, WorkerInstanceRecord]:
+        if record.provider == "bale":
+            return self._start_bale_process_runtime(
+                record,
+                actor_app_user_id=actor_app_user_id,
+                actor_global_role=actor_global_role,
+                request_id=request_id,
+            )
         account_id = record.messenger_account_id
         self._prepare_worker_start(account_id, request_id=request_id)
         self._coordinator.assert_worker_start_allowed(account_id)
@@ -1261,6 +1268,56 @@ class EitaaRuntimeRegistry:
                     )
                 except Exception:
                     pass
+            raise
+
+    def _start_bale_process_runtime(
+        self,
+        record: MessengerAccountRuntimeRecord,
+        *,
+        actor_app_user_id: str | None,
+        actor_global_role: str | None,
+        request_id: str | None,
+    ):
+        from .bale_runtime import BaleAccountRuntime, BaleWorkerOwnership
+
+        account_id = record.messenger_account_id
+        self._prepare_worker_start(account_id, request_id=request_id)
+        self._coordinator.assert_worker_start_allowed(account_id)
+        client = EitaaProcessWorkerClient.spawn(
+            self.config,
+            BaleWorkerOwnership.for_account(self.config, account_id),
+            provider="bale",
+        )
+        worker = None
+        try:
+            record, worker = self._coordinator.request_worker_start(
+                account_id,
+                process_id=client.process_id,
+                actor_app_user_id=actor_app_user_id,
+                actor_global_role=actor_global_role,
+                request_id=request_id,
+            )
+            runtime = BaleAccountRuntime(
+                self.config, record, worker, self._coordinator,
+                self._application_logger, client=client,
+                failure_callback=self._handle_process_runtime_failure,
+            )
+            runtime.worker = self._coordinator.mark_worker_ready(worker.worker_instance_id)
+            self._account_runtimes[account_id] = runtime
+            runtime.start_supervisor()
+            return runtime, runtime.worker
+        except Exception:
+            self._account_runtimes.pop(account_id, None)
+            try:
+                client.close()
+            except Exception:
+                client.terminate()
+            if worker is not None:
+                self._coordinator.fail_worker_start(
+                    worker.worker_instance_id,
+                    reason_code="worker_process_open_failed",
+                    request_id=request_id,
+                )
             raise
 
     def _handle_process_runtime_failure(
@@ -1436,6 +1493,21 @@ class EitaaRuntimeRegistry:
         record: MessengerAccountRuntimeRecord,
         worker: WorkerInstanceRecord,
     ) -> EitaaAccountRuntime:
+        if record.provider == "bale":
+            from .bale_runtime import BaleAccountRuntime
+
+            runtime = BaleAccountRuntime(
+                self.config, record, worker, self._coordinator,
+                self._application_logger,
+            )
+            try:
+                runtime.worker = self._coordinator.mark_worker_ready(worker.worker_instance_id)
+                runtime.start_supervisor()
+            except Exception:
+                runtime.close()
+                raise
+            self._account_runtimes[record.messenger_account_id] = runtime
+            return runtime
         runtime = EitaaAccountRuntime.account(
             self.config,
             record,
@@ -1453,7 +1525,7 @@ class EitaaRuntimeRegistry:
 
     @staticmethod
     def _assert_runnable(record: MessengerAccountRuntimeRecord) -> None:
-        if record.provider != "eitaa":
+        if record.provider not in {"eitaa", "bale"}:
             raise EitaaRuntimeError(
                 "The selected MessengerAccount is not an Eitaa account.",
                 safe_context={"messenger_account_id": record.messenger_account_id},
@@ -1489,7 +1561,7 @@ class EitaaRuntimeRegistry:
         promote to active/running.
         """
 
-        if record.provider != "eitaa":
+        if record.provider not in {"eitaa", "bale"}:
             raise EitaaRuntimeError(
                 "The selected MessengerAccount is not an Eitaa account.",
                 safe_context={"messenger_account_id": record.messenger_account_id},

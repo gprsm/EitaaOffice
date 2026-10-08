@@ -244,7 +244,7 @@ class FakeBaleClient:
         details = FileDetails(1234, 5678, Path(path).name, Path(path).stat().st_size, "image/jpeg")
         return details, b""
 
-    async def download_file(self, details, destination, *, progress=None):
+    async def download_file(self, details, destination, *, progress=None, max_bytes=None):
         out = Path(destination)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(b"fake-image-bytes")
@@ -296,6 +296,15 @@ class TestBaleApiFacade:
         assert {c["peer"]["id"] for c in contacts} == {99, 88}
         names = {c["name"] for c in contacts}
         assert names == {"Contact A", "Contact B"}
+
+    @pytest.mark.parametrize("method", ["list_contacts", "search_contacts"])
+    def test_contact_rpc_response_byte_budget_is_checked_before_decode(self, method: str) -> None:
+        api = _make_api(Path("."))
+        raw = b"x" * (16 * 1024 * 1024 + 1)
+        api._client.ws.responses[("bale.users.v1.Users", "GetContacts" if method == "list_contacts" else "SearchContacts")] = raw
+        with pytest.raises(BaleApiError) as oversized:
+            asyncio.run(api.list_contacts() if method == "list_contacts" else api.search_contacts("synthetic"))
+        assert oversized.value.code == "bale_contact_snapshot_too_large"
 
     def test_list_contacts_enriches_peer_only_response_via_load_users(self) -> None:
         """Live GetContacts returns peer-only blobs; names come from LoadUsers."""
@@ -397,7 +406,8 @@ class TestBaleApiFacade:
         result = asyncio.run(api.read_message_media(4242, 55, destination))
         assert result["message_id"] == 55
         assert result["media_kind"] == "photo"
-        assert (destination / "photo.png").read_bytes() == b"fake-image-bytes"
+        assert Path(result["path"]).parent == destination
+        assert Path(result["path"]).read_bytes() == b"fake-image-bytes"
 
     def test_read_message_media_missing_document_raises(self, tmp_path: Path) -> None:
         api = _make_api(tmp_path)
@@ -424,14 +434,23 @@ class TestBaleApiFacade:
         from eitaa_bridge.application.bale_client.errors import RpcError
 
         api = _make_api(Path("."))
+        recorded = []
+
+        class SafeLogger:
+            def warning(self, template, *args):
+                recorded.append((template, args))
+
+        api._client.log = SafeLogger()
 
         async def failing_rpc(service, method, payload=b"", timeout=None):
-            raise RpcError(5, "boom")
+            raise RpcError(5, "private-sentinel")
 
         api._client.ws.rpc = failing_rpc  # type: ignore[method-assign]
         with pytest.raises(BaleApiError) as err:
             asyncio.run(api.list_contacts())
         assert err.value.code == "bale_rpc_error"
+        assert recorded == [("bale_rpc_failed method=%s code=%s", ("GetContacts", 5))]
+        assert "private-sentinel" not in repr(recorded)
 
     def test_send_file_bytes_stages_and_sends(self, tmp_path: Path) -> None:
         api = _make_api(tmp_path)

@@ -139,3 +139,15 @@ Follow-up verification:
 An already-running backend must be closed and reopened once because Python
 modules already loaded in that process cannot be replaced in memory by a file
 change.
+
+## Follow-up: Office launcher version alignment (2026-10-01, F-103/V-265)
+
+The Bale stage updated the first line of `VERSION.txt` to Bale1 while the
+backend's `eitaa_bridge.version.__version__` still reported GMI4.2. The Office
+controller received HTTP 200 from its owned backend but correctly rejected the
+exact version handshake; the backend then expired without UI heartbeats. The
+source product version now matches the release manifest. The runtime checker
+and smoke suite read the canonical manifest, and a regression test checks
+source/manifest equality. The actual `EitaaBridge.bat` launched the backend and
+Edge app, and health plus ownership remained valid beyond the heartbeat window.
+No provider login or message operation was part of this verification.

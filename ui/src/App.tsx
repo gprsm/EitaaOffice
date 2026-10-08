@@ -20,6 +20,7 @@ import { waitForAdaptivePoll } from './lib/polling.mjs'
 import { LoginAppearanceProvider, LoginSurface } from './LoginExperience'
 import { AppUserGate, AppUserLogoutButton, useAppUser } from './AppUserGate'
 import { WorkspaceNavigation } from './WorkspaceNavigation'
+import { BaleWorkspace } from './BaleWorkspace'
 import { UsageInfoDialog } from './UsageInfoDialog'
 import { ConversationListPage } from './ConversationListPage'
 import { ChatHeader } from './ChatHeader'
@@ -116,7 +117,7 @@ export default function App() {
     '(max-width:599px), (max-width:899px) and (orientation:landscape) and (max-height:599px)',
     { noSsr: true },
   )
-  const content = <AppUserGate><MessengerAccountGate><EitaaApp /></MessengerAccountGate></AppUserGate>
+  const content = <AppUserGate><MessengerAccountGate><ProviderWorkspace /></MessengerAccountGate></AppUserGate>
   return <LoginAppearanceProvider>
     {mobileShell ? <MobileShell>{content}</MobileShell> : <DesktopShell>{content}</DesktopShell>}
   </LoginAppearanceProvider>
@@ -128,6 +129,11 @@ function MobileShell({ children }: { children: ReactNode }) {
 
 function DesktopShell({ children }: { children: ReactNode }) {
   return <Box data-presentation-shell="desktop" sx={{ width: '100%', height: '100dvh', minWidth: 0, minHeight: '100svh', overflow: 'hidden', bgcolor: 'background.default' }}>{children}</Box>
+}
+
+function ProviderWorkspace() {
+  const { selected } = useMessengerAccounts()
+  return selected?.provider === 'bale' ? <BaleWorkspace key={selected.messenger_account_id} /> : <EitaaApp />
 }
 
 function EitaaApp() {
@@ -979,7 +985,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           limit: 10000,
         }
         let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
-        
+
         if (!response.messages.length) {
           await api('POST', '/api/v1/messages/date-range/sync', {
             site_key: siteKey,
@@ -1635,7 +1641,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     const selected = dialog
     if (
       !contentFiltersOpen
-      
+
       || !selected
       || selected.display_kind === 'personal'
       || unresolvedSenderCount === 0
@@ -1671,7 +1677,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   }, [
     contentFiltersOpen,
     dialog,
-    
+
     messages.length,
     refreshLocalMessages,
     siteKey,
@@ -2512,7 +2518,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
   const featuredPreview = featuredKey ? props.media[featuredKey] : null
 
   return <Box sx={{ height: '100%', minHeight: 0, overflow: 'auto', bgcolor: 'background.default' }}>
-    
+
     <Paper square elevation={0} sx={{ position: 'sticky', top: 0, zIndex: 4, p: 1.25, borderBottom: 1, borderColor: 'divider' }}>
       <Stack direction="row" alignItems="center" spacing={1}>
         <Avatar sx={{ bgcolor: communityView ? 'secondary.main' : 'primary.main' }}>{communityView ? 'گ' : 'W'}</Avatar>
@@ -2533,7 +2539,7 @@ function Composer(props: { dialog: DialogItem | null; dialogs: DialogItem[]; sit
           <Typography variant="caption" color="text.secondary">{!props.dialog ? 'ارسال به شماره‌ها در دسترس است؛ برای عملیات اعضا ابتدا یک گروه یا کانال را انتخاب کنید.' : props.dialog.display_kind === 'personal' ? 'در گفتگوی شخصی، ابزار یکپارچه روی ارسال به شماره‌ها باز می‌شود.' : 'اعضا، شماره‌های جدید و دعوت شماره‌ها در تب‌های مستقل ابزار گروهی قرار دارند.'}</Typography>
         </Stack>
       </Paper> : !props.wordpressReady ? <Alert severity="info" aria-label="وردپرس آماده نیست" action={<Button color="inherit" onClick={props.openSettings}>تنظیمات</Button>}><Typography fontWeight={850}>وردپرس هنوز آماده نیست</Typography>ابتدا یک سایت و دسترسی معتبر وردپرس تعریف کنید.</Alert> : <>
-        
+
 
         {editRecord && <Alert severity="warning" action={editRecord.post_url ? <Button color="inherit" size="small" onClick={() => window.eitaaDesktop.openExternal(editRecord.post_url!)}>مشاهده</Button> : undefined}><Typography fontWeight={850}>حالت ویرایش فعال است</Typography>همان Post ID {editRecord.post_id} به‌روزرسانی می‌شود؛ حذف منابع قبلی مجاز نیست و فقط می‌توان پیام تازه افزود.</Alert>}
 

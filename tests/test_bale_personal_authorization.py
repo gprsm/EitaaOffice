@@ -64,8 +64,9 @@ def _op_context(account: ProviderAccountContext | None = None) -> ProviderOperat
 class FakeBaleBackend:
     """Synthetic stand-in for the Bale personal client facade."""
 
-    def __init__(self, *, fail_send_code: str | None = None) -> None:
+    def __init__(self, *, fail_send_code: str | None = None, vault_locked: bool = False) -> None:
         self.fail_send_code = fail_send_code
+        self.vault_locked = vault_locked
         self.auth_started_with: str | None = None
 
     async def auth_start(self, phone_number):
@@ -81,7 +82,7 @@ class FakeBaleBackend:
         return {"authenticated": True, "user_id": 7}
 
     async def connect(self, *, passphrase=None, subscribe=True, presence=True):
-        if passphrase == _SYNTHETIC_PASSPHRASE:
+        if not self.vault_locked:
             return {"connected": True}
         from eitaa_bridge.application.bale_client.api import BaleApiError
 
@@ -93,13 +94,13 @@ class FakeBaleBackend:
             {"peer": {"id": 55, "type": 2}, "unread_count": 0},
         ]
 
-    async def read_history(self, user_id, *, limit=20, offset_date=None):
+    async def read_history(self, user_id, *, limit=20, offset_date=None, peer_type=1):
         return [
             {"message_id": 11, "sender_id": 42, "date": 1758900000, "text": "پیام آزمایشی"},
             {"message_id": 12, "sender_id": None, "date": 1758900001, "text": None},
         ]
 
-    async def send_text(self, user_id, text, *, silent=False):
+    async def send_text(self, user_id, text, *, silent=False, peer_type=1):
         if self.fail_send_code is not None:
             from eitaa_bridge.application.bale_client.api import BaleApiError
 
@@ -124,13 +125,13 @@ def test_bale_manifest_records_owner_authorization_and_real_capabilities() -> No
     registration = bale_extension_registration()
     manifest = registration.manifest
 
-    assert manifest.implementation_state.value == "implemented"
+    assert manifest.implementation_state.value == "contract_verified"
     assert manifest.authorization_reference == "document:F-086"
     assert manifest.configured is True
-    # Onboarding/worker wiring is the authorized next phase; honest staging.
-    assert manifest.runtime_enabled is False
-    assert manifest.onboarding_enabled is False
-    assert manifest.reason_code == "provider_onboarding_wiring_pending"
+    # Product wiring is offline verified; this is not Live acceptance.
+    assert manifest.runtime_enabled is True
+    assert manifest.onboarding_enabled is True
+    assert manifest.reason_code is None
     assert manifest.account_identity_kind == "phone_e164"
     assert [stage.value for stage in manifest.auth_steps] == [
         "identity",
@@ -141,27 +142,32 @@ def test_bale_manifest_records_owner_authorization_and_real_capabilities() -> No
     assert {"auth.phone", "messages.send", "history.read", "contacts.read"} <= capability_names
     assert registration.catalog_visible is True
     assert registration.adapter_factory is not None
-    assert registration.worker_factory is None
+    assert registration.worker_factory is not None
 
 
-def test_registry_keeps_worker_gate_and_reports_honest_adapter_reason() -> None:
+def test_registry_requires_owned_backend_and_worker_config(tmp_path) -> None:
     registry = default_provider_registry()
-    with pytest.raises(ProviderExtensionError) as adapter_rejected:
-        registry.create_adapter("bale", _account(), InMemoryProviderSessionStore())
-    assert adapter_rejected.value.code == "provider_onboarding_wiring_pending"
-    with pytest.raises(ProviderExtensionError) as worker_rejected:
+    adapter = registry.create_adapter("bale", _account(), InMemoryProviderSessionStore())
+    with pytest.raises(ProviderExtensionError) as unowned:
+        adapter._get_backend()
+    assert unowned.value.code == "provider_account_runtime_unavailable"
+    with pytest.raises(ProviderExtensionError) as missing_config:
         registry.create_worker("bale", str(uuid4()), None)
-    assert worker_rejected.value.code == "provider_worker_not_configured"
+    assert missing_config.value.code == "bale_worker_config_required"
+    worker = registry.create_worker("bale", str(uuid4()), str(tmp_path / "bridge.json"))
+    assert worker.provider == "bale"
+    assert worker.owner is None
+    worker.close()
 
 
 def test_descriptor_advertises_authorized_pending_state() -> None:
     descriptor = provider_adapter_catalog()["bale"]
     payload = descriptor.safe_payload()
     assert payload["configured"] is True
-    assert payload["runtime_enabled"] is False
-    assert payload["onboarding_enabled"] is False
-    assert payload["implementation_state"] == "implemented"
-    assert payload["reason_code"] == "provider_onboarding_wiring_pending"
+    assert payload["runtime_enabled"] is True
+    assert payload["onboarding_enabled"] is True
+    assert payload["implementation_state"] == "contract_verified"
+    assert payload.get("reason_code") is None
     assert len(payload["capabilities"]) > 0
 
 
@@ -195,7 +201,7 @@ def test_send_text_maps_success_and_keeps_secrets_out() -> None:
         )
         receipt = await adapter.send_text(_op_context(), request)
         assert receipt.status is ProviderSendStatus.SUCCEEDED
-        assert receipt.message_reference == "bale:send:4242"
+        assert receipt.message_reference == "bale:submission:4242"
         assert "سلام" not in repr(receipt)
 
     asyncio.run(_run())
@@ -262,7 +268,7 @@ def test_auth_flow_maps_challenge_second_factor_and_sealed_session() -> None:
         assert "+989120000000" not in repr(challenge)
 
         response = SensitiveProviderValue.from_text(
-            json.dumps({"code": "999999", "passphrase": _SYNTHETIC_PASSPHRASE})
+            json.dumps({"code": "999999"})
         )
         outcome = await adapter.submit_challenge(
             context, challenge.challenge_state, response
@@ -270,13 +276,14 @@ def test_auth_flow_maps_challenge_second_factor_and_sealed_session() -> None:
         assert outcome.state is ProviderSessionState.SECOND_FACTOR_PENDING
 
         second = SensitiveProviderValue.from_text(
-            json.dumps({"password": "synthetic-password", "passphrase": _SYNTHETIC_PASSPHRASE})
+            json.dumps({"password": "synthetic-password"})
         )
         final = await adapter.submit_second_factor(
             context, outcome.challenge_state, second
         )
         assert final.state is ProviderSessionState.AUTHENTICATED
         assert final.sealed_session is not None
+        assert final.sealed_session.reveal_bytes() == b"bale:vault:v1"
         assert _SYNTHETIC_PASSPHRASE not in repr(final)
         assert "synthetic-password" not in repr(final)
 
@@ -288,14 +295,14 @@ def test_auth_flow_maps_challenge_second_factor_and_sealed_session() -> None:
 
 def test_validate_session_maps_locked_vault_to_expired_honestly() -> None:
     async def _run():
-        adapter = _adapter()
+        adapter = _adapter(FakeBaleBackend(vault_locked=True))
         outcome = await adapter.validate_session(
             _op_context(),
-            SensitiveProviderValue.from_text("wrong-passphrase"),
+            SensitiveProviderValue.from_text("bale:vault:v1"),
         )
         assert outcome.state is ProviderSessionState.EXPIRED
         assert outcome.safe_reason_code == "bale_vault_locked"
-        assert "wrong-passphrase" not in repr(outcome)
+        assert "bale:vault:v1" not in repr(outcome)
 
     asyncio.run(_run())
 
@@ -305,7 +312,7 @@ def test_dialogs_and_history_map_to_bounded_pages() -> None:
         adapter = _adapter()
         dialog_page = await adapter.list_dialogs(_op_context(), cursor=None, limit=10)
         assert isinstance(dialog_page, ProviderDialogPage)
-        assert dialog_page.dialogs[0].peer.opaque_reference == "bale:peer:42"
+        assert dialog_page.dialogs[0].peer.opaque_reference == "bale:user:42"
         assert dialog_page.dialogs[0].peer.kind == "private"
         assert dialog_page.dialogs[1].peer.kind == "group"
 
@@ -334,3 +341,6 @@ def test_release_scope_ships_the_personal_client_again() -> None:
     assert "src/eitaa_bridge/application/bale_client/api.py" in selected
     assert "src/eitaa_bridge/application/bale_provider_adapter.py" in selected
     assert "src/eitaa_bridge/providers/bale/slot.py" in selected
+    assert "src/eitaa_bridge/application/bale_provider_worker.py" in selected
+    assert "src/eitaa_bridge/application/bale_runtime.py" in selected
+    assert "scripts/bale_product_pilot.py" in selected

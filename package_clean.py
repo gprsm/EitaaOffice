@@ -112,6 +112,7 @@ UI_ROOT_FILES = {
 SCRIPT_FILES = {
     "scripts/archive_previous_office_release.ps1",
     "scripts/backup_runtime.py",
+    "scripts/bale_product_pilot.py",
     "scripts/build_self_contained_setup.py",
     "scripts/build_windows_icon.ps1",
     "scripts/build_wheel_stdlib.py",

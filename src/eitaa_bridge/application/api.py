@@ -17,6 +17,7 @@ import re
 import shutil
 import sqlite3
 import threading
+import math
 import time
 import unicodedata
 import uuid
@@ -444,6 +445,8 @@ class BridgeApplicationApi:
                 else:
                     try:
                         selected_runtime = runtime_registry.resolve_v1()
+                        if selected_runtime.runtime_record is not None and selected_runtime.runtime_record.provider != "eitaa":
+                            selected_runtime = None
                     except EitaaRuntimeError as exc:
                         if exc.code != "eitaa_runtime_account_not_runnable":
                             raise
@@ -467,9 +470,13 @@ class BridgeApplicationApi:
         self._coordinator: CoordinatorDatabase | None = None
         self._persistent_job_service: PersistentOperationJobService | None = None
         self._execution_policy: AccountExecutionPolicyService | None = None
+        self._delivery_reservation_store: Any | None = None
+        self._otp_delivery_store: Any | None = None
         self._coordinator_audit: SafeCoordinatorAuditService | None = None
         self._provider_capability_service: ProviderCapabilityService | None = None
         self._provider_receipt_store: ProviderOperationReceiptStore | None = None
+        self._ai_connection_store: Any = None
+        self._ai_data_policy_store: Any = None
         self._persistent_job_worker_id = str(uuid.uuid4())
         self._persistent_job_lease_lock = threading.RLock()
         self._persistent_job_lease_stops: dict[str, threading.Event] = {}
@@ -510,9 +517,50 @@ class BridgeApplicationApi:
             self._execution_policy = AccountExecutionPolicyService(
                 self._coordinator
             )
+            # P3: durable delivery reservations share the identity key's
+            # HMAC (one server key owner); the store is stateless besides
+            # the coordinator connection and is reused across requests.
+            from ..infrastructure.coordinator.identity import default_phone_protector
+            from ..infrastructure.coordinator.reservations import (
+                ServiceDeliveryReservationStore,
+            )
+            self._delivery_reservation_store = ServiceDeliveryReservationStore(
+                self._coordinator,
+                binding_mac=default_phone_protector(
+                    self._coordinator.path.parent
+                ).hmac_hex,
+            )
+            from ..infrastructure.coordinator.otp_deliveries import (
+                ServiceOtpDeliveryStore,
+            )
+            self._otp_delivery_store = ServiceOtpDeliveryStore(
+                self._coordinator,
+                binding_mac=default_phone_protector(
+                    self._coordinator.path.parent
+                ).hmac_hex,
+            )
             self._coordinator_audit = SafeCoordinatorAuditService(
                 self._coordinator
             )
+            from ..infrastructure.coordinator.ai_connection import AiConnectionStore
+            from ..infrastructure.coordinator.ai_data_policy import AiDataPolicyStore
+            ai_protector = (
+                phone_protector
+                or (getattr(self._app_auth, "phone_protector", None) if self._app_auth else None)
+                or default_phone_protector(self._coordinator.path.parent)
+            )
+            self._ai_connection_store = AiConnectionStore(self._coordinator, protector=ai_protector)
+            self._ai_data_policy_store = AiDataPolicyStore(self._coordinator)
+            from . import agent_gateway
+            agent_gateway.ai_connection_store = self._ai_connection_store
+            agent_gateway.ai_data_policy_store = self._ai_data_policy_store
+            try:
+                ai_settings = self._ai_connection_store.get_settings()
+                if ai_settings.enabled and ai_settings.connection_status in ("configured", "reachable"):
+                    from .agent_gateway import LiveAiAgentAdapter
+                    agent_gateway.default_agent_adapter = LiveAiAgentAdapter(self._ai_connection_store)
+            except Exception:
+                pass
             recovery = self._persistent_job_service.recover_expired_jobs()
             if any(recovery.safe_summary().values()):
                 self._application_logger.emit(
@@ -551,6 +599,7 @@ class BridgeApplicationApi:
         eitaa_provider = self._provider_registry.registration("eitaa").manifest.provider
         self._provider_application_adapter_factories = {
             eitaa_provider: self._create_eitaa_application_adapter,
+            "bale": self._create_bale_application_adapter,
         }
         self._provider_orchestrator = ProviderApplicationOrchestrator(
             authorize_account=self._authorize_provider_operation_account,
@@ -563,6 +612,11 @@ class BridgeApplicationApi:
             resolve_adapter=self._resolve_provider_application_adapter,
             logger=self._application_logger,
             receipt_store=self._provider_receipt_store,
+            # P2: the same policy instance owns admission and outcome
+            # recording for every real mutation attempt; without a
+            # coordinator database it stays None (fail-open bookkeeping only,
+            # never a bypass of the fences).
+            execution_policy=self._execution_policy,
         )
         # Chat gateway wiring: the agent adapter is selected only from an
         # explicit bridge.json "agent_gateway" section; without it the marked
@@ -1473,6 +1527,11 @@ class BridgeApplicationApi:
                         orchestrator=self._provider_orchestrator,
                         coordinator=self._coordinator,
                         resolve_handler=self._m2m_resolve_recipients,
+                        request_quota_reader=lambda credential_id: (
+                            self._m2m_request_quota_snapshot(credential_id)
+                        ),
+                        reservation_store=self._delivery_reservation_store,
+                        otp_delivery_store=self._otp_delivery_store,
                     ))
                 finally:
                     # Immediate cleanup, even on error: the service identity
@@ -1594,6 +1653,95 @@ class BridgeApplicationApi:
                             fields={"credential_id": cred_id},
                         )
                     return ApiResponse(200, {"ok": True, "token": token})
+
+            if selected_method == "GET" and path == "/api/v2/service-sender-profiles":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                return self._sender_profiles_list()
+            if selected_method == "PUT" and path == "/api/v2/service-sender-profiles":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                if not payload:
+                    raise CompositionValidationError("Missing body")
+                return self._sender_profile_upsert(session.principal, payload, request_id=request_id)
+            sender_profile_delete_match = re.fullmatch(
+                r"/api/v2/service-sender-profiles/([0-9a-fA-F-]{36})", path
+            )
+            if selected_method == "DELETE" and sender_profile_delete_match:
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                return self._sender_profile_delete(
+                    session.principal,
+                    sender_profile_delete_match.group(1),
+                    request_id=request_id,
+                )
+
+            if selected_method == "GET" and path == "/api/v2/admin/ai-connection":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                store = self._require_ai_connection_store()
+                return ApiResponse(200, {"ok": True, "connection": store.get_settings().to_safe_dict()})
+
+            if selected_method == "PUT" and path == "/api/v2/admin/ai-connection":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                if not payload:
+                    raise CompositionValidationError("Missing body")
+                return self._admin_ai_connection_update(session.principal, payload, request_id=request_id)
+
+            if selected_method == "POST" and path == "/api/v2/admin/ai-connection/probe":
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                return self._admin_ai_connection_probe(session.principal, request_id=request_id)
+
+            ai_data_policy_match = re.fullmatch(r"/api/v2/admin/ai-data-policy/([a-zA-Z0-9_-]+)", path)
+            if selected_method == "GET" and ai_data_policy_match:
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                store = self._require_ai_data_policy_store()
+                policy = store.get_policy(ai_data_policy_match.group(1))
+                return ApiResponse(200, {"ok": True, "policy": policy.to_dict()})
+
+            if selected_method == "PUT" and ai_data_policy_match:
+                session = self._require_authorized_session(app_session)
+                if session.principal.global_role != "admin":
+                    raise CoordinatorAuthorizationError(
+                        "فقط مدیر سامانه به این عملیات دسترسی دارد.",
+                        code="app_auth_admin_required",
+                    )
+                if not payload:
+                    raise CompositionValidationError("Missing body")
+                return self._admin_ai_data_policy_update(
+                    session.principal, ai_data_policy_match.group(1), payload, request_id=request_id
+                )
 
             if selected_method == "GET" and path == "/api/v2/observability/events":
                 return ApiResponse(200, {"ok": True, "catalog": catalog_payload()})
@@ -1785,6 +1933,17 @@ class BridgeApplicationApi:
                     action=worker_match.group("action"),
                     request_id=request_id,
                 )
+            extension_match = re.fullmatch(r"/api/v2/messenger-accounts/([0-9a-fA-F-]{36})/(contacts/remove|messages/send-media|contacts/search|media/content)", path)
+            if extension_match and selected_method == "POST":
+                from .bale_product_api import dispatch_product_extension
+                return ApiResponse(200, dispatch_product_extension(self, app_session,
+                    extension_match.group(1), extension_match.group(2), payload, request_id))
+            bale_auth_match = re.fullmatch(r"/api/v2/messenger-accounts/([0-9a-fA-F-]{36})/auth/(status|start|code|password|cancel|restore|logout)", path)
+            if bale_auth_match and selected_method == ("GET" if bale_auth_match.group(2) == "status" else "POST"):
+                from .bale_product_api import dispatch_bale_auth
+                return ApiResponse(200, dispatch_bale_auth(
+                    self, app_session, bale_auth_match.group(1), bale_auth_match.group(2), payload, request_id,
+                ))
             dialog_query_match = _MESSENGER_ACCOUNT_DIALOG_QUERY_ROUTE.fullmatch(path)
             if selected_method == "POST" and dialog_query_match:
                 return self._provider_dialog_query(
@@ -1881,6 +2040,8 @@ class BridgeApplicationApi:
                     selected_runtime = self._runtime_registry.runtime_for_account(
                         selected_account_id
                     )
+                    if selected_runtime.runtime_record.provider != "eitaa":
+                        raise ProviderExtensionError("Use the account-scoped provider API.", code="provider_v1_route_unsupported")
                     self._request_runtime.set(selected_runtime)
                     if (
                         isinstance(selected_runtime, EitaaProcessRuntime)
@@ -2270,8 +2431,316 @@ class BridgeApplicationApi:
         from ..infrastructure.coordinator.service_credentials import ServiceCredentialService
         return ServiceCredentialService(self._coordinator)
 
+    def _require_sender_profile_store(self):
+        from ..infrastructure.coordinator.sender_profiles import ServiceSenderProfileStore
+        return ServiceSenderProfileStore(self._require_coordinator())
+
+    _SENDER_PROFILE_INTENTS = frozenset({"otp", "notification"})
+
+    def _sender_profiles_list(self) -> ApiResponse:
+        store = self._require_sender_profile_store()
+        profiles = []
+        for profile in store.list_profiles():
+            available = store.account_available(profile.messenger_account_id)
+            profiles.append({
+                "id": profile.id,
+                "service_credential_id": profile.service_credential_id,
+                "intent": profile.intent,
+                "provider": profile.provider,
+                "messenger_account_id": profile.messenger_account_id,
+                "enabled": profile.enabled,
+                "revision": profile.revision,
+                "created_at": profile.created_at,
+                "updated_at": profile.updated_at,
+                "account_available": available,
+            })
+        return ApiResponse(200, {"ok": True, "profiles": profiles})
+
+    def _validate_sender_profile_payload(
+        self,
+        payload: Mapping[str, Any],
+    ) -> tuple[Any, str, str, str, bool, int | None]:
+        """Admin-side fence validation before a sender profile write.
+
+        The profile must stay inside the owning credential's account and
+        provider fences; it can never widen what the credential may reach.
+        """
+        allowed_keys = {
+            "service_credential_id", "intent", "provider",
+            "messenger_account_id", "enabled", "expected_revision",
+        }
+        rejected_keys = sorted(str(key) for key in payload if key not in allowed_keys)
+        if rejected_keys:
+            raise CompositionValidationError(
+                "Sender profile payload contains unsupported fields.",
+                code="sender_profile_fields_rejected",
+                safe_context={"rejected_fields": rejected_keys},
+            )
+
+        credential_id = self._payload_text(payload, "service_credential_id").strip()
+        intent = self._payload_text(payload, "intent").strip()
+        provider = self._payload_text(payload, "provider").strip().lower()
+        messenger_account_id = self._payload_text(payload, "messenger_account_id").strip()
+        enabled = payload.get("enabled")
+        expected_revision = payload.get("expected_revision")
+
+        if intent not in self._SENDER_PROFILE_INTENTS:
+            raise CompositionValidationError(
+                "Sender profile intent must be one of otp/notification.",
+                code="sender_profile_intent_invalid",
+            )
+        if not isinstance(enabled, bool):
+            raise CompositionValidationError(
+                "Sender profile enabled flag must be a boolean.",
+                code="sender_profile_enabled_invalid",
+            )
+        if expected_revision is not None and (
+            not isinstance(expected_revision, int)
+            or isinstance(expected_revision, bool)
+            or expected_revision < 1
+        ):
+            raise CompositionValidationError(
+                "Sender profile revision must be a positive integer.",
+                code="sender_profile_revision_invalid",
+            )
+
+        credential = None
+        for candidate in self._require_service_credential_service().list_credentials():
+            if candidate.id == credential_id:
+                credential = candidate
+                break
+        if credential is None:
+            raise CompositionValidationError(
+                "Sender profile references an unknown service credential.",
+                code="sender_profile_credential_unknown",
+            )
+        from .provider_adapter import provider_adapter_catalog
+        if provider not in provider_adapter_catalog():
+            raise CompositionValidationError(
+                "Sender profile provider is unknown.",
+                code="sender_profile_provider_unknown",
+            )
+        if credential.allowed_providers and provider not in credential.allowed_providers:
+            raise CompositionValidationError(
+                "Provider is not allowed for this service credential.",
+                code="m2m_provider_not_allowed",
+            )
+        runtime = self._require_coordinator().messenger_account_runtime(messenger_account_id)
+        if str(getattr(runtime, "provider", "")) != provider:
+            raise CompositionValidationError(
+                "The selected account does not belong to the chosen provider.",
+                code="sender_profile_provider_mismatch",
+            )
+        if (
+            credential.allowed_messenger_account_ids is not None
+            and messenger_account_id not in credential.allowed_messenger_account_ids
+        ):
+            raise CompositionValidationError(
+                "Account is not allowed for this service credential.",
+                code="m2m_account_not_allowed",
+            )
+        return credential, intent, provider, messenger_account_id, enabled, expected_revision
+
+    def _sender_profile_upsert(
+        self,
+        principal: Any,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        (
+            credential,
+            intent,
+            provider,
+            messenger_account_id,
+            enabled,
+            expected_revision,
+        ) = self._validate_sender_profile_payload(payload)
+        store = self._require_sender_profile_store()
+        profile = store.upsert_profile(
+            credential.id,
+            intent,
+            provider,
+            messenger_account_id,
+            enabled=enabled,
+            expected_revision=expected_revision,
+            actor_app_user_id=principal.app_user_id,
+        )
+        if self._application_logger is not None:
+            self._application_logger.emit(
+                "service_sender_profile_updated",
+                correlation_id=request_id,
+                fields={
+                    "sender_profile_id": profile.id,
+                    "credential_id": credential.id,
+                    "intent": intent,
+                    "provider": provider,
+                    "revision": profile.revision,
+                },
+            )
+        return ApiResponse(200, {"ok": True, "profile": {
+            "id": profile.id,
+            "service_credential_id": profile.service_credential_id,
+            "intent": profile.intent,
+            "provider": profile.provider,
+            "messenger_account_id": profile.messenger_account_id,
+            "enabled": profile.enabled,
+            "revision": profile.revision,
+            "created_at": profile.created_at,
+            "updated_at": profile.updated_at,
+        }})
+
+    def _sender_profile_delete(
+        self,
+        principal: Any,
+        profile_id: str,
+        *,
+        request_id: str | None,
+    ) -> ApiResponse:
+        store = self._require_sender_profile_store()
+        try:
+            store.delete_profile(profile_id)
+        except BridgeError as exc:
+            if getattr(exc, "code", "") == "sender_profile_not_found":
+                raise CompositionValidationError(
+                    "The sender profile was not found.",
+                    code="sender_profile_not_found",
+                ) from exc
+            raise
+        if self._application_logger is not None:
+            self._application_logger.emit(
+                "service_sender_profile_removed",
+                correlation_id=request_id,
+                fields={"sender_profile_id": profile_id},
+            )
+        return ApiResponse(200, {"ok": True})
+
+    def _require_ai_connection_store(self):
+        if self._ai_connection_store is not None:
+            return self._ai_connection_store
+        coordinator = self._require_coordinator()
+        from ..infrastructure.coordinator.identity import default_phone_protector
+        from ..infrastructure.coordinator.ai_connection import AiConnectionStore
+        protector = getattr(self._app_auth, "phone_protector", None) or default_phone_protector(coordinator.path.parent)
+        self._ai_connection_store = AiConnectionStore(coordinator, protector=protector)
+        from . import agent_gateway
+        agent_gateway.ai_connection_store = self._ai_connection_store
+        return self._ai_connection_store
+
+    def _require_ai_data_policy_store(self):
+        if self._ai_data_policy_store is not None:
+            return self._ai_data_policy_store
+        coordinator = self._require_coordinator()
+        from ..infrastructure.coordinator.ai_data_policy import AiDataPolicyStore
+        self._ai_data_policy_store = AiDataPolicyStore(coordinator)
+        from . import agent_gateway
+        agent_gateway.ai_data_policy_store = self._ai_data_policy_store
+        return self._ai_data_policy_store
+
+    def _admin_ai_connection_update(
+        self,
+        principal: Any,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None = None,
+    ) -> ApiResponse:
+        store = self._require_ai_connection_store()
+        try:
+            settings = store.update_settings(
+                enabled=payload.get("enabled"),
+                provider_dialect=payload.get("provider_dialect"),
+                endpoint=payload.get("endpoint"),
+                model_id=payload.get("model_id"),
+                display_name=payload.get("display_name"),
+                timeout_seconds=payload.get("timeout_seconds"),
+                max_input_length=payload.get("max_input_length"),
+                max_output_tokens=payload.get("max_output_tokens"),
+                concurrency_limit=payload.get("concurrency_limit"),
+                secret_key=payload.get("secret_key"),
+                expected_revision=payload.get("expected_revision"),
+                connection_status=payload.get("connection_status"),
+            )
+            from . import agent_gateway
+            agent_gateway.ai_connection_store = store
+            if settings.enabled and settings.connection_status in ("configured", "reachable"):
+                from .agent_gateway import LiveAiAgentAdapter
+                agent_gateway.default_agent_adapter = LiveAiAgentAdapter(store)
+            else:
+                from .agent_gateway import TestAgentAdapter
+                agent_gateway.default_agent_adapter = TestAgentAdapter()
+            if self._application_logger is not None:
+                self._application_logger.emit(
+                    "ai_connection_settings_updated",
+                    correlation_id=request_id,
+                    fields={
+                        "revision": settings.revision,
+                        "enabled": settings.enabled,
+                        "dialect": settings.provider_dialect,
+                        "key_configured": settings.key_configured,
+                    },
+                )
+            return ApiResponse(200, {"ok": True, "connection": settings.to_safe_dict()})
+        except BridgeError as exc:
+            return ApiResponse(getattr(exc, "status_code", 400), {"ok": False, "error": exc.code, "message": str(exc)})
+
+    def _admin_ai_connection_probe(
+        self,
+        principal: Any,
+        *,
+        request_id: str | None = None,
+    ) -> ApiResponse:
+        store = self._require_ai_connection_store()
+        result = asyncio.run(store.probe())
+        if self._application_logger is not None:
+            self._application_logger.emit(
+                "ai_connection_probe_executed",
+                correlation_id=request_id,
+                fields={"ok": result["ok"], "reachable": result["reachable"]},
+            )
+        return ApiResponse(200, {"ok": True, "probe": result})
+
+    def _admin_ai_data_policy_update(
+        self,
+        principal: Any,
+        service_id: str,
+        payload: Mapping[str, Any],
+        *,
+        request_id: str | None = None,
+    ) -> ApiResponse:
+        store = self._require_ai_data_policy_store()
+        try:
+            policy = store.set_policy(
+                service_id=service_id,
+                policy_level=str(payload.get("policy_level") or "disabled"),
+                max_history_turns=int(payload.get("max_history_turns", 5)),
+                allowed_context_types=payload.get("allowed_context_types"),
+                expected_revision=payload.get("expected_revision"),
+            )
+            from . import agent_gateway
+            agent_gateway.ai_data_policy_store = store
+            if self._application_logger is not None:
+                self._application_logger.emit(
+                    "ai_data_policy_updated",
+                    correlation_id=request_id,
+                    fields={
+                        "service_id": service_id,
+                        "policy_level": policy.policy_level,
+                        "revision": policy.revision,
+                    },
+                )
+            return ApiResponse(200, {"ok": True, "policy": policy.to_dict()})
+        except BridgeError as exc:
+            return ApiResponse(getattr(exc, "status_code", 400), {"ok": False, "error": exc.code, "message": str(exc)})
+
     _M2M_CREDENTIAL_SCOPES = frozenset(
-        {"messages.send", "messages.status", "contacts.resolve", "agent.chat"}
+        {
+            "messages.send",
+            "messages.status",
+            "contacts.resolve",
+            "contacts.import",
+            "agent.chat",
+            "otp.deliver",
+        }
     )
 
     def _validate_service_credential_fences(
@@ -2346,6 +2815,28 @@ class BridgeApplicationApi:
             self._m2m_rate_limit_history[service_id] = valid
             return True
 
+    def _m2m_request_quota_snapshot(self, service_id: str) -> dict[str, Any]:
+        """Read-only view of one credential's request window; nothing is consumed."""
+        now = time.time()
+        cutoff = now - 60.0
+        with self._m2m_rate_limit_lock:
+            history = [
+                t for t in self._m2m_rate_limit_history.get(service_id, []) if t > cutoff
+            ]
+        remaining = max(0, 60 - len(history))
+        return {
+            "scope": "m2m_request",
+            "operation": "http.request",
+            "limit": 60,
+            "remaining": remaining,
+            "window_seconds": 60,
+            "retry_after_seconds": (
+                max(1, math.ceil(60.0 - (now - min(history)))) if remaining == 0 and history else 0
+            ),
+            "updated_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "certainty": "observed",
+        }
+
     def _check_m2m_failed_verify_throttle(self, max_failures: int = 30, window_seconds: float = 60.0) -> bool:
         """Bound pre-auth PBKDF2 work: refuse token verification while the
         recent failure rate stays above the threshold (DoS guard)."""
@@ -2382,6 +2873,18 @@ class BridgeApplicationApi:
         # Read-only peek: resolve must never start a worker/runtime as a side
         # effect; an account without a live runtime resolves as unsupported.
         runtime = self._runtime_registry.peek_runtime_for_account(messenger_account_id)
+        from .bale_runtime import BaleAccountRuntime
+        if isinstance(runtime, BaleAccountRuntime):
+            normalized = []
+            for recipient in recipients:
+                item = dict(recipient)
+                if item.get("kind") == "phone":
+                    try:
+                        item["value"] = normalize_phone(str(item["value"]))
+                    except ValueError:
+                        item["value"] = ""
+                normalized.append(item)
+            return list(runtime.request("bale.provider.recipients.resolve", {"recipients": normalized}, timeout_seconds=90)["results"])
         catalog = getattr(runtime, "dialog_catalog", None) if runtime is not None else None
         catalog_available = (
             runtime is not None
@@ -2576,6 +3079,19 @@ class BridgeApplicationApi:
                 list_contacts=self._eitaa_provider_contacts,
                 upsert_contact=self._eitaa_provider_contact_upsert,
             ),
+        )
+
+    def _create_bale_application_adapter(self, account: ProviderAccountContext) -> Any:
+        from .bale_provider_adapter import BaleProviderApplicationAdapter
+        from .bale_runtime import BaleAccountRuntime, BaleRuntimeBackend, BaleVaultSessionStore
+
+        runtime = self._runtime_registry.runtime_for_account(account.messenger_account_id)
+        if not isinstance(runtime, BaleAccountRuntime) or runtime.runtime_record.provider != "bale":
+            raise ProviderExtensionError("Bale runtime scope changed.", code="provider_extension_scope_invalid")
+        return BaleProviderApplicationAdapter(
+            account, BaleVaultSessionStore(runtime),
+            self._provider_registry.registration("bale").manifest,
+            backend_factory=lambda: BaleRuntimeBackend(runtime),
         )
 
     @contextmanager
@@ -3278,6 +3794,7 @@ class BridgeApplicationApi:
                         "peer_kind": item.peer.kind,
                         "title": item.title,
                         "unread_count": item.unread_count,
+                        **({"last_text": item.last_text} if item.last_text is not None else {}),
                     }
                     for item in page.dialogs
                 ],
@@ -3331,6 +3848,7 @@ class BridgeApplicationApi:
                 "messages": [
                     {
                         "message_reference": item.message_reference,
+                        **({"media_reference": item.media_reference} if item.media_reference is not None else {}),
                         "peer_reference": item.peer.opaque_reference,
                         "peer_kind": item.peer.kind,
                         "sender_reference": item.sender_reference,
@@ -5094,28 +5612,28 @@ class BridgeApplicationApi:
                 code="messenger_account_onboarding_fields_rejected",
                 safe_context={"rejected_fields": rejected_keys},
             )
-        
+
         provider_value = payload.get("provider")
         phone_value = payload.get("phone")
-        
+
         if not isinstance(provider_value, str):
             raise CompositionValidationError(
                 "Account onboarding provider field is invalid.",
                 code="messenger_account_onboarding_identity_fields_invalid",
             )
-        
+
         if phone_value is None:
             raise CompositionValidationError(
                 "Account onboarding requires a phone identity field.",
                 code="messenger_account_onboarding_identity_fields_invalid",
             )
-            
+
         if phone_value is not None and not isinstance(phone_value, str):
             raise CompositionValidationError(
                 "Account onboarding identity fields are invalid.",
                 code="messenger_account_onboarding_identity_fields_invalid",
             )
-            
+
         if payload.get("label") is not None and not isinstance(payload.get("label"), str):
             raise CompositionValidationError(
                 "Account onboarding label is invalid.",
@@ -12161,6 +12679,22 @@ class BridgeApplicationApi:
             status = 409
         elif isinstance(exc, CompositionValidationError):
             status = 404 if exc.code == "composition_message_not_found" else 400
+        elif isinstance(exc, BridgeError) and exc.code in {
+            "stale_revision",
+            "provider_operation_duplicate_in_progress",
+            "provider_idempotency_payload_mismatch",
+            "provider_idempotency_owner_mismatch",
+            "provider_receipt_conflict",
+            "delivery_reservation_conflict",
+        }:
+            status = 409
+        elif isinstance(exc, BridgeError) and exc.code == "provider_operation_rate_limited":
+            # P3-R4: the canonical mapping — the same code answers 429 with a
+            # valid Retry-After on every surface, so UI and clients see one
+            # consistent retry contract (never a raw 400).
+            status = 429
+        elif isinstance(exc, BridgeError) and exc.code == "provider_operation_circuit_open":
+            status = 503
         elif isinstance(exc, (BridgeConfigurationError,)):
             status = 400
         elif isinstance(exc, WordPressAuthenticationError):
@@ -12206,6 +12740,11 @@ class BridgeApplicationApi:
             message = "The local API request failed unexpectedly."
             safe_context = {"error_type": type(exc).__name__}
             debug_file = None
+        headers: dict[str, str] = {}
+        if status == 429:
+            retry_after_seconds = (safe_context or {}).get("retry_after_seconds")
+            if retry_after_seconds:
+                headers["Retry-After"] = str(max(1, int(retry_after_seconds)))
         return ApiResponse(
             status,
             {
@@ -12218,4 +12757,5 @@ class BridgeApplicationApi:
                     "debug_file": debug_file,
                 },
             },
+            headers=headers,
         )

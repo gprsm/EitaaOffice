@@ -371,7 +371,7 @@ export function MessengerAccountManagementPanel() {
       <Box>
         <Typography variant="h6">حساب‌های پیام‌رسان</Typography>
         <Typography variant="body2" color="text.secondary">
-          هر شماره یک PhoneAccount است و می‌تواند حساب‌های مستقل ایتا و بله داشته باشد.
+          هر شماره یک PhoneAccount است و می‌تواند حساب‌های مستقل ایتا و بله داشته باشد. نشست و مخاطبین هر حساب مستقل هستند.
         </Typography>
       </Box>
       {!state.featureEnabled && <Alert severity="info">

@@ -418,6 +418,7 @@ class ProviderDialogSummary:
     peer: ProviderPeerReference
     title: str = field(repr=False)
     unread_count: int = 0
+    last_text: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         _bounded_text(self.title, field_name="title", maximum=512, allow_empty=True)
@@ -426,6 +427,8 @@ class ProviderDialogSummary:
                 "The provider unread count is invalid.",
                 code="provider_dialog_invalid",
             )
+        if self.last_text is not None:
+            _bounded_text(self.last_text, field_name="last_text", maximum=100_000, allow_empty=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -453,6 +456,7 @@ class ProviderMessageSummary:
     sender_reference: str | None
     sent_at_unix_ms: int
     text: str | None = field(default=None, repr=False)
+    media_reference: str | None = None
 
     def __post_init__(self) -> None:
         if not _OPAQUE_REFERENCE.fullmatch(str(self.message_reference or "")):
@@ -472,6 +476,8 @@ class ProviderMessageSummary:
             )
         if self.text is not None:
             _bounded_text(self.text, field_name="text", maximum=100_000, allow_empty=True)
+        if self.media_reference is not None and not _OPAQUE_REFERENCE.fullmatch(self.media_reference):
+            raise ProviderExtensionError("Invalid media reference.", code="provider_media_reference_invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -731,6 +737,47 @@ class ProviderContactAdapter(Protocol):
         context: ProviderOperationContext,
         request: ProviderContactUpsertRequest,
     ) -> ProviderContactMutationReceipt: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderContactRemoveRequest:
+    contact_reference: str
+    idempotency_key: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not _OPAQUE_REFERENCE.fullmatch(self.contact_reference) or not _IDEMPOTENCY_KEY.fullmatch(self.idempotency_key):
+            raise ProviderExtensionError("Invalid remove request.", code="provider_contact_identity_invalid")
+
+
+@runtime_checkable
+class ProviderContactRemovalAdapter(Protocol):
+    """Contact contract v2, additive to the list/upsert v1 protocol."""
+    async def remove_contact(self, context: ProviderOperationContext,
+                             request: ProviderContactRemoveRequest) -> ProviderContactMutationReceipt: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderSendMediaRequest:
+    peer: ProviderPeerReference
+    filename: str
+    data: bytes = field(repr=False)
+    idempotency_key: str = field(repr=False)
+    caption: str = field(default="", repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.filename or len(self.filename) > 180 or any(c in self.filename for c in '/\\\x00') or self.filename in {".", ".."}:
+            raise ProviderExtensionError("Invalid upload name.", code="provider_media_name_invalid")
+        if not isinstance(self.data, bytes) or not 1 <= len(self.data) <= 512 * 1024:
+            raise ProviderExtensionError("Upload exceeds bounded IPC limit.", code="provider_media_size_invalid")
+        if not _IDEMPOTENCY_KEY.fullmatch(self.idempotency_key):
+            raise ProviderExtensionError("Invalid upload key.", code="provider_idempotency_key_invalid")
+        _bounded_text(self.caption, field_name="caption", maximum=4096, allow_empty=True)
+
+
+@runtime_checkable
+class ProviderMediaSendAdapter(Protocol):
+    async def send_media(self, context: ProviderOperationContext,
+                         request: ProviderSendMediaRequest) -> ProviderSendReceipt: ...
 
 
 @runtime_checkable

@@ -111,6 +111,7 @@ class EitaaProcessWorkerClient:
         self._responses: queue.Queue[str | object] = queue.Queue(maxsize=128)
         self._stderr_codes: deque[str] = deque(maxlen=32)
         self._request_lock = threading.RLock()
+        self._session_generation: int | None = None
         self._closed = False
         self._worker_pid: int | None = None
         self._worker_instance_id: str | None = None
@@ -133,6 +134,8 @@ class EitaaProcessWorkerClient:
         cls,
         config: BridgeConfig,
         ownership: EitaaSessionOwnership,
+        *,
+        provider: str = "eitaa",
     ) -> "EitaaProcessWorkerClient":
         account_id = ownership.messenger_account_id
         runtime_directory = ownership.account_runtime_directory
@@ -145,7 +148,7 @@ class EitaaProcessWorkerClient:
         material, secret_file = WorkerIpcSecretFile.create(
             runtime_directory / "ipc",
             messenger_account_id=account_id,
-            provider="eitaa",
+            provider=provider,
             ttl_seconds=min(300, max(5, feature.startup_timeout_seconds * 2)),
         )
         command = [
@@ -153,7 +156,7 @@ class EitaaProcessWorkerClient:
             "-m",
             "eitaa_bridge.interfaces.provider_worker",
             "--provider",
-            "eitaa",
+            provider,
             "--messenger-account-id",
             account_id,
             "--secret-file",
@@ -207,7 +210,7 @@ class EitaaProcessWorkerClient:
                 or not isinstance(reported_pid, int)
                 or reported_pid <= 0
                 or reported_pid == os.getpid()
-                or hello.get("provider") != "eitaa"
+                or hello.get("provider") != provider
                 or hello.get("messenger_account_id") != account_id
                 or hello.get("runtime_boundary") != "child_process"
             ):
@@ -287,6 +290,11 @@ class EitaaProcessWorkerClient:
     ) -> dict[str, object]:
         timeout = float(timeout_seconds or self.request_timeout_seconds)
         selected_payload = dict(payload or {})
+        if self._session_generation is not None and method not in {"worker.hello", "bale.runtime.start"}:
+            supplied = selected_payload.get("session_generation", self._session_generation)
+            if supplied != self._session_generation:
+                raise EitaaRuntimeError("The worker session fence changed.", code="eitaa_process_fence_mismatch")
+            selected_payload["session_generation"] = self._session_generation
         if self._worker_instance_id is not None and method not in {
             "worker.hello",
             "eitaa.runtime.start",

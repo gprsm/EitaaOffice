@@ -63,8 +63,13 @@ python3 -m venv "$release/.venv"
 "$release/.venv/bin/python" -c 'import eitaa_bridge; import cryptography; import requests'
 
 chown -R root:eitaa-bridge "$release"
-find "$release" -type d -exec chmod g-w,o-rwx {} +
-find "$release" -type f -exec chmod g-w,o-rwx {} +
+find "$release" -type d -exec chmod u+rwx,g+rx,g-w,o-rwx {} +
+find "$release" -type f -exec chmod u+rw,g+rX,g-w,o-rwx {} +
+
+# A restrictive caller umask must not leave the service unable to read or
+# traverse its release. Verify access before switching the active symlink.
+runuser -u "$app" -- "$release/.venv/bin/python" -c \
+    'import eitaa_bridge; import cryptography; import requests; import websockets; import httpx; import openpyxl; import eitaa_bridge.infrastructure.coordinator.ai_connection'
 
 old_target=""
 if [[ -L "$root/current" ]]; then

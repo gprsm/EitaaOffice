@@ -41,6 +41,14 @@ class PhoneProtector(Protocol):
 
     def protect(self, canonical_e164: str) -> ProtectedPhone: ...
 
+    def hmac_hex(self, payload: bytes) -> str:
+        """Server-keyed HMAC-SHA256 over an arbitrary payload.
+
+        The same install secret that fingerprints phone identities; used for
+        opaque reservation bindings. Never exposes the key itself.
+        """
+        ...
+
 
 def validate_canonical_e164(value: str) -> str:
     """Require an already-canonical E.164 phone identity."""
@@ -203,6 +211,11 @@ class WindowsDpapiPhoneProtector:
             fingerprint=fingerprint,
             display_hint=masked_phone(phone),
         )
+
+    def hmac_hex(self, payload: bytes) -> str:
+        """Server-keyed HMAC-SHA256 over an arbitrary payload (one key owner)."""
+        secret = self._load_or_create_secret()
+        return hmac.new(secret, bytes(payload), hashlib.sha256).hexdigest()
 
     def reveal(self, protected: ProtectedPhone) -> str:
         if protected.key_version != _KEY_VERSION:
@@ -381,6 +394,11 @@ class FileKeyPhoneProtector:
             ).hexdigest(),
             display_hint=masked_phone(phone),
         )
+
+    def hmac_hex(self, payload: bytes) -> str:
+        """Server-keyed HMAC-SHA256 over an arbitrary payload (one key owner)."""
+        secret = self._load_or_create_secret()
+        return hmac.new(secret, bytes(payload), hashlib.sha256).hexdigest()
 
     def reveal(self, protected: ProtectedPhone) -> str:
         if protected.key_version != _KEY_VERSION:

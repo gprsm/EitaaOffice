@@ -1,15 +1,5 @@
-"""Bale personal provider registration (owner-authorized path).
-
-The product decision recorded by F-086/ADR-60 (2026-09-27) authorizes the
-Bale personal-account path as a first-class provider alongside the official
-Bale Bot API scaffold, superseding the stabilization-era fail-closed reading
-of F-046. The client implementation lives in ``application/bale_client``
-(live-accepted for session operations on the Bale branch, V-194/F-072) and
-this adapter is offline contract-verified; account onboarding and worker
-runtime wiring remain the explicitly authorized next gated phase, so
-``runtime_enabled``/``onboarding_enabled`` stay honestly ``False`` until that
-phase passes its gates. Live provider operations still require same-moment
-user authorization.
+"""Bale personal provider: account-owned runtime and product API (ADR-60).
+Offline contract verification is distinct from a generic product Live pilot.
 """
 
 from __future__ import annotations
@@ -31,12 +21,12 @@ def bale_extension_registration() -> ProviderRegistration:
         provider="bale",
         display_name="بله",
         account_kind="personal",
-        implementation_state=ProviderImplementationState.IMPLEMENTED,
+        implementation_state=ProviderImplementationState.CONTRACT_VERIFIED,
         authorization_basis=ProviderAuthorizationBasis.WRITTEN_PERMISSION,
         authorization_reference="document:F-086",
         configured=True,
-        runtime_enabled=False,
-        onboarding_enabled=False,
+        runtime_enabled=True,
+        onboarding_enabled=True,
         account_identity_kind="phone_e164",
         auth_steps=(
             ProviderAuthStage.IDENTITY,
@@ -56,7 +46,7 @@ def bale_extension_registration() -> ProviderRegistration:
                 ProviderCapability.LIVE_UPDATES,
             }
         ),
-        reason_code="provider_onboarding_wiring_pending",
+        reason_code=None,
     )
 
     def adapter_factory(
@@ -69,9 +59,14 @@ def bale_extension_registration() -> ProviderRegistration:
 
         return BaleProviderApplicationAdapter(context, session_store, manifest)
 
+    def worker_factory(messenger_account_id, config_file):
+        from ...application.bale_provider_worker import BaleProviderProcessWorker
+        return BaleProviderProcessWorker(messenger_account_id, config_file)
+
     return ProviderRegistration(
         manifest=manifest,
         catalog_visible=True,
         adapter_factory=adapter_factory,
-        worker_factory=None,
+        worker_factory=worker_factory,
+        worker_config_required=True,
     )

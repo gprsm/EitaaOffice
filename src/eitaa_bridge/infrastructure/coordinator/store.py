@@ -27,6 +27,12 @@ from .schema import (
     REQUIRED_TABLES_V4,
     REQUIRED_TABLES_V5,
     REQUIRED_TABLES_V6,
+    REQUIRED_TABLES_V7,
+    REQUIRED_TABLES_V8,
+    REQUIRED_TABLES_V9,
+    REQUIRED_TABLES_V10,
+    REQUIRED_TABLES_V5,
+    REQUIRED_TABLES_V6,
     SCHEMA_CHECKSUMS,
     initial_schema_script,
     upgrade_schema_script,
@@ -36,7 +42,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _INTEGRATION_KEY = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 _PROVIDER_ID = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
 _MAX_SELF_SERVICE_MESSENGER_ACCOUNTS = 20
-_AUTH_AUDIT_ACTION = re.compile(r"^eitaa\.auth\.[a-z0-9_.-]{1,80}$")
+_AUTH_AUDIT_ACTION = re.compile(r"^(?:eitaa|bale)\.auth\.[a-z0-9_.-]{1,80}$")
 _AUTH_STATES = frozenset(
     {"absent", "challenge_pending", "authenticated", "expired", "revoked", "invalid"}
 )
@@ -1478,6 +1484,83 @@ class CoordinatorDatabase:
                 code="provider_registration_not_found",
             )
         return self._provider_registration_record(row)
+
+    def record_messenger_capability_observation(
+        self,
+        messenger_account_id: str,
+        *,
+        capability: str,
+        status: str,
+        reason_code: str | None,
+        constraints: Mapping[str, object] | None = None,
+        revision: int = 1,
+    ) -> None:
+        """Persist one observed capability decision for one account.
+
+        An observation grounds a manifest declaration in a concrete transport
+        that has actually been wired and tested; the declaration alone never
+        writes one. Later snapshots report the observed decision instead of
+        the assumed ``provider_manifest_declared`` default.
+        """
+
+        selected_id = _canonical_uuid(messenger_account_id)
+        selected_capability = str(capability or "").strip()
+        selected_status = str(status or "").strip()
+        selected_reason = str(reason_code or "").strip() or None
+        if (
+            re.fullmatch(r"[a-z0-9_.]{1,64}", selected_capability) is None
+            or selected_status not in {"supported", "unsupported", "unknown", "restricted"}
+            or (selected_reason is not None and re.fullmatch(r"[a-z0-9_]{1,64}", selected_reason) is None)
+            or isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < 0
+        ):
+            raise CoordinatorSchemaError(
+                "The MessengerAccount capability observation is invalid.",
+                safe_context={"capability": selected_capability},
+                code="messenger_capability_observation_invalid",
+            )
+        selected_constraints = dict(constraints or {})
+        self.initialize()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            account = connection.execute(
+                "SELECT 1 FROM messenger_accounts WHERE id=?",
+                (selected_id,),
+            ).fetchone()
+            if account is None:
+                raise CoordinatorSchemaError(
+                    "The MessengerAccount capability target was not found.",
+                    code="messenger_account_runtime_not_found",
+                )
+            connection.execute(
+                """
+                INSERT INTO messenger_capabilities(
+                    messenger_account_id,capability,status,reason_code,
+                    constraints_json,revision,observed_at
+                ) VALUES (?,?,?,?,?,?,?)
+                ON CONFLICT(messenger_account_id, capability) DO UPDATE SET
+                    status=excluded.status,
+                    reason_code=excluded.reason_code,
+                    constraints_json=excluded.constraints_json,
+                    revision=excluded.revision,
+                    observed_at=excluded.observed_at
+                """,
+                (
+                    selected_id,
+                    selected_capability,
+                    selected_status,
+                    selected_reason,
+                    (
+                        json.dumps(selected_constraints, ensure_ascii=False, sort_keys=True)
+                        if selected_constraints
+                        else None
+                    ),
+                    revision,
+                    _now(),
+                ),
+            )
+            connection.commit()
 
     def messenger_capability_observations(
         self,
@@ -3307,31 +3390,18 @@ class CoordinatorDatabase:
                 "SELECT name FROM sqlite_master WHERE type='table'"
             ).fetchall()
         }
-        required_tables = (
-            REQUIRED_TABLES_V1
-            if expected_version == 1
-            else (
-                REQUIRED_TABLES_V2
-                if expected_version == 2
-                else (
-                    REQUIRED_TABLES_V3
-                    if expected_version == 3
-                    else (
-                        REQUIRED_TABLES_V4
-                        if expected_version == 4
-                        else (
-                            REQUIRED_TABLES_V5
-                            if expected_version == 5
-                            else (
-                                REQUIRED_TABLES_V6
-                                if expected_version == 6
-                                else REQUIRED_TABLES
-                            )
-                        )
-                    )
-                )
-            )
-        )
+        required_tables = {
+            1: REQUIRED_TABLES_V1,
+            2: REQUIRED_TABLES_V2,
+            3: REQUIRED_TABLES_V3,
+            4: REQUIRED_TABLES_V4,
+            5: REQUIRED_TABLES_V5,
+            6: REQUIRED_TABLES_V6,
+            7: REQUIRED_TABLES_V7,
+            8: REQUIRED_TABLES_V8,
+            9: REQUIRED_TABLES_V9,
+            10: REQUIRED_TABLES_V10,
+        }[expected_version] if expected_version <= 10 else REQUIRED_TABLES
         missing = sorted(required_tables - tables)
         if missing:
             raise CoordinatorSchemaError(

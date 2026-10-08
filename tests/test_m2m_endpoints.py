@@ -129,6 +129,36 @@ def test_send_text_success_with_dialog_reference():
     assert res.payload["delivery_status"] == "provider_succeeded"
 
 
+def test_bale_typed_peer_routes_only_to_bale_account():
+    class CapturingOrchestrator(FakeOrchestrator):
+        def __init__(self):
+            self.requests = []
+
+        async def send_text(self, **kwargs):
+            self.requests.append(kwargs["request"].peer)
+            return FakeReceipt(ProviderSendStatus.SUCCEEDED)
+
+    async def call(provider, reference, orchestrator):
+        return await dispatch_m2m(
+            "POST", "/api/v2/m2m/messages/send-text",
+            _send_body(provider=provider, peer_reference={"kind": "dialog", "value": reference}),
+            FakeAuthContext(["messages.send"], ["acc1"], [provider]), "req-1",
+            orchestrator, FakeCoordinator(provider),
+        )
+
+    orchestrator = CapturingOrchestrator()
+    accepted = asyncio.run(call("bale", "bale:user:42", orchestrator))
+    assert accepted.status == 200
+    assert len(orchestrator.requests) == 1
+    assert orchestrator.requests[0].opaque_reference == "bale:user:42"
+    refused = asyncio.run(call("bale", "user:42", orchestrator))
+    assert refused.status == 400
+    assert len(orchestrator.requests) == 1
+    refused = asyncio.run(call("eitaa", "bale:user:42", orchestrator))
+    assert refused.status == 400
+    assert len(orchestrator.requests) == 1
+
+
 def test_send_text_uncertain_is_reported_honestly():
     res = _dispatch(
         "POST",
@@ -392,3 +422,17 @@ def test_delivery_status_is_bound_to_the_issuing_service():
                              coordinator=ScopedCoordinator(legacy_rows))
     assert conservative.status == 200
     assert conservative.payload["delivery_status"] == "not_found"
+
+
+def test_compat_account_send_text_requires_explicit_confirm():
+    account_id = "12345678-1234-4634-8234-123456789012"
+    body = _send_body(messenger_account_id=account_id)
+    body.pop("confirm")  # A client that omits the field must be rejected.
+    res = _dispatch(
+        "POST",
+        f"/api/v2/m2m/messenger-accounts/{account_id}/messages/send-text",
+        body,
+        FakeAuthContext(["messages.send"], [account_id]),
+    )
+    assert res.status == 400
+    assert res.payload["code"] == "m2m_confirm_required"

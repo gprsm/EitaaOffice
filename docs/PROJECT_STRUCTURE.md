@@ -55,7 +55,7 @@ src/eitaa_bridge/
 | `src/eitaa_bridge/providers/registry.py` | allowlist و composition root صریح Fake/Eitaa/slotهای آینده |
 | `src/eitaa_bridge/providers/testing.py` | contract probe آفلاین و Fake session store حساب‌محور |
 | `src/eitaa_bridge/providers/fake/` | Adapter و registration آفلاین Provider سوم؛ test-only و پنهان از catalog محصول |
-| `src/eitaa_bridge/providers/bale/slot.py` | scaffold غیرفعال بله بدون transport، endpoint یا factory |
+| `src/eitaa_bridge/providers/bale/slot.py` | مانیفست و ثبت Bale Personal؛ وضعیت CONTRACT_VERIFIED و اتصال adapter و worker factory (ADR-60) |
 | `src/eitaa_bridge/application/provider_capabilities.py` | تصمیم Capability حساب‌محور و نگاشت routeهای provider-backed |
 | `src/eitaa_bridge/application/provider_orchestration.py` | ترتیب امن عمومی، deadline/idempotency، فراخوانی Adapter و result/error/log محدود |
 | `src/eitaa_bridge/application/eitaa_provider_runtime_operations.py` | اجرای typed عملیات عمومی داخل Child هر حساب ایتا و مالکیت media cache همان Child |
@@ -107,7 +107,7 @@ Design System فعال فقط Material UI است. componentهای بصری از 
 
 `POST /api/v1/dialogs/live-sync` صفحهٔ نخست محدود را برای refresh خودکار فهرست merge می‌کند؛ پیام گفتگوی باز از مسیر sync موجود polling می‌شود. هر دو loop باید MessengerAccount scope و stale-result guard را حفظ کنند. قرارداد source/build این بخش در `ui/scripts/run-mobile-auth-live-tests.mjs` است.
 
-در release تمیز، `src/eitaa_bridge/application/bale_client/` قرنطینه و خارج از source/wheel است؛ فقط `providers/bale/slot.py` fail-closed برای descriptor صادقانه باقی می‌ماند. این مرز توسعهٔ Bale نیست و تغییر آن Trigger بازگشایی G-02/G-07 است.
+بستهٔ `src/eitaa_bridge/application/bale_client/` طبق تصمیم مالک F-086/ADR-60 و مأموریت BALE-PRODUCT داخل source/wheel محصول قرار دارد و پشت `BaleAccountOwner`، `BaleProviderProcessWorker` و `BaleProviderApplicationAdapter` به محصول متصل است؛ `providers/bale/slot.py` مانیفست و factoryهای متناظر را ارائه می‌دهد.
 
 مسیرهای مهم Phase 11-0:
 

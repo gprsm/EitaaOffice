@@ -65,6 +65,8 @@ export function WorkspaceNavigation({
   onWordpress,
   onMessengerLogout,
   onSoftwareLogout,
+  syncLabel = 'همگام‌سازی گفتگوها',
+  messengerLogoutLabel = 'خروج از حساب ایتا',
 }: {
   sections: WorkspaceSection[]
   activeSection: WorkspaceSectionValue
@@ -78,14 +80,18 @@ export function WorkspaceNavigation({
   onSection: (value: WorkspaceSectionValue) => void
   onSettings: () => void
   onReporting?: () => void
-  onAddDialog: () => void
-  onSync: () => void
+  onAddDialog?: () => void
+  onSync?: () => void
   onContacts: () => void
-  onBulk: () => void
-  onCommunity: () => void
-  onWordpress: () => void
+  onBulk?: () => void
+  onCommunity?: () => void
+  onWordpress?: () => void
   onMessengerLogout: () => void
   onSoftwareLogout?: () => void
+  // Workspace-specific actions are optional so other providers can reuse the
+  // same navigation without advertising Eitaa-only operations they lack.
+  syncLabel?: string
+  messengerLogoutLabel?: string
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const selected = useMemo(
@@ -160,7 +166,8 @@ export function WorkspaceNavigation({
         <Tooltip title="مخاطبان" placement="left"><Button color="inherit" onClick={onContacts} sx={{ minWidth: 0, minHeight: 54, flexDirection: 'column', fontSize: '0.68rem' }}><ContactsRounded />مخاطبان</Button></Tooltip>
         {wordpressVisible
           ? <Tooltip title={wordpressEnabled ? 'وردپرس' : 'ابتدا تنظیمات وردپرس را کامل کنید'} placement="left"><span><Button color="inherit" disabled={!wordpressEnabled} onClick={onWordpress} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><WordPressIcon />وردپرس</Button></span></Tooltip>
-          : <Tooltip title="عملیات گفتگو" placement="left"><Button color="inherit" onClick={onCommunity} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><GroupsOutlined />عملیات گفتگو</Button></Tooltip>}
+          : onCommunity ? <Tooltip title="عملیات گفتگو" placement="left"><Button color="inherit" onClick={onCommunity} sx={{ minWidth: 0, minHeight: 54, width: '100%', flexDirection: 'column', fontSize: '0.68rem' }}><GroupsOutlined />عملیات گفتگو</Button></Tooltip>
+          : null}
       </Stack>
 
       <BottomNavigation
@@ -214,14 +221,14 @@ export function WorkspaceNavigation({
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SettingsRounded />} onClick={() => invoke(onSettings)}>تنظیمات</Button>
         {onReporting && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SummarizeRounded />} onClick={() => invoke(onReporting)}>سامانه گزارش‌های فرهنگی ۱۴۰۵</Button>}
         <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<ContactsRounded />} onClick={() => invoke(onContacts)}>مدیریت مخاطبان</Button>
-        <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<AddCommentRounded />} disabled={!dialogsEnabled} onClick={() => invoke(onAddDialog)}>افزودن دستی گفتگو</Button>
-        <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SyncRounded />} disabled={syncing || !dialogsEnabled} onClick={() => invoke(onSync)}>{syncing ? 'در حال همگام‌سازی…' : 'همگام‌سازی گفتگوها'}</Button>
-        <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SendRounded />} onClick={() => invoke(onBulk)}>ارسال و اقدام گروهی</Button>
-        {wordpressVisible && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<WordPressIcon />} disabled={!wordpressEnabled} onClick={() => invoke(onWordpress)}>ایجاد وردپرس</Button>}
+        {onAddDialog && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<AddCommentRounded />} disabled={!dialogsEnabled} onClick={() => invoke(onAddDialog)}>افزودن دستی گفتگو</Button>}
+        {onSync && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SyncRounded />} disabled={syncing || !dialogsEnabled} onClick={() => invoke(onSync)}>{syncing ? 'در حال همگام‌سازی…' : syncLabel}</Button>}
+        {onBulk && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<SendRounded />} onClick={() => invoke(onBulk)}>ارسال و اقدام گروهی</Button>}
+        {wordpressVisible && onWordpress && <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start' }} startIcon={<WordPressIcon />} disabled={!wordpressEnabled} onClick={() => invoke(onWordpress)}>ایجاد وردپرس</Button>}
       </Stack>
       <Divider sx={{ my: 1 }} />
       <Stack spacing={0.25}>
-        <Button fullWidth color="error" sx={{ justifyContent: 'flex-start' }} startIcon={<LogoutRounded />} onClick={() => invoke(onMessengerLogout)}>خروج از حساب ایتا</Button>
+        <Button fullWidth color="error" sx={{ justifyContent: 'flex-start' }} startIcon={<LogoutRounded />} onClick={() => invoke(onMessengerLogout)}>{messengerLogoutLabel}</Button>
         {onSoftwareLogout && <Button fullWidth color="error" sx={{ justifyContent: 'flex-start' }} startIcon={<LogoutRounded />} onClick={() => invoke(onSoftwareLogout)}>خروج از نرم‌افزار</Button>}
       </Stack>
     </Menu>

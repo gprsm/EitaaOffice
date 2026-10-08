@@ -144,5 +144,5 @@ def test_bale_bot_is_not_registered_and_stays_fail_closed():
     assert "bale_bot" not in catalog
     bale_descriptor = catalog.get("bale")
     assert bale_descriptor is not None
-    assert bale_descriptor.runtime_enabled is False
-    assert bale_descriptor.onboarding_enabled is False
+    assert bale_descriptor.runtime_enabled is True
+    assert bale_descriptor.onboarding_enabled is True

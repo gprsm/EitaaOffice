@@ -68,7 +68,12 @@ def config(root: Path) -> Path:
 
 
 with tempfile.TemporaryDirectory(prefix="eitaa-gmi4-smoke-", ignore_cleanup_errors=True) as selected:
-    expect(__version__ == "0.7.0-ui-mvp6.1.1-gmi4.2", "GMI4 product version")
+    expected_version = next(
+        line.strip()
+        for line in (Path(__file__).resolve().parents[1] / "VERSION.txt").read_text(encoding="utf-8-sig").splitlines()
+        if line.strip() and "=" not in line
+    )
+    expect(__version__ == expected_version, "source product version matches release manifest")
     root = Path(selected)
     path = root / "contacts.sqlite3"
     with sqlite3.connect(path) as connection:

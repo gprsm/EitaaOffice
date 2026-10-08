@@ -11,6 +11,7 @@ class PeerType(IntEnum):
     UNKNOWN = 0
     PRIVATE = 1
     GROUP = 2
+    CHANNEL = 3
 
 
 class ChatType(IntEnum):

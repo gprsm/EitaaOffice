@@ -12,9 +12,14 @@ from dataclasses import dataclass
 import hashlib
 import threading
 import time
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from ..errors import BridgeError, ProviderExtensionError
+from ..infrastructure.coordinator.rate_policy import (
+    ClassifiedFailure,
+    ExecutionErrorClass,
+    classify_failure,
+)
 from ..infrastructure.diagnostics import RuntimeLogger
 from ..providers.contracts import (
     ProviderAccountContext,
@@ -24,6 +29,8 @@ from ..providers.contracts import (
     ProviderContactMutationReceipt,
     ProviderContactPage,
     ProviderContactUpsertRequest,
+    ProviderContactRemoveRequest,
+    ProviderContactRemovalAdapter,
     ProviderDialogPage,
     ProviderMessagePage,
     ProviderMediaAdapter,
@@ -34,6 +41,8 @@ from ..providers.contracts import (
     ProviderSendReceipt,
     ProviderSendStatus,
     ProviderSendTextRequest,
+    ProviderSendMediaRequest,
+    ProviderMediaSendAdapter,
 )
 
 
@@ -162,6 +171,7 @@ class ProviderApplicationOrchestrator:
         resolve_adapter: ProviderOperationAdapterResolver,
         logger: RuntimeLogger,
         receipt_store: ProviderOperationReceiptBackend | None = None,
+        execution_policy: Any | None = None,
     ) -> None:
         self._authorize_account = authorize_account
         self._resolve_account_context = resolve_account_context
@@ -169,6 +179,11 @@ class ProviderApplicationOrchestrator:
         self._resolve_adapter = resolve_adapter
         self._logger = logger
         self._receipt_store = receipt_store
+        # Optional local execution policy (P2): the single owner of the
+        # account token bucket. Admission happens only for fresh mutation
+        # attempts — a replay returns before this point and never consumes
+        # a token; the caller (composition root) wires the concrete service.
+        self._execution_policy = execution_policy
         self._send_lock = threading.RLock()
         self._send_receipts: dict[
             tuple[str, str], _CachedMutationReceipt
@@ -180,6 +195,174 @@ class ProviderApplicationOrchestrator:
         self._contact_in_progress: dict[
             tuple[str, str], tuple[str, str]
         ] = {}
+
+    def _emit_idempotency_interrupted(
+        self,
+        *,
+        context: ProviderOperationContext,
+        operation: str,
+        reason_code: str,
+    ) -> None:
+        self._logger.emit(
+            "provider_operation_idempotency_interrupted",
+            level="warning",
+            result="uncertain",
+            reason_code=reason_code,
+            correlation_id=context.correlation_id,
+            operation=operation,
+            fields={
+                "messenger_account_id": context.account.messenger_account_id,
+                "provider": context.account.provider,
+            },
+        )
+
+    def _admit_execution(
+        self,
+        *,
+        messenger_account_id: str,
+        operation: str,
+    ) -> Any | None:
+        """Acquire one local execution token for a fresh mutation attempt.
+
+        Called only after the idempotency decision proved this request owns
+        the first attempt; replays return earlier and never consume a token.
+        Local admission is not a provider or capacity guarantee — the
+        provider can still refuse later.
+        """
+        if self._execution_policy is None:
+            return None
+        permit = self._execution_policy.acquire(
+            messenger_account_id=str(messenger_account_id),
+            operation_scope=operation,
+        )
+        if permit.allowed:
+            return permit
+        retry_after_seconds = (
+            max(1, -(-int(permit.retry_after_ms) // 1000))
+            if permit.retry_after_ms
+            else None
+        )
+        raise ProviderExtensionError(
+            "Local execution policy denied the provider operation.",
+            safe_context={
+                "messenger_account_id": str(messenger_account_id),
+                "operation_scope": operation,
+                "blocked_reason": permit.blocked_reason,
+                "retry_after_seconds": retry_after_seconds,
+            },
+            code=(
+                "provider_operation_circuit_open"
+                if permit.blocked_reason == "circuit_manual_reset_required"
+                else "provider_operation_rate_limited"
+            ),
+        )
+
+    def _record_execution_success(
+        self,
+        *,
+        messenger_account_id: str,
+        operation: str,
+        permit: Any | None,
+        outcome: str,
+    ) -> None:
+        if self._execution_policy is None or permit is None:
+            return
+        try:
+            if outcome == "succeeded":
+                self._execution_policy.record_success(
+                    messenger_account_id=str(messenger_account_id),
+                    operation_scope=operation,
+                    claim_id=permit.claim_id,
+                )
+            else:
+                self._execution_policy.record_failure(
+                    messenger_account_id=str(messenger_account_id),
+                    operation_scope=operation,
+                    claim_id=permit.claim_id,
+                failure=ClassifiedFailure(
+                    ExecutionErrorClass.UNCERTAIN,
+                    "provider_send_uncertain",
+                    None,
+                ),
+                )
+        except Exception:
+            # Policy bookkeeping must never mask the operation result or the
+            # durable receipt; the next acquire recomputes from persisted state.
+            self._logger.emit(
+                "provider_operation_failed",
+                level="warning",
+                result="failed",
+                reason_code="execution_policy_record_failed",
+                fields={
+                    "messenger_account_id": str(messenger_account_id),
+                    "operation_scope": operation,
+                },
+            )
+
+    def _record_execution_exception(
+        self,
+        *,
+        messenger_account_id: str,
+        operation: str,
+        permit: Any | None,
+        error: BaseException,
+    ) -> None:
+        policy = self._execution_policy
+        if policy is None or permit is None:
+            return
+        code = str(getattr(error, "code", "") or "provider_send_failed")
+        try:
+            policy.record_failure(
+                messenger_account_id=str(messenger_account_id),
+                operation_scope=operation,
+                claim_id=permit.claim_id,
+                failure=classify_failure(code, effect_may_have_occurred=True),
+            )
+        except Exception:
+            # Never mask the real operation failure with a bookkeeping error.
+            self._logger.emit(
+                "provider_operation_failed",
+                level="warning",
+                result="failed",
+                reason_code="execution_policy_record_failed",
+                operation=operation,
+                fields={"messenger_account_id": str(messenger_account_id)},
+            )
+
+    def _release_claim_safely(
+        self,
+        *,
+        actor: ProviderOperationActor,
+        messenger_account_id: str,
+        operation: str,
+        idempotency_key: str,
+        request_fingerprint: str,
+        attempt_token: str | None = None,
+    ) -> None:
+        """Owner-fenced release of the durable claim of an attempt that
+        certainly never started (admission denied). Bookkeeping failures are
+        logged, never allowed to mask the denial itself."""
+        if self._receipt_store is None:
+            return
+        try:
+            self._receipt_store.release(
+                messenger_account_id=str(messenger_account_id),
+                actor_app_user_id=actor.app_user_id,
+                operation=operation,
+                idempotency_key=idempotency_key,
+                request_fingerprint=request_fingerprint,
+                service_credential_id=actor.service_credential_id,
+                attempt_token=attempt_token,
+            )
+        except Exception:
+            self._logger.emit(
+                "provider_operation_failed",
+                level="warning",
+                result="failed",
+                reason_code="provider_claim_release_failed",
+                operation=operation,
+                fields={"messenger_account_id": str(messenger_account_id)},
+            )
 
     def _emit_idempotency_replayed(
         self,
@@ -368,6 +551,7 @@ class ProviderApplicationOrchestrator:
         correlation_id: str,
         deadline_unix_ms: int,
         request: ProviderSendTextRequest,
+        skip_admission: bool = False,
     ) -> ProviderSendReceipt:
         key = (str(messenger_account_id), request.idempotency_key)
         request_fingerprint = _request_fingerprint(
@@ -419,6 +603,7 @@ class ProviderApplicationOrchestrator:
                         },
                         code="provider_operation_duplicate_in_progress",
                     )
+                current_attempt_token: str | None = None
                 if self._receipt_store is not None:
                     claim = self._receipt_store.claim(
                         messenger_account_id=str(messenger_account_id),
@@ -430,6 +615,7 @@ class ProviderApplicationOrchestrator:
                         request_fingerprint=request_fingerprint,
                         claim_deadline_unix_ms=context.deadline_unix_ms,
                     )
+                    current_attempt_token = claim.receipt.attempt_token
                     if not claim.claimed:
                         record = claim.receipt
                         self._require_idempotency_match(
@@ -458,6 +644,7 @@ class ProviderApplicationOrchestrator:
                                 safe_reason_code=(
                                     "provider_send_previous_attempt_incomplete"
                                 ),
+                                attempt_token=record.attempt_token,
                             )
                             self._emit_idempotency_interrupted(
                                 context=context,
@@ -485,7 +672,22 @@ class ProviderApplicationOrchestrator:
                     request_fingerprint,
                     actor.service_credential_id,
                 )
+            # P2/P3-R1 admission: only this fresh attempt pays a local token;
+            # the replay paths above returned before this point. Every
+            # pre-adapter exit — admission denial, circuit denial, cancel —
+            # resolves THIS attempt's ownership below: the in-memory entry
+            # pops in the finally and the durable claim is released with the
+            # owner fence, so no uncertain claim can linger for an operation
+            # that certainly never started.
+            send_permit = None
+            admitted = False
             try:
+                if not skip_admission:
+                    send_permit = self._admit_execution(
+                        messenger_account_id=str(messenger_account_id),
+                        operation="messages.send_text",
+                    )
+                admitted = True
                 receipt = await adapter.send_text(context, request)
                 # Both succeeded and uncertain receipts are terminal.  In
                 # particular, an uncertain external effect must never be retried.
@@ -496,11 +698,12 @@ class ProviderApplicationOrchestrator:
                         operation="messages.send_text",
                         idempotency_key=request.idempotency_key,
                         request_fingerprint=request_fingerprint,
-                                service_credential_id=actor.service_credential_id,
+                        service_credential_id=actor.service_credential_id,
                         outcome=receipt.status.value,
                         result_reference=receipt.message_reference,
                         contact_created=None,
                         safe_reason_code=receipt.safe_reason_code,
+                        attempt_token=current_attempt_token,
                     )
                 with self._send_lock:
                     self._send_receipts[key] = _CachedMutationReceipt(
@@ -511,21 +714,32 @@ class ProviderApplicationOrchestrator:
                     )
                     if len(self._send_receipts) > 2048:
                         self._send_receipts.pop(next(iter(self._send_receipts)))
-                if receipt.status is ProviderSendStatus.UNCERTAIN:
-                    self._logger.emit(
-                        "provider_operation_uncertain",
-                        level="warning",
-                        result="uncertain",
-                        reason_code=(
-                            receipt.safe_reason_code or "provider_send_uncertain"
-                        ),
-                        correlation_id=correlation_id,
+                if send_permit is not None:
+                    self._record_execution_success(
+                        messenger_account_id=str(messenger_account_id),
                         operation="messages.send_text",
-                        fields={
-                            "messenger_account_id": str(messenger_account_id)
-                        },
+                        permit=send_permit,
+                        outcome=receipt.status.value,
                     )
                 return receipt
+            except BaseException as exc:
+                if not admitted:
+                    self._release_claim_safely(
+                        actor=actor,
+                        messenger_account_id=str(messenger_account_id),
+                        operation="messages.send_text",
+                        idempotency_key=request.idempotency_key,
+                        request_fingerprint=request_fingerprint,
+                        attempt_token=current_attempt_token,
+                    )
+                else:
+                    self._record_execution_exception(
+                        messenger_account_id=str(messenger_account_id),
+                        operation="messages.send_text",
+                        permit=send_permit,
+                        error=exc,
+                    )
+                raise
             finally:
                 with self._send_lock:
                     self._send_in_progress.pop(key, None)
@@ -686,6 +900,7 @@ class ProviderApplicationOrchestrator:
                         },
                         code="provider_operation_duplicate_in_progress",
                     )
+                current_attempt_token: str | None = None
                 if self._receipt_store is not None:
                     claim = self._receipt_store.claim(
                         messenger_account_id=str(messenger_account_id),
@@ -697,6 +912,7 @@ class ProviderApplicationOrchestrator:
                         request_fingerprint=request_fingerprint,
                         claim_deadline_unix_ms=context.deadline_unix_ms,
                     )
+                    current_attempt_token = claim.receipt.attempt_token
                     if not claim.claimed:
                         record = claim.receipt
                         self._require_idempotency_match(
@@ -725,6 +941,7 @@ class ProviderApplicationOrchestrator:
                                 safe_reason_code=(
                                     "provider_contact_previous_attempt_incomplete"
                                 ),
+                                attempt_token=record.attempt_token,
                             )
                         if record.outcome == "uncertain":
                             self._emit_idempotency_interrupted(
@@ -754,7 +971,17 @@ class ProviderApplicationOrchestrator:
                     request_fingerprint,
                     actor.service_credential_id,
                 )
+            # P3-R2: a fresh contact import pays the same local policy as any
+            # other mutation (its own operation scope); every pre-adapter
+            # exit resolves this attempt's ownership.
+            upsert_permit = None
+            admitted = False
             try:
+                upsert_permit = self._admit_execution(
+                    messenger_account_id=str(messenger_account_id),
+                    operation="contacts.upsert",
+                )
+                admitted = True
                 receipt = await adapter.upsert_contact(context, request)
                 if self._receipt_store is not None:
                     self._receipt_store.complete(
@@ -763,11 +990,12 @@ class ProviderApplicationOrchestrator:
                         operation="contacts.upsert",
                         idempotency_key=request.idempotency_key,
                         request_fingerprint=request_fingerprint,
-                                service_credential_id=actor.service_credential_id,
+                        service_credential_id=actor.service_credential_id,
                         outcome="succeeded",
                         result_reference=receipt.contact_reference,
                         contact_created=receipt.created,
                         safe_reason_code=None,
+                        attempt_token=current_attempt_token,
                     )
                 with self._send_lock:
                     self._contact_receipts[key] = _CachedMutationReceipt(
@@ -778,7 +1006,31 @@ class ProviderApplicationOrchestrator:
                     )
                     if len(self._contact_receipts) > 2048:
                         self._contact_receipts.pop(next(iter(self._contact_receipts)))
+                self._record_execution_success(
+                    messenger_account_id=str(messenger_account_id),
+                    operation="contacts.upsert",
+                    permit=upsert_permit,
+                    outcome="succeeded",
+                )
                 return receipt
+            except BaseException as exc:
+                if not admitted:
+                    self._release_claim_safely(
+                        actor=actor,
+                        messenger_account_id=str(messenger_account_id),
+                        operation="contacts.upsert",
+                        idempotency_key=request.idempotency_key,
+                        request_fingerprint=request_fingerprint,
+                        attempt_token=current_attempt_token,
+                    )
+                else:
+                    self._record_execution_exception(
+                        messenger_account_id=str(messenger_account_id),
+                        operation="contacts.upsert",
+                        permit=upsert_permit,
+                        error=exc,
+                    )
+                raise
             finally:
                 with self._send_lock:
                     self._contact_in_progress.pop(key, None)
@@ -793,6 +1045,102 @@ class ProviderApplicationOrchestrator:
             expected_type=ProviderContactMutationReceipt,
             invoke=invoke,
         )
+
+    async def _extension_mutation(self, *, actor, messenger_account_id, correlation_id,
+                                  deadline_unix_ms, request, operation, capability,
+                                  protocol, method, fingerprint, expected_type):
+        """Version 2 mutations use the same durable claims and authorization order."""
+        async def invoke(adapter, context):
+            if not isinstance(adapter, protocol):
+                raise ProviderExtensionError("Unsupported provider mutation.", code="provider_operation_not_implemented")
+            if self._receipt_store is None:
+                raise ProviderExtensionError("Persistent receipt storage required.", code="provider_receipt_store_required")
+            args = dict(messenger_account_id=messenger_account_id,
+                        actor_app_user_id=actor.app_user_id, operation=operation,
+                        idempotency_key=request.idempotency_key,
+                        request_fingerprint=fingerprint, service_credential_id=actor.service_credential_id)
+            claim = self._receipt_store.claim(**args, actor_global_role=actor.global_role,
+                                              claim_deadline_unix_ms=context.deadline_unix_ms)
+            current_attempt_token = claim.receipt.attempt_token
+            if not claim.claimed:
+                record = claim.receipt
+                self._require_idempotency_match(
+                    stored_actor=record.actor_app_user_id, stored_fingerprint=record.request_fingerprint,
+                    stored_service_credential_id=record.service_credential_id,
+                    actor=actor, request_fingerprint=fingerprint)
+                if record.outcome == "in_progress":
+                    if record.claim_deadline_unix_ms >= int(time.time() * 1000):
+                        raise ProviderExtensionError("Mutation in progress.", code="provider_operation_duplicate_in_progress")
+                    record = self._receipt_store.complete(**args, outcome="uncertain", result_reference=None,
+                        contact_created=None, safe_reason_code="provider_operation_previous_attempt_incomplete",
+                        attempt_token=record.attempt_token)
+                return (self._send_receipt_from_record(record) if expected_type is ProviderSendReceipt
+                        else self._contact_receipt_from_record(record))
+            # Claim survives failure, cancellation or a process crash. A replay never
+            # repeats an external mutation whose result might have been lost.
+            # P3-R1: every pre-adapter exit resolves this attempt's ownership.
+            # Admission denial releases the durable claim with the owner fence
+            # so the id stays usable and no uncertain claim lingers for an
+            # operation that certainly never started.
+            mutation_permit = None
+            admitted = False
+            try:
+                mutation_permit = self._admit_execution(
+                    messenger_account_id=str(messenger_account_id),
+                    operation=operation,
+                )
+                admitted = True
+                receipt = await getattr(adapter, method)(context, request)
+            except BaseException as exc:
+                if not admitted:
+                    self._release_claim_safely(
+                        actor=actor,
+                        messenger_account_id=str(messenger_account_id),
+                        operation=operation,
+                        idempotency_key=request.idempotency_key,
+                        request_fingerprint=fingerprint,
+                        attempt_token=current_attempt_token,
+                    )
+                else:
+                    self._record_execution_exception(
+                        messenger_account_id=str(messenger_account_id),
+                        operation=operation,
+                        permit=mutation_permit,
+                        error=exc,
+                    )
+                raise
+            send = isinstance(receipt, ProviderSendReceipt)
+            self._receipt_store.complete(**args,
+                outcome=receipt.status.value if send else "succeeded",
+                result_reference=receipt.message_reference if send else receipt.contact_reference,
+                contact_created=None if send else receipt.created,
+                safe_reason_code=receipt.safe_reason_code if send else None,
+                attempt_token=current_attempt_token)
+            self._record_execution_success(
+                messenger_account_id=str(messenger_account_id),
+                operation=operation,
+                permit=mutation_permit,
+                outcome=receipt.status.value if send else "succeeded",
+            )
+            return receipt
+        return await self._execute(actor=actor, messenger_account_id=messenger_account_id,
+            correlation_id=correlation_id, deadline_unix_ms=deadline_unix_ms,
+            operation=operation, capability=capability, expected_type=expected_type, invoke=invoke)
+
+    async def remove_contact(self, *, request: ProviderContactRemoveRequest, **kwargs):
+        return await self._extension_mutation(**kwargs, request=request,
+            operation="contacts.remove", capability=ProviderCapability.CONTACTS_WRITE,
+            protocol=ProviderContactRemovalAdapter, method="remove_contact",
+            fingerprint=_request_fingerprint(b"contacts.remove", request.contact_reference.encode()),
+            expected_type=ProviderContactMutationReceipt)
+
+    async def send_media(self, *, request: ProviderSendMediaRequest, **kwargs):
+        return await self._extension_mutation(**kwargs, request=request,
+            operation="messages.send_media", capability=ProviderCapability.MEDIA_SEND,
+            protocol=ProviderMediaSendAdapter, method="send_media",
+            fingerprint=_request_fingerprint(b"messages.send_media", request.peer.opaque_reference.encode(),
+                request.peer.kind.encode(), request.filename.encode(), request.data, request.caption.encode()),
+            expected_type=ProviderSendReceipt)
 
     async def _execute(
         self,
@@ -858,15 +1206,21 @@ class ProviderApplicationOrchestrator:
                 },
             )
             result = await invoke(adapter, context)
+            current = self._resolve_account_context(messenger_account_id)
+            if current.session_generation != account.session_generation or current.provider != account.provider:
+                raise ProviderExtensionError("The account changed during the operation.", code="provider_extension_scope_invalid")
             if not isinstance(result, expected_type):
                 raise ProviderExtensionError(
                     "The provider adapter returned an invalid result.",
                     safe_context={"provider": account.provider, "operation": operation},
                     code="provider_operation_result_invalid",
                 )
+            uncertain = isinstance(result, ProviderSendReceipt) and result.status is ProviderSendStatus.UNCERTAIN
             self._logger.emit(
-                "provider_operation_succeeded",
-                result="succeeded",
+                "provider_operation_uncertain" if uncertain else "provider_operation_succeeded",
+                level="warning" if uncertain else "info",
+                result="uncertain" if uncertain else "succeeded",
+                reason_code=(result.safe_reason_code or "provider_send_uncertain") if uncertain else None,
                 correlation_id=correlation_id,
                 operation=operation,
                 fields={
