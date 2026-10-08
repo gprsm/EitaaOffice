@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "7864a7a08e65160a",
+  "source_fingerprint": "d7ef400da0accaf4",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -25361,19 +25361,9 @@
           "line": 211
         },
         {
-          "name": "close",
-          "kind": "script symbol",
-          "line": 228
-        },
-        {
-          "name": "key",
-          "kind": "script symbol",
-          "line": 229
-        },
-        {
           "name": "moveMonth",
           "kind": "script symbol",
-          "line": 236
+          "line": 249
         }
       ]
     },

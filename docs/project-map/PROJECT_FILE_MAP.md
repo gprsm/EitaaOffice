@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 406
-- اثرانگشت منبع: `7864a7a08e65160a`
+- اثرانگشت منبع: `d7ef400da0accaf4`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -409,7 +409,7 @@
 | `ui/src/theme.ts` | React UI | 2 | — |
 | `ui/src/ui33-runtime-patch.js` | React UI | 26 | — |
 | `ui/src/UsageInfoDialog.tsx` | React UI | 1 | — |
-| `ui/src/utils/helpers.tsx` | React UI | 30 | — |
+| `ui/src/utils/helpers.tsx` | React UI | 28 | — |
 | `ui/src/utils/jalali.tsx` | React UI | 20 | — |
 | `ui/src/vite-env.d.ts` | React UI | 0 | — |
 | `ui/src/WordPressIcon.tsx` | React UI | 1 | — |

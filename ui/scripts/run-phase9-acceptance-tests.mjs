@@ -109,4 +109,13 @@ check('application surfaces no longer depend on custom CSS classes', () => {
   assert.match(main, /MaterialToastHost/)
 })
 
+check('JalaliDatePicker popover manages anchorEl cleanly without document mousedown trap', () => {
+  const helpers = source('src/utils/helpers.tsx')
+  assert.match(helpers, /export function JalaliDatePicker/)
+  assert.match(helpers, /const \[anchorEl, setAnchorEl\] = useState<HTMLElement \| null>\(null\)/)
+  assert.doesNotMatch(helpers, /document\.addEventListener\('mousedown'/)
+  assert.match(helpers, /aria-label="ماه قبل"/)
+  assert.match(helpers, /aria-label="ماه بعد"/)
+})
+
 process.stdout.write(`# ${passed}/${passed} Phase 9 acceptance assertions passed\n`)

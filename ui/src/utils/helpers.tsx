@@ -219,17 +219,30 @@ export function JalaliDatePicker(props: {
   onClear: () => void
 }) {
   const now = useMemo(() => jalaliParts(), [])
-  const parsed = props.value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
-  const [open, setOpen] = useState(false)
-  const [year, setYear] = useState(parsed ? Number(parsed[1]) : now.year)
-  const [month, setMonth] = useState(parsed ? Number(parsed[2]) : now.month)
-  const root = useRef<HTMLDivElement | null>(null)
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const open = Boolean(anchorEl)
+  const [year, setYear] = useState(() => {
+    const parsed = props.value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+    return parsed ? Number(parsed[1]) : now.year
+  })
+  const [month, setMonth] = useState(() => {
+    const parsed = props.value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+    return parsed ? Number(parsed[2]) : now.month
+  })
+
   useEffect(() => {
-    const close = (event: MouseEvent) => { if (root.current && !root.current.contains(event.target as Node)) setOpen(false) }
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', close); window.addEventListener('keydown', key)
-    return () => { document.removeEventListener('mousedown', close); window.removeEventListener('keydown', key) }
-  }, [])
+    if (open) {
+      const parsed = props.value.match(/^(\d{4})\/(\d{2})\/(\d{2})$/)
+      if (parsed) {
+        setYear(Number(parsed[1]))
+        setMonth(Number(parsed[2]))
+      } else {
+        setYear(now.year)
+        setMonth(now.month)
+      }
+    }
+  }, [open, props.value, now.year, now.month])
+
   const first = parseJalaliDate(jalaliYmd(year, month, 1))
   const offset = first ? (first.getDay() + 1) % 7 : 0
   const days = Array.from({ length: jalaliMonthLength(year, month) }, (_, index) => index + 1)
@@ -239,13 +252,13 @@ export function JalaliDatePicker(props: {
     if (nextMonth > 12) { nextMonth = 1; nextYear += 1 }
     setMonth(nextMonth); setYear(nextYear)
   }
-  return <Box ref={root} sx={{ display: 'inline-flex' }}>
+  return <Box sx={{ display: 'inline-flex' }}>
     <Tooltip title={props.value ? `فیلتر تاریخ ${props.value}` : 'انتخاب تاریخ شمسی'}>
       <Button
         size="small"
         variant={props.value ? 'contained' : 'text'}
         disabled={props.disabled}
-        onClick={() => setOpen(value => !value)}
+        onClick={event => setAnchorEl(anchorEl ? null : event.currentTarget)}
         startIcon={props.busy ? <CircularProgress size={18} color="inherit" /> : <CalendarMonthRounded fontSize="small" />}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -253,21 +266,32 @@ export function JalaliDatePicker(props: {
     </Tooltip>
     <Popover
       open={open}
-      anchorEl={root.current}
-      onClose={() => setOpen(false)}
+      anchorEl={anchorEl}
+      onClose={() => setAnchorEl(null)}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
       slotProps={{ paper: { sx: { width: 'min(92vw, 340px)', p: 1.5, borderRadius: 3 } } }}
     >
-      <Stack spacing={1.25} onClick={event => event.stopPropagation()}>
-        <ToggleButtonGroup exclusive fullWidth size="small" value={props.mode} onChange={(_event, value) => value && props.onMode(value)} aria-label="دامنه تاریخ">
+      <Stack spacing={1.25}>
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          size="small"
+          value={props.mode}
+          onChange={(_event, value) => { if (value) props.onMode(value) }}
+          aria-label="دامنه تاریخ"
+        >
           <ToggleButton value="day">فقط همان روز</ToggleButton>
           <ToggleButton value="from">از این تاریخ به بعد</ToggleButton>
         </ToggleButtonGroup>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <IconButton onClick={() => moveMonth(1)} aria-label="ماه بعد"><ChevronRightRounded /></IconButton>
+          <Tooltip title="ماه قبل">
+            <IconButton onClick={() => moveMonth(-1)} aria-label="ماه قبل" size="small"><ChevronRightRounded /></IconButton>
+          </Tooltip>
           <Typography fontWeight={850}>{jalaliMonths[month - 1]} {year.toLocaleString('fa-IR', { useGrouping: false })}</Typography>
-          <IconButton onClick={() => moveMonth(-1)} aria-label="ماه قبل"><ChevronLeftRounded /></IconButton>
+          <Tooltip title="ماه بعد">
+            <IconButton onClick={() => moveMonth(1)} aria-label="ماه بعد" size="small"><ChevronLeftRounded /></IconButton>
+          </Tooltip>
         </Stack>
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.25, textAlign: 'center' }}>
           {jalaliWeekdays.map(day => <Typography key={day} variant="caption" color="text.secondary" sx={{ py: 0.5 }}>{day}</Typography>)}
@@ -278,18 +302,18 @@ export function JalaliDatePicker(props: {
             const isToday = year === now.year && month === now.month && day === now.day
             return <ButtonBase
               key={day}
-              onClick={() => { props.onSelect(value, props.mode); setOpen(false) }}
+              onClick={() => { props.onSelect(value, props.mode); setAnchorEl(null) }}
               sx={{ aspectRatio: '1', borderRadius: '50%', bgcolor: selected ? 'primary.main' : 'transparent', color: selected ? 'primary.contrastText' : 'text.primary', border: isToday && !selected ? 1 : 0, borderColor: 'primary.main', fontSize: '0.85rem', '&:hover': { bgcolor: selected ? 'primary.dark' : 'action.hover' } }}
             >{day.toLocaleString('fa-IR')}</ButtonBase>
           })}
         </Box>
         <Stack direction="column" spacing={1}>
-            <Button size="small" variant="outlined" color="primary" onClick={() => { if (props.value) { props.onSelect(props.value, props.mode, true); setOpen(false); } else { toast.warning('ابتدا یک روز را در تقویم انتخاب کنید') } }} startIcon={<SyncRounded />}>همگام‌سازی عمیق از تاریخ انتخاب شده</Button>
-            <Stack direction="row" justifyContent="space-between">
-          <Button size="small" onClick={() => { setYear(now.year); setMonth(now.month) }}>امروز</Button>
-          {props.value && <Button size="small" color="error" onClick={() => { props.onClear(); setOpen(false) }}>پاک‌کردن فیلتر</Button>}
-        </Stack>
+          <Button size="small" variant="outlined" color="primary" onClick={() => { if (props.value) { props.onSelect(props.value, props.mode, true); setAnchorEl(null); } else { toast.warning('ابتدا یک روز را در تقویم انتخاب کنید') } }} startIcon={<SyncRounded />}>همگام‌سازی عمیق از تاریخ انتخاب شده</Button>
+          <Stack direction="row" justifyContent="space-between">
+            <Button size="small" onClick={() => { setYear(now.year); setMonth(now.month) }}>امروز</Button>
+            {props.value && <Button size="small" color="error" onClick={() => { props.onClear(); setAnchorEl(null) }}>پاک‌کردن فیلتر</Button>}
           </Stack>
+        </Stack>
       </Stack>
     </Popover>
   </Box>
