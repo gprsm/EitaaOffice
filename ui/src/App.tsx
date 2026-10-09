@@ -1233,7 +1233,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const loadMedia = useCallback(async (message: MessageItem) => {
     if (!dialog || !mediaReadSupported) return
     const key = messageKey(dialog, message)
-    if (typeof mediaCacheRef.current[key] === 'string' || mediaRequestsRef.current.has(key)) return
+    if ((typeof mediaCacheRef.current[key] === 'string' && mediaCacheRef.current[key] !== '') || mediaRequestsRef.current.has(key)) return
     mediaRequestsRef.current.add(key)
     mediaCacheRef.current[key] = null
     setMedia(current => ({ ...current, [key]: null }))

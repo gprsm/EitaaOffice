@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "065ffccb3440ce91",
+  "source_fingerprint": "575f27b80bcbb86d",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -13596,152 +13596,152 @@
         {
           "name": "_ApiHandler._upload_file",
           "kind": "method",
-          "line": 745
+          "line": 751
         },
         {
           "name": "_ApiHandler._serve_static",
           "kind": "method",
-          "line": 864
+          "line": 870
         },
         {
           "name": "_ApiHandler._read_json",
           "kind": "method",
-          "line": 910
+          "line": 916
         },
         {
           "name": "_ApiHandler._app_session_token",
           "kind": "method",
-          "line": 940
+          "line": 946
         },
         {
           "name": "_ApiHandler._client_kind",
           "kind": "method",
-          "line": 952
+          "line": 958
         },
         {
           "name": "_ApiHandler._single_header",
           "kind": "method",
-          "line": 956
+          "line": 962
         },
         {
           "name": "_ApiHandler._enforce_deployment_policy",
           "kind": "method",
-          "line": 964
+          "line": 970
         },
         {
           "name": "_ApiHandler._write_rate_limit_error",
           "kind": "method",
-          "line": 1025
+          "line": 1031
         },
         {
           "name": "_ApiHandler._send_security_headers",
           "kind": "method",
-          "line": 1044
+          "line": 1050
         },
         {
           "name": "_ApiHandler._write_json",
           "kind": "method",
-          "line": 1067
+          "line": 1073
         },
         {
           "name": "_ApiHandler.send_error",
           "kind": "method",
-          "line": 1085
+          "line": 1091
         },
         {
           "name": "_ApiHandler.log_message",
           "kind": "method",
-          "line": 1107
+          "line": 1113
         },
         {
           "name": "_RequestError",
           "kind": "class",
-          "line": 1125
+          "line": 1131
         },
         {
           "name": "_RequestError.__init__",
           "kind": "method",
-          "line": 1126
+          "line": 1132
         },
         {
           "name": "BridgeApiHttpServer",
           "kind": "class",
-          "line": 1133
+          "line": 1139
         },
         {
           "name": "BridgeApiHttpServer.__init__",
           "kind": "method",
-          "line": 1137
+          "line": 1143
         },
         {
           "name": "BridgeApiHttpServer.get_request",
           "kind": "method",
-          "line": 1173
+          "line": 1179
         },
         {
           "name": "BridgeApiHttpServer.process_request_thread",
           "kind": "method",
-          "line": 1178
+          "line": 1184
         },
         {
           "name": "BridgeApiHttpServer._wait_for_request_drain",
           "kind": "method",
-          "line": 1188
+          "line": 1194
         },
         {
           "name": "BridgeApiHttpServer.set_not_ready",
           "kind": "method",
-          "line": 1198
+          "line": 1204
         },
         {
           "name": "BridgeApiHttpServer.readiness_response",
           "kind": "method",
-          "line": 1201
+          "line": 1207
         },
         {
           "name": "BridgeApiHttpServer.shutdown",
           "kind": "method",
-          "line": 1207
+          "line": 1213
         },
         {
           "name": "BridgeApiHttpServer._watch_runtime_heartbeat",
           "kind": "method",
-          "line": 1211
+          "line": 1217
         },
         {
           "name": "BridgeApiHttpServer.server_close",
           "kind": "method",
-          "line": 1224
+          "line": 1230
         },
         {
           "name": "_is_loopback",
           "kind": "function",
-          "line": 1234
+          "line": 1240
         },
         {
           "name": "build_parser",
           "kind": "function",
-          "line": 1243
+          "line": 1249
         },
         {
           "name": "_resolve_server_bind",
           "kind": "function",
-          "line": 1267
+          "line": 1273
         },
         {
           "name": "_http_url_host",
           "kind": "function",
-          "line": 1289
+          "line": 1295
         },
         {
           "name": "_bind_error_code",
           "kind": "function",
-          "line": 1297
+          "line": 1303
         },
         {
           "name": "main",
           "kind": "function",
-          "line": 1303
+          "line": 1309
         }
       ]
     },
@@ -19172,17 +19172,17 @@
         {
           "name": "test_bale_worker_scope_mismatch",
           "kind": "function",
-          "line": 50
+          "line": 44
         },
         {
           "name": "test_bale_worker_operational_dispatch",
           "kind": "function",
-          "line": 61
+          "line": 56
         },
         {
           "name": "test_bale_worker_stop",
           "kind": "function",
-          "line": 87
+          "line": 115
         }
       ]
     },

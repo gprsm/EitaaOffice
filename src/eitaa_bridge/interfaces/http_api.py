@@ -660,12 +660,18 @@ class _ApiHandler(BaseHTTPRequestHandler):
             self._write_json(authorization)
             return
 
+        media_cache_control = (
+            "no-store, max-age=0"
+            if self.api.config.deployment.mode in {"trusted_lan_http", "web_reverse_proxy"}
+            else "private, max-age=2592000, immutable"
+        )
+
         client_etag = self._single_header("If-None-Match")
         if client_etag and client_etag.strip('"') == token:
             self.send_response(HTTPStatus.NOT_MODIFIED)
             self.send_header("ETag", f'"{token}"')
             self._send_security_headers(
-                cache_control="private, max-age=2592000, immutable",
+                cache_control=media_cache_control,
                 content_security_policy=_API_CONTENT_SECURITY_POLICY,
             )
             self.end_headers()
@@ -697,7 +703,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", str(total))
                 self.send_header("ETag", f'"{token}"')
                 self._send_security_headers(
-                    cache_control="private, max-age=2592000, immutable",
+                    cache_control=media_cache_control,
                     content_security_policy=_API_CONTENT_SECURITY_POLICY,
                 )
                 self.end_headers()
@@ -732,7 +738,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(size))
             self.send_header("ETag", f'"{token}"')
             self._send_security_headers(
-                cache_control="private, max-age=2592000, immutable",
+                cache_control=media_cache_control,
                 content_security_policy=_API_CONTENT_SECURITY_POLICY,
             )
             self.end_headers()

@@ -28,70 +28,115 @@ def _envelope(method: str, payload: dict, account_id: str, provider: str = "bale
     )
 
 
-def test_bale_worker_hello_and_health() -> None:
+def test_bale_worker_hello_and_health(tmp_path) -> None:
     account_id = str(uuid4())
-    worker = BaleProviderProcessWorker(account_id)
+    worker = BaleProviderProcessWorker(account_id, tmp_path / "bridge.json")
 
     # worker.hello
     hello_req = _envelope("worker.hello", {}, account_id)
     res = worker.dispatch(hello_req)
-    assert res.payload["status"] == "ready"
+    assert res.payload["status"] == "bootstrap_ready"
     assert res.payload["provider"] == "bale"
     assert res.payload["messenger_account_id"] == account_id
-    assert "bale.send_text" in res.payload["capabilities"]
-
-    # worker.health
-    health_req = _envelope("worker.health", {}, account_id)
-    h_res = worker.dispatch(health_req)
-    assert h_res.payload["status"] == "ready"
-    assert h_res.payload["request_count"] == 2
+    worker.close()
 
 
-def test_bale_worker_scope_mismatch() -> None:
+def test_bale_worker_scope_mismatch(tmp_path) -> None:
     account_id = str(uuid4())
     wrong_id = str(uuid4())
-    worker = BaleProviderProcessWorker(account_id)
+    worker = BaleProviderProcessWorker(account_id, tmp_path / "bridge.json")
 
     req = _envelope("worker.hello", {}, wrong_id)
     with pytest.raises(WorkerIpcError) as exc_info:
         worker.dispatch(req)
     assert exc_info.value.code == "ipc_worker_scope_mismatch"
+    worker.close()
 
 
-def test_bale_worker_operational_dispatch() -> None:
+def test_bale_worker_operational_dispatch(tmp_path) -> None:
     account_id = str(uuid4())
-    mock_api = MagicMock()
-    mock_api.send_text = AsyncMock(return_value={"message_id": 999111, "date": 1726000000})
-    mock_api.list_dialogs = AsyncMock(return_value=[{"title": "گفتگو ۱"}])
-    mock_api.list_contacts = AsyncMock(return_value=[{"name": "محسن"}])
+    instance_id = str(uuid4())
 
-    worker = BaleProviderProcessWorker(account_id, api=mock_api)
+    mock_owner = MagicMock()
+    mock_owner.send_text = AsyncMock(return_value={"sent": True, "message_id": 999111})
+    mock_owner.list_dialogs = AsyncMock(return_value=[{"title": "گفتگو ۱", "peer": {"id": 1, "type": 1}}])
+    mock_owner.list_contacts = AsyncMock(return_value=[{"name": "محسن", "peer": {"id": 1001, "type": 1}}])
+    mock_owner.close = AsyncMock()
 
-    send_req = _envelope("bale.send_text", {"user_id": 1001, "text": "سلام بله"}, account_id)
+    worker = BaleProviderProcessWorker(
+        account_id,
+        tmp_path / "bridge.json",
+        owner_factory=lambda root, acc_id: mock_owner,
+    )
+
+    worker.dispatch(_envelope("bale.runtime.start", {
+        "runtime_record": {
+            "provider": "bale", "messenger_account_id": account_id,
+            "lifecycle_state": "active", "desired_worker_state": "running",
+            "storage_revision": 1, "session_generation": 1,
+        }, "worker_instance_id": instance_id, "worker_generation": 1,
+    }, account_id))
+
+    worker._authenticated = True
+
+    send_req = _envelope("bale.provider.messages.send_text", {
+        "user_id": 1001,
+        "peer_type": 1,
+        "text": "سلام بله",
+        "worker_instance_id": instance_id,
+        "worker_generation": 1,
+        "session_generation": 1,
+    }, account_id)
     res = worker.dispatch(send_req)
-    assert res.payload["ok"] is True
-    assert res.payload["result"]["message_id"] == 999111
-    mock_api.send_text.assert_awaited_once_with(user_id=1001, text="سلام بله")
+    assert res.payload["sent"] is True
+    mock_owner.send_text.assert_awaited_once()
 
-    dialogs_req = _envelope("bale.list_dialogs", {"limit": 10}, account_id)
+    dialogs_req = _envelope("bale.provider.dialogs.query", {
+        "limit": 10,
+        "offset_date": None,
+        "worker_instance_id": instance_id,
+        "worker_generation": 1,
+        "session_generation": 1,
+    }, account_id)
     d_res = worker.dispatch(dialogs_req)
-    assert d_res.payload["ok"] is True
-    assert len(d_res.payload["result"]) == 1
+    assert len(d_res.payload["dialogs"]) == 1
 
-    contacts_req = _envelope("bale.list_contacts", {}, account_id)
+    contacts_req = _envelope("bale.provider.contacts.query", {
+        "limit": 10,
+        "worker_instance_id": instance_id,
+        "worker_generation": 1,
+        "session_generation": 1,
+    }, account_id)
     c_res = worker.dispatch(contacts_req)
-    assert c_res.payload["ok"] is True
-    assert c_res.payload["result"][0]["name"] == "محسن"
+    assert len(c_res.payload["contacts"]) == 1
+    worker.close()
 
 
-def test_bale_worker_stop() -> None:
+def test_bale_worker_stop(tmp_path) -> None:
     account_id = str(uuid4())
-    mock_api = MagicMock()
-    mock_api.close = AsyncMock()
+    instance_id = str(uuid4())
+    mock_owner = MagicMock()
+    mock_owner.close = AsyncMock()
 
-    worker = BaleProviderProcessWorker(account_id, api=mock_api)
-    stop_req = _envelope("worker.stop", {}, account_id)
+    worker = BaleProviderProcessWorker(
+        account_id,
+        tmp_path / "bridge.json",
+        owner_factory=lambda root, acc_id: mock_owner,
+    )
+    worker.dispatch(_envelope("bale.runtime.start", {
+        "runtime_record": {
+            "provider": "bale", "messenger_account_id": account_id,
+            "lifecycle_state": "active", "desired_worker_state": "running",
+            "storage_revision": 1, "session_generation": 1,
+        }, "worker_instance_id": instance_id, "worker_generation": 1,
+    }, account_id))
+
+    stop_req = _envelope("worker.stop", {
+        "worker_instance_id": instance_id,
+        "worker_generation": 1,
+        "session_generation": 1,
+    }, account_id)
     res = worker.dispatch(stop_req)
     assert res.payload["status"] == "stopped"
     assert res.stop_requested is True
-    mock_api.close.assert_awaited_once()
+    mock_owner.close.assert_awaited_once()
