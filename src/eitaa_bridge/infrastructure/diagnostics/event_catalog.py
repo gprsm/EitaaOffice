@@ -118,6 +118,7 @@ _DEFINITIONS: Final[tuple[EventDefinition, ...]] = (
     EventDefinition("messenger_account_onboarding_rejected", "account_onboarding", "rejected", audit_required=True),
     EventDefinition("message_sender_contact_enrichment_failed", "sender_enrichment", "degraded"),
     EventDefinition("message_sender_member_enrichment_failed", "sender_enrichment", "degraded"),
+    EventDefinition("message_media_enrichment_failed", "media", "degraded"),
     EventDefinition("observability_maintenance_completed", "diagnostics", "succeeded"),
     EventDefinition("persistent_job_completion_failed", "persistent_job", "failed"),
     EventDefinition("persistent_job_lease_renew_failed", "persistent_job", "degraded"),

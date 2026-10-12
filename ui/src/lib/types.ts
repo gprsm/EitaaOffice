@@ -82,6 +82,8 @@ export interface MessageItem {
     file_name?: string | null
     size?: number | null
     is_image: boolean
+    thumbnail_url?: string | null
+    thumbnail_cached?: boolean
   } | null
   outgoing: boolean
   sender_key?: string | null
@@ -111,6 +113,10 @@ export interface IndexPrediction {
   evidence: string[]
   accepted: boolean
   manual?: boolean
+  operator_id?: string
+  operator_name?: string
+  operator_role?: string
+  review_status?: 'pending' | 'staff_reviewed' | 'approved' | 'rejected'
 }
 
 export interface ContentIndexResult {
@@ -119,6 +125,54 @@ export interface ContentIndexResult {
   model_version: string
   predictions: IndexPrediction[]
   indexed_at: string
+  operator_id?: string
+  operator_name?: string
+  operator_role?: string
+  review_status?: 'pending' | 'staff_reviewed' | 'approved' | 'rejected'
+}
+
+export interface StaffPerformanceSummary {
+  total_staff: number
+  total_actions: number
+  total_tasks: number
+  resolved_tasks: number
+  average_accuracy: number
+}
+
+export interface StaffPerformanceItem {
+  operator_id: string
+  operator_name: string
+  operator_role: string
+  total_actions: number
+  accept_count: number
+  reject_count: number
+  override_count: number
+  accuracy_rate: number
+  assigned_tasks: number
+  resolved_tasks: number
+  task_resolution_rate: number
+}
+
+export interface StaffTask {
+  task_id: string
+  title: string
+  description?: string
+  defect_type: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  status: 'open' | 'in_progress' | 'resolved' | 'closed'
+  assigned_to_user_id?: string
+  assigned_to_name?: string
+  created_by_user_id?: string
+  created_by_name?: string
+  due_date?: string | null
+  resolution_notes?: string
+  created_at: string
+  updated_at?: string
+  resolved_at?: string | null
+  closed_at?: string | null
+  peer_type?: string
+  peer_id?: number
+  message_id?: number
 }
 
 export interface ContentIndexJob {

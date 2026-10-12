@@ -37,6 +37,10 @@ class MessageIntent:
     EVENT_REPORT = "event_report"
     INFORMATIONAL = "informational"
     PROMOTIONAL = "promotional"
+    CHATTER_COURTESY = "chatter_courtesy"
+    HR_EVALUATION = "hr_evaluation"
+    VETERANS_AFFAIRS = "veterans_affairs"
+    EXTERNAL_CONGRATULATION = "external_congratulation"
 
 
 class ScoreWeights:
@@ -97,6 +101,38 @@ _ADMIN_CRIME_MARKERS: tuple[str, ...] = (
     "اجرای احکام", "کیفرخواست", "قتل", "قصاص", "سامانه ثنا", "مزایده",
 )
 
+_COURTESY_CHATTER_EXACT: tuple[str, ...] = (
+    "خسته نباشید", "خسته نباشید همکاران", "خدا قوت", "دست مریزاد",
+    "انشاءالله", "ان شاءالله", "انشاالله", "ممنون", "تشکر", "سپاسگزارم",
+    "تقدیر و تشکر بابت جلسه", "تجربه خوبی بود", "ممنون از زحمات",
+    "سلام و عرض ادب", "سلام و درود", "سلام علیکم", "صبح بخیر", "عصر بخیر",
+)
+
+_HR_EVALUATION_PATTERNS: tuple[str, ...] = (
+    "مدیریت امور اداری و ارزشیابی",
+    "امور اداری و ارزشیابی کارکنان",
+    "بازرسان امور اداری",
+    "دستورالعمل حفظ کرامت و ارزش های انسانی",
+    "دستورالعمل حفظ کرامت",
+    "بخشنامه ۹۰۰۰",
+    "بخشنامه 9000",
+)
+
+_VETERANS_PATTERNS: tuple[str, ...] = (
+    "سرکشی به خانواده شهدا",
+    "دیدار با خانواده معظم شهدا",
+    "دیدار با جانباز",
+    "امور ایثارگران",
+    "دفتر امور ایثارگران",
+)
+
+_EXTERNAL_CONGRATULATION_PATTERNS: tuple[str, ...] = (
+    "کسب رتبه در مسابقات آموزش و پرورش",
+    "مسابقات دانش آموزی",
+    "تبریک به فرزند",
+    "فرزند دلبند همکار",
+)
+
 _ATTENDEE_RE = re.compile(r"([۰-۹0-9]{1,6})\s*(?:نفر|شخص|کاربر|شرکت[‌ ]?کننده|مدعو)")
 _MEDIA_PHOTO_RE = re.compile(r"عکس|تصاویر|فیلم|گالری")
 _MONTH_RE = re.compile(
@@ -124,6 +160,7 @@ class IndexDecision:
     attendee_count: int | None = None
     date_hint: str | None = None
     has_media_mention: bool = False
+    needs_judiciary_verification: bool = False
     index_version: str = INDEXER_VERSION
     indexed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -146,6 +183,7 @@ class IndexDecision:
             "occasion_matched": self.occasion_matched,
             "attendee_count": self.attendee_count,
             "date_hint": self.date_hint,
+            "needs_judiciary_verification": self.needs_judiciary_verification,
         }
 
 
@@ -184,6 +222,36 @@ class EitaaIntentIndexer:
                 score=0.0,
             )
             return decision
+
+        # Rule 21 & 22: Chatter & courtesy exact filtering
+        for chatter in _COURTESY_CHATTER_EXACT:
+            if chatter in normalized and len(normalized) < 80 and not any(m in normalized for m in self._execution):
+                return IndexDecision(
+                    message_ref=message_ref,
+                    dialog_label=dialog_label,
+                    intent=MessageIntent.CHATTER_COURTESY,
+                    score=-10.0,
+                )
+
+        # Rule 28: HR, Inspection & Evaluation boundary
+        has_hr_evaluation = any(pat in normalized for pat in _HR_EVALUATION_PATTERNS)
+        if has_hr_evaluation and "امور فرهنگی" not in normalized and "واحد فرهنگی" not in normalized:
+            return IndexDecision(
+                message_ref=message_ref,
+                dialog_label=dialog_label,
+                intent=MessageIntent.HR_EVALUATION,
+                score=-10.0,
+            )
+
+        # Rule 24: External congratulations vs internal official ceremonies
+        has_ext_congrat = any(pat in normalized for pat in _EXTERNAL_CONGRATULATION_PATTERNS)
+        if has_ext_congrat and not any(m in normalized for m in ("تجلیل رئیس", "تجلیل توسط رئیس", "اهدای لوح توسط رئیس", "اهدای جوایز دادگستری")):
+            return IndexDecision(
+                message_ref=message_ref,
+                dialog_label=dialog_label,
+                intent=MessageIntent.EXTERNAL_CONGRATULATION,
+                score=0.0,
+            )
 
         score = 0.0
         matched_execution = tuple(marker for marker in self._execution if marker in normalized)
@@ -235,9 +303,20 @@ class EitaaIntentIndexer:
         if date_match:
             date_hint = date_match.group(0)
 
+        # Rule 26: Veterans affairs vs cultural affairs boundary
+        has_veterans = any(pat in normalized for pat in _VETERANS_PATTERNS)
+        is_veterans_lead = has_veterans and ("امور فرهنگی" not in normalized and "واحد فرهنگی" not in normalized)
+
+        # Rule 23: Judiciary involvement verification on general municipal events
+        is_public_station = any(k in normalized for k in ("موکب", "ایستگاه صلواتی", "چهارشنبه های امام رضایی"))
+        needs_judiciary_verification = is_public_station and not any("دادگستری" in u for u in unit_hints)
+
         has_activity_signal = bool(matched_execution) or (attendee_count is not None) or has_media_mention
         if score >= 3.0 and has_activity_signal and (program_hits or occasion_class is not None):
-            intent = MessageIntent.EVENT_REPORT
+            if is_veterans_lead:
+                intent = MessageIntent.VETERANS_AFFAIRS
+            else:
+                intent = MessageIntent.EVENT_REPORT
         elif matched_ad and not has_activity_signal:
             intent = MessageIntent.PROMOTIONAL
         else:
@@ -258,6 +337,7 @@ class EitaaIntentIndexer:
             attendee_count=attendee_count,
             date_hint=date_hint,
             has_media_mention=has_media_mention,
+            needs_judiciary_verification=needs_judiciary_verification,
         )
 
     def candidate_from_decision(self, decision: IndexDecision) -> Any | None:

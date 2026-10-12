@@ -819,3 +819,51 @@ def test_api_content_index_start_local_accepts_rules(config_file, tmp_path):
     api.close()
 
 
+def test_api_content_index_custom_save_batch_and_historical(config_file):
+    api = BridgeApplicationApi(config_file)
+    store = api._content_index_store
+    store.initialize()
+
+    # Pre-seed a historical run with labels
+    store.start_run(
+        job_id="historical_job_1",
+        site_key="medical-site",
+        peer_type="channel",
+        peer_id=77001,
+        labels=[
+            {"id": 101, "name": "فرهنگی و مذهبی", "aliases": ["مراسم", "هیئت"]},
+            {"id": 102, "name": "اخبار و اطلاعیه‌ها", "aliases": ["خبر", "اطلاعیه"]},
+        ],
+        summary={"state": "completed"},
+    )
+
+    # 1. Fetch historical labels
+    resp_hist = api.dispatch("POST", "/api/v1/messages/index/custom/historical", body={})
+    assert resp_hist.status == 200
+    assert resp_hist.payload["ok"] is True
+    assert resp_hist.payload["count"] == 2
+    names = {item["name"] for item in resp_hist.payload["items"]}
+    assert "فرهنگی و مذهبی" in names
+    assert "اخبار و اطلاعیه‌ها" in names
+
+    # 2. Batch save
+    resp_batch = api.dispatch(
+        "POST",
+        "/api/v1/messages/index/custom/save-batch",
+        body={
+            "site_key": "local",
+            "items": [
+                {"id": 200001, "name": "فرهنگی و مذهبی", "aliases": ["مراسم", "هیئت"], "kind": "custom"},
+                {"id": 200002, "name": "اخبار و اطلاعیه‌ها", "aliases": ["خبر"], "kind": "custom"},
+            ],
+        },
+    )
+    assert resp_batch.status == 200
+    assert resp_batch.payload["ok"] is True
+    assert resp_batch.payload["count"] == 2
+
+    # 3. List
+    resp_list = api.dispatch("POST", "/api/v1/messages/index/custom/list", body={"site_key": "local"})
+    assert resp_list.status == 200
+    assert len(resp_list.payload["items"]) == 2
+    api.close()

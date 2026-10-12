@@ -37,6 +37,10 @@ import PlayArrowRounded from '@mui/icons-material/PlayArrowRounded'
 import StopCircleOutlined from '@mui/icons-material/StopCircleOutlined'
 import RestartAltRounded from '@mui/icons-material/RestartAltRounded'
 import TuneRounded from '@mui/icons-material/TuneRounded'
+import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
+import HistoryRounded from '@mui/icons-material/HistoryRounded'
+import AssessmentRounded from '@mui/icons-material/AssessmentRounded'
+import AssignmentLateRounded from '@mui/icons-material/AssignmentLateRounded'
 
 
 export type MaterialIndexDefinition = {
@@ -71,6 +75,9 @@ type Props = {
   setCustomIndexKeywords: (value: string) => void
   setCustomIndexCategoryId: (value: number | null) => void
   addCustomIndex: () => void
+  loadStarterPack?: () => void
+  loadHistoricalPack?: () => void
+  historicalCount?: number
   selectedDefinitionId: number | null
   selectDefinition: (id: number) => void
   indexNameDraft: string
@@ -79,6 +86,10 @@ type Props = {
   setIndexKeywordDraft: (value: string) => void
   saveDefinition: () => void
   deleteDefinition: (id: number) => void
+  autoIndexOnLoad?: boolean
+  onToggleAutoIndexOnLoad?: (enabled: boolean) => void
+  openStaffPerformance?: () => void
+  openStaffTasks?: () => void
 }
 
 const kindLabel = (kind: MaterialIndexDefinition['kind']) => kind === 'wordpress-category'
@@ -121,8 +132,88 @@ export function ContentIndexDialog(props: Props) {
               </Box>
               {props.contentIndexActive
                 ? <Button color="warning" variant="outlined" startIcon={<StopCircleOutlined />} onClick={props.cancel} disabled={props.contentIndexState === 'cancelling'}>{props.contentIndexState === 'cancelling' ? 'در حال لغو…' : 'لغو ایمن'}</Button>
-                : <Button variant="contained" startIcon={<PlayArrowRounded />} onClick={props.start} disabled={!props.canStart}>شروع ایندکس</Button>}
+                : <Tooltip title={!props.canStart ? (!props.definitions.length ? 'برای فعال‌شدن دکمه، ابتدا حداقل یک موضوع یا ایندکس تعریف کنید یا از موضوعات پیشنهادی استفاده نمایید' : 'گفت‌وگویی انتخاب نشده است') : ''}>
+                    <span>
+                      <Button variant="contained" startIcon={<PlayArrowRounded />} onClick={props.start} disabled={!props.canStart}>شروع ایندکس</Button>
+                    </span>
+                  </Tooltip>}
             </Stack>
+            <Divider sx={{ my: 0.5 }} />
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" gap={1.5}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={Boolean(props.autoIndexOnLoad)}
+                    onChange={e => props.onToggleAutoIndexOnLoad?.(e.target.checked)}
+                    color="primary"
+                    size="small"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={700}>ایندکس‌گذاری ناهمگام خودکار در زمان لود پیام‌ها</Typography>
+                    <Typography variant="caption" color="text.secondary">هنگام ورود به گفت‌وگو، پردازش سبک به صورت پس‌زمینه و بدون اختلال اجرا می‌شود.</Typography>
+                  </Box>
+                }
+              />
+              <Stack direction="row" spacing={1}>
+                {props.openStaffPerformance && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<AssessmentRounded />}
+                    onClick={props.openStaffPerformance}
+                  >
+                    ارزیابی کارمندان
+                  </Button>
+                )}
+                {props.openStaffTasks && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    startIcon={<AssignmentLateRounded />}
+                    onClick={props.openStaffTasks}
+                  >
+                    پیگیری نواقص
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+            {!props.definitions.length && (
+              <Alert
+                severity="info"
+                sx={{ alignItems: 'center' }}
+                action={
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: { xs: 1, sm: 0 } }}>
+                    {props.loadStarterPack && (
+                      <Button
+                        color="primary"
+                        size="small"
+                        variant="contained"
+                        startIcon={<AutoAwesomeRounded />}
+                        onClick={props.loadStarterPack}
+                      >
+                        موضوعات پیشنهادی
+                      </Button>
+                    )}
+                    {props.loadHistoricalPack && Boolean(props.historicalCount) && (
+                      <Button
+                        color="secondary"
+                        size="small"
+                        variant="outlined"
+                        startIcon={<HistoryRounded />}
+                        onClick={props.loadHistoricalPack}
+                      >
+                        بازیابی {props.historicalCount?.toLocaleString('fa-IR')} موضوع پیشین
+                      </Button>
+                    )}
+                  </Stack>
+                }
+              >
+                برای شروع پایش و فعال‌شدن دکمهٔ «شروع ایندکس»، لازم است حداقل یک سرفصل موضوعی در دیتابیس وجود داشته باشد.
+              </Alert>
+            )}
             {props.contentIndexState && <>
               <LinearProgress variant="determinate" value={props.contentIndexPercent} />
               <Stack direction="row" justifyContent="space-between" gap={1}>
@@ -145,6 +236,30 @@ export function ContentIndexDialog(props: Props) {
                   <Typography fontWeight={900}>ایندکس محلی جدید</Typography>
                   <Typography variant="body2" color="text.secondary">برای هر عنوان یا سرفصل موضوعی، یک ایندکس مستقل همراه با کلمات کلیدی و نشانه‌های استنتاج بسازید.</Typography>
                 </Box>
+                <Stack direction="row" gap={1} flexWrap="wrap">
+                  {props.loadStarterPack && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<AutoAwesomeRounded />}
+                      onClick={props.loadStarterPack}
+                    >
+                      بسته‌ موضوعات پیشنهادی
+                    </Button>
+                  )}
+                  {props.loadHistoricalPack && Boolean(props.historicalCount) && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="secondary"
+                      startIcon={<HistoryRounded />}
+                      onClick={props.loadHistoricalPack}
+                    >
+                      بازیابی موضوعات پیشین ({props.historicalCount?.toLocaleString('fa-IR')})
+                    </Button>
+                  )}
+                </Stack>
                 <TextField label="نام ایندکس" value={props.customIndexName} onChange={event => props.setCustomIndexName(event.target.value)} placeholder="مثلاً غبارروبی مزار شهدا" />
                 <TextField label="واژه‌ها و عبارت‌های راهنمای اختیاری" value={props.customIndexKeywords} onChange={event => props.setCustomIndexKeywords(event.target.value)} multiline minRows={2} placeholder="عطرافشانی، گلزار شهدا، ادای احترام" helperText="هر واژه یا عبارت را با «،» جدا کنید." />
                 <FormControl>

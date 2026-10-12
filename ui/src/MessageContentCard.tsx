@@ -134,7 +134,8 @@ function buildContentBlocks(members: MessageItem[]): MessageContentBlock[] {
 const loadedMediaUrls = new Set<string>()
 
 function ImageWithSkeleton({ src, gallery, mediaDisplay, onClick, onDragStart }: any) {
-  const [loaded, setLoaded] = useState(() => Boolean(src && loadedMediaUrls.has(src)))
+  const isAlreadyLoaded = Boolean(src && loadedMediaUrls.has(src))
+  const [loaded, setLoaded] = useState(() => isAlreadyLoaded)
   const imgRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
@@ -147,14 +148,14 @@ function ImageWithSkeleton({ src, gallery, mediaDisplay, onClick, onDragStart }:
   }, [src])
 
   return <>
-    {!loaded && <Skeleton variant="rounded" animation="wave" width="100%" height={gallery ? '100%' : 240} sx={{ position: 'absolute', inset: 0, borderRadius: 0, zIndex: 1 }} />}
+    {(!loaded && !isAlreadyLoaded) && <Skeleton variant="rounded" animation="wave" width="100%" height={gallery ? '100%' : 240} sx={{ position: 'absolute', inset: 0, borderRadius: 0, zIndex: 1 }} />}
     <CardMedia
       ref={imgRef}
       component="img"
       src={src}
       alt="پیش‌نمایش رسانه پیام"
       title="برای دریافت و نمایش تصویر اصلی کلیک کنید"
-      loading="lazy"
+      loading={isAlreadyLoaded ? 'eager' : 'lazy'}
       draggable
       onClick={onClick}
       onDragStart={onDragStart}
@@ -162,7 +163,10 @@ function ImageWithSkeleton({ src, gallery, mediaDisplay, onClick, onDragStart }:
         if (src) loadedMediaUrls.add(src)
         setLoaded(true)
       }}
-      sx={{ display: 'block', width: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxWidth: '100%', height: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxHeight: gallery || mediaDisplay === 'framed' ? '100%' : 'min(78vh, 1280px)', objectFit: gallery ? 'cover' : 'contain', cursor: 'zoom-in', opacity: loaded ? 1 : 0, transition: 'opacity 0.2s ease' }}
+      onError={() => {
+        setLoaded(true)
+      }}
+      sx={{ display: 'block', width: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxWidth: '100%', height: gallery || mediaDisplay === 'framed' ? '100%' : 'auto', maxHeight: gallery || mediaDisplay === 'framed' ? '100%' : 'min(78vh, 1280px)', objectFit: gallery ? 'cover' : 'contain', cursor: 'zoom-in', opacity: (loaded || isAlreadyLoaded) ? 1 : 0, transition: 'opacity 0.15s ease' }}
     />
   </>
 }
@@ -384,7 +388,27 @@ export function MessageContentCard({
 
     {indexPredictions.length > 0 && <CardContent sx={{ px: { xs: 1.25, sm: 1.75 }, py: 1, '&:last-child': { pb: 1 } }}>
       <Stack direction="row" flexWrap="wrap" gap={0.5} aria-label="پیشنهادهای ایندکس محلی" alignItems="center">
-        {indexPredictions.map(prediction => <Chip size="small" color={prediction.manual ? 'success' : 'secondary'} variant="outlined" key={prediction.label_id} title={`${Math.round(prediction.score * 100)}٪${prediction.evidence.length ? ` — نشانه‌ها: ${prediction.evidence.join('، ')}` : ''}`} label={`${prediction.label_name} · ${prediction.manual ? 'دستی' : `${Math.round(prediction.score * 100)}٪`}`} />)}
+        {indexPredictions.map(prediction => (
+          <Stack key={prediction.label_id} direction="row" spacing={0.5} alignItems="center">
+            <Chip
+              size="small"
+              color={prediction.manual ? 'success' : 'secondary'}
+              variant="outlined"
+              title={`${Math.round(prediction.score * 100)}٪${prediction.evidence?.length ? ` — نشانه‌ها: ${prediction.evidence.join('، ')}` : ''}`}
+              label={`${prediction.label_name} · ${prediction.manual ? 'دستی' : `${Math.round(prediction.score * 100)}٪`}`}
+            />
+            {prediction.operator_name && (
+              <Tooltip title={`ثبت/اصلاح شده توسط: ${prediction.operator_name} (${prediction.operator_role === 'admin' ? 'مدیر' : 'کارمند'})${prediction.review_status === 'approved' ? ' (تایید مدیر)' : ''}`}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'action.hover', borderStyle: 'dashed' }}
+                  label={`${prediction.operator_name}${prediction.review_status === 'approved' ? ' ✓' : ''}`}
+                />
+              </Tooltip>
+            )}
+          </Stack>
+        ))}
         <IconButton aria-label="اصلاح ایندکس پیام" size="small" sx={{ ml: 0.5 }} onClick={event => { event.stopPropagation(); editIndex() }}><EditRounded fontSize="small" /></IconButton>
       </Stack>
     </CardContent>}

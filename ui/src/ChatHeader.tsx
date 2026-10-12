@@ -87,7 +87,7 @@ export function ChatHeader({
       {avatar}
       <Box sx={{ minWidth: 0 }}>
         <Typography variant="subtitle1" fontWeight={850} noWrap>{title}</Typography>
-        <Typography variant="caption" color="text.secondary" noWrap>{subtitle}</Typography>
+        <Typography variant="caption" color="text.secondary" noWrap title={subtitle}>{subtitle}</Typography>
       </Box>
     </Stack>
 

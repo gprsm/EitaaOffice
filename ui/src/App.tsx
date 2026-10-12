@@ -31,6 +31,8 @@ const ContactDirectoryModal = lazy(() => import('./ContactDirectoryModal').then(
 const SettingsPage = lazy(() => import('./SettingsPage').then(module => ({ default: module.SettingsPage })))
 const MessageFilterDialog = lazy(() => import('./MessageFilterDialog').then(module => ({ default: module.MessageFilterDialog })))
 const ContentIndexDialog = lazy(() => import('./ContentIndexDialog').then(module => ({ default: module.ContentIndexDialog })))
+const StaffPerformanceDialog = lazy(() => import('./StaffPerformanceDialog').then(module => ({ default: module.StaffPerformanceDialog })))
+const StaffTasksDialog = lazy(() => import('./StaffTasksDialog').then(module => ({ default: module.StaffTasksDialog })))
 const MessageIndexEditor = lazy(() => import('./MessageIndexEditor').then(module => ({ default: module.MessageIndexEditor })))
 const ReportingWorkbench = lazy(() => import('./ReportingWorkbench').then(module => ({ default: module.ReportingWorkbench })))
 const ReportingRegistrationPanel = lazy(() => import('./ReportingRegistrationPanel').then(module => ({ default: module.ReportingRegistrationPanel })))
@@ -58,6 +60,14 @@ type IndexDefinition = {
 
 const WORDPRESS_TAG_INDEX_OFFSET = 1_000_000_000
 const CUSTOM_INDEX_OFFSET = 2_000_000_000
+const STARTER_INDEX_PACK = [
+  { name: 'فرهنگی و مناسبتی', aliases: ['مراسم', 'مناسبت', 'جشن', 'ولادت', 'شهادت', 'ایام', 'بزرگداشت', 'همایش', 'یادواره'] },
+  { name: 'اخبار و اطلاعیه‌ها', aliases: ['اطلاعیه', 'خبر', 'اعلامیه', 'گزارش', 'تصمیم', 'جلسه', 'نشست', 'ابلاغیه'] },
+  { name: 'آموزش و احکام', aliases: ['احکام', 'آموزش', 'دوره', 'کارگاه', 'کلاس', 'نکات آموزشی', 'مباحث', 'یادگیری'] },
+  { name: 'مسابقات و پویش‌ها', aliases: ['مسابقه', 'پویش', 'قرعه‌کشی', 'جایزه', 'برندگان', 'ثبت‌نام', 'مهلت ارسال'] },
+  { name: 'گزارش تصویری و رسانه', aliases: ['گزارش تصویری', 'عکس', 'کلیپ', 'ویدیو', 'پوستر', 'صوت', 'تیزر', 'نماهنگ'] },
+  { name: 'خدمت‌رسانی و جهادی', aliases: ['خدمت', 'جهادی', 'محرومیت‌زدایی', 'کمک مومنانه', 'خیریه', 'پویش همدلی', 'دستگیری'] },
+]
 function initials(title: string) {
   const clean = title.trim()
   return clean ? clean.slice(0, 2) : 'ا'
@@ -403,7 +413,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [tags, setTags] = useState<Term[]>([])
   const [media, setMedia] = useState<Record<string, string | null>>(() => readStored<Record<string, string | null>>(STORAGE.mediaCache, {}))
   const [fullMedia, setFullMedia] = useState<Record<string, string | null>>({})
-  const mediaCacheRef = useRef<Record<string, string | null>>({})
+  const mediaCacheRef = useRef<Record<string, string | null>>(readStored<Record<string, string | null>>(STORAGE.mediaCache, {}))
   const fullMediaCacheRef = useRef<Record<string, string | null>>({})
   const mediaRequestsRef = useRef<Set<string>>(new Set())
   const fullMediaRequestsRef = useRef<Set<string>>(new Set())
@@ -412,16 +422,19 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   useEffect(() => { mediaCacheRef.current = media }, [media])
   useEffect(() => { fullMediaCacheRef.current = fullMedia }, [fullMedia])
   useEffect(() => {
-    const cancelledKeys = thumbnailQueueRef.current.map(item => item.key)
-    for (const key of cancelledKeys) {
-      mediaRequestsRef.current.delete(key)
-      delete mediaCacheRef.current[key]
+    const cancelledKeys: string[] = []
+    for (const item of thumbnailQueueRef.current) {
+      mediaRequestsRef.current.delete(item.key)
+      if (mediaCacheRef.current[item.key] === null) {
+        delete mediaCacheRef.current[item.key]
+        cancelledKeys.push(item.key)
+      }
     }
     if (cancelledKeys.length > 0) {
       setMedia(current => {
         const next = { ...current }
         for (const key of cancelledKeys) {
-          delete next[key]
+          if (next[key] === null) delete next[key]
         }
         return next
       })
@@ -447,6 +460,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [mediaDisplay, setMediaDisplay] = useState<'dynamic' | 'framed'>(() => readStored<'dynamic' | 'framed'>(STORAGE.mediaDisplay, 'dynamic'))
   const [contentFiltersOpen, setContentFiltersOpen] = useState(false)
   const [indexDialogOpen, setIndexDialogOpen] = useState(false)
+  const [autoIndexOnLoad, setAutoIndexOnLoad] = useState(false)
+  const [staffPerformanceOpen, setStaffPerformanceOpen] = useState(false)
+  const [staffTasksOpen, setStaffTasksOpen] = useState(false)
   const [showWordPressUsed, setShowWordPressUsed] = useState(true)
   const [selectedIndexLabel, setSelectedIndexLabel] = useState<number | null>(null)
   const [selectedSenderKey, setSelectedSenderKey] = useState<string | null>(null)
@@ -463,6 +479,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [customIndexName, setCustomIndexName] = useState('')
   const [customIndexKeywords, setCustomIndexKeywords] = useState('')
   const [customIndexCategoryId, setCustomIndexCategoryId] = useState<number | null>(null)
+  const [historicalLabels, setHistoricalLabels] = useState<Array<{ name: string; aliases: string[]; kind: string }>>([])
   const [indexEditor, setIndexEditor] = useState<{ message: MessageItem; messageIds: number[]; selectedIds: number[] } | null>(null)
   const [savingIndexEditor, setSavingIndexEditor] = useState(false)
   const [dateJump, setDateJump] = useState<{ messageId: number; epoch: number } | null>(null)
@@ -511,6 +528,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       void import('./SettingsPage')
       void import('./MessageFilterDialog')
       void import('./ContentIndexDialog')
+      void import('./StaffPerformanceDialog')
+      void import('./StaffTasksDialog')
     }
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
       const handle = (window as any).requestIdleCallback(preload, { timeout: 3500 })
@@ -678,11 +697,44 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     }
   }, [siteKey, activeSite?.credentials_configured, showWordPressPanel])
 
+  const ingestMessageMedia = useCallback((peerKey: string, items: MessageItem[]) => {
+    let hasNew = false
+    const updates: Record<string, string> = {}
+    for (const item of items) {
+      if (item.media?.thumbnail_url) {
+        const key = stableMessageKey(peerKey, item.id)
+        const resolved = mediaUrl(item.media.thumbnail_url)
+        if (resolved && mediaCacheRef.current[key] !== resolved) {
+          mediaCacheRef.current[key] = resolved
+          updates[key] = resolved
+          hasNew = true
+        }
+      }
+    }
+    if (hasNew) {
+      setMedia(current => {
+        const next = { ...current, ...updates }
+        try {
+          const stored = readStored<Record<string, string | null>>(STORAGE.mediaCache, {})
+          Object.assign(stored, updates)
+          const entries = Object.entries(stored)
+          if (entries.length > 2000) {
+            writeStored(STORAGE.mediaCache, Object.fromEntries(entries.slice(entries.length - 2000)))
+          } else {
+            writeStored(STORAGE.mediaCache, stored)
+          }
+        } catch { /* best effort */ }
+        return next
+      })
+    }
+  }, [])
+
   const listMessages = useCallback(async (selected: DialogItem, beforeId?: number, limit = viewportPageSize) => {
     if (!historySupported) return []
     const response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', { site_key: siteKey, peer_file: selected.peer_file, limit, before_id: beforeId })
+    ingestMessageMedia(selected.peer_key, response.messages)
     return [...response.messages].reverse()
-  }, [historySupported, siteKey, viewportPageSize])
+  }, [historySupported, ingestMessageMedia, siteKey, viewportPageSize])
 
   const markDialogRead = useCallback(async (selected: DialogItem, maxId: number, remainingUnreadCount: number) => {
     if (!siteKey || !historySupported || maxId < 1 || lastReadRef.current[selected.peer_key] === maxId) return
@@ -848,16 +900,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     setIndexNameDraft('')
     setIndexKeywordDraft('')
 
-    const migratedKey = `${STORAGE.customIndexes}.${contentIndexScope}.migrated`
-    const alreadyMigrated = Boolean(readStored(migratedKey, false))
-
     api<{ ok: boolean; items: Array<{ id: number | string; name: string; aliases: string[]; kind: string; wordpress_category_id: number | null }> }>(
       'POST',
       '/api/v1/messages/index/custom/list',
       { site_key: contentIndexScope }
     ).then(res => {
       if (res.items && res.items.length > 0) {
-        writeStored(migratedKey, true)
         const remoteCustom: IndexDefinition[] = []
         const remoteNames: Record<number, string> = { ...localNames }
         const remoteAliases: Record<number, string[]> = { ...localAliases }
@@ -886,24 +934,45 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, remoteCustom)
         writeStored(`${STORAGE.indexNames}.${contentIndexScope}`, remoteNames)
         writeStored(`${STORAGE.indexAliases}.${contentIndexScope}`, remoteAliases)
-      } else if (!alreadyMigrated && localCustom.length > 0) {
-        writeStored(migratedKey, true)
-        for (const item of localCustom) {
-          api('POST', '/api/v1/messages/index/custom/save', {
-            site_key: contentIndexScope,
+      } else if (localCustom.length > 0) {
+        api('POST', '/api/v1/messages/index/custom/save-batch', {
+          site_key: contentIndexScope,
+          items: localCustom.map(item => ({
             id: item.id,
             name: item.name,
             aliases: item.aliases,
             kind: item.kind,
             wordpress_category_id: item.wordpressCategoryId,
-          }).catch(() => {})
-        }
-      } else if (alreadyMigrated) {
-        setCustomIndexes([])
-        writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, [])
+          })),
+        }).catch(() => {})
       }
     }).catch(() => {})
+
+    api<{ ok: boolean; count: number; items: Array<{ name: string; aliases: string[]; kind: string }> }>(
+      'POST',
+      '/api/v1/messages/index/custom/historical',
+      {}
+    ).then(res => {
+      if (res.items) setHistoricalLabels(res.items)
+    }).catch(() => {})
+
+    api<{ ok: boolean; auto_index_on_load: boolean }>(
+      'GET',
+      '/api/v2/settings/indexing-strategy'
+    ).then(res => {
+      if (res.ok) setAutoIndexOnLoad(Boolean(res.auto_index_on_load))
+    }).catch(() => {})
   }, [contentIndexScope])
+
+  const toggleAutoIndexOnLoad = useCallback(async (enabled: boolean) => {
+    setAutoIndexOnLoad(enabled)
+    try {
+      await api('POST', '/api/v2/settings/indexing-strategy', { auto_index_on_load: enabled })
+      toast.success(enabled ? 'ایندکس‌گذاری خودکار پیام‌ها فعال شد.' : 'ایندکس‌گذاری خودکار غیرفعال شد.')
+    } catch {
+      toast.error('ذخیره تنظیم ایندکس خودکار با خطا مواجه شد.')
+    }
+  }, [])
   const indexDefinitions = useMemo<IndexDefinition[]>(() => {
     const categoryDefinitions = categories.map(item => ({
       id: item.id,
@@ -999,6 +1068,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         }
 
         if (response.messages.length) {
+          ingestMessageMedia(dialog.peer_key, response.messages)
           const chronological = [...response.messages].sort((left, right) => (
             new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
           ))
@@ -1105,6 +1175,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           source = 'سرور ایتا و حافظه محلی'
         }
       }
+      ingestMessageMedia(dialog.peer_key, response.messages)
       const chronological = [...response.messages].sort((left, right) => (
         new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
       ))
@@ -1143,6 +1214,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         date_to: dateRange.to,
         limit: Math.max(100, messages.length),
       })
+      ingestMessageMedia(dialog.peer_key, response.messages)
       setMessages([...response.messages].reverse())
       return
     }
@@ -1234,6 +1306,14 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     if (!dialog || !mediaReadSupported) return
     const key = messageKey(dialog, message)
     if ((typeof mediaCacheRef.current[key] === 'string' && mediaCacheRef.current[key] !== '') || mediaRequestsRef.current.has(key)) return
+    if (message.media?.thumbnail_url) {
+      const resolved = mediaUrl(message.media.thumbnail_url)
+      if (resolved) {
+        mediaCacheRef.current[key] = resolved
+        setMedia(current => ({ ...current, [key]: resolved }))
+        return
+      }
+    }
     mediaRequestsRef.current.add(key)
     mediaCacheRef.current[key] = null
     setMedia(current => ({ ...current, [key]: null }))
@@ -1291,12 +1371,12 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   useEffect(() => {
     if (!dialog) return
     void loadContentIndexResults(dialog)
-  }, [dialog?.peer_key, contentIndexScope, loadContentIndexResults]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dialog?.peer_key, contentIndexScope, loadContentIndexResults])
 
-  const startContentIndex = useCallback(async () => {
+  const startContentIndex = useCallback(async (silent = false) => {
     if (!dialog) return
     if (!indexDefinitions.length) {
-      toast.error('حداقل یک دستهٔ وردپرس، کلمهٔ کلیدی وردپرس یا ایندکس پیشنهادی بسازید.')
+      if (!silent) toast.error('حداقل یک دستهٔ وردپرس، کلمهٔ کلیدی وردپرس یا ایندکس پیشنهادی بسازید.')
       return
     }
     try {
@@ -1318,7 +1398,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           ...item.aliases,
         ])],
       }))
-      if (prioritized.length > labels.length) {
+      if (prioritized.length > labels.length && !silent) {
         toast.warning(`به‌دلیل سقف محاسباتی، ${labels.length.toLocaleString('fa-IR')} ایندکس با اولویت دسته‌ها و ایندکس‌های پیشنهادی بررسی می‌شود.`)
       }
       const started = await api<{ job: ContentIndexJob }>('POST', '/api/v1/messages/index/start', {
@@ -1338,15 +1418,17 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       if (job.state === 'failed') throw new Error(job.error?.message || 'ایندکس‌گذاری محلی ناموفق بود.')
       await loadContentIndexResults(dialog)
       const progress = job.progress || {}
-      if (job.state === 'cancelled') {
-        toast.info(`ایندکس‌گذاری لغو شد؛ ${progress.processed_messages || 0} پیام بررسی شده باقی ماند.`)
-      } else {
-        toast.success(`${progress.processed_messages || 0} پیام بررسی و ${progress.indexed_messages || 0} پیام برچسب‌گذاری شد.`)
-        if (progress.cold_start) toast.warning('مدل هنوز در حالت شروع سرد است؛ نمونه‌های دسته‌بندی‌شدهٔ بیشتری لازم است.')
-        if (progress.truncated) toast.warning('به سقف ۵٬۰۰۰ پیام رسید؛ نتیجه فقط بخشی از تاریخچه است.')
+      if (!silent) {
+        if (job.state === 'cancelled') {
+          toast.info(`ایندکس‌گذاری لغو شد؛ ${progress.processed_messages || 0} پیام بررسی شده باقی ماند.`)
+        } else {
+          toast.success(`${progress.processed_messages || 0} پیام بررسی و ${progress.indexed_messages || 0} پیام برچسب‌گذاری شد.`)
+          if (progress.cold_start) toast.warning('مدل هنوز در حالت شروع سرد است؛ نمونه‌های دسته‌بندی‌شدهٔ بیشتری لازم است.')
+          if (progress.truncated) toast.warning('به سقف ۵٬۰۰۰ پیام رسید؛ نتیجه فقط بخشی از تاریخچه است.')
+        }
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'ایندکس‌گذاری محلی ناموفق بود.')
+      if (!silent) toast.error(error instanceof Error ? error.message : 'ایندکس‌گذاری محلی ناموفق بود.')
     }
   }, [categories, contentIndexScope, dialog, indexDefinitions, loadContentIndexResults])
 
@@ -1481,6 +1563,86 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     toast.info('ایندکس پیشنهادی حذف شد؛ دسته یا کلمهٔ کلیدی وردپرس حذف نشده است.')
   }, [contentIndexScope])
 
+  const loadStarterPack = useCallback(() => {
+    let nextId = Math.max(CUSTOM_INDEX_OFFSET, ...customIndexes.map(item => item.id))
+    const existingNames = new Set(indexDefinitions.map(item => item.name.trim().toLocaleLowerCase('fa')))
+    const toAdd: IndexDefinition[] = []
+    for (const item of STARTER_INDEX_PACK) {
+      if (existingNames.has(item.name.trim().toLocaleLowerCase('fa'))) continue
+      nextId += 1
+      toAdd.push({
+        id: nextId,
+        name: item.name,
+        aliases: item.aliases,
+        kind: 'custom',
+        wordpressCategoryId: null,
+      })
+      existingNames.add(item.name.trim().toLocaleLowerCase('fa'))
+    }
+    if (!toAdd.length) {
+      toast.info('تمامی موضوعات پیشنهادی از قبل در فهرست وجود دارند.')
+      return
+    }
+    const merged = [...customIndexes, ...toAdd]
+    setCustomIndexes(merged)
+    writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, merged)
+    api('POST', '/api/v1/messages/index/custom/save-batch', {
+      site_key: contentIndexScope,
+      items: toAdd.map(item => ({
+        id: item.id,
+        name: item.name,
+        aliases: item.aliases,
+        kind: item.kind,
+        wordpress_category_id: null,
+      })),
+    }).catch(err => {
+      console.warn('Failed to persist starter index pack', err)
+    })
+    toast.success(`${toAdd.length.toLocaleString('fa-IR')} موضوع پیشنهادی با موفقیت افزوده شد. اکنون دکمه شروع ایندکس فعال است.`)
+  }, [contentIndexScope, customIndexes, indexDefinitions])
+
+  const loadHistoricalPack = useCallback(() => {
+    if (!historicalLabels.length) {
+      toast.info('موضوع پیشینی برای بازیابی یافت نشد.')
+      return
+    }
+    let nextId = Math.max(CUSTOM_INDEX_OFFSET, ...customIndexes.map(item => item.id))
+    const existingNames = new Set(indexDefinitions.map(item => item.name.trim().toLocaleLowerCase('fa')))
+    const toAdd: IndexDefinition[] = []
+    for (const item of historicalLabels) {
+      if (existingNames.has(item.name.trim().toLocaleLowerCase('fa'))) continue
+      nextId += 1
+      toAdd.push({
+        id: nextId,
+        name: item.name,
+        aliases: item.aliases,
+        kind: 'custom',
+        wordpressCategoryId: null,
+      })
+      existingNames.add(item.name.trim().toLocaleLowerCase('fa'))
+    }
+    if (!toAdd.length) {
+      toast.info('تمامی موضوعات پیشین از قبل در فهرست وجود دارند.')
+      return
+    }
+    const merged = [...customIndexes, ...toAdd]
+    setCustomIndexes(merged)
+    writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, merged)
+    api('POST', '/api/v1/messages/index/custom/save-batch', {
+      site_key: contentIndexScope,
+      items: toAdd.map(item => ({
+        id: item.id,
+        name: item.name,
+        aliases: item.aliases,
+        kind: item.kind,
+        wordpress_category_id: null,
+      })),
+    }).catch(err => {
+      console.warn('Failed to persist historical index pack', err)
+    })
+    toast.success(`${toAdd.length.toLocaleString('fa-IR')} موضوع پیشین با موفقیت بازیابی شد. اکنون دکمه شروع ایندکس فعال است.`)
+  }, [contentIndexScope, customIndexes, historicalLabels, indexDefinitions])
+
   const cancelContentIndex = useCallback(async () => {
     if (!contentIndexJob || !['queued', 'running'].includes(contentIndexJob.state)) return
     try {
@@ -1523,6 +1685,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           }
         )
         if (!cancelled) {
+          ingestMessageMedia(dialog.peer_key, response.messages)
           const chronological = [...response.messages].sort((left, right) => (
             new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
           ))
@@ -1696,6 +1859,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     ),
   )
 
+  useEffect(() => {
+    if (!dialog || !autoIndexOnLoad || !indexDefinitions.length || contentIndexActive) return
+    if (Object.keys(contentIndexResults).length === 0) {
+      void startContentIndex(true)
+    }
+  }, [dialog?.peer_key, autoIndexOnLoad, indexDefinitions.length, contentIndexActive, contentIndexResults, startContentIndex])
+
   const selectedMessages = useMemo(() => selectedKeys.map(key => indexedMessages.find(m => dialog && messageKey(dialog, m) === key)).filter(Boolean) as MessageItem[], [selectedKeys, indexedMessages, dialog])
 
   useEffect(() => {
@@ -1743,6 +1913,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         label_id: definition.id,
         label_name: definition.name,
         decision: selected.has(definition.id) ? 'accept' : 'reject',
+        operator_id: appUser.principal?.app_user_id || 'local_user',
+        operator_name: appUser.principal?.display_name || 'کاربر سیستم',
+        operator_role: appUser.principal?.global_role || 'user',
       })))
       await loadContentIndexResults(dialog)
       setIndexEditor(null)
@@ -1753,7 +1926,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     } finally {
       setSavingIndexEditor(false)
     }
-  }, [contentIndexResults, contentIndexScope, dialog, indexDefinitions, indexEditor, loadContentIndexResults, startContentIndex])
+  }, [appUser.principal, contentIndexResults, contentIndexScope, dialog, indexDefinitions, indexEditor, loadContentIndexResults, startContentIndex])
 
   const dialogCounts = useMemo(() => ({
     all: dialogs.length,
@@ -1826,6 +1999,43 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     catch (e) { toast.error(e instanceof Error ? e.message : 'خروج از نرم‌افزار انجام نشد.') }
   }
 
+  const chatSubtitle = useMemo(() => {
+    if (!dialog) return 'گفتگویی انتخاب نشده'
+    if (searchingDatabase) return 'در حال جست‌وجو در پایگاه داده محلی…'
+    if (databaseSearchResults !== null) {
+      if (selectedIndexLabel !== null || selectedSenderKey !== null || !showWordPressUsed) {
+        return `${filteredMessages.length.toLocaleString('fa-IR')} پیام فیلترشده (از ${databaseSearchResults.length.toLocaleString('fa-IR')} پیام دیتابیس)`
+      }
+      return `${databaseSearchResults.length.toLocaleString('fa-IR')} پیام یافت‌شده در تاریخچه دیتابیس`
+    }
+
+    const hasContentFilter = selectedIndexLabel !== null || selectedSenderKey !== null || !showWordPressUsed || Boolean(messageSearch.trim())
+
+    if (hasContentFilter) {
+      if (dateRange) {
+        return `${filteredMessages.length.toLocaleString('fa-IR')} پیام فیلترشده در این بازه (از ${messages.length.toLocaleString('fa-IR')} پیام)`
+      }
+      return `${filteredMessages.length.toLocaleString('fa-IR')} پیام فیلترشده (از ${messages.length.toLocaleString('fa-IR')} پیام)`
+    }
+
+    if (dateRange) {
+      return `${messages.length.toLocaleString('fa-IR')} پیام در این بازه زمانی`
+    }
+
+    return `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده`
+  }, [
+    dialog,
+    searchingDatabase,
+    databaseSearchResults,
+    selectedIndexLabel,
+    selectedSenderKey,
+    showWordPressUsed,
+    messageSearch,
+    filteredMessages.length,
+    dateRange,
+    messages.length,
+  ])
+
   return <Box sx={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden', bgcolor: 'background.default' }}>
     <Box component="main" sx={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden', display: { xs: 'block', md: 'grid' }, pb: { xs: 'calc(66px + env(safe-area-inset-bottom))', md: 0 }, gridTemplateColumns: { md: composerDocked ? '72px minmax(300px, 22vw) minmax(0, 1fr) minmax(340px, 26vw)' : '72px minmax(280px, 32vw) minmax(0, 1fr)' }, '& > *': { minWidth: 0, minHeight: 0 } }}>
       <WorkspaceNavigation
@@ -1878,15 +2088,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         {messengerAccounts.featureEnabled && !messengerAccounts.capabilityLoading && !dialogsSupported && <Alert severity="info" sx={{ borderRadius: 0 }}>خواندن گفتگوها برای حساب انتخاب‌شده پشتیبانی نمی‌شود.</Alert>}
         <ChatHeader
           title={titleFor(dialog)}
-          subtitle={
-            dialog
-              ? searchingDatabase
-                ? 'در حال جست‌وجو در پایگاه داده محلی…'
-                : databaseSearchResults !== null
-                  ? `${databaseSearchResults.length.toLocaleString('fa-IR')} پیام یافت‌شده در تاریخچه دیتابیس`
-                  : `${messages.length.toLocaleString('fa-IR')} پیام ذخیره‌شده`
-              : 'گفتگویی انتخاب نشده'
-          }
+          subtitle={chatSubtitle}
           avatar={<DialogAvatar dialog={dialog} siteKey={siteKey} small priority="active" />}
           selectionCount={selectionMode ? selectedKeys.length : 0}
           liveState={dialog && historySupported ? liveMessageState : 'idle'}
@@ -2037,6 +2239,9 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       customIndexCategoryId={customIndexCategoryId}
       setCustomIndexCategoryId={setCustomIndexCategoryId}
       addCustomIndex={addCustomIndex}
+      loadStarterPack={loadStarterPack}
+      loadHistoricalPack={loadHistoricalPack}
+      historicalCount={historicalLabels.length}
       selectedDefinitionId={indexKeywordCategoryId}
       selectDefinition={setIndexKeywordCategoryId}
       indexNameDraft={indexNameDraft}
@@ -2045,6 +2250,20 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       setIndexKeywordDraft={setIndexKeywordDraft}
       saveDefinition={saveIndexKeywords}
       deleteDefinition={deleteCustomIndex}
+      autoIndexOnLoad={autoIndexOnLoad}
+      onToggleAutoIndexOnLoad={toggleAutoIndexOnLoad}
+      openStaffPerformance={() => setStaffPerformanceOpen(true)}
+      openStaffTasks={() => setStaffTasksOpen(true)}
+    /></Suspense>}
+    {staffPerformanceOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><StaffPerformanceDialog
+      open={staffPerformanceOpen}
+      onClose={() => setStaffPerformanceOpen(false)}
+    /></Suspense>}
+    {staffTasksOpen && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><StaffTasksDialog
+      open={staffTasksOpen}
+      onClose={() => setStaffTasksOpen(false)}
+      currentUserRole={appUser.principal?.global_role}
+      currentUserName={appUser.principal?.display_name || 'مدیر سیستم'}
     /></Suspense>}
     {indexEditor && <Suspense fallback={<CircularProgress sx={{ position: 'fixed', inset: 0, m: 'auto', zIndex: theme => theme.zIndex.modal + 1 }} />}><MessageIndexEditor
       open
@@ -2072,6 +2291,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   const scrollFrame = useRef<number | null>(null)
   const positioned = useRef(false)
   const previousTail = useRef<{ peerKey: string; tailId: number | null }>({ peerKey: props.dialog.peer_key, tailId: null })
+  const lastHandledFocusEpoch = useRef(0)
   const [floatingDate, setFloatingDate] = useState('')
   const memoryKey = props.readReceiptsEnabled ? props.dialog.peer_key : `${props.dialog.peer_key}:filtered`
   const dayKeys = useMemo(() => props.messages.map(message => jalaliDayKey(message.date)), [props.messages])
@@ -2252,6 +2472,7 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
     topPagination.current = { armed: true, inFlight: false }
     previousTail.current = { peerKey: props.dialog.peer_key, tailId: null }
     setFloatingDate('')
+    lastHandledFocusEpoch.current = 0
     if (readTimer.current !== null) { window.clearTimeout(readTimer.current); readTimer.current = null }
     // Scroll memory is committed by the scroll handler itself. Persisting again
     // during keyed unmount can observe a DOM node already reset to scrollTop=0
@@ -2298,7 +2519,8 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
   }, [firstUnreadIndex, memoryKey, persistScrollMemory, props.dialog, props.messages, props.scrollMemory, restoreMeasuredAnchor, virtualizer])
 
   useLayoutEffect(() => {
-    if (!props.focusMessageId || !props.focusEpoch) return
+    if (!props.focusMessageId || !props.focusEpoch || props.focusEpoch === lastHandledFocusEpoch.current) return
+    lastHandledFocusEpoch.current = props.focusEpoch
     const element = parentRef.current
     const focusedGroup = groupLookup.get(props.focusMessageId)
     const targetMessageId = focusedGroup?.leader.id || props.focusMessageId
@@ -2306,16 +2528,23 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
     if (!element || targetIndex < 0) return
     positioned.current = true
     programmaticScroll.current = true
+    let secondFrame = 0
+    let completed = false
     const firstFrame = window.requestAnimationFrame(() => {
       virtualizer.scrollToIndex(targetIndex, { align: 'start' })
-      window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
         lastScroll.current = element.scrollTop
         setFloatingDate(jalaliDayLabel(props.messages[targetIndex].date))
         persistScrollMemory()
+        completed = true
         programmaticScroll.current = false
       })
     })
-    return () => window.cancelAnimationFrame(firstFrame)
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+      if (!completed) programmaticScroll.current = false
+    }
   }, [groupLookup, persistScrollMemory, props.focusEpoch, props.focusMessageId, props.messages, virtualizer])
 
   useLayoutEffect(() => {

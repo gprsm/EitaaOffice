@@ -836,6 +836,10 @@ class BridgeApplicationApi:
             with self._media_cache_lock:
                 item = self._media_cache_files.get(token)
                 if item is None:
+                    recovered = self._recover_media_cache_file(token)
+                    if recovered is not None:
+                        item = self._media_cache_files.get(token)
+                if item is None:
                     return None
                 path, mime_type, _, stored_scope = item
                 if stored_scope != self._runtime.data_scope.scope_key:
@@ -855,6 +859,32 @@ class BridgeApplicationApi:
         finally:
             if context_token is not None:
                 self._request_runtime.reset(context_token)
+
+    def _recover_media_cache_file(self, token: str) -> tuple[Path, str] | None:
+        """Attempt to recover a deterministic process-local media token after process restart."""
+        try:
+            scope_key = self._runtime.data_scope.scope_key
+            for quality_sub in ("thumbnail", "full"):
+                candidate_dirs = [
+                    self._runtime.ownership.core.media_directory / "ui-cache" / quality_sub,
+                ]
+                if self.config.core.media_directory != self._runtime.ownership.core.media_directory:
+                    candidate_dirs.append(self.config.core.media_directory / "ui-cache" / quality_sub)
+                for cache_dir in candidate_dirs:
+                    if not cache_dir.exists():
+                        continue
+                    for candidate_file in cache_dir.glob("*.*"):
+                        if candidate_file.is_file() and not candidate_file.name.endswith(".partial") and candidate_file.stat().st_size > 0:
+                            cand_token = hashlib.sha256(f"{scope_key}:{candidate_file.name}".encode("utf-8")).hexdigest()[:32]
+                            if cand_token == token:
+                                mime_type = mimetypes.guess_type(candidate_file.name)[0] or (
+                                    "image/jpeg" if quality_sub == "thumbnail" else "application/octet-stream"
+                                )
+                                self.register_media_cache_file(candidate_file, mime_type)
+                                return candidate_file, mime_type
+        except Exception:
+            pass
+        return None
 
     def read_remote_media_cache_chunk(
         self,
@@ -1895,6 +1925,20 @@ class BridgeApplicationApi:
                     payload,
                     request_id=request_id,
                 )
+            if selected_method in ("GET", "POST") and path == "/api/v2/staff/performance":
+                return self._staff_performance(query=query, payload=payload, app_session=app_session)
+            if selected_method == "GET" and path == "/api/v2/staff/tasks":
+                return self._staff_tasks_list(query=query, payload=payload, app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/staff/tasks":
+                return self._staff_tasks_create(payload=payload, app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/staff/tasks/resolve":
+                return self._staff_tasks_resolve(payload=payload, app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/staff/tasks/close":
+                return self._staff_tasks_close(payload=payload, app_session=app_session)
+            if selected_method == "GET" and path == "/api/v2/settings/indexing-strategy":
+                return self._indexing_strategy_get(app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/settings/indexing-strategy":
+                return self._indexing_strategy_set(payload=payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/app-integrations":
                 return self._app_integrations_list(app_session)
             integration_match = _APP_INTEGRATION_UPDATE_ROUTE.fullmatch(path)
@@ -2259,11 +2303,15 @@ class BridgeApplicationApi:
             if selected_method == "POST" and path == "/api/v1/messages/index/results":
                 return ApiResponse(200, self._content_index_results(payload))
             if selected_method == "POST" and path == "/api/v1/messages/index/feedback":
-                return ApiResponse(201, self._content_index_feedback(payload))
+                return ApiResponse(201, self._content_index_feedback(payload, app_session=app_session))
             if selected_method == "POST" and path == "/api/v1/messages/index/custom/list":
                 return ApiResponse(200, self._content_index_custom_list(payload))
             if selected_method == "POST" and path == "/api/v1/messages/index/custom/save":
                 return ApiResponse(200, self._content_index_custom_save(payload))
+            if selected_method == "POST" and path == "/api/v1/messages/index/custom/save-batch":
+                return ApiResponse(200, self._content_index_custom_save_batch(payload))
+            if selected_method == "POST" and path == "/api/v1/messages/index/custom/historical":
+                return ApiResponse(200, self._content_index_custom_historical(payload))
             if selected_method == "POST" and path == "/api/v1/messages/index/custom/delete":
                 return ApiResponse(200, self._content_index_custom_delete(payload))
             if selected_method == "POST" and path == "/api/v1/eitaa-contacts/list":
@@ -5845,6 +5893,14 @@ class BridgeApplicationApi:
                     "method": "POST",
                     "path": "/api/v2/app-users/{app_user_id}/revoke-sessions",
                 },
+                {"method": "GET", "path": "/api/v2/staff/performance"},
+                {"method": "POST", "path": "/api/v2/staff/performance"},
+                {"method": "GET", "path": "/api/v2/staff/tasks"},
+                {"method": "POST", "path": "/api/v2/staff/tasks"},
+                {"method": "POST", "path": "/api/v2/staff/tasks/resolve"},
+                {"method": "POST", "path": "/api/v2/staff/tasks/close"},
+                {"method": "GET", "path": "/api/v2/settings/indexing-strategy"},
+                {"method": "POST", "path": "/api/v2/settings/indexing-strategy"},
                 {"method": "GET", "path": "/api/v2/phone-accounts"},
                 {
                     "method": "POST",
@@ -5970,6 +6026,11 @@ class BridgeApplicationApi:
                 {"method": "POST", "path": "/api/v1/messages/index/cancel"},
                 {"method": "POST", "path": "/api/v1/messages/index/results"},
                 {"method": "POST", "path": "/api/v1/messages/index/feedback"},
+                {"method": "POST", "path": "/api/v1/messages/index/custom/list"},
+                {"method": "POST", "path": "/api/v1/messages/index/custom/save"},
+                {"method": "POST", "path": "/api/v1/messages/index/custom/save-batch"},
+                {"method": "POST", "path": "/api/v1/messages/index/custom/historical"},
+                {"method": "POST", "path": "/api/v1/messages/index/custom/delete"},
                 {"method": "POST", "path": "/api/v1/eitaa-contacts/list"},
                 {"method": "POST", "path": "/api/v1/eitaa-contacts/add"},
                 {"method": "POST", "path": "/api/v1/eitaa-contacts/remove"},
@@ -8685,6 +8746,61 @@ class BridgeApplicationApi:
         }
         return response
 
+    def _enrich_message_media(
+        self,
+        peer: Peer,
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Attach cached thumbnail preview URLs to message items so the UI can render
+        locally stored images immediately without sending separate media-preview requests."""
+        messages = response.get("messages")
+        if not isinstance(messages, list) or not messages:
+            return response
+
+        image_items = [
+            item for item in messages
+            if isinstance(item, dict) and isinstance(item.get("media"), dict) and item["media"].get("is_image")
+        ]
+        if not image_items:
+            return response
+
+        try:
+            candidate_dirs = [
+                self._runtime.ownership.core.media_directory / "ui-cache" / "thumbnail",
+            ]
+            if self.config.core.media_directory != self._runtime.ownership.core.media_directory:
+                candidate_dirs.append(self.config.core.media_directory / "ui-cache" / "thumbnail")
+
+            prefix = f"{peer.type.value}_{peer.id}_"
+            cache_by_msg_id: dict[int, Path] = {}
+            for cache_dir in candidate_dirs:
+                if not cache_dir.exists():
+                    continue
+                for entry in cache_dir.glob(f"{prefix}*"):
+                    if not entry.is_file() or entry.name.endswith(".partial") or entry.stat().st_size <= 0:
+                        continue
+                    parts = entry.stem.split("_")
+                    if len(parts) >= 3 and parts[2].isdigit():
+                        msg_id = int(parts[2])
+                        if msg_id not in cache_by_msg_id or entry.stat().st_mtime > cache_by_msg_id[msg_id].stat().st_mtime:
+                            cache_by_msg_id[msg_id] = entry
+
+            for item in image_items:
+                msg_id = item.get("id")
+                if isinstance(msg_id, int) and msg_id in cache_by_msg_id:
+                    cache_path = cache_by_msg_id[msg_id]
+                    mime_type = mimetypes.guess_type(cache_path.name)[0] or "image/jpeg"
+                    token = self.register_media_cache_file(cache_path, mime_type)
+                    item["media"]["thumbnail_url"] = f"/api/v1/media-cache/{token}"
+                    item["media"]["thumbnail_cached"] = True
+        except Exception as exc:
+            self._runtime_logger.emit(
+                "message_media_enrichment_failed",
+                fields={"error_type": type(exc).__name__, "peer_key": f"{peer.type.value}:{peer.id}"},
+            )
+
+        return response
+
     def _messages_list(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         site_key = self._site_key(payload)
         peer = load_peer_file(self._peer_path(payload))
@@ -8721,7 +8837,8 @@ class BridgeApplicationApi:
                         "ok": True,
                         **bridge.application_messages(peer, limit=min(limit, 500), before_id=before_id),
                     }
-                return self._enrich_message_senders(bridge, peer, response)
+                enriched = self._enrich_message_senders(bridge, peer, response)
+                return self._enrich_message_media(peer, enriched)
 
         return self._run_eitaa(
             priority=EitaaPriority.ACTIVE_MESSAGES,
@@ -8783,7 +8900,8 @@ class BridgeApplicationApi:
                         date_to=date_to,
                     ),
                 }
-                return self._enrich_message_senders(bridge, peer, response)
+                enriched = self._enrich_message_senders(bridge, peer, response)
+                return self._enrich_message_media(peer, enriched)
 
         return self._run_eitaa(
             priority=EitaaPriority.ACTIVE_MESSAGES,
@@ -9716,6 +9834,10 @@ class BridgeApplicationApi:
                 if int(prediction.get("label_id", 0)) != label_id
             ]
             if str(feedback.get("decision")) == "accept":
+                op_id = str(feedback.get("operator_id") or item.get("operator_id") or "")
+                op_name = str(feedback.get("operator_name") or item.get("operator_name") or "")
+                op_role = str(feedback.get("operator_role") or item.get("operator_role") or "")
+                rev_status = "approved" if op_role == "admin" else "staff_reviewed"
                 predictions.append(
                     {
                         "label_id": label_id,
@@ -9724,6 +9846,10 @@ class BridgeApplicationApi:
                         "evidence": ["اصلاح دستی اپراتور"],
                         "accepted": True,
                         "manual": True,
+                        "operator_id": op_id,
+                        "operator_name": op_name,
+                        "operator_role": op_role,
+                        "review_status": rev_status,
                     }
                 )
             item["predictions"] = predictions
@@ -9746,7 +9872,9 @@ class BridgeApplicationApi:
             ],
         }
 
-    def _content_index_feedback(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+    def _content_index_feedback(
+        self, payload: Mapping[str, Any], *, app_session: Any = None
+    ) -> dict[str, Any]:
         site_key = self._content_index_scope_key(payload)
         peer = load_peer_file(self._peer_path(payload))
         message_id = self._integer(payload.get("message_id"), "message_id", minimum=1)
@@ -9763,6 +9891,23 @@ class BridgeApplicationApi:
                 "decision must be accept or reject.",
                 code="api_invalid_content_index_feedback",
             )
+
+        operator_id = ""
+        operator_name = ""
+        operator_role = ""
+        if app_session is not None and getattr(app_session, "principal", None):
+            principal = app_session.principal
+            operator_id = getattr(principal, "app_user_id", "") or ""
+            operator_name = getattr(principal, "display_name", "") or getattr(principal, "username", "")
+            role_val = getattr(principal, "global_role", "staff")
+            operator_role = getattr(role_val, "value", str(role_val))
+        if not operator_id:
+            operator_id = str(payload.get("operator_id") or "local_admin").strip()
+        if not operator_name:
+            operator_name = str(payload.get("operator_name") or "مدیر سیستم").strip()
+        if not operator_role:
+            operator_role = str(payload.get("operator_role") or "admin").strip()
+
         self._content_index_store.initialize()
         feedback_id = self._content_index_store.add_feedback(
             site_key=site_key,
@@ -9770,6 +9915,12 @@ class BridgeApplicationApi:
             label_id=label_id,
             label_name=label_name,
             decision=decision,
+            peer_type=peer.type.value,
+            peer_id=peer.id,
+            message_id=message_id,
+            operator_id=operator_id,
+            operator_name=operator_name,
+            operator_role=operator_role,
         )
         return {
             "ok": True,
@@ -9777,6 +9928,9 @@ class BridgeApplicationApi:
             "message_id": message_id,
             "label_id": label_id,
             "decision": decision,
+            "operator_id": operator_id,
+            "operator_name": operator_name,
+            "operator_role": operator_role,
             "applies_on_next_run": False,
         }
 
@@ -9844,6 +9998,232 @@ class BridgeApplicationApi:
             index_id=index_id,
         )
         return {"ok": True, "site_key": site_key, "deleted": deleted}
+
+    def _content_index_custom_save_batch(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        site_key = self._content_index_scope_key(payload)
+        raw_items = payload.get("items")
+        if not isinstance(raw_items, (list, tuple)):
+            raise CompositionValidationError("items must be a list.", code="api_invalid_items")
+        cleaned_items: list[dict[str, Any]] = []
+        for raw in raw_items:
+            if not isinstance(raw, Mapping):
+                continue
+            index_id = raw.get("id")
+            name = str(raw.get("name") or "").strip()
+            if not name or index_id is None:
+                continue
+            aliases_raw = raw.get("aliases", ())
+            if not isinstance(aliases_raw, (list, tuple)):
+                aliases = []
+            else:
+                aliases = [str(a).strip() for a in aliases_raw if str(a).strip() and len(str(a).strip()) <= 200]
+            wp_cat_id = raw.get("wordpress_category_id")
+            wp_id = int(wp_cat_id) if wp_cat_id is not None and str(wp_cat_id).strip().isdigit() else None
+            cleaned_items.append({
+                "id": index_id,
+                "name": name,
+                "aliases": aliases,
+                "kind": str(raw.get("kind") or "custom").strip(),
+                "wordpress_category_id": wp_id,
+            })
+        self._content_index_store.initialize()
+        saved = self._content_index_store.save_custom_indexes_batch(site_key=site_key, items=cleaned_items)
+        return {"ok": True, "site_key": site_key, "count": len(saved), "items": saved}
+
+    def _content_index_custom_historical(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        self._content_index_store.initialize()
+        items = self._content_index_store.list_historical_labels()
+        return {"ok": True, "count": len(items), "items": items}
+
+    def _staff_performance(
+        self,
+        *,
+        query: Mapping[str, str],
+        payload: Mapping[str, Any] | None = None,
+        app_session: Any = None,
+    ) -> ApiResponse:
+        from_date = str((payload or {}).get("from_date") or query.get("from_date") or "").strip() or None
+        to_date = str((payload or {}).get("to_date") or query.get("to_date") or "").strip() or None
+        self._content_index_store.initialize()
+        staff_list = self._content_index_store.get_staff_performance(
+            from_date=from_date,
+            to_date=to_date,
+        )
+        total_actions = sum(s.get("total_actions", 0) for s in staff_list)
+        total_tasks = sum(s.get("assigned_tasks", 0) for s in staff_list)
+        resolved_tasks = sum(s.get("resolved_tasks", 0) for s in staff_list)
+        avg_accuracy = (
+            round(sum(s.get("accuracy_rate", 100.0) for s in staff_list) / len(staff_list), 1)
+            if staff_list
+            else 100.0
+        )
+        summary = {
+            "total_staff": len(staff_list),
+            "total_actions": total_actions,
+            "total_tasks": total_tasks,
+            "resolved_tasks": resolved_tasks,
+            "average_accuracy": avg_accuracy,
+        }
+        return ApiResponse(200, {"ok": True, "summary": summary, "staff": staff_list})
+
+    def _staff_tasks_list(
+        self,
+        *,
+        query: Mapping[str, str],
+        payload: Mapping[str, Any] | None = None,
+        app_session: Any = None,
+    ) -> ApiResponse:
+        status = str((payload or {}).get("status") or query.get("status") or "").strip() or None
+        assigned_to = str(
+            (payload or {}).get("assigned_to_user_id")
+            or (payload or {}).get("assigned_to")
+            or query.get("assigned_to_user_id")
+            or query.get("assigned_to")
+            or ""
+        ).strip() or None
+        limit_val = (payload or {}).get("limit") or query.get("limit") or 100
+        try:
+            limit = int(limit_val)
+        except (ValueError, TypeError):
+            limit = 100
+        self._content_index_store.initialize()
+        tasks = self._content_index_store.list_tasks(
+            status=status,
+            assigned_to_user_id=assigned_to,
+            limit=limit,
+        )
+        return ApiResponse(200, {"ok": True, "tasks": list(tasks)})
+
+    def _staff_tasks_create(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        title = str(payload.get("title") or payload.get("description") or "پیگیری نقص پیام").strip()
+        defect_type = str(payload.get("defect_type") or "general").strip()
+        description = str(payload.get("description") or "").strip()
+        priority = str(payload.get("priority") or "medium").strip()
+        peer_type = str(payload.get("peer_type") or "").strip()
+        peer_id = int(payload.get("peer_id", 0) or 0)
+        message_id = int(payload.get("message_id", 0) or 0)
+        event_id = str(payload.get("event_id") or "").strip()
+        assigned_to_user_id = str(
+            payload.get("assigned_to_user_id") or payload.get("assigned_to") or ""
+        ).strip()
+        assigned_to_name = str(payload.get("assigned_to_name") or "").strip()
+        due_date = str(payload.get("due_date") or "").strip() or None
+
+        created_by_user_id = ""
+        created_by_name = ""
+        if app_session is not None and getattr(app_session, "principal", None):
+            principal = app_session.principal
+            created_by_user_id = getattr(principal, "app_user_id", "") or ""
+            created_by_name = getattr(principal, "display_name", "") or getattr(principal, "username", "")
+        if not created_by_user_id:
+            created_by_user_id = str(payload.get("created_by_user_id") or "admin").strip()
+        if not created_by_name:
+            created_by_name = str(
+                payload.get("created_by_name") or payload.get("created_by") or "مدیر سیستم"
+            ).strip()
+
+        self._content_index_store.initialize()
+        task = self._content_index_store.create_task(
+            title=title,
+            description=description,
+            defect_type=defect_type,
+            priority=priority,
+            peer_type=peer_type,
+            peer_id=peer_id,
+            message_id=message_id,
+            event_id=event_id,
+            assigned_to_user_id=assigned_to_user_id,
+            assigned_to_name=assigned_to_name,
+            created_by_user_id=created_by_user_id,
+            created_by_name=created_by_name,
+            due_date=due_date,
+        )
+        return ApiResponse(201, {"ok": True, "task": task, "task_id": task.get("task_id")})
+
+    def _staff_tasks_resolve(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        task_id = str(payload.get("task_id") or "").strip()
+        if not task_id:
+            raise CompositionValidationError("Invalid task_id.", code="api_invalid_task_id")
+        resolution_notes = str(payload.get("resolution_notes") or "").strip()
+        resolved_by_user_id = ""
+        resolved_by_name = ""
+        if app_session is not None and getattr(app_session, "principal", None):
+            principal = app_session.principal
+            resolved_by_user_id = getattr(principal, "app_user_id", "") or ""
+            resolved_by_name = getattr(principal, "display_name", "") or getattr(principal, "username", "")
+        if not resolved_by_user_id:
+            resolved_by_user_id = str(payload.get("user_id") or "").strip()
+        if not resolved_by_name:
+            resolved_by_name = str(
+                payload.get("resolved_by") or payload.get("user_name") or "کاربر سیستم"
+            ).strip()
+
+        self._content_index_store.initialize()
+        res = self._content_index_store.resolve_task(
+            task_id=task_id,
+            resolution_notes=resolution_notes,
+            user_id=resolved_by_user_id,
+            user_name=resolved_by_name,
+        )
+        return ApiResponse(200, {"ok": True, **res})
+
+    def _staff_tasks_close(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        task_id = str(payload.get("task_id") or "").strip()
+        if not task_id:
+            raise CompositionValidationError("Invalid task_id.", code="api_invalid_task_id")
+        reopen = not bool(payload.get("approved", True))
+        manager_id = ""
+        manager_name = ""
+        if app_session is not None and getattr(app_session, "principal", None):
+            principal = app_session.principal
+            manager_id = getattr(principal, "app_user_id", "") or ""
+            manager_name = getattr(principal, "display_name", "") or getattr(principal, "username", "")
+        if not manager_id:
+            manager_id = str(payload.get("manager_id") or "").strip()
+        if not manager_name:
+            manager_name = str(
+                payload.get("closed_by") or payload.get("manager_name") or "مدیر سیستم"
+            ).strip()
+
+        self._content_index_store.initialize()
+        res = self._content_index_store.close_task(
+            task_id=task_id,
+            manager_id=manager_id,
+            manager_name=manager_name,
+            reopen=reopen,
+        )
+        return ApiResponse(200, {"ok": True, **res})
+
+    def _indexing_strategy_get(self, *, app_session: Any = None) -> ApiResponse:
+        self._content_index_store.initialize()
+        auto_index = bool(self._content_index_store.get_setting("auto_index_on_load", default=False))
+        return ApiResponse(200, {"ok": True, "auto_index_on_load": auto_index})
+
+    def _indexing_strategy_set(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        auto_index = bool(payload.get("auto_index_on_load", False))
+        self._content_index_store.initialize()
+        self._content_index_store.set_setting("auto_index_on_load", auto_index)
+        return ApiResponse(200, {"ok": True, "auto_index_on_load": auto_index})
 
     @staticmethod
     def _eitaa_contact_status(user: Any) -> dict[str, Any] | None:

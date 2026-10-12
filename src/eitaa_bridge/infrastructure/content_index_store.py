@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Iterator, Mapping, Sequence
+import uuid
 
 from ..errors import LocalContentIndexStoreError
 from .data_scope import DataScopeError, ProviderAccountScope
 
 
-CONTENT_INDEX_SCHEMA = 4
+CONTENT_INDEX_SCHEMA = 5
 
 
 def _now() -> str:
@@ -57,6 +59,10 @@ class SQLiteContentIndexStore:
                             model_version TEXT NOT NULL,
                             predictions_json TEXT NOT NULL,
                             indexed_at TEXT NOT NULL,
+                            operator_id TEXT NOT NULL DEFAULT '',
+                            operator_name TEXT NOT NULL DEFAULT '',
+                            operator_role TEXT NOT NULL DEFAULT '',
+                            review_status TEXT NOT NULL DEFAULT 'pending',
                             PRIMARY KEY (site_key, peer_type, peer_id, message_id)
                         );
                         CREATE INDEX idx_index_results_peer
@@ -97,9 +103,13 @@ class SQLiteContentIndexStore:
                             model_version TEXT NOT NULL,
                             predictions_json TEXT NOT NULL,
                             indexed_at TEXT NOT NULL,
+                            operator_id TEXT NOT NULL DEFAULT '',
+                            operator_name TEXT NOT NULL DEFAULT '',
+                            operator_role TEXT NOT NULL DEFAULT '',
+                            review_status TEXT NOT NULL DEFAULT 'pending',
                             PRIMARY KEY (job_id, message_id),
                             FOREIGN KEY (job_id) REFERENCES index_runs(job_id)
-                                ON DELETE CASCADE
+                                 ON DELETE CASCADE
                         );
                         CREATE INDEX idx_index_staging_job
                             ON index_staging_results(job_id, message_id);
@@ -123,7 +133,62 @@ class SQLiteContentIndexStore:
                         );
                         CREATE INDEX idx_custom_indexes_site
                             ON custom_indexes(site_key, id);
-                        PRAGMA user_version = 4;
+
+                        CREATE TABLE index_actions (
+                            action_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            site_key TEXT NOT NULL,
+                            peer_type TEXT NOT NULL,
+                            peer_id INTEGER NOT NULL,
+                            message_id INTEGER NOT NULL,
+                            label_id INTEGER NOT NULL,
+                            label_name TEXT NOT NULL,
+                            previous_decision TEXT NOT NULL DEFAULT '',
+                            new_decision TEXT NOT NULL,
+                            operator_id TEXT NOT NULL DEFAULT '',
+                            operator_name TEXT NOT NULL DEFAULT '',
+                            operator_role TEXT NOT NULL DEFAULT 'user',
+                            is_manager_override INTEGER NOT NULL DEFAULT 0,
+                            overridden_operator_id TEXT NOT NULL DEFAULT '',
+                            created_at TEXT NOT NULL
+                        );
+                        CREATE INDEX idx_index_actions_op
+                            ON index_actions(operator_id, created_at);
+                        CREATE INDEX idx_index_actions_msg
+                            ON index_actions(peer_type, peer_id, message_id);
+
+                        CREATE TABLE staff_tasks (
+                            task_id TEXT PRIMARY KEY,
+                            peer_type TEXT NOT NULL DEFAULT '',
+                            peer_id INTEGER NOT NULL DEFAULT 0,
+                            message_id INTEGER NOT NULL DEFAULT 0,
+                            event_id TEXT NOT NULL DEFAULT '',
+                            title TEXT NOT NULL,
+                            description TEXT NOT NULL DEFAULT '',
+                            defect_type TEXT NOT NULL DEFAULT 'general',
+                            priority TEXT NOT NULL DEFAULT 'medium',
+                            status TEXT NOT NULL DEFAULT 'open',
+                            assigned_to_user_id TEXT NOT NULL DEFAULT '',
+                            assigned_to_name TEXT NOT NULL DEFAULT '',
+                            created_by_user_id TEXT NOT NULL DEFAULT '',
+                            created_by_name TEXT NOT NULL DEFAULT '',
+                            due_date TEXT,
+                            resolution_notes TEXT NOT NULL DEFAULT '',
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            resolved_at TEXT,
+                            closed_at TEXT
+                        );
+                        CREATE INDEX idx_staff_tasks_assigned
+                            ON staff_tasks(assigned_to_user_id, status);
+                        CREATE INDEX idx_staff_tasks_status
+                            ON staff_tasks(status);
+
+                        CREATE TABLE content_index_settings (
+                            setting_key TEXT PRIMARY KEY,
+                            setting_value TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        );
+                        PRAGMA user_version = 5;
                         COMMIT;
                         """
                     )
@@ -154,13 +219,19 @@ class SQLiteContentIndexStore:
                     )
                     self._upgrade_scope_schema(connection, source_version=2)
                     self._upgrade_custom_indexes_schema(connection)
+                    self._upgrade_v5_schema(connection)
                 elif version == 2:
                     self._backup_connection(connection, version=2)
                     self._upgrade_scope_schema(connection, source_version=2)
                     self._upgrade_custom_indexes_schema(connection)
+                    self._upgrade_v5_schema(connection)
                 elif version == 3:
                     self._backup_connection(connection, version=3)
                     self._upgrade_custom_indexes_schema(connection)
+                    self._upgrade_v5_schema(connection)
+                elif version == 4:
+                    self._backup_connection(connection, version=4)
+                    self._upgrade_v5_schema(connection)
                 self._register_scope(connection)
         except LocalContentIndexStoreError:
             raise
@@ -381,24 +452,54 @@ class SQLiteContentIndexStore:
                 scoped_site_key = self._site_key(site_key)
                 rows = connection.execute(
                     """
-                    SELECT message_id,text_hash,model_version,predictions_json,indexed_at
+                    SELECT message_id, text_hash, model_version, predictions_json, indexed_at,
+                           operator_id, operator_name, operator_role, review_status, site_key
                     FROM index_results
-                    WHERE site_key=? AND peer_type=? AND peer_id=?
-                    ORDER BY message_id DESC
+                    WHERE peer_type=? AND peer_id=?
+                    ORDER BY message_id DESC, (CASE WHEN site_key=? THEN 0 ELSE 1 END) ASC
                     LIMIT ?
                     """,
-                    (scoped_site_key, peer_type, peer_id, limit),
+                    (peer_type, peer_id, scoped_site_key, limit),
                 ).fetchall()
-            return tuple(
-                {
-                    "message_id": int(row["message_id"]),
-                    "text_hash": str(row["text_hash"]),
-                    "model_version": str(row["model_version"]),
-                    "predictions": json.loads(str(row["predictions_json"])),
-                    "indexed_at": str(row["indexed_at"]),
-                }
-                for row in rows
-            )
+                results: list[dict[str, object]] = []
+                seen_message_ids: set[int] = set()
+                for row in rows:
+                    msg_id = int(row["message_id"])
+                    if msg_id in seen_message_ids:
+                        continue
+                    seen_message_ids.add(msg_id)
+                    try:
+                        predictions = json.loads(str(row["predictions_json"]))
+                    except (json.JSONDecodeError, TypeError):
+                        predictions = []
+                    op_id = str(row["operator_id"] or "")
+                    op_name = str(row["operator_name"] or "")
+                    op_role = str(row["operator_role"] or "")
+                    rev_status = str(row["review_status"] or "pending")
+                    for pred in predictions:
+                        if isinstance(pred, dict):
+                            if op_id and "operator_id" not in pred:
+                                pred["operator_id"] = op_id
+                            if op_name and "operator_name" not in pred:
+                                pred["operator_name"] = op_name
+                            if op_role and "operator_role" not in pred:
+                                pred["operator_role"] = op_role
+                            if rev_status and "review_status" not in pred:
+                                pred["review_status"] = rev_status
+                    results.append(
+                        {
+                            "message_id": msg_id,
+                            "text_hash": str(row["text_hash"]),
+                            "model_version": str(row["model_version"]),
+                            "predictions": predictions,
+                            "indexed_at": str(row["indexed_at"]),
+                            "operator_id": op_id,
+                            "operator_name": op_name,
+                            "operator_role": op_role,
+                            "review_status": rev_status,
+                        }
+                    )
+                return tuple(results)
         except (json.JSONDecodeError, sqlite3.Error) as exc:
             raise LocalContentIndexStoreError(
                 "Content-index results could not be read.",
@@ -458,11 +559,53 @@ class SQLiteContentIndexStore:
         label_id: int,
         label_name: str,
         decision: str,
+        peer_type: str = "",
+        peer_id: int = 0,
+        message_id: int = 0,
+        operator_id: str = "",
+        operator_name: str = "",
+        operator_role: str = "user",
     ) -> int:
         if decision not in {"accept", "reject"}:
             raise ValueError("Feedback decision must be accept or reject.")
+        if (not peer_type or not peer_id or not message_id) and source_key:
+            parts = source_key.split(":")
+            if len(parts) == 3:
+                try:
+                    peer_type = str(parts[0])
+                    peer_id = int(parts[1])
+                    message_id = int(parts[2])
+                except (ValueError, TypeError):
+                    pass
+        now = _now()
+        scoped_site_key = self._site_key(site_key)
+        clean_source_key = self._source_key(source_key) if source_key else f"{peer_type}:{peer_id}:{message_id}"
+        role = "admin" if str(operator_role).strip().lower() == "admin" else "user"
         try:
             with self._connect() as connection:
+                is_override = 0
+                overridden_op_id = ""
+                prev_decision = ""
+                if peer_type and peer_id and message_id:
+                    last_action = connection.execute(
+                        """
+                        SELECT action_id, new_decision, operator_id, operator_role
+                        FROM index_actions
+                        WHERE peer_type=? AND peer_id=? AND message_id=? AND label_id=?
+                        ORDER BY action_id DESC
+                        LIMIT 1
+                        """,
+                        (peer_type, peer_id, message_id, label_id),
+                    ).fetchone()
+                    if last_action:
+                        prev_decision = str(last_action["new_decision"])
+                        prev_role = str(last_action["operator_role"])
+                        prev_op_id = str(last_action["operator_id"])
+                        if role == "admin" and prev_decision != decision and (prev_role == "user" or prev_op_id != operator_id):
+                            is_override = 1
+                            overridden_op_id = prev_op_id
+
+                # 1. Insert into index_feedback for backwards-compatibility & training
                 cursor = connection.execute(
                     """
                     INSERT INTO index_feedback (
@@ -470,15 +613,115 @@ class SQLiteContentIndexStore:
                     ) VALUES (?,?,?,?,?,?)
                     """,
                     (
-                        self._site_key(site_key),
-                        self._source_key(source_key),
+                        scoped_site_key,
+                        clean_source_key,
                         label_id,
                         label_name,
                         decision,
-                        _now(),
+                        now,
                     ),
                 )
-                return int(cursor.lastrowid)
+                feedback_id = int(cursor.lastrowid)
+
+                # 2. Insert into index_actions for audit & staff performance
+                if peer_type and peer_id and message_id:
+                    connection.execute(
+                        """
+                        INSERT INTO index_actions (
+                            site_key, peer_type, peer_id, message_id, label_id, label_name,
+                            previous_decision, new_decision, operator_id, operator_name,
+                            operator_role, is_manager_override, overridden_operator_id, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            scoped_site_key,
+                            peer_type,
+                            peer_id,
+                            message_id,
+                            label_id,
+                            label_name,
+                            prev_decision,
+                            decision,
+                            operator_id,
+                            operator_name,
+                            role,
+                            is_override,
+                            overridden_op_id,
+                            now,
+                        ),
+                    )
+
+                    # 3. Live-update or insert into index_results so the change reflects immediately
+                    existing = connection.execute(
+                        """
+                        SELECT predictions_json, model_version, text_hash, operator_id, operator_name
+                        FROM index_results
+                        WHERE peer_type=? AND peer_id=? AND message_id=?
+                        ORDER BY (CASE WHEN site_key=? THEN 0 ELSE 1 END) ASC
+                        LIMIT 1
+                        """,
+                        (peer_type, peer_id, message_id, scoped_site_key),
+                    ).fetchone()
+                    preds: list[dict[str, Any]] = []
+                    model_ver = "manual_override"
+                    txt_hash = "manual"
+                    review_status = "approved" if role == "admin" else ("overridden" if is_override else "pending")
+                    if existing:
+                        try:
+                            preds = list(json.loads(str(existing["predictions_json"])))
+                        except (json.JSONDecodeError, TypeError):
+                            preds = []
+                        model_ver = str(existing["model_version"] or "manual_override")
+                        txt_hash = str(existing["text_hash"] or "manual")
+
+                    # Filter out this label
+                    preds = [p for p in preds if int(p.get("label_id", -1)) != label_id]
+                    if decision == "accept":
+                        preds.append({
+                            "label_id": label_id,
+                            "label_name": label_name,
+                            "score": 1.0,
+                            "evidence": [f"توسط: {operator_name}"] if operator_name else ["دستی"],
+                            "manual": True,
+                            "operator_id": operator_id,
+                            "operator_name": operator_name,
+                            "operator_role": role,
+                            "review_status": review_status,
+                            "updated_at": now,
+                        })
+
+                    preds_json = json.dumps(preds, ensure_ascii=False, separators=(",", ":"))
+                    connection.execute(
+                        """
+                        INSERT INTO index_results (
+                            site_key, peer_type, peer_id, message_id, text_hash,
+                            model_version, predictions_json, indexed_at,
+                            operator_id, operator_name, operator_role, review_status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(site_key, peer_type, peer_id, message_id) DO UPDATE SET
+                            predictions_json = excluded.predictions_json,
+                            indexed_at = excluded.indexed_at,
+                            operator_id = excluded.operator_id,
+                            operator_name = excluded.operator_name,
+                            operator_role = excluded.operator_role,
+                            review_status = excluded.review_status
+                        """,
+                        (
+                            scoped_site_key,
+                            peer_type,
+                            peer_id,
+                            message_id,
+                            txt_hash,
+                            model_ver,
+                            preds_json,
+                            now,
+                            operator_id,
+                            operator_name,
+                            role,
+                            review_status,
+                        ),
+                    )
+                return feedback_id
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
                 "Content-index feedback could not be saved.",
@@ -593,18 +836,35 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 scoped_site_key = self._site_key(site_key)
-                rows = connection.execute(
-                    """
-                    SELECT id, name, aliases_json, kind, wordpress_category_id, created_at, updated_at
-                    FROM custom_indexes
-                    WHERE site_key = ?
-                    ORDER BY id ASC
-                    """,
-                    (scoped_site_key,),
-                ).fetchall()
+                local_site_key = self._site_key("local")
+                if scoped_site_key == local_site_key:
+                    rows = connection.execute(
+                        """
+                        SELECT id, name, aliases_json, kind, wordpress_category_id, created_at, updated_at
+                        FROM custom_indexes
+                        WHERE site_key = ?
+                        ORDER BY id ASC
+                        """,
+                        (scoped_site_key,),
+                    ).fetchall()
+                else:
+                    rows = connection.execute(
+                        """
+                        SELECT id, name, aliases_json, kind, wordpress_category_id, created_at, updated_at
+                        FROM custom_indexes
+                        WHERE site_key = ? OR site_key = ?
+                        ORDER BY id ASC
+                        """,
+                        (scoped_site_key, local_site_key),
+                    ).fetchall()
                 results: list[dict[str, Any]] = []
+                seen_ids: set[str] = set()
                 for row in rows:
                     raw_id = row["id"]
+                    str_id = str(raw_id)
+                    if str_id in seen_ids:
+                        continue
+                    seen_ids.add(str_id)
                     try:
                         item_id: int | str = int(raw_id) if str(raw_id).lstrip("-").isdigit() else str(raw_id)
                     except (ValueError, TypeError):
@@ -713,13 +973,137 @@ class SQLiteContentIndexStore:
                 safe_context={"error_type": type(exc).__name__, "index_id": str_id},
             ) from exc
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, timeout=30)
+    def save_custom_indexes_batch(
+        self,
+        *,
+        site_key: str,
+        items: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        if not items:
+            return []
+        now = _now()
+        scoped_site_key = self._site_key(site_key)
+        saved: list[dict[str, Any]] = []
+        try:
+            with self._connect() as connection:
+                for item in items:
+                    raw_id = item.get("id")
+                    if raw_id is None or str(raw_id).strip() == "":
+                        continue
+                    str_id = str(raw_id).strip()
+                    name = str(item.get("name") or "").strip()
+                    if not name:
+                        continue
+                    raw_aliases = item.get("aliases", ())
+                    if not isinstance(raw_aliases, (list, tuple)):
+                        aliases = []
+                    else:
+                        aliases = [str(a).strip() for a in raw_aliases if str(a).strip()]
+                    aliases_json = json.dumps(aliases, ensure_ascii=False, separators=(",", ":"))
+                    kind = str(item.get("kind") or "custom").strip()
+                    wp_cat_id = item.get("wordpress_category_id")
+                    wp_id: int | None = None
+                    if wp_cat_id is not None and str(wp_cat_id).strip() != "":
+                        try:
+                            wp_id = int(wp_cat_id)
+                        except (ValueError, TypeError):
+                            wp_id = None
+                    connection.execute(
+                        """
+                        INSERT INTO custom_indexes (
+                            site_key, id, name, aliases_json, kind, wordpress_category_id, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(site_key, id) DO UPDATE SET
+                            name = excluded.name,
+                            aliases_json = excluded.aliases_json,
+                            kind = excluded.kind,
+                            wordpress_category_id = excluded.wordpress_category_id,
+                            updated_at = excluded.updated_at
+                        """,
+                        (
+                            scoped_site_key,
+                            str_id,
+                            name,
+                            aliases_json,
+                            kind,
+                            wp_id,
+                            now,
+                            now,
+                        ),
+                    )
+                    try:
+                        res_id: int | str = int(str_id) if str_id.lstrip("-").isdigit() else str_id
+                    except (ValueError, TypeError):
+                        res_id = str_id
+                    saved.append({
+                        "id": res_id,
+                        "name": name,
+                        "aliases": aliases,
+                        "kind": kind,
+                        "wordpress_category_id": wp_id,
+                        "created_at": now,
+                        "updated_at": now,
+                    })
+            return saved
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Batch custom indexes could not be saved.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def list_historical_labels(self) -> list[dict[str, Any]]:
+        try:
+            with self._connect() as connection:
+                rows = connection.execute(
+                    """
+                    SELECT labels_json
+                    FROM index_runs
+                    ORDER BY started_at DESC
+                    """
+                ).fetchall()
+                seen_names: set[str] = set()
+                items: list[dict[str, Any]] = []
+                for row in rows:
+                    raw = row["labels_json"]
+                    try:
+                        labels = json.loads(str(raw)) if raw else []
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                    for label in labels:
+                        if not isinstance(label, Mapping):
+                            continue
+                        name = str(label.get("name") or "").strip()
+                        if not name or name.lower() in seen_names:
+                            continue
+                        seen_names.add(name.lower())
+                        aliases = [str(a).strip() for a in label.get("aliases", ()) if str(a).strip()]
+                        items.append({
+                            "name": name,
+                            "aliases": aliases,
+                            "kind": "custom",
+                        })
+                return items
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Historical labels could not be retrieved.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(str(self.path), timeout=30.0)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA journal_mode = WAL")
         connection.execute("PRAGMA synchronous = NORMAL")
-        return connection
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def _backup_connection(self, connection: sqlite3.Connection, *, version: int) -> Path:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -847,6 +1231,128 @@ class SQLiteContentIndexStore:
                     ON custom_indexes(site_key, id)
                 """
             )
+            connection.execute("PRAGMA user_version = 4")
+            connection.commit()
+        except sqlite3.Error:
+            connection.rollback()
+            raise
+
+    def _upgrade_v5_schema(
+        self,
+        connection: sqlite3.Connection,
+    ) -> None:
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            existing_cols = {
+                row[1] for row in connection.execute("PRAGMA table_info(index_results)")
+            }
+            if "operator_id" not in existing_cols:
+                connection.execute("ALTER TABLE index_results ADD COLUMN operator_id TEXT NOT NULL DEFAULT ''")
+            if "operator_name" not in existing_cols:
+                connection.execute("ALTER TABLE index_results ADD COLUMN operator_name TEXT NOT NULL DEFAULT ''")
+            if "operator_role" not in existing_cols:
+                connection.execute("ALTER TABLE index_results ADD COLUMN operator_role TEXT NOT NULL DEFAULT ''")
+            if "review_status" not in existing_cols:
+                connection.execute("ALTER TABLE index_results ADD COLUMN review_status TEXT NOT NULL DEFAULT 'pending'")
+
+            staging_cols = {
+                row[1] for row in connection.execute("PRAGMA table_info(index_staging_results)")
+            }
+            if "operator_id" not in staging_cols:
+                connection.execute("ALTER TABLE index_staging_results ADD COLUMN operator_id TEXT NOT NULL DEFAULT ''")
+            if "operator_name" not in staging_cols:
+                connection.execute("ALTER TABLE index_staging_results ADD COLUMN operator_name TEXT NOT NULL DEFAULT ''")
+            if "operator_role" not in staging_cols:
+                connection.execute("ALTER TABLE index_staging_results ADD COLUMN operator_role TEXT NOT NULL DEFAULT ''")
+            if "review_status" not in staging_cols:
+                connection.execute("ALTER TABLE index_staging_results ADD COLUMN review_status TEXT NOT NULL DEFAULT 'pending'")
+
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS index_actions (
+                    action_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    site_key TEXT NOT NULL,
+                    peer_type TEXT NOT NULL,
+                    peer_id INTEGER NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    label_id INTEGER NOT NULL,
+                    label_name TEXT NOT NULL,
+                    previous_decision TEXT NOT NULL DEFAULT '',
+                    new_decision TEXT NOT NULL,
+                    operator_id TEXT NOT NULL DEFAULT '',
+                    operator_name TEXT NOT NULL DEFAULT '',
+                    operator_role TEXT NOT NULL DEFAULT 'user',
+                    is_manager_override INTEGER NOT NULL DEFAULT 0,
+                    overridden_operator_id TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_index_actions_op
+                    ON index_actions(operator_id, created_at)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_index_actions_overridden
+                    ON index_actions(overridden_operator_id)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_index_actions_msg
+                    ON index_actions(peer_type, peer_id, message_id)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS staff_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    peer_type TEXT NOT NULL DEFAULT '',
+                    peer_id INTEGER NOT NULL DEFAULT 0,
+                    message_id INTEGER NOT NULL DEFAULT 0,
+                    event_id TEXT NOT NULL DEFAULT '',
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    defect_type TEXT NOT NULL DEFAULT 'general',
+                    priority TEXT NOT NULL DEFAULT 'medium',
+                    status TEXT NOT NULL DEFAULT 'open',
+                    assigned_to_user_id TEXT NOT NULL DEFAULT '',
+                    assigned_to_name TEXT NOT NULL DEFAULT '',
+                    created_by_user_id TEXT NOT NULL DEFAULT '',
+                    created_by_name TEXT NOT NULL DEFAULT '',
+                    due_date TEXT,
+                    resolution_notes TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    resolved_at TEXT,
+                    closed_at TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_staff_tasks_assigned
+                    ON staff_tasks(assigned_to_user_id, status)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_staff_tasks_status
+                    ON staff_tasks(status)
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS content_index_settings (
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
             connection.execute(f"PRAGMA user_version = {CONTENT_INDEX_SCHEMA}")
             connection.commit()
         except sqlite3.Error:
@@ -897,3 +1403,370 @@ class SQLiteContentIndexStore:
 
     def _job_key(self, job_id: str) -> str:
         return self.scope.key("content-job", str(job_id))
+
+    def get_setting(self, setting_key: str, default: str = "") -> str:
+        try:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT setting_value FROM content_index_settings WHERE setting_key = ?",
+                    (setting_key,),
+                ).fetchone()
+                if row is not None:
+                    return str(row["setting_value"])
+                return default
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Content-index setting could not be retrieved.",
+                safe_context={"setting_key": setting_key, "error_type": type(exc).__name__},
+            ) from exc
+
+    def set_setting(self, setting_key: str, setting_value: str) -> None:
+        now = _now()
+        try:
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO content_index_settings (setting_key, setting_value, updated_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(setting_key) DO UPDATE SET
+                        setting_value = excluded.setting_value,
+                        updated_at = excluded.updated_at
+                    """,
+                    (setting_key, str(setting_value), now),
+                )
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Content-index setting could not be updated.",
+                safe_context={"setting_key": setting_key, "error_type": type(exc).__name__},
+            ) from exc
+
+    def list_actions(
+        self,
+        *,
+        operator_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if operator_id:
+            clauses.append("operator_id = ?")
+            params.append(operator_id)
+        if from_date:
+            clauses.append("created_at >= ?")
+            params.append(from_date)
+        if to_date:
+            clauses.append("created_at <= ?")
+            params.append(to_date)
+        where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql = f"""
+            SELECT action_id, site_key, peer_type, peer_id, message_id, label_id, label_name,
+                   previous_decision, new_decision, operator_id, operator_name, operator_role,
+                   is_manager_override, created_at
+            FROM index_actions
+            {where_clause}
+            ORDER BY action_id DESC
+            LIMIT ?
+        """
+        params.append(max(1, min(limit, 5000)))
+        try:
+            with self._connect() as connection:
+                rows = connection.execute(sql, tuple(params)).fetchall()
+                return [
+                    {
+                        "action_id": int(r["action_id"]),
+                        "site_key": str(r["site_key"]),
+                        "peer_type": str(r["peer_type"]),
+                        "peer_id": int(r["peer_id"]),
+                        "message_id": int(r["message_id"]),
+                        "label_id": int(r["label_id"]),
+                        "label_name": str(r["label_name"]),
+                        "previous_decision": str(r["previous_decision"]),
+                        "new_decision": str(r["new_decision"]),
+                        "operator_id": str(r["operator_id"]),
+                        "operator_name": str(r["operator_name"]),
+                        "operator_role": str(r["operator_role"]),
+                        "is_manager_override": bool(r["is_manager_override"]),
+                        "created_at": str(r["created_at"]),
+                    }
+                    for r in rows
+                ]
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Index actions could not be retrieved.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def get_staff_performance(
+        self,
+        *,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = ["operator_id != ''"]
+        params: list[Any] = []
+        if from_date:
+            clauses.append("created_at >= ?")
+            params.append(from_date)
+        if to_date:
+            clauses.append("created_at <= ?")
+            params.append(to_date)
+        where_clause = f"WHERE {' AND '.join(clauses)}"
+        sql = f"""
+            SELECT operator_id, operator_name, operator_role,
+                   COUNT(*) as total_actions,
+                   SUM(CASE WHEN new_decision = 'accept' THEN 1 ELSE 0 END) as accept_count,
+                   SUM(CASE WHEN new_decision = 'reject' THEN 1 ELSE 0 END) as reject_count,
+                   SUM(CASE WHEN is_manager_override = 1 THEN 1 ELSE 0 END) as override_count
+            FROM index_actions
+            {where_clause}
+            GROUP BY operator_id, operator_name, operator_role
+            ORDER BY total_actions DESC
+        """
+        try:
+            with self._connect() as connection:
+                rows = connection.execute(sql, tuple(params)).fetchall()
+
+                # Get overrides suffered per operator (where manager overruled this operator)
+                overrides_suffered_rows = connection.execute(
+                    """
+                    SELECT overridden_operator_id, COUNT(*) as cnt
+                    FROM index_actions
+                    WHERE overridden_operator_id != ''
+                    GROUP BY overridden_operator_id
+                    """
+                ).fetchall()
+                overrides_suffered = {str(r["overridden_operator_id"]): int(r["cnt"] or 0) for r in overrides_suffered_rows}
+
+                # Also get task stats for these operators
+                task_stats: dict[str, dict[str, int]] = {}
+                task_rows = connection.execute(
+                    """
+                    SELECT assigned_to_user_id,
+                           COUNT(*) as total_tasks,
+                           SUM(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END) as resolved_tasks
+                    FROM staff_tasks
+                    WHERE assigned_to_user_id != ''
+                    GROUP BY assigned_to_user_id
+                    """
+                ).fetchall()
+                for tr in task_rows:
+                    task_stats[str(tr["assigned_to_user_id"])] = {
+                        "total_tasks": int(tr["total_tasks"] or 0),
+                        "resolved_tasks": int(tr["resolved_tasks"] or 0),
+                    }
+
+                summaries: list[dict[str, Any]] = []
+                for r in rows:
+                    op_id = str(r["operator_id"])
+                    op_role = str(r["operator_role"] or "user")
+                    total_acts = int(r["total_actions"] or 0)
+                    accept_cnt = int(r["accept_count"] or 0)
+                    reject_cnt = int(r["reject_count"] or 0)
+                    mgr_overrides_done = int(r["override_count"] or 0)
+
+                    # For staff: override_count is how many of their decisions were overruled by a manager
+                    # For manager: override_count is how many decisions they corrected/overruled
+                    if op_role == "admin":
+                        override_cnt = mgr_overrides_done
+                        accuracy = 100.0
+                    else:
+                        override_cnt = overrides_suffered.get(op_id, 0)
+                        accuracy = 100.0
+                        if total_acts > 0:
+                            accuracy = round(max(0.0, (total_acts - override_cnt) / total_acts * 100), 1)
+
+                    ts = task_stats.get(op_id, {"total_tasks": 0, "resolved_tasks": 0})
+                    summaries.append({
+                        "operator_id": op_id,
+                        "operator_name": str(r["operator_name"] or op_id),
+                        "operator_role": op_role,
+                        "total_actions": total_acts,
+                        "accept_count": accept_cnt,
+                        "reject_count": reject_cnt,
+                        "override_count": override_cnt,
+                        "accuracy_rate": accuracy,
+                        "assigned_tasks": ts["total_tasks"],
+                        "resolved_tasks": ts["resolved_tasks"],
+                        "task_resolution_rate": round(
+                            (ts["resolved_tasks"] / ts["total_tasks"] * 100) if ts["total_tasks"] > 0 else 100.0, 1
+                        ),
+                    })
+                return summaries
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Staff performance statistics could not be calculated.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def create_task(
+        self,
+        *,
+        title: str,
+        description: str = "",
+        defect_type: str = "general",
+        priority: str = "medium",
+        peer_type: str = "",
+        peer_id: int = 0,
+        message_id: int = 0,
+        event_id: str = "",
+        assigned_to_user_id: str = "",
+        assigned_to_name: str = "",
+        created_by_user_id: str = "",
+        created_by_name: str = "",
+        due_date: str | None = None,
+    ) -> dict[str, Any]:
+        task_id = str(uuid.uuid4())
+        now = _now()
+        prio = priority.lower() if priority.lower() in {"low", "medium", "high", "urgent"} else "medium"
+        try:
+            with self._connect() as connection:
+                connection.execute(
+                    """
+                    INSERT INTO staff_tasks (
+                        task_id, peer_type, peer_id, message_id, event_id, title, description,
+                        defect_type, priority, status, assigned_to_user_id, assigned_to_name,
+                        created_by_user_id, created_by_name, due_date, resolution_notes,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, '', ?, ?)
+                    """,
+                    (
+                        task_id,
+                        peer_type,
+                        peer_id,
+                        message_id,
+                        event_id,
+                        title.strip(),
+                        description.strip(),
+                        defect_type.strip(),
+                        prio,
+                        assigned_to_user_id.strip(),
+                        assigned_to_name.strip(),
+                        created_by_user_id.strip(),
+                        created_by_name.strip(),
+                        due_date,
+                        now,
+                        now,
+                    ),
+                )
+                return {
+                    "task_id": task_id,
+                    "title": title.strip(),
+                    "status": "open",
+                    "priority": prio,
+                    "assigned_to_user_id": assigned_to_user_id.strip(),
+                    "assigned_to_name": assigned_to_name.strip(),
+                    "created_at": now,
+                }
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Staff task could not be created.",
+                safe_context={"error_type": type(exc).__name__, "title": title},
+            ) from exc
+
+    def list_tasks(
+        self,
+        *,
+        assigned_to_user_id: str | None = None,
+        status: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if assigned_to_user_id:
+            clauses.append("assigned_to_user_id = ?")
+            params.append(assigned_to_user_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        sql = f"""
+            SELECT task_id, peer_type, peer_id, message_id, event_id, title, description,
+                   defect_type, priority, status, assigned_to_user_id, assigned_to_name,
+                   created_by_user_id, created_by_name, due_date, resolution_notes,
+                   created_at, updated_at, resolved_at, closed_at
+            FROM staff_tasks
+            {where_clause}
+            ORDER BY (CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'resolved' THEN 3 ELSE 4 END) ASC, created_at DESC
+            LIMIT ?
+        """
+        params.append(max(1, min(limit, 1000)))
+        try:
+            with self._connect() as connection:
+                rows = connection.execute(sql, tuple(params)).fetchall()
+                return [dict(r) for r in rows]
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Staff tasks could not be retrieved.",
+                safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def resolve_task(
+        self,
+        *,
+        task_id: str,
+        resolution_notes: str,
+        user_id: str = "",
+        user_name: str = "",
+    ) -> dict[str, Any]:
+        now = _now()
+        try:
+            with self._connect() as connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE staff_tasks
+                    SET status = 'resolved',
+                        resolution_notes = ?,
+                        resolved_at = ?,
+                        updated_at = ?
+                    WHERE task_id = ?
+                    """,
+                    (resolution_notes.strip(), now, now, task_id),
+                )
+                if cursor.rowcount == 0:
+                    raise LocalContentIndexStoreError(
+                        "Task not found for resolution.",
+                        safe_context={"task_id": task_id},
+                    )
+                return {"task_id": task_id, "status": "resolved", "resolved_at": now}
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Task could not be resolved.",
+                safe_context={"task_id": task_id, "error_type": type(exc).__name__},
+            ) from exc
+
+    def close_task(
+        self,
+        *,
+        task_id: str,
+        manager_id: str = "",
+        manager_name: str = "",
+        reopen: bool = False,
+    ) -> dict[str, Any]:
+        now = _now()
+        new_status = "in_progress" if reopen else "closed"
+        closed_at = None if reopen else now
+        try:
+            with self._connect() as connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE staff_tasks
+                    SET status = ?,
+                        closed_at = ?,
+                        updated_at = ?
+                    WHERE task_id = ?
+                    """,
+                    (new_status, closed_at, now, task_id),
+                )
+                if cursor.rowcount == 0:
+                    raise LocalContentIndexStoreError(
+                        "Task not found for closure.",
+                        safe_context={"task_id": task_id},
+                    )
+                return {"task_id": task_id, "status": new_status, "closed_at": closed_at}
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Task could not be updated.",
+                safe_context={"task_id": task_id, "error_type": type(exc).__name__},
+            ) from exc

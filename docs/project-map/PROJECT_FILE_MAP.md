@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 443
-- اثرانگشت منبع: `575f27b80bcbb86d`
+- تعداد فایل‌های نقشه: 446
+- اثرانگشت منبع: `dbb13026a6d02428`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -111,7 +111,7 @@
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 50 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 41 | AI Agent Chat Gateway (chat-only surface). |
-| `src/eitaa_bridge/application/api.py` | Application | 322 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 333 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_account_owner.py` | Application | 28 | Account-owned Bale connection on one persistent asyncio loop. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 55 | Stable Python API facade for the Bale personal client. |
@@ -175,7 +175,7 @@
 | `src/eitaa_bridge/infrastructure/config/loader.py` | Infrastructure | 28 | — |
 | `src/eitaa_bridge/infrastructure/config/site_settings.py` | Infrastructure | 12 | Safe local editing of WordPress site configuration and credentials. |
 | `src/eitaa_bridge/infrastructure/contact_store.py` | Infrastructure | 31 | Bridge-owned local contact directory with conservative deduplication. |
-| `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 26 | Bridge-owned SQLite storage for local index suggestions and feedback. |
+| `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 37 | Bridge-owned SQLite storage for local index suggestions and feedback. |
 | `src/eitaa_bridge/infrastructure/coordinator/__init__.py` | Infrastructure | 0 | Coordinator persistence and safe legacy-migration primitives. |
 | `src/eitaa_bridge/infrastructure/coordinator/ai_connection.py` | Infrastructure | 20 | AI Model Connection Configuration & Protected Secret Store (P5). |
 | `src/eitaa_bridge/infrastructure/coordinator/ai_data_policy.py` | Infrastructure | 14 | Server-Side AI Data Policy & Egress Gate (P6). |
@@ -290,7 +290,7 @@
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
 | `tests/test_contact_sources_handoff.py` | Python test | 3 | — |
-| `tests/test_content_index.py` | Python test | 23 | — |
+| `tests/test_content_index.py` | Python test | 24 | — |
 | `tests/test_coordinator_migration.py` | Python test | 9 | — |
 | `tests/test_coordinator_schema.py` | Python test | 14 | — |
 | `tests/test_core_binding.py` | Python test | 4 | — |
@@ -371,6 +371,7 @@
 | `tests/test_service_auth.py` | Python test | 16 | Tests for M2M service authentication and authorization boundaries. |
 | `tests/test_session_ownership.py` | Python test | 8 | — |
 | `tests/test_stabilization_baseline.py` | Python test | 3 | — |
+| `tests/test_staff_indexing_performance.py` | Python test | 5 | Tests for staff attribution in content indexing, manager overrides, KPI calculation, and defect tasks. |
 | `tests/test_ui2_scroll_repair.py` | Python test | 8 | — |
 | `tests/test_ui31_composer_refinement.py` | Python test | 4 | — |
 | `tests/test_ui32_composer_usage_layout.py` | Python test | 5 | — |
@@ -442,6 +443,8 @@
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |
 | `ui/src/SettingsPage.tsx` | React UI | 10 | — |
+| `ui/src/StaffPerformanceDialog.tsx` | React UI | 1 | — |
+| `ui/src/StaffTasksDialog.tsx` | React UI | 4 | — |
 | `ui/src/stylis.d.ts` | React UI | 0 | — |
 | `ui/src/theme.ts` | React UI | 2 | — |
 | `ui/src/ui33-runtime-patch.js` | React UI | 26 | — |
