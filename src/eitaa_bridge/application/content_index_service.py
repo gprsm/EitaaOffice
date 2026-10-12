@@ -152,6 +152,18 @@ class LocalContentIndexService:
         documents = self.training_documents(bridge, site_key=site_key, labels=labels)
         derived_rules: list[InferenceRule] = []
         for label in labels:
+            label_norm = PersianNormalizer.normalize(label.name)
+            neg_pats: list[str] = []
+            # Rule 28: HR / Evaluation Directive separation from Cultural Charter
+            if any(w in label_norm for w in ("منشور", "اخلاق", "80202", "۸۰۲۰۲")):
+                neg_pats.extend([
+                    "دستورالعمل حفظ کرامت و ارزش های انسانی",
+                    "دستورالعمل حفظ کرامت",
+                    "مدیریت امور اداری و ارزشیابی",
+                    "امور اداری و ارزشیابی",
+                    "بخشنامه ۹۰۰۰",
+                    "بخشنامه 9000",
+                ])
             for i, alias in enumerate(label.aliases):
                 alias_clean = alias.strip()
                 if alias_clean:
@@ -161,10 +173,37 @@ class LocalContentIndexService:
                             label_id=label.id,
                             name=f"الگوی {alias_clean}",
                             patterns=(alias_clean,),
+                            negative_patterns=tuple(neg_pats),
                             confidence_boost=0.25,
                             evidence_tag=f"الگو: {alias_clean}",
                         )
                     )
+            # Rule 18: Customer Care / Public Meetings synonym expansion
+            if any(w in label_norm for w in ("ارباب رجوع", "80601", "۸۰۶۰۱", "رضایت")):
+                derived_rules.append(
+                    InferenceRule(
+                        rule_id=f"rule_customer_care_synonyms_{label.id}",
+                        label_id=label.id,
+                        name="الگوی ملاقات مردمی و میز خدمت (قاعده ۱۸)",
+                        patterns=("میز خدمت", "ملاقات مردمی", "دیدار مردمی", "دیدار چهره به چهره"),
+                        negative_patterns=tuple(neg_pats),
+                        confidence_boost=0.35,
+                        evidence_tag="قاعده ۱۸: میز خدمت و ملاقات مردمی",
+                    )
+                )
+            # Rule 13: Prayer Honor & Community Prayer Activists
+            if any(w in label_norm for w in ("نماز", "8040", "۸۰۴۰")):
+                derived_rules.append(
+                    InferenceRule(
+                        rule_id=f"rule_prayer_activists_{label.id}",
+                        label_id=label.id,
+                        name="الگوی خادمین نماز و ستاد اقامه نماز (قاعده ۱۳)",
+                        patterns=("خادمین نماز", "مکلفین", "جشن تکلیف", "ستاد اقامه نماز", "شورای اقامه نماز", "بین الصلاتین"),
+                        negative_patterns=tuple(neg_pats),
+                        confidence_boost=0.30,
+                        evidence_tag="قاعده ۱۳: ترویج فرهنگ اقامه نماز",
+                    )
+                )
         all_rules = [*rules, *derived_rules]
         classifier = LightweightContentClassifier(
             labels, rules=all_rules, score_threshold=score_threshold

@@ -4,8 +4,7 @@ Pure handler functions returning (status, payload, headers) tuples; api.py
 adapts them into ApiResponse. Deliberately no imports from the application
 package to keep this module free of circular dependencies.
 """
-from __future__ import annotations
-
+import json
 import re
 import uuid
 from datetime import date
@@ -25,6 +24,8 @@ _EVENTS_ROUTE = re.compile(r"^/api/v3/reporting/events$")
 _EVENT_ID_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)$")
 _EVENT_SUBMIT_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/submit-review$")
 _EVENT_APPROVE_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/approve$")
+_EVENT_REVISION_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/request-revision$")
+_EVENT_DEFECTS_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/defects$")
 _EVENT_CONFLICT_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/mark-conflict$")
 _EVENT_REOPEN_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/reopen$")
 _EVENT_WITNESSES_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/witnesses$")
@@ -83,6 +84,9 @@ def _build_event_payload(payload: Mapping[str, Any]):
     unit_str = str(payload.get("unit", "provincial_hq"))
     if unit_str not in {u.value for u in UnitScope}:
         return _error(400, "unknown unit scope")
+    reg_id = str(payload.get("registered_by_id", "") or "").strip()
+    reg_name = str(payload.get("registered_by_name", "") or "").strip()
+    status_str = str(payload.get("review_status", "") or "draft").strip()
     event = ReportedEvent(
         event_id=str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}"),
         program_kinds=kinds,
@@ -91,7 +95,10 @@ def _build_event_payload(payload: Mapping[str, Any]):
         unit_name=str(payload.get("unit_name", "")),
         occasion=str(payload.get("occasion", "")),
         notes=str(payload.get("notes", "")),
-        created_by="",
+        created_by=reg_id or reg_name or "",
+        review_status=status_str,
+        registered_by_id=reg_id,
+        registered_by_name=reg_name,
     )
     return event
 
@@ -160,18 +167,50 @@ def attach_document(store: ReportingStore, actor: str, roles, event_id: str,
 
 def transition_event(store: ReportingStore, actor: str, event_id: str, action: str,
                      payload: Mapping[str, Any], roles):
-    needed = "approver" if action in {"approve", "mark_conflict"} else "editor"
+    needed = "approver" if action in {"approve", "mark_conflict", "request_revision"} else "editor"
     denied = _forbidden(roles, needed)
     if denied:
         return denied
     try:
+        defects_val = payload.get("defects")
+        defects_json_str = json.dumps(defects_val, ensure_ascii=False) if isinstance(defects_val, list) else None
         etag = store.transition_event_status(
-            event_id, action=action, actor=actor, reason=str(payload.get("reason", ""))
+            event_id,
+            action=action,
+            actor=actor,
+            reason=str(payload.get("reason") or payload.get("notes") or ""),
+            actor_id=str(payload.get("actor_id") or actor),
+            actor_name=str(payload.get("actor_name") or actor),
+            actor_role=str(payload.get("actor_role") or ""),
+            defects_json=defects_json_str,
         )
     except (ReportingStoreError, ValueError) as exc:
         mapped = _mapped_error(exc)
         return mapped if mapped else _error(400, str(exc))
     return _ok({"event_id": event_id, "etag": etag})
+
+
+def get_event_defects(store: ReportingStore, event_id: str):
+    from eitaa_bridge.reporting.defect_scanner import scan_event_defects
+    ev = store.get_event(event_id)
+    if ev is None:
+        return _error(404, f"event {event_id} not found")
+    with store._connect() as conn:
+        witness_cnt = conn.execute(
+            "SELECT COUNT(*) FROM reporting_event_witness_links WHERE event_id = ? AND detached_at IS NULL",
+            (event_id,),
+        ).fetchone()[0]
+        doc_cnt = conn.execute(
+            "SELECT COUNT(*) FROM event_documents WHERE event_id = ?",
+            (event_id,),
+        ).fetchone()[0]
+    defects = scan_event_defects(ev, witnesses_count=witness_cnt, documents_count=doc_cnt)
+    return _ok({
+        "event_id": event_id,
+        "defects": [d.to_dict() for d in defects],
+        "defects_count": len(defects),
+        "has_blockers": any(d.severity == "blocker" for d in defects),
+    })
 
 
 def link_witness(store: ReportingStore, actor: str, event_id: str,
@@ -442,6 +481,13 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if approve:
             return transition_event(store, actor, approve.group("event_id"),
                                     "approve", payload, roles)
+        revision = _EVENT_REVISION_ROUTE.match(path)
+        if revision:
+            return transition_event(store, actor, revision.group("event_id"),
+                                    "request_revision", payload, roles)
+        defects_post = _EVENT_DEFECTS_ROUTE.match(path)
+        if defects_post:
+            return get_event_defects(store, defects_post.group("event_id"))
         conflict = _EVENT_CONFLICT_ROUTE.match(path)
         if conflict:
             return transition_event(store, actor, conflict.group("event_id"),
@@ -469,6 +515,9 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if _ROLES_ROUTE.match(path):
             return set_roles(store, actor, roles, payload)
     if method == "GET":
+        defects_get = _EVENT_DEFECTS_ROUTE.match(path)
+        if defects_get:
+            return get_event_defects(store, defects_get.group("event_id"))
         if _ASSISTANT_FEEDBACK_ROUTE.match(path):
             return list_feedback(store, query)
         if _ASSISTANT_ALIASES_ROUTE.match(path):

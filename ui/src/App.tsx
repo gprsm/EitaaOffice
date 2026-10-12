@@ -60,6 +60,16 @@ type IndexDefinition = {
 
 const WORDPRESS_TAG_INDEX_OFFSET = 1_000_000_000
 const CUSTOM_INDEX_OFFSET = 2_000_000_000
+const CULTURAL_WORKBOOK_1405_STARTER_PACK = [
+  { name: 'ترویج فرهنگ اقامه نماز (کد ۸۰۴۰۱ الی ۸۰۴۰۶)', aliases: ['نماز', 'نماز جماعت', 'نماز جمعه', 'نماز عید', 'مسجد', 'خادمین نماز', 'مکلفین', 'جشن تکلیف', 'ستاد اقامه نماز', 'بین الصلاتین', 'احکام نماز', 'زیارت عاشورا'] },
+  { name: 'مراسم و مناسبت‌های ملی و مذهبی (کد ۸۰۳۰۱ الی ۸۰۳۰۴)', aliases: ['مراسم', 'مناسبت', 'ولادت', 'شهادت', 'وفات', 'یادواره شهدا', 'دفاع مقدس', 'دهه فجر', 'فضاسازی', 'نصب بنر', 'تبلیغات محیطی', 'موکب', 'ایستگاه صلواتی', 'ایام فاطمیه', 'محرم'] },
+  { name: 'تکریم کارکنان و خانواده (کد ۸۰۵۰۱ الی ۸۰۵۰۳)', aliases: ['تکریم', 'تجلیل', 'بازنشستگان', 'همکار نمونه', 'تقدیر از همکار', 'لوح سپاس', 'خانواده کارکنان', 'تشویق نخبگان'] },
+  { name: 'مسابقات قرآنی و کتابخوانی (کد ۸۰۱۰۱ الی ۸۰۱۰۴)', aliases: ['مسابقات قرآنی', 'قرآن', 'حفظ قرآن', 'قرائت', 'مسابقه کتابخوانی', 'جشنواره فرهنگی', 'مسابقات سراسری قوه'] },
+  { name: 'کرامت ارباب‌رجوع و ملاقات‌های مردمی (کد ۸۰۶۰۱)', aliases: ['ارباب رجوع', 'ملاقات مردمی', 'میز خدمت', 'دیدار چهره به چهره', 'دیدار مردمی', 'رسیدگی به درخواست'] },
+  { name: 'اردوها و بازدیدهای زیارتی و سیاحتی (کد ۸۰۷۰۱)', aliases: ['اردو', 'زیارتی', 'سیاحتی', 'اردوی خانوادگی', 'مشهد مقدس', 'قم و جمکران'] },
+  { name: 'ترویج الگوهای رفتاری و اخلاق حرفه‌ای (کد ۸۰۲۰۱ الی ۸۰۲۰۲)', aliases: ['اخلاق حرفه‌ای', 'الگوی تعالی', 'سلامت اداری', 'صیانت', 'آموزش اخلاق'] },
+]
+
 const STARTER_INDEX_PACK = [
   { name: 'فرهنگی و مناسبتی', aliases: ['مراسم', 'مناسبت', 'جشن', 'ولادت', 'شهادت', 'ایام', 'بزرگداشت', 'همایش', 'یادواره'] },
   { name: 'اخبار و اطلاعیه‌ها', aliases: ['اطلاعیه', 'خبر', 'اعلامیه', 'گزارش', 'تصمیم', 'جلسه', 'نشست', 'ابلاغیه'] },
@@ -1601,6 +1611,44 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     toast.success(`${toAdd.length.toLocaleString('fa-IR')} موضوع پیشنهادی با موفقیت افزوده شد. اکنون دکمه شروع ایندکس فعال است.`)
   }, [contentIndexScope, customIndexes, indexDefinitions])
 
+  const loadCulturalWorkbookPack = useCallback(() => {
+    let nextId = Math.max(CUSTOM_INDEX_OFFSET, ...customIndexes.map(item => item.id))
+    const existingNames = new Set(indexDefinitions.map(item => item.name.trim().toLocaleLowerCase('fa')))
+    const toAdd: IndexDefinition[] = []
+    for (const item of CULTURAL_WORKBOOK_1405_STARTER_PACK) {
+      if (existingNames.has(item.name.trim().toLocaleLowerCase('fa'))) continue
+      nextId += 1
+      toAdd.push({
+        id: nextId,
+        name: item.name,
+        aliases: item.aliases,
+        kind: 'custom',
+        wordpressCategoryId: null,
+      })
+      existingNames.add(item.name.trim().toLocaleLowerCase('fa'))
+    }
+    if (!toAdd.length) {
+      toast.info('تمامی سرفصل‌های کتابچه فرهنگی ۱۴۰۵ از قبل در فهرست وجود دارند.')
+      return
+    }
+    const merged = [...customIndexes, ...toAdd]
+    setCustomIndexes(merged)
+    writeStored(`${STORAGE.customIndexes}.${contentIndexScope}`, merged)
+    api('POST', '/api/v1/messages/index/custom/save-batch', {
+      site_key: contentIndexScope,
+      items: toAdd.map(item => ({
+        id: item.id,
+        name: item.name,
+        aliases: item.aliases,
+        kind: item.kind,
+        wordpress_category_id: null,
+      })),
+    }).catch(err => {
+      console.warn('Failed to persist cultural index pack', err)
+    })
+    toast.success(`${toAdd.length.toLocaleString('fa-IR')} سرفصل رسمی کتابچه فرهنگی ۱۴۰۵ با موفقیت افزوده شد.`)
+  }, [contentIndexScope, customIndexes, indexDefinitions])
+
   const loadHistoricalPack = useCallback(() => {
     if (!historicalLabels.length) {
       toast.info('موضوع پیشینی برای بازیابی یافت نشد.')
@@ -1861,10 +1909,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
 
   useEffect(() => {
     if (!dialog || !autoIndexOnLoad || !indexDefinitions.length || contentIndexActive) return
-    if (Object.keys(contentIndexResults).length === 0) {
+    const unindexedCount = messages.filter(
+      m => m.text?.trim() && !contentIndexResults[m.id]?.predictions?.length
+    ).length
+    if (unindexedCount > 0) {
       void startContentIndex(true)
     }
-  }, [dialog?.peer_key, autoIndexOnLoad, indexDefinitions.length, contentIndexActive, contentIndexResults, startContentIndex])
+  }, [dialog?.peer_key, autoIndexOnLoad, indexDefinitions.length, contentIndexActive, contentIndexResults, messages, startContentIndex])
 
   const selectedMessages = useMemo(() => selectedKeys.map(key => indexedMessages.find(m => dialog && messageKey(dialog, m) === key)).filter(Boolean) as MessageItem[], [selectedKeys, indexedMessages, dialog])
 
@@ -2240,6 +2291,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       setCustomIndexCategoryId={setCustomIndexCategoryId}
       addCustomIndex={addCustomIndex}
       loadStarterPack={loadStarterPack}
+      loadCulturalWorkbookPack={loadCulturalWorkbookPack}
       loadHistoricalPack={loadHistoricalPack}
       historicalCount={historicalLabels.length}
       selectedDefinitionId={indexKeywordCategoryId}

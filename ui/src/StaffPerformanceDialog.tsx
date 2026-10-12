@@ -176,10 +176,10 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                       <PeopleAltRounded color="primary" sx={{ fontSize: 32 }} />
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          تعداد کاربران فعال
+                          کاربران و عملیات ایندکس
                         </Typography>
                         <Typography variant="h6" fontWeight={800}>
-                          {summary.total_staff.toLocaleString('fa-IR')} نفر
+                          {summary.total_actions.toLocaleString('fa-IR')} <Typography component="span" variant="caption" color="text.secondary">({summary.total_staff.toLocaleString('fa-IR')} کاربر)</Typography>
                         </Typography>
                       </Box>
                     </Stack>
@@ -191,41 +191,14 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                 <Card variant="outlined">
                   <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      <CheckCircleOutlineRounded color="success" sx={{ fontSize: 32 }} />
+                      <AssessmentRounded color="secondary" sx={{ fontSize: 32 }} />
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          کل عملیات ایندکس
+                          گزارش‌های عملکرد و تایید مدیر
                         </Typography>
                         <Typography variant="h6" fontWeight={800}>
-                          {summary.total_actions.toLocaleString('fa-IR')} عمل
+                          {(summary.approved_reports ?? 0).toLocaleString('fa-IR')} از {(summary.total_reports ?? 0).toLocaleString('fa-IR')}
                         </Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card variant="outlined">
-                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                      <WarningAmberRounded
-                        color={summary.average_accuracy >= 85 ? 'success' : 'warning'}
-                        sx={{ fontSize: 32 }}
-                      />
-                      <Box sx={{ width: '100%' }}>
-                        <Typography variant="caption" color="text.secondary">
-                          میانگین صحت کارمندان
-                        </Typography>
-                        <Typography variant="h6" fontWeight={800}>
-                          {summary.average_accuracy.toLocaleString('fa-IR')}٪
-                        </Typography>
-                        <LinearProgress
-                          variant="determinate"
-                          value={Math.min(100, summary.average_accuracy)}
-                          color={summary.average_accuracy >= 85 ? 'success' : 'warning'}
-                          sx={{ height: 6, borderRadius: 3, mt: 0.5 }}
-                        />
                       </Box>
                     </Stack>
                   </CardContent>
@@ -239,11 +212,38 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                       <AssignmentTurnedInRounded color="info" sx={{ fontSize: 32 }} />
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          وظایف نقص رفع‌شده
+                          وظایف نقص حل‌شده
                         </Typography>
                         <Typography variant="h6" fontWeight={800}>
                           {summary.resolved_tasks.toLocaleString('fa-IR')} از {summary.total_tasks.toLocaleString('fa-IR')}
                         </Typography>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <CheckCircleOutlineRounded
+                        color={(summary.average_composite_score ?? summary.average_accuracy) >= 85 ? 'success' : 'warning'}
+                        sx={{ fontSize: 32 }}
+                      />
+                      <Box sx={{ width: '100%' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          میانگین شاخص جامع ۳۶۰
+                        </Typography>
+                        <Typography variant="h6" fontWeight={800}>
+                          {(summary.average_composite_score ?? summary.average_accuracy).toLocaleString('fa-IR')}٪
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={Math.min(100, summary.average_composite_score ?? summary.average_accuracy)}
+                          color={(summary.average_composite_score ?? summary.average_accuracy) >= 85 ? 'success' : 'warning'}
+                          sx={{ height: 6, borderRadius: 3, mt: 0.5 }}
+                        />
                       </Box>
                     </Stack>
                   </CardContent>
@@ -270,19 +270,20 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                   <TableRow>
                     <TableCell sx={{ fontWeight: 800 }}>کارمند / مسئول</TableCell>
                     <TableCell align="center">نقش</TableCell>
-                    <TableCell align="center">کل عملیات</TableCell>
-                    <TableCell align="center">پذیرش</TableCell>
-                    <TableCell align="center">اصلاح مدیر (نقص)</TableCell>
-                    <TableCell align="center">درصد دقت</TableCell>
-                    <TableCell align="center">وظایف محوله</TableCell>
-                    <TableCell align="center">وظایف حل‌شده</TableCell>
-                    <TableCell align="center">نرخ رفع وظایف</TableCell>
+                    <TableCell align="center">عملیات ایندکس</TableCell>
+                    <TableCell align="center">صحت ایندکس</TableCell>
+                    <TableCell align="center">گزارش‌های ثبت‌شده</TableCell>
+                    <TableCell align="center">تایید مدیر</TableCell>
+                    <TableCell align="center">نرخ بدون نقص (FTR)</TableCell>
+                    <TableCell align="center">وظایف رفع نقص</TableCell>
+                    <TableCell align="center">شاخص جامع ۳۶۰</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {staffList.map((staff) => {
-                    const isAccurate = staff.accuracy_rate >= 90
-                    const isWarning = staff.accuracy_rate >= 75 && staff.accuracy_rate < 90
+                    const compScore = staff.composite_score ?? staff.accuracy_rate
+                    const isAccurate = compScore >= 90
+                    const isWarning = compScore >= 75 && compScore < 90
                     const color = isAccurate ? 'success' : isWarning ? 'warning' : 'error'
                     return (
                       <TableRow key={staff.operator_id} hover>
@@ -303,15 +304,33 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                           {staff.total_actions.toLocaleString('fa-IR')}
                         </TableCell>
                         <TableCell align="center">
-                          {staff.accept_count.toLocaleString('fa-IR')}
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={`${staff.accuracy_rate.toLocaleString('fa-IR')}٪`}
+                            color={staff.accuracy_rate >= 90 ? 'success' : staff.accuracy_rate >= 75 ? 'warning' : 'error'}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          {(staff.total_reports ?? 0).toLocaleString('fa-IR')}
                         </TableCell>
                         <TableCell align="center">
                           <Typography
                             variant="body2"
-                            color={staff.override_count > 0 ? 'error.main' : 'text.secondary'}
-                            fontWeight={staff.override_count > 0 ? 800 : 400}
+                            fontWeight={700}
+                            color={(staff.approved_reports ?? 0) > 0 ? 'success.main' : 'text.secondary'}
                           >
-                            {staff.override_count.toLocaleString('fa-IR')}
+                            {(staff.approved_reports ?? 0).toLocaleString('fa-IR')}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2">
+                            {(staff.first_time_right_rate ?? 100).toLocaleString('fa-IR')}٪
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2">
+                            {staff.resolved_tasks.toLocaleString('fa-IR')} از {staff.assigned_tasks.toLocaleString('fa-IR')}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
@@ -319,20 +338,9 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                             size="small"
                             color={color}
                             variant="filled"
-                            label={`${staff.accuracy_rate.toLocaleString('fa-IR')}٪`}
-                            sx={{ fontWeight: 800 }}
+                            label={`${compScore.toLocaleString('fa-IR')}٪`}
+                            sx={{ fontWeight: 900, px: 0.5 }}
                           />
-                        </TableCell>
-                        <TableCell align="center">
-                          {staff.assigned_tasks.toLocaleString('fa-IR')}
-                        </TableCell>
-                        <TableCell align="center">
-                          {staff.resolved_tasks.toLocaleString('fa-IR')}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography variant="body2" fontWeight={700}>
-                            {staff.task_resolution_rate.toLocaleString('fa-IR')}٪
-                          </Typography>
                         </TableCell>
                       </TableRow>
                     )

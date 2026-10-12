@@ -11,8 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 import hashlib
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+
+from .defect_scanner import scan_event_defects
 
 from .aggregate import ProvincialAggregator, aggregate_program_report, build_traceability_manifest, ProgramReport
 from .eitaa_extraction import EitaaCandidateExtractor, EventCandidate
@@ -156,6 +159,9 @@ class ReportingService:
             is_standalone_titled=is_standalone_titled,
             notes=notes,
             created_by=staff_member,
+            review_status="needs_review",
+            registered_by_id=staff_member,
+            registered_by_name=staff_member,
         )
 
         chosen_attendees = attendee_count if attendee_count is not None else candidate_dict.get("extracted_attendees")
@@ -212,6 +218,8 @@ class ReportingService:
                         )
                     )
 
+        defects = scan_event_defects(event, witnesses_count=len(source_refs))
+        event.defects_json = json.dumps([d.to_dict() for d in defects], ensure_ascii=False)
         self.store.save_event(event)
         self.store.approve_candidate(candidate_id, event_id=event.event_id, reviewed_by=staff_member)
         return event
@@ -258,6 +266,9 @@ class ReportingService:
             is_standalone_titled=is_standalone_titled,
             notes=notes,
             created_by=staff_member,
+            review_status="needs_review",
+            registered_by_id=staff_member,
+            registered_by_name=staff_member,
         )
 
         if attendee_count is not None and float(attendee_count) >= 0:
@@ -308,6 +319,8 @@ class ReportingService:
                         )
                     )
 
+        defects = scan_event_defects(event, witnesses_count=0)
+        event.defects_json = json.dumps([d.to_dict() for d in defects], ensure_ascii=False)
         self.store.save_event(event)
         return event
 

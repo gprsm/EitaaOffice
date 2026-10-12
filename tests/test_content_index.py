@@ -867,3 +867,96 @@ def test_api_content_index_custom_save_batch_and_historical(config_file):
     assert resp_list.status == 200
     assert len(resp_list.payload["items"]) == 2
     api.close()
+
+
+def test_cultural_workbook_derived_rules_and_negatives(tmp_path: Path) -> None:
+    store = SQLiteContentIndexStore(tmp_path / "content_index.sqlite3")
+    store.initialize()
+    service = LocalContentIndexService(store)
+
+    charter_label = IndexLabel(id=80202, name="ترویج الگوهای رفتاری و اخلاق حرفه‌ای (کد ۸۰۲۰۲)", aliases=("اخلاق", "منشور"))
+    customer_care_label = IndexLabel(id=80601, name="کرامت ارباب‌رجوع و ملاقات‌های مردمی (کد ۸۰۶۰۱)", aliases=("ارباب رجوع",))
+    prayer_label = IndexLabel(id=80401, name="ترویج فرهنگ اقامه نماز (کد ۸۰۴۰۱)", aliases=("نماز",))
+
+    labels = (charter_label, customer_care_label, prayer_label)
+
+    # Fake bridge with no training docs
+    class FakeBridge:
+        class ComposeStore:
+            def list(self, **kwargs):
+                return []
+        compose_messages_workflow = SimpleNamespace(store=ComposeStore())
+        class FakeCore:
+            class FakeMessages:
+                def get(self, *args):
+                    return None
+                def count(self, *args):
+                    return 0
+                def list(self, *args, **kwargs):
+                    return []
+            messages = FakeMessages()
+        core = FakeCore()
+
+    cancel = threading.Event()
+    # Test classifier directly with the rules that service.run creates
+    derived_rules = []
+    for label in labels:
+        label_norm = PersianNormalizer.normalize(label.name)
+        neg_pats = []
+        if any(w in label_norm for w in ("منشور", "اخلاق", "80202", "۸۰۲۰۲")):
+            neg_pats.extend([
+                "دستورالعمل حفظ کرامت و ارزش های انسانی",
+                "دستورالعمل حفظ کرامت",
+                "مدیریت امور اداری و ارزشیابی",
+                "امور اداری و ارزشیابی",
+            ])
+        from eitaa_bridge.application.content_index import InferenceRule
+        for i, alias in enumerate(label.aliases):
+            derived_rules.append(
+                InferenceRule(
+                    rule_id=f"rule_{label.id}_{i}",
+                    label_id=label.id,
+                    name=alias,
+                    patterns=(alias,),
+                    negative_patterns=tuple(neg_pats),
+                    confidence_boost=0.25,
+                )
+            )
+        if any(w in label_norm for w in ("ارباب رجوع", "80601", "۸۰۶۰۱")):
+            derived_rules.append(
+                InferenceRule(
+                    rule_id=f"rule_cc_{label.id}",
+                    label_id=label.id,
+                    name="میز خدمت",
+                    patterns=("میز خدمت", "ملاقات مردمی"),
+                    confidence_boost=0.35,
+                )
+            )
+        if any(w in label_norm for w in ("نماز", "8040", "۸۰۴۰")):
+            derived_rules.append(
+                InferenceRule(
+                    rule_id=f"rule_pr_{label.id}",
+                    label_id=label.id,
+                    name="خادمین نماز",
+                    patterns=("خادمین نماز", "ستاد اقامه نماز"),
+                    confidence_boost=0.30,
+                )
+            )
+
+    classifier = LightweightContentClassifier(labels, rules=derived_rules, score_threshold=0.10).fit(())
+
+    # Case 1 (Rule 28): Text contains HR dignity evaluation directive
+    hr_text = "اجرای دستورالعمل حفظ کرامت و ارزش های انسانی توسط بازرسان مدیریت امور اداری و ارزشیابی"
+    preds_hr = classifier.predict(hr_text)
+    # Must NOT predict charter 80202
+    assert not any(p.label_id == 80202 for p in preds_hr)
+
+    # Case 2 (Rule 18): Text contains public meeting / service desk
+    cc_text = "برگزاری میز خدمت و ملاقات مردمی ریاست دادگستری با شهروندان"
+    preds_cc = classifier.predict(cc_text)
+    assert any(p.label_id == 80601 for p in preds_cc)
+
+    # Case 3 (Rule 13): Prayer activists
+    pr_text = "مراسم تقدیر از خادمین نماز در نمازخانه دادگستری کل"
+    preds_pr = classifier.predict(pr_text)
+    assert any(p.label_id == 80401 for p in preds_pr)

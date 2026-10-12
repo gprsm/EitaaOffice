@@ -131,12 +131,23 @@ export interface ContentIndexResult {
   review_status?: 'pending' | 'staff_reviewed' | 'approved' | 'rejected'
 }
 
+export interface ReportDefectItem {
+  defect_code: string
+  severity: 'blocker' | 'warning' | 'info'
+  title: string
+  description: string
+  field_name: string
+}
+
 export interface StaffPerformanceSummary {
   total_staff: number
   total_actions: number
   total_tasks: number
   resolved_tasks: number
   average_accuracy: number
+  total_reports?: number
+  approved_reports?: number
+  average_composite_score?: number
 }
 
 export interface StaffPerformanceItem {
@@ -151,6 +162,14 @@ export interface StaffPerformanceItem {
   assigned_tasks: number
   resolved_tasks: number
   task_resolution_rate: number
+  total_reports?: number
+  approved_reports?: number
+  first_time_approved?: number
+  revision_required_reports?: number
+  conflict_reports?: number
+  report_approval_rate?: number
+  first_time_right_rate?: number
+  composite_score?: number
 }
 
 export interface StaffTask {

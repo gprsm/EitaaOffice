@@ -206,6 +206,16 @@ class ReportedEvent:
     notes: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str = ""
+    review_status: str = "draft"
+    registered_by_id: str = ""
+    registered_by_name: str = ""
+    reviewed_by_id: str = ""
+    reviewed_by_name: str = ""
+    reviewed_at: datetime | None = None
+    review_notes: str = ""
+    revision_count: int = 0
+    defects_json: str = "[]"
+    version: int = 1
 
     def add_fact(self, fact: Fact) -> None:
         fact.validate()

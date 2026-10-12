@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 447
-- اثرانگشت منبع: `13ab728b3b54642f`
+- تعداد فایل‌های نقشه: 449
+- اثرانگشت منبع: `860bdffd13d36995`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -148,7 +148,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 24 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 25 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -239,6 +239,7 @@
 | `src/eitaa_bridge/reporting/assessment_import.py` | Project | 9 | Import of the 1405 وضعیت‌سنجی workbook into the shell (F-088 / design doc §8). |
 | `src/eitaa_bridge/reporting/backup.py` | Project | 6 | High-reliability disaster recovery and backup/restore module for ReportingStore. |
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
+| `src/eitaa_bridge/reporting/defect_scanner.py` | Project | 3 | Automated defect scanning & quality gate engine for reporting workflow. |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
 | `src/eitaa_bridge/reporting/excel_export.py` | Project | 9 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
 | `src/eitaa_bridge/reporting/forms.py` | Project | 17 | Versioned questionnaire definitions for the seven workbook programs. |
@@ -255,7 +256,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 91 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 92 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -290,7 +291,7 @@
 | `tests/test_config.py` | Python test | 14 | — |
 | `tests/test_contact_directory.py` | Python test | 14 | — |
 | `tests/test_contact_sources_handoff.py` | Python test | 3 | — |
-| `tests/test_content_index.py` | Python test | 24 | — |
+| `tests/test_content_index.py` | Python test | 25 | — |
 | `tests/test_coordinator_migration.py` | Python test | 9 | — |
 | `tests/test_coordinator_schema.py` | Python test | 14 | — |
 | `tests/test_core_binding.py` | Python test | 4 | — |
@@ -363,6 +364,7 @@
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
+| `tests/test_reporting_workflow_lifecycle.py` | Python test | 19 | Comprehensive adversarial test suite for reporting workflow lifecycle, |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_dependencies.py` | Python test | 1 | Find runtime imports that a developer environment can accidentally hide. |
 | `tests/test_runtime_ownership.py` | Python test | 35 | — |
@@ -439,7 +441,7 @@
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
 | `ui/src/ReportingRegistrationPanel.tsx` | React UI | 5 | — |
-| `ui/src/ReportingWorkbench.tsx` | React UI | 23 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 26 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |

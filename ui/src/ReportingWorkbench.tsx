@@ -149,6 +149,21 @@ export interface ReportedEventItem {
   official_present: boolean | null
   is_ashura_pilgrimage: boolean
   created_by: string
+  review_status?: 'draft' | 'needs_review' | 'approved' | 'conflict'
+  registered_by_id?: string
+  registered_by_name?: string
+  reviewed_by_id?: string
+  reviewed_by_name?: string
+  reviewed_at?: string | null
+  review_notes?: string
+  revision_count?: number
+  defects?: Array<{
+    defect_code: string
+    severity: 'blocker' | 'warning' | 'info'
+    title: string
+    description: string
+    field_name: string
+  }>
   facts: EventFact[]
 }
 
@@ -701,6 +716,60 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [newTargetLabel, setNewTargetLabel] = useState<string>('')
   const [newTargetKeywords, setNewTargetKeywords] = useState<string>('')
   const [savingSettings, setSavingSettings] = useState<boolean>(false)
+
+  const [revisionDialogEvent, setRevisionDialogEvent] = useState<ReportedEventItem | null>(null)
+  const [revisionReason, setRevisionReason] = useState<string>('')
+  const [defectDialogEvent, setDefectDialogEvent] = useState<ReportedEventItem | null>(null)
+  const [workflowActionLoading, setWorkflowActionLoading] = useState<boolean>(false)
+
+  const handleApproveEvent = async (eventId: string) => {
+    try {
+      setWorkflowActionLoading(true)
+      await api('POST', `/api/v3/reporting/events/${eventId}/approve`, {})
+      toast.success('رویداد توسط مدیر تأیید شد.')
+      void loadEventsAndExports()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در تأیید رویداد')
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
+  const handleRequestRevision = async (eventId: string, reason: string) => {
+    if (!reason.trim()) {
+      toast.error('لطفاً شرح نقص یا دستور اصلاح را وارد کنید.')
+      return
+    }
+    try {
+      setWorkflowActionLoading(true)
+      await api('POST', `/api/v3/reporting/events/${eventId}/request-revision`, { reason })
+      toast.success('ایراد گزارش شد و تسک رفع نقص به کارمند مربوطه ارجاع گردید.')
+      setRevisionDialogEvent(null)
+      setRevisionReason('')
+      void loadEventsAndExports()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در ارجاع نقص رویداد')
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
+
+  const handleMarkConflict = async (eventId: string, reason: string) => {
+    if (!reason.trim()) {
+      toast.error('ثبت دلیل رد یا تعارض الزامی است.')
+      return
+    }
+    try {
+      setWorkflowActionLoading(true)
+      await api('POST', `/api/v3/reporting/events/${eventId}/mark-conflict`, { reason })
+      toast.success('رویداد به دلیل تعارض مسدود شد.')
+      void loadEventsAndExports()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در علامت‌گذاری تعارض')
+    } finally {
+      setWorkflowActionLoading(false)
+    }
+  }
 
   // Fetch candidates
   const loadCandidates = async () => {
@@ -1876,48 +1945,149 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                   رویدادهایی که از طریق صف بازبینی تأیید شده‌اند و در تجمیع وارد می‌شوند.
                 </Typography>
               </Stack>
-              <TableContainer sx={{ maxHeight: 320 }}>
+              <TableContainer sx={{ maxHeight: 380 }}>
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
                       <TableCell>شناسه رویداد</TableCell>
                       <TableCell>برنامه‌ها</TableCell>
-                      <TableCell>تاریخ رویداد</TableCell>
+                      <TableCell>تاریخ</TableCell>
                       <TableCell>واحد برگزارکننده</TableCell>
-                      <TableCell>مناسبت</TableCell>
-                      <TableCell>حضور مقام ارشد</TableCell>
-                      <TableCell>نوع رویداد</TableCell>
+                      <TableCell>ثبت‌کننده</TableCell>
+                      <TableCell align="center">وضعیت چرخه</TableCell>
+                      <TableCell align="center">ارزیابی کیفی / نقایص</TableCell>
+                      <TableCell align="center">عملیات گردش کار</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {events.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          هیچ رویدادی تاکنون تأیید نشده است.
+                        <TableCell colSpan={8} align="center">
+                          هیچ رویدادی تاکنون تأیید یا ثبت نشده است.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      events.map(ev => (
-                        <TableRow key={ev.event_id}>
-                          <TableCell sx={{ fontFamily: 'monospace' }}>{ev.event_id}</TableCell>
-                          <TableCell>
-                            {ev.program_kinds.map(p => (
-                              <Chip key={p} size="small" label={PROGRAM_NAMES[p] || p} sx={{ mr: 0.5 }} />
-                            ))}
-                          </TableCell>
-                          <TableCell>{ev.occurred_on}</TableCell>
-                          <TableCell>{ev.unit_name || ev.unit}</TableCell>
-                          <TableCell>{ev.occasion || '—'}</TableCell>
-                          <TableCell>{ev.official_present ? 'بله' : 'خیر / نامشخص'}</TableCell>
-                          <TableCell>
-                            {ev.is_ashura_pilgrimage ? (
-                              <Chip size="small" label="زیارت عاشورا (مستقل)" color="secondary" />
-                            ) : (
-                              'عادی'
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      events.map(ev => {
+                        const statusLabel =
+                          ev.review_status === 'approved'
+                            ? 'تایید مدیر'
+                            : ev.review_status === 'conflict'
+                            ? 'تعارض / رد'
+                            : ev.review_status === 'needs_review'
+                            ? (ev.revision_count && ev.revision_count > 0 ? `اصلاحیه (${ev.revision_count})` : 'در انتظار بررسی')
+                            : 'پیش‌نویس'
+                        const statusColor =
+                          ev.review_status === 'approved'
+                            ? 'success'
+                            : ev.review_status === 'conflict'
+                            ? 'error'
+                            : ev.review_status === 'needs_review'
+                            ? 'warning'
+                            : 'default'
+
+                        const creator = ev.registered_by_name || ev.registered_by_id || ev.created_by || 'نامشخص'
+                        const hasBlockers = ev.defects?.some(d => d.severity === 'blocker')
+                        const defectCount = ev.defects?.length || 0
+
+                        return (
+                          <TableRow key={ev.event_id} hover>
+                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{ev.event_id}</TableCell>
+                            <TableCell>
+                              {ev.program_kinds.map(p => (
+                                <Chip key={p} size="small" label={PROGRAM_NAMES[p] || p} sx={{ mr: 0.5 }} />
+                              ))}
+                            </TableCell>
+                            <TableCell>{ev.occurred_on}</TableCell>
+                            <TableCell>{ev.unit_name || ev.unit}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={600}>
+                                {creator}
+                              </Typography>
+                              {ev.reviewed_by_name && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  تایید: {ev.reviewed_by_name}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                size="small"
+                                label={statusLabel}
+                                color={statusColor}
+                                variant={ev.review_status === 'approved' ? 'filled' : 'outlined'}
+                                sx={{ fontWeight: 700 }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              {defectCount > 0 ? (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color={hasBlockers ? 'error' : 'warning'}
+                                  onClick={() => setDefectDialogEvent(ev)}
+                                  sx={{ fontSize: '0.75rem', py: 0.2 }}
+                                >
+                                  {defectCount} ایراد / هشدار
+                                </Button>
+                              ) : (
+                                <Chip size="small" label="تطبیق کامل" color="success" variant="outlined" />
+                              )}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Stack direction="row" spacing={0.5} justifyContent="center">
+                                {ev.review_status !== 'approved' && (
+                                  <Tooltip title="تأیید نهایی پرونده توسط مدیر">
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="success"
+                                      disabled={workflowActionLoading}
+                                      onClick={() => void handleApproveEvent(ev.event_id)}
+                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
+                                    >
+                                      تایید
+                                    </Button>
+                                  </Tooltip>
+                                )}
+                                {ev.review_status !== 'conflict' && (
+                                  <Tooltip title="ارجاع نقص و ایجاد وظیفه برای کارمند">
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="warning"
+                                      disabled={workflowActionLoading}
+                                      onClick={() => {
+                                        setRevisionDialogEvent(ev)
+                                        setRevisionReason(ev.review_notes || '')
+                                      }}
+                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
+                                    >
+                                      ارجاع نقص
+                                    </Button>
+                                  </Tooltip>
+                                )}
+                                {ev.review_status !== 'conflict' && (
+                                  <Tooltip title="اعلام تعارض یا رد پرونده">
+                                    <Button
+                                      size="small"
+                                      variant="text"
+                                      color="error"
+                                      disabled={workflowActionLoading}
+                                      onClick={() => {
+                                        const reason = window.prompt('دلیل رد یا تعارض رویداد:')
+                                        if (reason) void handleMarkConflict(ev.event_id, reason)
+                                      }}
+                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
+                                    >
+                                      رد
+                                    </Button>
+                                  </Tooltip>
+                                )}
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
                     )}
                   </TableBody>
                 </Table>
@@ -2516,6 +2686,96 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Revision Request Dialog */}
+      {revisionDialogEvent && (
+        <Dialog open onClose={() => setRevisionDialogEvent(null)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 800 }}>
+            ارجاع نقص و اصلاح پرونده ({revisionDialogEvent.event_id})
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                دستور اصلاح یا شرح ایراد را برای مسئول ثبت رویداد وارد کنید. یک وظیفه در کارتابل کارمند ثبت خواهد شد.
+              </Typography>
+              {revisionDialogEvent.defects && revisionDialogEvent.defects.length > 0 && (
+                <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1.5 }}>
+                  <Typography variant="caption" fontWeight={700} sx={{ mb: 1, display: 'block' }}>
+                    نقایص کشف‌شده توسط موتور ارزیابی خودکار:
+                  </Typography>
+                  <Stack spacing={0.5}>
+                    {revisionDialogEvent.defects.map(d => (
+                      <Chip
+                        key={d.defect_code}
+                        size="small"
+                        color={d.severity === 'blocker' ? 'error' : 'warning'}
+                        label={`${d.title}: ${d.description}`}
+                        onClick={() => setRevisionReason(prev => (prev ? `${prev}\n- ${d.description}` : `- ${d.description}`))}
+                        sx={{ cursor: 'pointer', height: 'auto', '& .MuiChip-label': { whiteSpace: 'normal', py: 0.5 } }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+              <TextField
+                label="دستور اصلاح / شرح نقص"
+                value={revisionReason}
+                onChange={e => setRevisionReason(e.target.value)}
+                multiline
+                minRows={3}
+                fullWidth
+                placeholder="مثال: تعداد مخاطبان ثبت نشده است؛ لطفاً پیوست نامهٔ رسمی پیوست شود."
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, py: 1.5 }}>
+            <Button onClick={() => setRevisionDialogEvent(null)}>انصراف</Button>
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={workflowActionLoading || !revisionReason.trim()}
+              onClick={() => void handleRequestRevision(revisionDialogEvent.event_id, revisionReason)}
+            >
+              ثبت و ارجاع وظیفه به کارمند
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Defect Audit Detail Dialog */}
+      {defectDialogEvent && (
+        <Dialog open onClose={() => setDefectDialogEvent(null)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ fontWeight: 800 }}>
+            ارزیابی کیفی پروندهٔ رویداد ({defectDialogEvent.event_id})
+          </DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              {defectDialogEvent.defects && defectDialogEvent.defects.length > 0 ? (
+                defectDialogEvent.defects.map((d, idx) => (
+                  <Paper key={idx} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                      <Chip
+                        size="small"
+                        color={d.severity === 'blocker' ? 'error' : d.severity === 'warning' ? 'warning' : 'info'}
+                        label={d.severity === 'blocker' ? 'مانع تایید' : d.severity === 'warning' ? 'هشدار کیفی' : 'راهنما'}
+                      />
+                      <Typography variant="subtitle2" fontWeight={800}>{d.title}</Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {d.description}
+                    </Typography>
+                  </Paper>
+                ))
+              ) : (
+                <Alert severity="success">هیچ نقصی در این پرونده شناسایی نشد.</Alert>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 2.5, py: 1.5 }}>
+            <Button onClick={() => setDefectDialogEvent(null)}>بستن</Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Paper>
   )
 }

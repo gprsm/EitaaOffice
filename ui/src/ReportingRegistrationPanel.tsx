@@ -264,14 +264,32 @@ export function ReportingRegistrationPanel(props: {
       </Stack>}
 
       {step === 3 && !results && <Stack spacing={2} sx={{ maxWidth: 640, mx: 'auto' }}>
-        <Typography variant="subtitle2">خلاصهٔ ثبت</Typography>
+        <Typography variant="subtitle2" fontWeight={800}>خلاصهٔ اطلاعات و ارزیابی اولیه کیفیت پرونده</Typography>
         <Typography variant="body2">موضوع: {draft.topic || '—'}</Typography>
         <Typography variant="body2">تاریخ وقوع: {draft.occurredOn || '—'} (جلالی)</Typography>
-        <Typography variant="body2">برنامهها: {draft.programKinds.join('، ') || '—'}</Typography>
-        <Typography variant="body2">تعداد فکتها: {draft.facts.length}</Typography>
+        <Typography variant="body2">برنامه‌ها: {draft.programKinds.join('، ') || '—'}</Typography>
+        <Typography variant="body2">تعداد فکت‌ها: {draft.facts.length}</Typography>
         <Typography variant="body2">شاهدان: {draft.witnesses.filter(w => w.message_id.trim()).length} مورد ({draft.witnesses.filter(w => w.role === 'primary').length} اصلی، {draft.witnesses.filter(w => w.role === 'supporting').length} پشتیبان)</Typography>
-        <Alert severity="info">ثبت بهصورت پیشنویس انجام میشود و پیش از تأیید انسانی در خروجی رسمی اثر نمیگذارد.</Alert>
-        <Button variant="contained" onClick={() => void submit()} disabled={submitting}>ثبت پیش‌نویس و پیوند شاهدان</Button>
+
+        {draft.witnesses.filter(w => w.message_id.trim()).length === 0 && (
+          <Alert severity="error">
+            عدم پیوند به شاهد: هنوز هیچ پیام معتبری به عنوان شاهد ثبت نشده است.
+          </Alert>
+        )}
+        {draft.programKinds.some(k => ['ceremony', 'contest', 'quran_contest', 'trip'].includes(k)) &&
+          !draft.facts.some(f => f.metric === 'attendees' && Number(f.value) > 0) && (
+          <Alert severity="warning">
+            توجه کیفی: برای این برنامهٔ جمعی، فکت تعداد مخاطبان ثبت نشده است.
+          </Alert>
+        )}
+        {!draft.unit_name.trim() && draft.unit !== 'provincial_hq' && (
+          <Alert severity="info">
+            راهنمای ماده ۲۳: پیشنهاد می‌شود نام حوزه یا واحد قضایی میزبان تکمیل شود.
+          </Alert>
+        )}
+
+        <Alert severity="info">ثبت اولیه جهت بررسی سرپرست ارسال خواهد شد و در کارنامهٔ ثبت عملکرد شما درج می‌گردد.</Alert>
+        <Button variant="contained" onClick={() => void submit()} disabled={submitting}>ثبت رویداد و ارسال جهت بررسی</Button>
       </Stack>}
 
       {results && <Stack spacing={1.5} sx={{ maxWidth: 640, mx: 'auto' }}>

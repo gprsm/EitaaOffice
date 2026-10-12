@@ -4479,9 +4479,12 @@ class BridgeApplicationApi:
     ) -> ApiResponse:
         action = str(payload.get("action", "")).strip().lower()
         operator = (
-            app_session.principal.display_name
-            if app_session and hasattr(app_session, "principal")
-            else "central_staff"
+            str(payload.get("staff_member") or payload.get("registered_by_id") or payload.get("registered_by_name") or "").strip()
+            or (
+                app_session.principal.display_name
+                if app_session and hasattr(app_session, "principal")
+                else "central_staff"
+            )
         )
         if action == "approve":
             event_id = str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}")
@@ -4623,10 +4626,54 @@ class BridgeApplicationApi:
             roles = ["editor", "approver", "admin"]
         else:
             roles = self._reporting_store.get_user_roles(actor)
-        return _reporting_v3_route_dispatch(
+        resp = _reporting_v3_route_dispatch(
             self._reporting_store, actor, roles, method, path,
             payload=payload, query=query, if_match=if_match,
         )
+        if resp is not None and method == "POST":
+            status_code = resp[0] if isinstance(resp, tuple) else getattr(resp, "status_code", 0)
+            if status_code in (200, 201):
+                if "/request-revision" in path:
+                    m = re.search(r"/events/([^/]+)/request-revision", path)
+                    if m:
+                        ev_id = m.group(1)
+                        ev = self._reporting_store.get_event(ev_id)
+                        if ev and hasattr(self, "_content_index_store"):
+                            assignee_id = ev.registered_by_id or ev.created_by or actor
+                            assignee_name = ev.registered_by_name or ev.created_by or actor
+                            reason_txt = str((payload or {}).get("reason") or (payload or {}).get("notes") or "ایراد در گزارش عملکرد")
+                            try:
+                                self._content_index_store.initialize()
+                                self._content_index_store.create_task(
+                                    event_id=ev_id,
+                                    defect_type="report_defect_resolution",
+                                    assigned_to_user_id=assignee_id,
+                                    assigned_to_name=assignee_name,
+                                    title=f"رفع نقص گزارش: {ev.occasion or ev.unit_name or ev.event_id}",
+                                    description=f"دستور اصلاح سرپرست: {reason_txt}",
+                                    priority="high",
+                                    created_by_user_id=actor,
+                                    created_by_name=str((payload or {}).get("actor_name") or actor),
+                                )
+                            except Exception:
+                                pass
+                elif "/approve" in path:
+                    m = re.search(r"/events/([^/]+)/approve", path)
+                    if m and hasattr(self, "_content_index_store"):
+                        ev_id = m.group(1)
+                        try:
+                            self._content_index_store.initialize()
+                            tasks = self._content_index_store.list_tasks(status="open")
+                            for t in tasks:
+                                if t.get("event_id") == ev_id:
+                                    self._content_index_store.resolve_task(
+                                        task_id=t["task_id"],
+                                        user_id=actor,
+                                        resolution_notes="تایید نهایی گزارش توسط مدیر",
+                                    )
+                        except Exception:
+                            pass
+        return resp
 
     def _reporting_create_event(
         self,
@@ -4720,6 +4767,12 @@ class BridgeApplicationApi:
         events = self._reporting_service.get_stored_events(limit=limit)
         serialized = []
         for ev in events:
+            defects_parsed = []
+            if ev.defects_json:
+                try:
+                    defects_parsed = json.loads(ev.defects_json)
+                except Exception:
+                    defects_parsed = []
             serialized.append(
                 {
                     "event_id": ev.event_id,
@@ -4732,6 +4785,15 @@ class BridgeApplicationApi:
                     "official_present": ev.official_present,
                     "is_ashura_pilgrimage": ev.is_ashura_pilgrimage,
                     "created_by": ev.created_by,
+                    "review_status": ev.review_status,
+                    "registered_by_id": ev.registered_by_id,
+                    "registered_by_name": ev.registered_by_name,
+                    "reviewed_by_id": ev.reviewed_by_id,
+                    "reviewed_by_name": ev.reviewed_by_name,
+                    "reviewed_at": ev.reviewed_at.isoformat() if ev.reviewed_at else None,
+                    "review_notes": ev.review_notes,
+                    "revision_count": ev.revision_count,
+                    "defects": defects_parsed,
                     "facts": [
                         {
                             "metric": f.metric,
@@ -10049,22 +10111,123 @@ class BridgeApplicationApi:
             from_date=from_date,
             to_date=to_date,
         )
-        total_actions = sum(s.get("total_actions", 0) for s in staff_list)
-        total_tasks = sum(s.get("assigned_tasks", 0) for s in staff_list)
-        resolved_tasks = sum(s.get("resolved_tasks", 0) for s in staff_list)
+        reporting_stats: list[dict[str, Any]] = []
+        if hasattr(self, "_reporting_store") and self._reporting_store:
+            try:
+                reporting_stats = self._reporting_store.get_staff_reporting_stats(
+                    from_date=from_date,
+                    to_date=to_date,
+                )
+            except Exception:
+                reporting_stats = []
+
+        rep_by_id = {r["staff_id"]: r for r in reporting_stats}
+        rep_by_name = {r["staff_name"]: r for r in reporting_stats}
+
+        combined_staff: dict[str, dict[str, Any]] = {}
+        for s in staff_list:
+            op_id = s.get("operator_id") or ""
+            op_name = s.get("operator_name") or ""
+            rep = rep_by_id.get(op_id) or rep_by_name.get(op_name) or {}
+            tot_rep = rep.get("total_reports", 0)
+            appr_rep = rep.get("approved_reports", 0)
+            fta_rep = rep.get("first_time_approved", 0)
+            rev_rep = rep.get("revision_required_reports", 0)
+            cnf_rep = rep.get("conflict_reports", 0)
+            appr_rate = rep.get("approval_rate", 100.0)
+            ftr_rate = rep.get("first_time_right_rate", 100.0)
+
+            idx_acc = float(s.get("accuracy_rate", 100.0))
+            task_res = float(s.get("task_resolution_rate", 100.0))
+
+            if s.get("total_actions", 0) > 0 and tot_rep > 0:
+                composite = round(0.35 * idx_acc + 0.35 * appr_rate + 0.15 * ftr_rate + 0.15 * task_res, 1)
+            elif tot_rep > 0:
+                composite = round(0.60 * appr_rate + 0.20 * ftr_rate + 0.20 * task_res, 1)
+            else:
+                composite = round(0.70 * idx_acc + 0.30 * task_res, 1)
+
+            entry = dict(s)
+            entry.update({
+                "total_reports": tot_rep,
+                "approved_reports": appr_rep,
+                "first_time_approved": fta_rep,
+                "revision_required_reports": rev_rep,
+                "conflict_reports": cnf_rep,
+                "report_approval_rate": appr_rate,
+                "first_time_right_rate": ftr_rate,
+                "composite_score": composite,
+            })
+            combined_staff[op_id or op_name] = entry
+
+        for rep in reporting_stats:
+            st_id = rep.get("staff_id") or ""
+            st_name = rep.get("staff_name") or st_id
+            if st_id not in combined_staff and st_name not in combined_staff:
+                tot_rep = rep.get("total_reports", 0)
+                appr_rep = rep.get("approved_reports", 0)
+                fta_rep = rep.get("first_time_approved", 0)
+                rev_rep = rep.get("revision_required_reports", 0)
+                cnf_rep = rep.get("conflict_reports", 0)
+                appr_rate = rep.get("approval_rate", 100.0)
+                ftr_rate = rep.get("first_time_right_rate", 100.0)
+                composite = round(0.60 * appr_rate + 0.20 * ftr_rate + 0.20 * 100.0, 1)
+
+                combined_staff[st_id or st_name] = {
+                    "operator_id": st_id,
+                    "operator_name": st_name,
+                    "operator_role": "staff",
+                    "total_actions": 0,
+                    "accept_count": 0,
+                    "reject_count": 0,
+                    "override_count": 0,
+                    "accuracy_rate": 100.0,
+                    "assigned_tasks": 0,
+                    "resolved_tasks": 0,
+                    "task_resolution_rate": 100.0,
+                    "total_reports": tot_rep,
+                    "approved_reports": appr_rep,
+                    "first_time_approved": fta_rep,
+                    "revision_required_reports": rev_rep,
+                    "conflict_reports": cnf_rep,
+                    "report_approval_rate": appr_rate,
+                    "first_time_right_rate": ftr_rate,
+                    "composite_score": composite,
+                }
+
+        final_staff_list = sorted(
+            combined_staff.values(),
+            key=lambda x: (x.get("composite_score", 0), x.get("total_actions", 0), x.get("total_reports", 0)),
+            reverse=True,
+        )
+
+        total_actions = sum(s.get("total_actions", 0) for s in final_staff_list)
+        total_tasks = sum(s.get("assigned_tasks", 0) for s in final_staff_list)
+        resolved_tasks = sum(s.get("resolved_tasks", 0) for s in final_staff_list)
+        total_reports = sum(s.get("total_reports", 0) for s in final_staff_list)
+        approved_reports = sum(s.get("approved_reports", 0) for s in final_staff_list)
+
         avg_accuracy = (
-            round(sum(s.get("accuracy_rate", 100.0) for s in staff_list) / len(staff_list), 1)
-            if staff_list
+            round(sum(s.get("accuracy_rate", 100.0) for s in final_staff_list) / len(final_staff_list), 1)
+            if final_staff_list
+            else 100.0
+        )
+        avg_composite = (
+            round(sum(s.get("composite_score", 100.0) for s in final_staff_list) / len(final_staff_list), 1)
+            if final_staff_list
             else 100.0
         )
         summary = {
-            "total_staff": len(staff_list),
+            "total_staff": len(final_staff_list),
             "total_actions": total_actions,
             "total_tasks": total_tasks,
             "resolved_tasks": resolved_tasks,
             "average_accuracy": avg_accuracy,
+            "total_reports": total_reports,
+            "approved_reports": approved_reports,
+            "average_composite_score": avg_composite,
         }
-        return ApiResponse(200, {"ok": True, "summary": summary, "staff": staff_list})
+        return ApiResponse(200, {"ok": True, "summary": summary, "staff": final_staff_list})
 
     def _staff_tasks_list(
         self,

@@ -755,6 +755,28 @@ class ReportingStore:
                 """
             )
 
+            # Migration v8→v9: Staff attribution, defect auditing & workflow tracking
+            _v9_event_cols = {row[1] for row in conn.execute("PRAGMA table_info(reported_events)")}
+            if _v9_event_cols:
+                if "registered_by_id" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN registered_by_id TEXT NOT NULL DEFAULT ''")
+                if "registered_by_name" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN registered_by_name TEXT NOT NULL DEFAULT ''")
+                if "reviewed_by_id" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN reviewed_by_id TEXT NOT NULL DEFAULT ''")
+                if "reviewed_by_name" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN reviewed_by_name TEXT NOT NULL DEFAULT ''")
+                if "reviewed_at" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN reviewed_at TEXT")
+                if "review_notes" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN review_notes TEXT NOT NULL DEFAULT ''")
+                if "revision_count" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN revision_count INTEGER NOT NULL DEFAULT 0")
+                if "defects_json" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN defects_json TEXT NOT NULL DEFAULT '[]'")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_reported_events_staff ON reported_events(registered_by_id, review_status)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_reported_events_reviewed ON reported_events(reviewed_by_id, reviewed_at)")
+
             # Self-healing seed (F-096): canonical mandates upsert on every
             # init so corrected titles/numbers/codes from the official
             # visit-worksheet source reach the operational DB. Operator- and
@@ -1309,18 +1331,34 @@ class ReportingStore:
         return self._run_in_transaction(_op)
 
     _STATUS_TRANSITIONS = {
-        "submit_review": {"draft": "needs_review"},
+        "submit_review": {"draft": "needs_review", "needs_review": "needs_review"},
         "approve": {"needs_review": "approved"},
+        "request_revision": {"needs_review": "needs_review", "approved": "needs_review"},
         "mark_conflict": {"needs_review": "conflict", "approved": "conflict"},
         "reopen": {"conflict": "needs_review"},
     }
 
-    def transition_event_status(self, event_id: str, *, action: str, actor: str,
-                                reason: str = "") -> str:
+    def transition_event_status(
+        self,
+        event_id: str,
+        *,
+        action: str,
+        actor: str,
+        reason: str = "",
+        actor_id: str | None = None,
+        actor_name: str | None = None,
+        actor_role: str = "",
+        defects_json: str | None = None,
+    ) -> str:
         if action not in self._STATUS_TRANSITIONS:
             raise InvalidStatusTransitionError(f"unknown action {action}")
         if action == "mark_conflict" and not reason.strip():
             raise InvalidStatusTransitionError("mark_conflict requires a reason")
+        if action == "request_revision" and not reason.strip():
+            raise InvalidStatusTransitionError("request_revision requires a reason or defect notes")
+
+        act_id = actor_id or actor
+        act_name = actor_name or actor
 
         def _op(conn):
             row = conn.execute(
@@ -1337,16 +1375,69 @@ class ReportingStore:
                     f"{action} not allowed from status {current}"
                 )
             new_status = targets[current]
+            now_iso = _utc_now()
             etag_before = self._compute_etag(event_id, version)
-            conn.execute(
-                "UPDATE reported_events SET review_status = ?, version = ? WHERE event_id = ?",
-                (new_status, version + 1, event_id),
-            )
+
+            if action == "approve":
+                conn.execute(
+                    """
+                    UPDATE reported_events
+                    SET review_status = ?, version = ?, reviewed_by_id = ?, reviewed_by_name = ?,
+                        reviewed_at = ?, review_notes = ?
+                    WHERE event_id = ?
+                    """,
+                    (new_status, version + 1, act_id, act_name, now_iso, reason, event_id),
+                )
+            elif action == "request_revision":
+                conn.execute(
+                    """
+                    UPDATE reported_events
+                    SET review_status = ?, version = ?, reviewed_by_id = ?, reviewed_by_name = ?,
+                        reviewed_at = ?, review_notes = ?,
+                        revision_count = revision_count + 1,
+                        defects_json = COALESCE(?, defects_json)
+                    WHERE event_id = ?
+                    """,
+                    (new_status, version + 1, act_id, act_name, now_iso, reason, defects_json, event_id),
+                )
+            elif action == "mark_conflict":
+                conn.execute(
+                    """
+                    UPDATE reported_events
+                    SET review_status = ?, version = ?, reviewed_by_id = ?, reviewed_by_name = ?,
+                        reviewed_at = ?, review_notes = ?
+                    WHERE event_id = ?
+                    """,
+                    (new_status, version + 1, act_id, act_name, now_iso, reason, event_id),
+                )
+            elif action == "submit_review":
+                conn.execute(
+                    """
+                    UPDATE reported_events
+                    SET review_status = ?, version = ?,
+                        registered_by_id = CASE WHEN registered_by_id = '' THEN ? ELSE registered_by_id END,
+                        registered_by_name = CASE WHEN registered_by_name = '' THEN ? ELSE registered_by_name END
+                    WHERE event_id = ?
+                    """,
+                    (new_status, version + 1, act_id, act_name, event_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE reported_events SET review_status = ?, version = ? WHERE event_id = ?",
+                    (new_status, version + 1, event_id),
+                )
+
             etag_after = self._compute_etag(event_id, version + 1)
+            diff_payload: dict[str, Any] = {
+                "from": current,
+                "to": new_status,
+                "reason": reason,
+            }
+
             self._append_audit(
                 conn, actor=actor, action=f"event.{action}",
                 entity_type="reported_events", entity_id=event_id,
-                diff={"from": current, "to": new_status, "reason": reason},
+                diff=diff_payload,
                 etag_before=etag_before, etag_after=etag_after,
             )
             return etag_after
@@ -1987,8 +2078,10 @@ class ReportingStore:
                     event_id, program_kinds_json, occurred_on, unit, unit_name,
                     occasion, occasion_class, official_present, is_standalone_titled,
                     duration_minutes, prior_announcement, had_reception,
-                    is_ashura_pilgrimage, contains_inner_contest, campaign, notes, created_at, created_by, review_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+                    is_ashura_pilgrimage, contains_inner_contest, campaign, notes, created_at, created_by, review_status,
+                    registered_by_id, registered_by_name, reviewed_by_id, reviewed_by_name,
+                    reviewed_at, review_notes, revision_count, defects_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(event_id) DO UPDATE SET
                     program_kinds_json = excluded.program_kinds_json,
                     occurred_on = excluded.occurred_on,
@@ -2005,7 +2098,16 @@ class ReportingStore:
                     contains_inner_contest = excluded.contains_inner_contest,
                     campaign = excluded.campaign,
                     notes = excluded.notes,
-                    created_by = excluded.created_by
+                    created_by = excluded.created_by,
+                    review_status = CASE WHEN excluded.review_status != 'draft' THEN excluded.review_status ELSE reported_events.review_status END,
+                    registered_by_id = CASE WHEN excluded.registered_by_id != '' THEN excluded.registered_by_id ELSE reported_events.registered_by_id END,
+                    registered_by_name = CASE WHEN excluded.registered_by_name != '' THEN excluded.registered_by_name ELSE reported_events.registered_by_name END,
+                    reviewed_by_id = CASE WHEN excluded.reviewed_by_id != '' THEN excluded.reviewed_by_id ELSE reported_events.reviewed_by_id END,
+                    reviewed_by_name = CASE WHEN excluded.reviewed_by_name != '' THEN excluded.reviewed_by_name ELSE reported_events.reviewed_by_name END,
+                    reviewed_at = CASE WHEN excluded.reviewed_at IS NOT NULL THEN excluded.reviewed_at ELSE reported_events.reviewed_at END,
+                    review_notes = CASE WHEN excluded.review_notes != '' THEN excluded.review_notes ELSE reported_events.review_notes END,
+                    revision_count = CASE WHEN excluded.revision_count > 0 THEN excluded.revision_count ELSE reported_events.revision_count END,
+                    defects_json = CASE WHEN excluded.defects_json != '[]' THEN excluded.defects_json ELSE reported_events.defects_json END
                 """,
                 (
                     event.event_id,
@@ -2026,6 +2128,15 @@ class ReportingStore:
                     event.notes,
                     event.created_at.isoformat() if hasattr(event.created_at, "isoformat") else now,
                     event.created_by,
+                    event.review_status or "draft",
+                    event.registered_by_id or event.created_by or "",
+                    event.registered_by_name or event.created_by or "",
+                    event.reviewed_by_id or "",
+                    event.reviewed_by_name or "",
+                    event.reviewed_at.isoformat() if hasattr(event.reviewed_at, "isoformat") else (event.reviewed_at or None),
+                    event.review_notes or "",
+                    event.revision_count or 0,
+                    event.defects_json or "[]",
                 ),
             )
 
@@ -2119,6 +2230,16 @@ class ReportingStore:
                     notes=row["notes"] or "",
                     created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else datetime.now(timezone.utc),
                     created_by=row["created_by"] or "",
+                    review_status=row["review_status"] if "review_status" in row.keys() and row["review_status"] else "draft",
+                    registered_by_id=row["registered_by_id"] if "registered_by_id" in row.keys() and row["registered_by_id"] else (row["created_by"] or ""),
+                    registered_by_name=row["registered_by_name"] if "registered_by_name" in row.keys() and row["registered_by_name"] else (row["created_by"] or ""),
+                    reviewed_by_id=row["reviewed_by_id"] if "reviewed_by_id" in row.keys() and row["reviewed_by_id"] else "",
+                    reviewed_by_name=row["reviewed_by_name"] if "reviewed_by_name" in row.keys() and row["reviewed_by_name"] else "",
+                    reviewed_at=datetime.fromisoformat(row["reviewed_at"]) if "reviewed_at" in row.keys() and row["reviewed_at"] else None,
+                    review_notes=row["review_notes"] if "review_notes" in row.keys() and row["review_notes"] else "",
+                    revision_count=int(row["revision_count"]) if "revision_count" in row.keys() and row["revision_count"] is not None else 0,
+                    defects_json=row["defects_json"] if "defects_json" in row.keys() and row["defects_json"] else "[]",
+                    version=int(row["version"]) if "version" in row.keys() and row["version"] is not None else 1,
                 )
                 results.append(event)
             return results
@@ -2176,12 +2297,75 @@ class ReportingStore:
                 notes=row["notes"] or "",
                 created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else datetime.now(timezone.utc),
                 created_by=row["created_by"] or "",
+                review_status=row["review_status"] if "review_status" in row.keys() and row["review_status"] else "draft",
+                registered_by_id=row["registered_by_id"] if "registered_by_id" in row.keys() and row["registered_by_id"] else (row["created_by"] or ""),
+                registered_by_name=row["registered_by_name"] if "registered_by_name" in row.keys() and row["registered_by_name"] else (row["created_by"] or ""),
+                reviewed_by_id=row["reviewed_by_id"] if "reviewed_by_id" in row.keys() and row["reviewed_by_id"] else "",
+                reviewed_by_name=row["reviewed_by_name"] if "reviewed_by_name" in row.keys() and row["reviewed_by_name"] else "",
+                reviewed_at=datetime.fromisoformat(row["reviewed_at"]) if "reviewed_at" in row.keys() and row["reviewed_at"] else None,
+                review_notes=row["review_notes"] if "review_notes" in row.keys() and row["review_notes"] else "",
+                revision_count=int(row["revision_count"]) if "revision_count" in row.keys() and row["revision_count"] is not None else 0,
+                defects_json=row["defects_json"] if "defects_json" in row.keys() and row["defects_json"] else "[]",
+                version=int(row["version"]) if "version" in row.keys() and row["version"] is not None else 1,
             )
 
     def delete_event(self, event_id: str) -> bool:
         with self._connect() as conn:
             res = conn.execute("DELETE FROM reported_events WHERE event_id = ?", (event_id,))
             return res.rowcount > 0
+
+    def get_staff_reporting_stats(
+        self,
+        *,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses = ["(registered_by_id != '' OR created_by != '')"]
+        params: list[Any] = []
+        if from_date:
+            clauses.append("created_at >= ?")
+            params.append(from_date)
+        if to_date:
+            clauses.append("created_at <= ?")
+            params.append(to_date)
+        where_clause = f"WHERE {' AND '.join(clauses)}"
+        sql = f"""
+            SELECT
+                COALESCE(NULLIF(registered_by_id, ''), created_by) AS staff_id,
+                COALESCE(NULLIF(registered_by_name, ''), created_by) AS staff_name,
+                COUNT(*) AS total_reports,
+                SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) AS approved_reports,
+                SUM(CASE WHEN review_status = 'approved' AND revision_count = 0 THEN 1 ELSE 0 END) AS first_time_approved,
+                SUM(CASE WHEN revision_count > 0 THEN 1 ELSE 0 END) AS revision_required_reports,
+                SUM(CASE WHEN review_status = 'conflict' THEN 1 ELSE 0 END) AS conflict_reports
+            FROM reported_events
+            {where_clause}
+            GROUP BY staff_id, staff_name
+            ORDER BY total_reports DESC
+        """
+        with self._connect() as conn:
+            rows = conn.execute(sql, tuple(params)).fetchall()
+            results = []
+            for r in rows:
+                total = int(r["total_reports"] or 0)
+                appr = int(r["approved_reports"] or 0)
+                fta = int(r["first_time_approved"] or 0)
+                rev = int(r["revision_required_reports"] or 0)
+                cnf = int(r["conflict_reports"] or 0)
+                appr_rate = round((appr / total * 100.0), 1) if total > 0 else 100.0
+                ftr_rate = round((fta / appr * 100.0), 1) if appr > 0 else 100.0
+                results.append({
+                    "staff_id": str(r["staff_id"] or ""),
+                    "staff_name": str(r["staff_name"] or r["staff_id"] or ""),
+                    "total_reports": total,
+                    "approved_reports": appr,
+                    "first_time_approved": fta,
+                    "revision_required_reports": rev,
+                    "conflict_reports": cnf,
+                    "approval_rate": appr_rate,
+                    "first_time_right_rate": ftr_rate,
+                })
+            return results
 
     # ----------------------------------------------------------------------
     # Filled Forms

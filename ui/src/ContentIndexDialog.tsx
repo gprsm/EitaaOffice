@@ -76,6 +76,7 @@ type Props = {
   setCustomIndexCategoryId: (value: number | null) => void
   addCustomIndex: () => void
   loadStarterPack?: () => void
+  loadCulturalWorkbookPack?: () => void
   loadHistoricalPack?: () => void
   historicalCount?: number
   selectedDefinitionId: number | null
@@ -186,15 +187,26 @@ export function ContentIndexDialog(props: Props) {
                 sx={{ alignItems: 'center' }}
                 action={
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: { xs: 1, sm: 0 } }}>
+                    {props.loadCulturalWorkbookPack && (
+                      <Button
+                        color="success"
+                        size="small"
+                        variant="contained"
+                        startIcon={<AutoAwesomeRounded />}
+                        onClick={props.loadCulturalWorkbookPack}
+                      >
+                        کتابچه فرهنگی ۱۴۰۵
+                      </Button>
+                    )}
                     {props.loadStarterPack && (
                       <Button
                         color="primary"
                         size="small"
-                        variant="contained"
+                        variant="outlined"
                         startIcon={<AutoAwesomeRounded />}
                         onClick={props.loadStarterPack}
                       >
-                        موضوعات پیشنهادی
+                        موضوعات پیشنهادی عمومی
                       </Button>
                     )}
                     {props.loadHistoricalPack && Boolean(props.historicalCount) && (
