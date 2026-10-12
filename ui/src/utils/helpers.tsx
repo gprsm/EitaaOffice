@@ -262,6 +262,7 @@ export function JalaliDatePicker(props: {
         startIcon={props.busy ? <CircularProgress size={18} color="inherit" /> : <CalendarMonthRounded fontSize="small" />}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={props.value ? `فیلتر تاریخ ${props.value}` : 'انتخاب تاریخ شمسی'}
       >{props.value || <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>تاریخ</Box>}</Button>
     </Tooltip>
     <Popover

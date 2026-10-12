@@ -197,6 +197,8 @@ def test_api_staff_and_indexing_endpoints(temp_store: SQLiteContentIndexStore, m
     api._staff_tasks_create = BridgeApplicationApi._staff_tasks_create.__get__(api)
     api._staff_tasks_resolve = BridgeApplicationApi._staff_tasks_resolve.__get__(api)
     api._staff_tasks_close = BridgeApplicationApi._staff_tasks_close.__get__(api)
+    api._staff_tasks_reassign = BridgeApplicationApi._staff_tasks_reassign.__get__(api)
+    api._staff_tasks_checklist = BridgeApplicationApi._staff_tasks_checklist.__get__(api)
     api._indexing_strategy_get = BridgeApplicationApi._indexing_strategy_get.__get__(api)
     api._indexing_strategy_set = BridgeApplicationApi._indexing_strategy_set.__get__(api)
 
@@ -256,4 +258,123 @@ def test_api_staff_and_indexing_endpoints(temp_store: SQLiteContentIndexStore, m
     )
     assert close_res.status == 200
     assert close_res.payload["status"] == "closed"
+
+
+def test_enterprise_task_macro_categories_checklist_and_reassignment(temp_store: SQLiteContentIndexStore):
+    from eitaa_bridge.application.api import BridgeApplicationApi
+    from unittest.mock import MagicMock
+
+    api = MagicMock(spec=BridgeApplicationApi)
+    api._content_index_store = temp_store
+    api._staff_tasks_list = BridgeApplicationApi._staff_tasks_list.__get__(api)
+    api._staff_tasks_create = BridgeApplicationApi._staff_tasks_create.__get__(api)
+    api._staff_tasks_resolve = BridgeApplicationApi._staff_tasks_resolve.__get__(api)
+    api._staff_tasks_close = BridgeApplicationApi._staff_tasks_close.__get__(api)
+    api._staff_tasks_reassign = BridgeApplicationApi._staff_tasks_reassign.__get__(api)
+    api._staff_tasks_checklist = BridgeApplicationApi._staff_tasks_checklist.__get__(api)
+
+    # 1. Create a task with macro_category = 'workbook_approved' and multi-program codes
+    task1 = api._staff_tasks_create(
+        payload={
+            "title": "برگزاری مشترک مسابقات و اردوی زیارتی",
+            "macro_category": "workbook_approved",
+            "program_codes": ["80401", "80402"],
+            "task_kind": "field_execution",
+            "unit_scope": "judicial_domain",
+            "unit_name": "دادگستری شهرستان کاشان",
+            "priority": "high",
+            "assigned_to": "usr_sara",
+            "assigned_to_name": "سارا محمدی",
+            "due_date": "2026-11-01",
+            "checklist": [
+                {"id": "c1", "text": "اخذ بیمه‌نامه معتبر پیش از حرکت", "done": False},
+                {"id": "c2", "text": "ثبت احکام داوران مسابقات", "done": False},
+            ],
+            "requires_manager_approval": True,
+        }
+    )
+    assert task1.status == 201
+    tid1 = task1.payload["task_id"]
+
+    # 2. Create a task with macro_category = 'other_cultural' (out-of-sheet activity)
+    task2 = api._staff_tasks_create(
+        payload={
+            "title": "پویش همدلی و توزیع بسته‌های معیشتی غدیر",
+            "macro_category": "other_cultural",
+            "custom_topic": "کمک‌های مؤمنانه و پویش جهادی غدیر",
+            "task_kind": "field_execution",
+            "unit_scope": "provincial_hq",
+            "unit_name": "ستاد کل استان",
+            "priority": "urgent",
+            "assigned_to": "usr_ali",
+            "assigned_to_name": "علی اکبری",
+            "due_date": "2026-10-20",
+            "checklist": [
+                {"id": "c1", "text": "هماهنگی با ستاد اجرایی فرمان امام", "done": True},
+                {"id": "c2", "text": "تهیه مستندات تصویری جهت انتشار", "done": False},
+            ],
+        }
+    )
+    assert task2.status == 201
+    tid2 = task2.payload["task_id"]
+
+    # 3. Filter by macro_category = 'workbook_approved'
+    wb_list = api._staff_tasks_list(query={"macro_category": "workbook_approved"})
+    assert wb_list.status == 200
+    assert any(t["task_id"] == tid1 for t in wb_list.payload["tasks"])
+    assert not any(t["task_id"] == tid2 for t in wb_list.payload["tasks"])
+    t1_retrieved = next(t for t in wb_list.payload["tasks"] if t["task_id"] == tid1)
+    assert t1_retrieved["program_codes"] == ["80401", "80402"]
+    assert t1_retrieved["unit_name"] == "دادگستری شهرستان کاشان"
+    assert len(t1_retrieved["checklist"]) == 2
+
+    # 4. Filter by macro_category = 'other_cultural'
+    other_list = api._staff_tasks_list(query={"macro_category": "other_cultural"})
+    assert other_list.status == 200
+    assert any(t["task_id"] == tid2 for t in other_list.payload["tasks"])
+    t2_retrieved = next(t for t in other_list.payload["tasks"] if t["task_id"] == tid2)
+    assert t2_retrieved["custom_topic"] == "کمک‌های مؤمنانه و پویش جهادی غدیر"
+
+    # 5. Interactive Checklist update via API
+    chk_res = api._staff_tasks_checklist(
+        payload={
+            "task_id": tid1,
+            "checklist": [
+                {"id": "c1", "text": "اخذ بیمه‌نامه معتبر پیش از حرکت", "done": True},
+                {"id": "c2", "text": "ثبت احکام داوران مسابقات", "done": True},
+            ],
+        }
+    )
+    assert chk_res.status == 200
+    assert chk_res.payload["ok"] is True
+
+    # 6. Reassignment due to employee negligence / handover
+    reassign_res = api._staff_tasks_reassign(
+        payload={
+            "task_id": tid2,
+            "new_user_id": "usr_hossein",
+            "new_user_name": "حسین کریمی",
+            "reassigned_by_name": "مدیر اداره",
+            "reason": "عدم اقدام کارمند در مهلت مقرر و فوریت موضوع",
+        }
+    )
+    assert reassign_res.status == 200
+    assert reassign_res.payload["assigned_to_user_id"] == "usr_hossein"
+    assert reassign_res.payload["assigned_to_name"] == "حسین کریمی"
+    assert reassign_res.payload["status"] == "open"
+    assert "عدم اقدام کارمند در مهلت مقرر" in reassign_res.payload["resolution_notes"]
+
+    # 7. Complete and close task 1
+    api._staff_tasks_resolve(
+        payload={
+            "task_id": tid1,
+            "resolution_notes": "بیمه‌نامه اخذ و اسامی داوران در کاربرگ درج گردید.",
+            "resolved_by": "سارا محمدی",
+        }
+    )
+    closed = api._staff_tasks_close(
+        payload={"task_id": tid1, "approved": True, "closed_by": "مدیر فرهنگی"}
+    )
+    assert closed.status == 200
+    assert closed.payload["status"] == "closed"
 

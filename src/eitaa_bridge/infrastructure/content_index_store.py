@@ -176,12 +176,22 @@ class SQLiteContentIndexStore:
                             created_at TEXT NOT NULL,
                             updated_at TEXT NOT NULL,
                             resolved_at TEXT,
-                            closed_at TEXT
+                            closed_at TEXT,
+                            macro_category TEXT NOT NULL DEFAULT 'workbook_approved',
+                            program_codes_json TEXT NOT NULL DEFAULT '[]',
+                            custom_topic TEXT NOT NULL DEFAULT '',
+                            task_kind TEXT NOT NULL DEFAULT 'general',
+                            unit_scope TEXT NOT NULL DEFAULT 'provincial_hq',
+                            unit_name TEXT NOT NULL DEFAULT '',
+                            checklist_json TEXT NOT NULL DEFAULT '[]',
+                            requires_manager_approval INTEGER NOT NULL DEFAULT 1
                         );
                         CREATE INDEX idx_staff_tasks_assigned
                             ON staff_tasks(assigned_to_user_id, status);
                         CREATE INDEX idx_staff_tasks_status
                             ON staff_tasks(status);
+                        CREATE INDEX idx_staff_tasks_macro
+                            ON staff_tasks(macro_category);
 
                         CREATE TABLE content_index_settings (
                             setting_key TEXT PRIMARY KEY,
@@ -1355,10 +1365,38 @@ class SQLiteContentIndexStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     resolved_at TEXT,
-                    closed_at TEXT
+                    closed_at TEXT,
+                    macro_category TEXT NOT NULL DEFAULT 'workbook_approved',
+                    program_codes_json TEXT NOT NULL DEFAULT '[]',
+                    custom_topic TEXT NOT NULL DEFAULT '',
+                    task_kind TEXT NOT NULL DEFAULT 'general',
+                    unit_scope TEXT NOT NULL DEFAULT 'provincial_hq',
+                    unit_name TEXT NOT NULL DEFAULT '',
+                    checklist_json TEXT NOT NULL DEFAULT '[]',
+                    requires_manager_approval INTEGER NOT NULL DEFAULT 1
                 )
                 """
             )
+            task_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(staff_tasks)").fetchall()
+            }
+            if "macro_category" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN macro_category TEXT NOT NULL DEFAULT 'workbook_approved'")
+            if "program_codes_json" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN program_codes_json TEXT NOT NULL DEFAULT '[]'")
+            if "custom_topic" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN custom_topic TEXT NOT NULL DEFAULT ''")
+            if "task_kind" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN task_kind TEXT NOT NULL DEFAULT 'general'")
+            if "unit_scope" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN unit_scope TEXT NOT NULL DEFAULT 'provincial_hq'")
+            if "unit_name" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN unit_name TEXT NOT NULL DEFAULT ''")
+            if "checklist_json" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN checklist_json TEXT NOT NULL DEFAULT '[]'")
+            if "requires_manager_approval" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN requires_manager_approval INTEGER NOT NULL DEFAULT 1")
+
             connection.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_staff_tasks_assigned
@@ -1369,6 +1407,12 @@ class SQLiteContentIndexStore:
                 """
                 CREATE INDEX IF NOT EXISTS idx_staff_tasks_status
                     ON staff_tasks(status)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_staff_tasks_macro
+                    ON staff_tasks(macro_category)
                 """
             )
             connection.execute(
@@ -1674,6 +1718,14 @@ class SQLiteContentIndexStore:
         description: str = "",
         defect_type: str = "general",
         priority: str = "medium",
+        macro_category: str = "workbook_approved",
+        program_codes: list[str] | None = None,
+        custom_topic: str = "",
+        task_kind: str = "general",
+        unit_scope: str = "provincial_hq",
+        unit_name: str = "",
+        checklist: list[dict[str, Any]] | None = None,
+        requires_manager_approval: bool = True,
         peer_type: str = "",
         peer_id: int = 0,
         message_id: int = 0,
@@ -1687,6 +1739,22 @@ class SQLiteContentIndexStore:
         task_id = str(uuid.uuid4())
         now = _now()
         prio = priority.lower() if priority.lower() in {"low", "medium", "high", "urgent"} else "medium"
+        macro_cat = "other_cultural" if macro_category == "other_cultural" else "workbook_approved"
+        valid_kinds = {
+            "defect_resolution",
+            "event_registration",
+            "field_execution",
+            "media_production",
+            "inquiry_followup",
+            "general",
+        }
+        kind = task_kind.lower() if task_kind.lower() in valid_kinds else "general"
+        prog_codes = [str(c).strip() for c in (program_codes or []) if str(c).strip()]
+        prog_codes_json = json.dumps(prog_codes, ensure_ascii=False, separators=(",", ":"))
+        chk_items = list(checklist or [])
+        chk_json = json.dumps(chk_items, ensure_ascii=False, separators=(",", ":"))
+        req_approval = 1 if requires_manager_approval else 0
+
         try:
             with self._connect() as connection:
                 connection.execute(
@@ -1695,8 +1763,10 @@ class SQLiteContentIndexStore:
                         task_id, peer_type, peer_id, message_id, event_id, title, description,
                         defect_type, priority, status, assigned_to_user_id, assigned_to_name,
                         created_by_user_id, created_by_name, due_date, resolution_notes,
-                        created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, '', ?, ?)
+                        created_at, updated_at,
+                        macro_category, program_codes_json, custom_topic, task_kind,
+                        unit_scope, unit_name, checklist_json, requires_manager_approval
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         task_id,
@@ -1715,15 +1785,36 @@ class SQLiteContentIndexStore:
                         due_date,
                         now,
                         now,
+                        macro_cat,
+                        prog_codes_json,
+                        custom_topic.strip(),
+                        kind,
+                        unit_scope.strip() or "provincial_hq",
+                        unit_name.strip(),
+                        chk_json,
+                        req_approval,
                     ),
                 )
                 return {
                     "task_id": task_id,
                     "title": title.strip(),
+                    "description": description.strip(),
+                    "defect_type": defect_type.strip(),
                     "status": "open",
                     "priority": prio,
+                    "macro_category": macro_cat,
+                    "program_codes": prog_codes,
+                    "custom_topic": custom_topic.strip(),
+                    "task_kind": kind,
+                    "unit_scope": unit_scope.strip() or "provincial_hq",
+                    "unit_name": unit_name.strip(),
+                    "checklist": chk_items,
+                    "requires_manager_approval": bool(req_approval),
                     "assigned_to_user_id": assigned_to_user_id.strip(),
                     "assigned_to_name": assigned_to_name.strip(),
+                    "created_by_user_id": created_by_user_id.strip(),
+                    "created_by_name": created_by_name.strip(),
+                    "due_date": due_date,
                     "created_at": now,
                 }
         except sqlite3.Error as exc:
@@ -1737,6 +1828,8 @@ class SQLiteContentIndexStore:
         *,
         assigned_to_user_id: str | None = None,
         status: str | None = None,
+        macro_category: str | None = None,
+        task_kind: str | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         clauses: list[str] = []
@@ -1747,12 +1840,20 @@ class SQLiteContentIndexStore:
         if status:
             clauses.append("status = ?")
             params.append(status)
+        if macro_category:
+            clauses.append("macro_category = ?")
+            params.append(macro_category)
+        if task_kind:
+            clauses.append("task_kind = ?")
+            params.append(task_kind)
         where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         sql = f"""
             SELECT task_id, peer_type, peer_id, message_id, event_id, title, description,
                    defect_type, priority, status, assigned_to_user_id, assigned_to_name,
                    created_by_user_id, created_by_name, due_date, resolution_notes,
-                   created_at, updated_at, resolved_at, closed_at
+                   created_at, updated_at, resolved_at, closed_at,
+                   macro_category, program_codes_json, custom_topic, task_kind,
+                   unit_scope, unit_name, checklist_json, requires_manager_approval
             FROM staff_tasks
             {where_clause}
             ORDER BY (CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'resolved' THEN 3 ELSE 4 END) ASC, created_at DESC
@@ -1762,11 +1863,108 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 rows = connection.execute(sql, tuple(params)).fetchall()
-                return [dict(r) for r in rows]
+                results = []
+                for r in rows:
+                    item = dict(r)
+                    try:
+                        item["program_codes"] = json.loads(item.get("program_codes_json") or "[]")
+                    except (json.JSONDecodeError, TypeError):
+                        item["program_codes"] = []
+                    try:
+                        item["checklist"] = json.loads(item.get("checklist_json") or "[]")
+                    except (json.JSONDecodeError, TypeError):
+                        item["checklist"] = []
+                    item["requires_manager_approval"] = bool(item.get("requires_manager_approval", 1))
+                    results.append(item)
+                return results
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
                 "Staff tasks could not be retrieved.",
                 safe_context={"error_type": type(exc).__name__},
+            ) from exc
+
+    def reassign_task(
+        self,
+        *,
+        task_id: str,
+        new_assigned_to_user_id: str,
+        new_assigned_to_name: str,
+        reassigned_by_id: str = "",
+        reassigned_by_name: str = "",
+        reason: str = "",
+    ) -> dict[str, Any]:
+        now = _now()
+        try:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT assigned_to_name, resolution_notes, status FROM staff_tasks WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+                if not row:
+                    raise LocalContentIndexStoreError(
+                        "Task not found for reassignment.",
+                        safe_context={"task_id": task_id},
+                    )
+                prev_assigned = row["assigned_to_name"]
+                prev_notes = row["resolution_notes"] or ""
+                reassign_note = f"[ارجاع مجدد از {prev_assigned or 'نامشخص'} به {new_assigned_to_name} توسط {reassigned_by_name or 'مدیر'}. علت: {reason or 'عدم اقدام در مهلت مقرر'}]"
+                new_notes = f"{prev_notes}\n{reassign_note}".strip() if prev_notes else reassign_note
+
+                cursor = connection.execute(
+                    """
+                    UPDATE staff_tasks
+                    SET assigned_to_user_id = ?,
+                        assigned_to_name = ?,
+                        status = 'open',
+                        resolution_notes = ?,
+                        updated_at = ?
+                    WHERE task_id = ?
+                    """,
+                    (new_assigned_to_user_id.strip(), new_assigned_to_name.strip(), new_notes, now, task_id),
+                )
+                return {
+                    "task_id": task_id,
+                    "assigned_to_user_id": new_assigned_to_user_id.strip(),
+                    "assigned_to_name": new_assigned_to_name.strip(),
+                    "status": "open",
+                    "resolution_notes": new_notes,
+                    "updated_at": now,
+                }
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Task could not be reassigned.",
+                safe_context={"task_id": task_id, "error_type": type(exc).__name__},
+            ) from exc
+
+    def update_task_checklist(
+        self,
+        *,
+        task_id: str,
+        checklist: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        now = _now()
+        chk_json = json.dumps(checklist, ensure_ascii=False, separators=(",", ":"))
+        try:
+            with self._connect() as connection:
+                cursor = connection.execute(
+                    """
+                    UPDATE staff_tasks
+                    SET checklist_json = ?,
+                        updated_at = ?
+                    WHERE task_id = ?
+                    """,
+                    (chk_json, now, task_id),
+                )
+                if cursor.rowcount == 0:
+                    raise LocalContentIndexStoreError(
+                        "Task not found for checklist update.",
+                        safe_context={"task_id": task_id},
+                    )
+                return {"task_id": task_id, "checklist": checklist, "updated_at": now}
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Task checklist could not be updated.",
+                safe_context={"task_id": task_id, "error_type": type(exc).__name__},
             ) from exc
 
     def resolve_task(

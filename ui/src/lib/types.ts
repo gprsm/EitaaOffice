@@ -172,6 +172,12 @@ export interface StaffPerformanceItem {
   composite_score?: number
 }
 
+export interface StaffTaskChecklistItem {
+  id: string
+  text: string
+  done: boolean
+}
+
 export interface StaffTask {
   task_id: string
   title: string
@@ -192,6 +198,14 @@ export interface StaffTask {
   peer_type?: string
   peer_id?: number
   message_id?: number
+  macro_category?: 'workbook_approved' | 'other_cultural'
+  program_codes?: string[]
+  custom_topic?: string
+  task_kind?: 'defect_resolution' | 'event_registration' | 'field_execution' | 'media_production' | 'inquiry_followup' | 'general'
+  unit_scope?: string
+  unit_name?: string
+  checklist?: StaffTaskChecklistItem[]
+  requires_manager_approval?: boolean
 }
 
 export interface ContentIndexJob {

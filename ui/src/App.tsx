@@ -1028,9 +1028,13 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       const oldest = messages[0].id
       let older = await listMessages(selected, oldest)
       if (!older.length) {
-        await api('POST', '/api/v1/messages/sync', { site_key: siteKey, peer_file: selected.peer_file, pages: 1, page_size: viewportPageSize, offset_id: oldest, stop_when_unchanged: false })
-        rememberMessageSync(selected.peer_key)
-        older = await listMessages(selected, oldest)
+        try {
+          await api('POST', '/api/v1/messages/sync', { site_key: siteKey, peer_file: selected.peer_file, pages: 1, page_size: viewportPageSize, offset_id: oldest, stop_when_unchanged: false })
+          rememberMessageSync(selected.peer_key)
+          older = await listMessages(selected, oldest)
+        } catch (syncErr) {
+          console.warn('Network sync older skipped (offline):', syncErr)
+        }
       }
       if (activeMessagePeerRef.current !== selected.peer_key) return 0
       const currentIds = new Set(messages.map(message => message.id))
@@ -1066,15 +1070,19 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
 
         if (!response.messages.length) {
-          await api('POST', '/api/v1/messages/date-range/sync', {
-            site_key: siteKey,
-            peer_file: dialog.peer_file,
-            date_from: nextFrom,
-            date_to: dateRange.to,
-            pages: 20,
-            page_size: 100,
-          })
-          response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+          try {
+            await api('POST', '/api/v1/messages/date-range/sync', {
+              site_key: siteKey,
+              peer_file: dialog.peer_file,
+              date_from: nextFrom,
+              date_to: dateRange.to,
+              pages: 20,
+              page_size: 100,
+            })
+            response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+          } catch (syncErr) {
+            console.warn('Network sync newer skipped (offline):', syncErr)
+          }
         }
 
         if (response.messages.length) {
@@ -1154,25 +1162,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
       let source = 'حافظه محلی'
       if (!response.messages.length || forceSync) {
-          if (forceSync) toast.info("در حال همگام‌سازی عمیق با سرور ایتا... (لطفاً منتظر بمانید)");
-        await api('POST', '/api/v1/messages/date-range/sync', {
-          site_key: siteKey,
-          peer_file: dialog.peer_file,
-          date_from: start.toISOString(),
-          date_to: end.toISOString(),
-          pages: 100,
-          page_size: 100,
-        })
-        response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
-        source = 'سرور ایتا و حافظه محلی'
-      }
-      // In "day" mode an empty day must not strand the user.  Continue from
-      // that midnight and target the earliest stored message after it.
-      if (!response.messages.length && mode === 'day') {
-        end = now
-        request = { ...request, date_to: end.toISOString() }
-        response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
-        if (!response.messages.length) {
+        if (forceSync) toast.info("در حال همگام‌سازی عمیق با سرور ایتا... (لطفاً منتظر بمانید)");
+        try {
           await api('POST', '/api/v1/messages/date-range/sync', {
             site_key: siteKey,
             peer_file: dialog.peer_file,
@@ -1183,6 +1174,34 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           })
           response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
           source = 'سرور ایتا و حافظه محلی'
+        } catch (syncErr) {
+          console.warn('Date range remote sync failed (offline):', syncErr)
+          if (forceSync) {
+            toast.warning('همگام‌سازی با سرور ایتا ناموفق بود (حالت آفلاین یا عدم دسترسی به سرور).')
+          }
+        }
+      }
+      // In "day" mode an empty day must not strand the user.  Continue from
+      // that midnight and target the earliest stored message after it.
+      if (!response.messages.length && mode === 'day') {
+        end = now
+        request = { ...request, date_to: end.toISOString() }
+        response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+        if (!response.messages.length) {
+          try {
+            await api('POST', '/api/v1/messages/date-range/sync', {
+              site_key: siteKey,
+              peer_file: dialog.peer_file,
+              date_from: start.toISOString(),
+              date_to: end.toISOString(),
+              pages: 100,
+              page_size: 100,
+            })
+            response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+            source = 'سرور ایتا و حافظه محلی'
+          } catch (syncErr) {
+            console.warn('Date range day mode remote sync failed (offline):', syncErr)
+          }
         }
       }
       ingestMessageMedia(dialog.peer_key, response.messages)

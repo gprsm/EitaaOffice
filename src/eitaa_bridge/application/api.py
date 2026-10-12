@@ -1935,6 +1935,10 @@ class BridgeApplicationApi:
                 return self._staff_tasks_resolve(payload=payload, app_session=app_session)
             if selected_method == "POST" and path == "/api/v2/staff/tasks/close":
                 return self._staff_tasks_close(payload=payload, app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/staff/tasks/reassign":
+                return self._staff_tasks_reassign(payload=payload, app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/staff/tasks/checklist":
+                return self._staff_tasks_checklist(payload=payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/settings/indexing-strategy":
                 return self._indexing_strategy_get(app_session=app_session)
             if selected_method == "POST" and path == "/api/v2/settings/indexing-strategy":
@@ -5967,6 +5971,8 @@ class BridgeApplicationApi:
                 {"method": "POST", "path": "/api/v2/staff/tasks"},
                 {"method": "POST", "path": "/api/v2/staff/tasks/resolve"},
                 {"method": "POST", "path": "/api/v2/staff/tasks/close"},
+                {"method": "POST", "path": "/api/v2/staff/tasks/reassign"},
+                {"method": "POST", "path": "/api/v2/staff/tasks/checklist"},
                 {"method": "GET", "path": "/api/v2/settings/indexing-strategy"},
                 {"method": "POST", "path": "/api/v2/settings/indexing-strategy"},
                 {"method": "GET", "path": "/api/v2/phone-accounts"},
@@ -10243,6 +10249,8 @@ class BridgeApplicationApi:
         app_session: Any = None,
     ) -> ApiResponse:
         status = str((payload or {}).get("status") or query.get("status") or "").strip() or None
+        macro_category = str((payload or {}).get("macro_category") or query.get("macro_category") or "").strip() or None
+        task_kind = str((payload or {}).get("task_kind") or query.get("task_kind") or "").strip() or None
         assigned_to = str(
             (payload or {}).get("assigned_to_user_id")
             or (payload or {}).get("assigned_to")
@@ -10259,6 +10267,8 @@ class BridgeApplicationApi:
         tasks = self._content_index_store.list_tasks(
             status=status,
             assigned_to_user_id=assigned_to,
+            macro_category=macro_category,
+            task_kind=task_kind,
             limit=limit,
         )
         return ApiResponse(200, {"ok": True, "tasks": list(tasks)})
@@ -10283,6 +10293,33 @@ class BridgeApplicationApi:
         assigned_to_name = str(payload.get("assigned_to_name") or "").strip()
         due_date = str(payload.get("due_date") or "").strip() or None
 
+        macro_category = str(payload.get("macro_category") or "workbook_approved").strip()
+        raw_program_codes = payload.get("program_codes")
+        if isinstance(raw_program_codes, str):
+            try:
+                program_codes = json.loads(raw_program_codes)
+            except Exception:
+                program_codes = [c.strip() for c in raw_program_codes.split(",") if c.strip()]
+        elif isinstance(raw_program_codes, list):
+            program_codes = [str(c).strip() for c in raw_program_codes if str(c).strip()]
+        else:
+            program_codes = []
+        custom_topic = str(payload.get("custom_topic") or "").strip()
+        task_kind = str(payload.get("task_kind") or "general").strip()
+        unit_scope = str(payload.get("unit_scope") or "provincial_hq").strip()
+        unit_name = str(payload.get("unit_name") or "").strip()
+        raw_checklist = payload.get("checklist")
+        if isinstance(raw_checklist, str):
+            try:
+                checklist = json.loads(raw_checklist)
+            except Exception:
+                checklist = []
+        elif isinstance(raw_checklist, list):
+            checklist = raw_checklist
+        else:
+            checklist = []
+        requires_manager_approval = bool(payload.get("requires_manager_approval", True))
+
         created_by_user_id = ""
         created_by_name = ""
         if app_session is not None and getattr(app_session, "principal", None):
@@ -10302,6 +10339,14 @@ class BridgeApplicationApi:
             description=description,
             defect_type=defect_type,
             priority=priority,
+            macro_category=macro_category,
+            program_codes=program_codes,
+            custom_topic=custom_topic,
+            task_kind=task_kind,
+            unit_scope=unit_scope,
+            unit_name=unit_name,
+            checklist=checklist,
+            requires_manager_approval=requires_manager_approval,
             peer_type=peer_type,
             peer_id=peer_id,
             message_id=message_id,
@@ -10375,6 +10420,76 @@ class BridgeApplicationApi:
             manager_id=manager_id,
             manager_name=manager_name,
             reopen=reopen,
+        )
+        return ApiResponse(200, {"ok": True, **res})
+
+    def _staff_tasks_reassign(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        task_id = str(payload.get("task_id") or "").strip()
+        if not task_id:
+            raise CompositionValidationError("Invalid task_id.", code="api_invalid_task_id")
+        new_assigned_to_user_id = str(
+            payload.get("assigned_to_user_id") or payload.get("new_user_id") or ""
+        ).strip()
+        new_assigned_to_name = str(
+            payload.get("assigned_to_name") or payload.get("new_user_name") or ""
+        ).strip()
+        if not new_assigned_to_name:
+            raise CompositionValidationError("new assignee name is required.", code="api_invalid_assignee")
+        reason = str(payload.get("reason") or "").strip()
+
+        reassigned_by_id = ""
+        reassigned_by_name = ""
+        if app_session is not None and getattr(app_session, "principal", None):
+            principal = app_session.principal
+            reassigned_by_id = getattr(principal, "app_user_id", "") or ""
+            reassigned_by_name = getattr(principal, "display_name", "") or getattr(principal, "username", "")
+        if not reassigned_by_id:
+            reassigned_by_id = str(payload.get("reassigned_by_id") or payload.get("manager_id") or "").strip()
+        if not reassigned_by_name:
+            reassigned_by_name = str(
+                payload.get("reassigned_by_name") or payload.get("manager_name") or "مدیر سیستم"
+            ).strip()
+
+        self._content_index_store.initialize()
+        res = self._content_index_store.reassign_task(
+            task_id=task_id,
+            new_assigned_to_user_id=new_assigned_to_user_id,
+            new_assigned_to_name=new_assigned_to_name,
+            reassigned_by_id=reassigned_by_id,
+            reassigned_by_name=reassigned_by_name,
+            reason=reason,
+        )
+        return ApiResponse(200, {"ok": True, **res})
+
+    def _staff_tasks_checklist(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        task_id = str(payload.get("task_id") or "").strip()
+        if not task_id:
+            raise CompositionValidationError("Invalid task_id.", code="api_invalid_task_id")
+        raw_checklist = payload.get("checklist")
+        if isinstance(raw_checklist, str):
+            try:
+                checklist = json.loads(raw_checklist)
+            except Exception:
+                checklist = []
+        elif isinstance(raw_checklist, list):
+            checklist = raw_checklist
+        else:
+            checklist = []
+
+        self._content_index_store.initialize()
+        res = self._content_index_store.update_task_checklist(
+            task_id=task_id,
+            checklist=checklist,
         )
         return ApiResponse(200, {"ok": True, **res})
 
