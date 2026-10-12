@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 449
-- اثرانگشت منبع: `860bdffd13d36995`
+- اثرانگشت منبع: `ae458b82db6e4771`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -148,7 +148,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 25 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 26 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -364,7 +364,7 @@
 | `tests/test_reporting_shell.py` | Python test | 36 | Tests for the section-shell phase 1 (F-088): metrics, registry, plans, |
 | `tests/test_reporting_store.py` | Python test | 29 | Unit and integration tests for the ReportingStore and service persistence. |
 | `tests/test_reporting_suggester.py` | Python test | 4 | — |
-| `tests/test_reporting_workflow_lifecycle.py` | Python test | 19 | Comprehensive adversarial test suite for reporting workflow lifecycle, |
+| `tests/test_reporting_workflow_lifecycle.py` | Python test | 23 | Comprehensive adversarial test suite for reporting workflow lifecycle, |
 | `tests/test_runtime_backup.py` | Python test | 6 | — |
 | `tests/test_runtime_dependencies.py` | Python test | 1 | Find runtime imports that a developer environment can accidentally hide. |
 | `tests/test_runtime_ownership.py` | Python test | 35 | — |

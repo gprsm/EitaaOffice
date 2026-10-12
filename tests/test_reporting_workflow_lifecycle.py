@@ -667,10 +667,29 @@ class TestReportingWorkflowApiAndScorecard:
                 "unit_name": "دادگستری کل",
                 "registered_by_id": "staff-kian",
                 "registered_by_name": "کیان پیروز",
+                "facts": [
+                    {
+                        "metric": "attendees",
+                        "value": 150.0,
+                        "value_kind": "verified",
+                    }
+                ],
             },
         )
         assert create_resp.status == 201
         evt_id = create_resp.payload["event_id"]
+
+        # Link a primary witness so the event has full documentary backing
+        wit_resp = reporting_api.dispatch(
+            "POST",
+            f"/api/v3/reporting/events/{evt_id}/witnesses",
+            body={
+                "peer_id": "12345",
+                "message_id": "100",
+                "role": "primary",
+            },
+        )
+        assert wit_resp.status == 201
 
         # Transition draft -> needs_review
         sub_resp = reporting_api.dispatch(
@@ -710,3 +729,178 @@ class TestReportingWorkflowApiAndScorecard:
         assert kian_entry["composite_score"] > 0.0
         # Accuracy score for indexing is 100%, reporting approval is 100%, FTR is 100%
         assert kian_entry["composite_score"] >= 85.0
+
+    def test_adversarial_create_event_with_facts_clears_defects(self, reporting_api: BridgeApplicationApi) -> None:
+        """Adversarial test: creating a collective event with facts must persist facts and clear missing_attendees defect."""
+        create_resp = reporting_api.dispatch(
+            "POST",
+            "/api/v3/reporting/events",
+            body={
+                "program_kinds": ["ceremony"],
+                "occurred_on": date.today().isoformat(),
+                "unit": "provincial_hq",
+                "unit_name": "ستاد مرکزی",
+                "registered_by_id": "staff-sara",
+                "registered_by_name": "سارا رضایی",
+                "facts": [
+                    {"metric": "attendees", "value": 85.0, "value_kind": "verified", "unit_of_measure": "count"}
+                ],
+            },
+        )
+        assert create_resp.status == 201
+        evt_id = create_resp.payload["event_id"]
+
+        # Verify fact was persisted in store
+        ev = reporting_api._reporting_store.get_event(evt_id)
+        assert ev is not None
+        assert len(ev.facts) == 1
+        assert ev.facts[0].metric == "attendees"
+        assert ev.facts[0].value == 85.0
+
+        # Verify defects scanner recognizes the attendees fact
+        defects_resp = reporting_api.dispatch("GET", f"/api/v3/reporting/events/{evt_id}/defects")
+        assert defects_resp.status == 200
+        defect_codes = [d["defect_code"] for d in defects_resp.payload["defects"]]
+        assert "missing_attendees" not in defect_codes
+
+    def test_adversarial_approval_gate_blocks_on_defects(self, reporting_api: BridgeApplicationApi) -> None:
+        """Adversarial test: approver cannot approve an event with blockers without explicit force_approve."""
+        # Create flawed event (ceremony with 0 attendees and no evidence)
+        create_resp = reporting_api.dispatch(
+            "POST",
+            "/api/v3/reporting/events",
+            body={
+                "program_kinds": ["ceremony"],
+                "occurred_on": date.today().isoformat(),
+                "unit": "provincial_hq",
+                "unit_name": "ستاد",
+                "registered_by_id": "staff-ali",
+            },
+        )
+        evt_id = create_resp.payload["event_id"]
+
+        # Transition to needs_review
+        reporting_api.dispatch("POST", f"/api/v3/reporting/events/{evt_id}/submit-review")
+
+        # Standard approve should be blocked with 422
+        blocked_resp = reporting_api.dispatch(
+            "POST",
+            f"/api/v3/reporting/events/{evt_id}/approve",
+            body={"reason": "تلاش برای تأیید کورکورانه"},
+        )
+        assert blocked_resp.status == 422
+        assert blocked_resp.payload["ok"] is False
+        assert blocked_resp.payload["error"]["error_code"] == "approval_blocked_by_defects"
+        blockers = blocked_resp.payload["error"]["safe_context"]["blockers"]
+        assert len(blockers) >= 1
+        assert any(b["defect_code"] in {"missing_attendees", "missing_evidence"} for b in blockers)
+
+        # Event remains in needs_review
+        ev = reporting_api._reporting_store.get_event(evt_id)
+        assert ev.review_status == "needs_review"
+
+        # Force approve with explicit manager reason succeeds
+        force_resp = reporting_api.dispatch(
+            "POST",
+            f"/api/v3/reporting/events/{evt_id}/approve",
+            body={
+                "force_approve": True,
+                "reason": "تأیید استثنایی با دستور معاونت فرهنگی با وجود نقص مدارک",
+                "actor_id": "mgr-chief",
+                "actor_name": "معاونت فرهنگی",
+            },
+        )
+        assert force_resp.status == 200
+        ev_after = reporting_api._reporting_store.get_event(evt_id)
+        assert ev_after.review_status == "approved"
+
+    def test_adversarial_staff_performance_includes_task_only_staff(self, reporting_api: BridgeApplicationApi) -> None:
+        """Adversarial test: staff member who only works on tasks appears in performance scorecard with correct metrics."""
+        cis = reporting_api._content_index_store
+        cis.initialize()
+
+        # Create task assigned to task-only operator
+        task = cis.create_task(
+            title="اصلاح مستندات پرونده رویداد ۸۰۴۰۳",
+            defect_type="missing_evidence",
+            assigned_to_user_id="operator-taskonly",
+            created_by_user_id="mgr-1",
+        )
+        task_id = task["task_id"]
+
+        # Check performance before resolving
+        perf_resp1 = reporting_api.dispatch("GET", "/api/v2/staff/performance")
+        assert perf_resp1.status == 200
+        staff_list1 = perf_resp1.payload["staff"]
+        taskonly_entry = next((s for s in staff_list1 if s["operator_id"] == "operator-taskonly"), None)
+        assert taskonly_entry is not None
+        assert taskonly_entry["assigned_tasks"] == 1
+        assert taskonly_entry["resolved_tasks"] == 0
+        assert taskonly_entry["task_resolution_rate"] == 0.0
+
+        # Resolve the task
+        cis.resolve_task(
+            task_id=task_id,
+            resolution_notes="مستندات پیام بارگذاری و پیوند شد",
+            user_id="operator-taskonly",
+        )
+
+        # Check performance after resolving
+        perf_resp2 = reporting_api.dispatch("GET", "/api/v2/staff/performance")
+        staff_list2 = perf_resp2.payload["staff"]
+        taskonly_entry2 = next((s for s in staff_list2 if s["operator_id"] == "operator-taskonly"), None)
+        assert taskonly_entry2 is not None
+        assert taskonly_entry2["assigned_tasks"] == 1
+        assert taskonly_entry2["resolved_tasks"] == 1
+        assert taskonly_entry2["task_resolution_rate"] == 100.0
+        assert taskonly_entry2["composite_score"] > 0.0
+
+    def test_adversarial_list_events_filtering(self, reporting_api: BridgeApplicationApi) -> None:
+        """Adversarial test: list_events properly filters by review_status and registered_by_id."""
+        store = reporting_api._reporting_store
+
+        # Create 2 events with different authors and statuses
+        ev1 = ReportedEvent(
+            event_id="evt-filter-1",
+            program_kinds=(ProgramKind.HONOR,),
+            occurred_on=date.today(),
+            unit=UnitScope.PROVINCIAL_HQ,
+            unit_name="واحد ۱",
+            registered_by_id="staff-user-alpha",
+            review_status="draft",
+        )
+        ev2 = ReportedEvent(
+            event_id="evt-filter-2",
+            program_kinds=(ProgramKind.PRAYER,),
+            occurred_on=date.today(),
+            unit=UnitScope.PROVINCIAL_HQ,
+            unit_name="واحد ۲",
+            registered_by_id="staff-user-beta",
+            review_status="needs_review",
+        )
+        store.save_event(ev1)
+        store.save_event(ev2)
+
+        # Filter by review_status
+        drafts = store.list_events(review_status="draft")
+        assert any(e.event_id == "evt-filter-1" for e in drafts)
+        assert not any(e.event_id == "evt-filter-2" for e in drafts)
+
+        needs_rev = store.list_events(review_status="needs_review")
+        assert any(e.event_id == "evt-filter-2" for e in needs_rev)
+        assert not any(e.event_id == "evt-filter-1" for e in needs_rev)
+
+        # Filter by registered_by_id
+        alpha_events = store.list_events(registered_by_id="staff-user-alpha")
+        assert any(e.event_id == "evt-filter-1" for e in alpha_events)
+        assert not any(e.event_id == "evt-filter-2" for e in alpha_events)
+
+        # Via GET /api/v3/reporting/events API endpoint with query string in URL
+        api_filter_resp = reporting_api.dispatch(
+            "GET",
+            "/api/v3/reporting/events?review_status=needs_review&registered_by_id=staff-user-beta",
+        )
+        assert api_filter_resp.status == 200
+        events_json = api_filter_resp.payload["events"]
+        assert any(e["event_id"] == "evt-filter-2" for e in events_json)
+        assert not any(e["event_id"] == "evt-filter-1" for e in events_json)

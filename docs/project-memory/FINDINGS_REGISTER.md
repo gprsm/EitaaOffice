@@ -1752,6 +1752,26 @@
 - شاهد: V-281 و سوئیت آزمون جامع `tests/test_reporting_workflow_lifecycle.py`.
 - Trigger ابطال: تغییر در مدل کسب‌وکار گزارش‌گیری عملکرد یا دستورالعمل‌های ارزیابی منابع انسانی قوه قضائیه.
 
+### F-118 — ممیزی موشکافانه و غیرسازشکارانه چرخه گزارش‌گیری: رفع ریزش فکت‌ها و انتساب کاربر در پنل ثبت، گیت بازدارنده تأیید برای عیوب انسدادی، شمول کارمندان وظیفه‌محور در کارنامه، و فیلترهای استعلام رویدادها
+
+- وضعیت: `IMPLEMENTED / ADVERSARIALLY_TESTED / QUALITY_GATES_PASSED`
+- تاریخ: 2026-10-12
+- شدت: بحرانی (حفظ یکپارچگی داده‌های آماری، جلوگیری از تأیید کورکورانهٔ نواقص انسدادی، دقت انتساب و کارنامهٔ کارکنان)
+- دامنه: `src/eitaa_bridge/application/reporting_api_v3.py`, `src/eitaa_bridge/reporting/store.py`, `src/eitaa_bridge/reporting/service.py`, `src/eitaa_bridge/infrastructure/content_index_store.py`, `src/eitaa_bridge/application/api.py`, `ui/src/ReportingRegistrationPanel.tsx`, `tests/test_reporting_workflow_lifecycle.py`
+- یافته‌ها و ریشه‌یابی:
+  1. *ریزش فکت‌ها و انتساب در پنل ثبت رویداد*: در `ReportingRegistrationPanel.tsx` و تابع `_build_event_payload` در بک‌اند، فکت‌های کمّی واردشده توسط کاربر (نظیر آمار مخاطبان و سنجه‌های اختصاصی) در پی‌لود ساخت رویداد ارسال و پردازش نمی‌شدند که منجر به تشخیص کاذب نقص انسدادی `missing_attendees` توسط اسکنر کیفی می‌گردید. همچنین شناسه کاربر جاری از هوک `useAppUser()` خوانده نمی‌شد و رویداد پس از اتمام فرم در وضعیت `draft` رها شده و خودکار به کارتابل بازبینی مدیر ارسال نمی‌شد.
+  2. *نبود گیت بازدارنده در تأیید رویداد (Blind Approval)*: در `reporting_api_v3.py:transition_event` ناظر سیستم می‌توانست رویدادی را با وجود نقایص انسدادی (`blocker`) به صورت کورکورانه تأیید کند.
+  3. *حذف کارمندان وظیفه‌محور از کارنامهٔ عملکرد ۳۶۰ درجه*: در `content_index_store.py:get_staff_performance` کوئری صرفاً از جدول `index_actions` استخراج می‌شد؛ بنابراین کارشناسانی که فقط روی تسک‌های رفع عیوب و نقص گزارش‌ها (`staff_tasks`) فعالیت داشتند به کلی از کارنامه حذف می‌شدند یا آمار تسک‌های آنان منعکس نمی‌شد.
+  4. *نبود فیلترهای مستقیم `review_status` و `registered_by_id`*: در متدهای استعلام رویدادها (`store.list_events`، `service.get_stored_events` و APIها) امکان فیلتر مستقیم رویدادها بر اساس وضعیت بازبینی و ثبت‌کننده وجود نداشت.
+- تصمیم و اقدام اصلاحی:
+  1. در `_build_event_payload` بک‌اند، پردازش و اعتبارسنجی کامل لیست `facts` (شامل سنجه، مقدار عددی، نوع فکت و واحد اندازه‌گیری) به همراه مشخصات تکمیلی دامین (`occasion_class`, `official_present`, `duration_minutes`, `campaign`) پیاده‌سازی شد.
+  2. در `ReportingRegistrationPanel.tsx`، فراخوانی هوک `useAppUser` برای انتساب به کاربر واقعی لاگین‌شده، تبدیل و ارسال آرایه فکت‌ها در `draft.facts`، و ارسال خودکار رویداد به `/submit-review` پس از پیوند شاهدان پیاده‌سازی شد.
+  3. در `transition_event` بک‌اند، گیت انسدادی پیش از تأیید تعبیه شد که در صورت وجود نقص با سطح شدت `blocker` درخواست تأیید را با خطای ۴۲۲ (`approval_blocked_by_defects`) رد می‌کند مگر آنکه تأیید اضطراری با `force_approve=True` و دلیل معتبر ناظر صادر شده باشد.
+  4. در `content_index_store.py:get_staff_performance`، کارشناسانی که در `staff_tasks` ثبت شده‌اند حتی بدون هیچ رکورد ایندکس پیام، در کارنامه گنجانده شده و نرخ حل تسک و امتیاز ترکیبی آنان محاسبه می‌شود.
+  5. در `store.py`، `service.py`، `api.py` و `reporting_api_v3.py`، پارامترهای فیلتر `review_status` و `registered_by_id` اضافه شده و مسیر `GET /api/v3/reporting/events` مستقیماً در دیسپچر پشتیبانی شد.
+- شاهد: V-282 و ۱۸ آزمون غیرسازشکارانه در `tests/test_reporting_workflow_lifecycle.py`.
+- Trigger ابطال: تغییر در معماری فکت‌های گزارش‌گیری یا قواعد چرخه پذیرش عملکرد.
+
 ## رکوردهای تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) در تاریخ 2026-10-08 ادغام شده‌اند. از آنجا که شناسه‌های اولیهٔ آن‌ها (F-090 تا F-111) با یافته‌های بومی سامانهٔ گزارش و کارتابل دفتر محلی هم‌پوشانی داشتند، طبق اصل تقدم محلی (Local-First Precedence) و قواعد AGENTS.md، شناسه‌های محلی تثبیت‌شده باقی ماندند و یافته‌های دسکتاپ با پیشوند LEGACY-DESKTOP- برای ثبت تاریخچه و زنجیرهٔ شواهد حفظ گردیدند.

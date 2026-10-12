@@ -461,10 +461,20 @@ class ReportingService:
             return self.store.list_filled_forms()
         return {}
 
-    def get_stored_events(self, *, limit: int = 100) -> list[ReportedEvent]:
+    def get_stored_events(
+        self,
+        *,
+        limit: int = 100,
+        review_status: str | None = None,
+        registered_by_id: str | None = None,
+    ) -> list[ReportedEvent]:
         """Load confirmed events from persistent storage."""
         if self.store is not None:
-            return self.store.list_events(limit=limit)
+            return self.store.list_events(
+                limit=limit,
+                review_status=review_status,
+                registered_by_id=registered_by_id,
+            )
         return []
 
     def export_with_audit(

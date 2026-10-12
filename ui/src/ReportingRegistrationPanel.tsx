@@ -23,6 +23,7 @@ import AddRounded from '@mui/icons-material/AddRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import { api } from './lib/api'
 import { parseJalaliDate } from './utils/helpers'
+import { useAppUser } from './AppUserGate'
 
 const PROGRAM_KINDS = [
   { value: 'trip', label: 'بازدید و سفر' },
@@ -93,6 +94,10 @@ export function ReportingRegistrationPanel(props: {
   messageIds: number[]
   onClose: () => void
 }) {
+  const { principal } = useAppUser()
+  const activeUserId = principal?.app_user_id || 'local_staff'
+  const activeUserName = principal?.display_name || 'کارشناس ثبت'
+
   const storageKey = useMemo(
     () => `reporting-registration-${props.dialogPeerKey}-${props.messageIds.join('-')}`,
     [props.dialogPeerKey, props.messageIds],
@@ -152,12 +157,24 @@ export function ReportingRegistrationPanel(props: {
     setErrorText('')
     try {
       const iso = `${jalaliDate.getFullYear()}-${String(jalaliDate.getMonth() + 1).padStart(2, '0')}-${String(jalaliDate.getDate()).padStart(2, '0')}`
+      const factsPayload = draft.facts
+        .filter(f => f.metric.trim() && !isNaN(Number(f.value)) && Number(f.value) >= 0)
+        .map(f => ({
+          metric: f.metric.trim(),
+          value: Number(f.value),
+          value_kind: 'verified',
+          unit_of_measure: f.unit_of_measure || 'count',
+        }))
+
       const created = await api<{ ok?: boolean; event_id: string; etag: string }>('POST', '/api/v3/reporting/events', {
         program_kinds: draft.programKinds.length ? draft.programKinds : ['ceremony'],
         occurred_on: iso,
         unit: draft.unit,
         unit_name: draft.unit_name,
         notes: [draft.topic, draft.notes].filter(Boolean).join('\n'),
+        registered_by_id: activeUserId,
+        registered_by_name: activeUserName,
+        facts: factsPayload,
       })
       const witnessResults: SubmitResult[] = []
       for (const witness of draft.witnesses) {
@@ -181,6 +198,19 @@ export function ReportingRegistrationPanel(props: {
           })
         }
       }
+
+      // Automatically transition the newly registered event to needs_review
+      try {
+        await api('POST', `/api/v3/reporting/events/${created.event_id}/submit-review`, {
+          actor_id: activeUserId,
+          actor_name: activeUserName,
+          actor_role: principal?.global_role || 'staff',
+          reason: 'ارسال خودکار پس از ثبت نهایی فرم ثبت رویداد',
+        })
+      } catch (submitErr) {
+        console.warn('Auto submit-review warning:', submitErr)
+      }
+
       setResults({ eventId: created.event_id, etag: created.etag, witnesses: witnessResults })
       window.localStorage.removeItem(storageKey)
       dirtyRef.current = false
@@ -293,7 +323,7 @@ export function ReportingRegistrationPanel(props: {
       </Stack>}
 
       {results && <Stack spacing={1.5} sx={{ maxWidth: 640, mx: 'auto' }}>
-        <Alert severity="success">پیش‌نویس رویداد {results.eventId} ساخته شد.</Alert>
+        <Alert severity="success">رویداد {results.eventId} با موفقیت ثبت شد و جهت بازبینی به کارتابل سرپرست ارسال گردید.</Alert>
         {results.witnesses.map(result => <Stack key={result.message_id} direction="row" spacing={1} alignItems="center">
           <Chip size="small" color={result.ok ? 'success' : 'error'} label={result.ok ? `پیوند شد · پیام ${result.message_id}` : `تعارض · پیام ${result.message_id}`} />
           {!result.ok && result.existing_event_id && <Typography variant="caption" color="text.secondary">این پیام پیشتر در پروندهٔ {result.existing_event_id} ثبت شده است.</Typography>}

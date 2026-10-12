@@ -10,7 +10,15 @@ import uuid
 from datetime import date
 from typing import Any, Mapping
 
-from eitaa_bridge.reporting.model import ProgramKind, ReportedEvent, UnitScope
+from eitaa_bridge.reporting.model import (
+    Fact,
+    FactValueKind,
+    OccasionClass,
+    ProgramKind,
+    ReportedEvent,
+    UnitScope,
+    ValueSource,
+)
 from eitaa_bridge.reporting.store import (
     EtagConflictError,
     EventNotFoundError,
@@ -87,6 +95,59 @@ def _build_event_payload(payload: Mapping[str, Any]):
     reg_id = str(payload.get("registered_by_id", "") or "").strip()
     reg_name = str(payload.get("registered_by_name", "") or "").strip()
     status_str = str(payload.get("review_status", "") or "draft").strip()
+
+    facts_list: list[Fact] = []
+    raw_facts = payload.get("facts")
+    if isinstance(raw_facts, (list, tuple)):
+        for f in raw_facts:
+            if isinstance(f, Mapping):
+                metric = str(f.get("metric", "")).strip()
+                if not metric:
+                    continue
+                try:
+                    val = float(f.get("value", 0.0))
+                except (ValueError, TypeError):
+                    return _error(400, f"invalid numeric value for fact {metric}")
+                vk_str = str(f.get("value_kind", "verified")).strip()
+                vk = FactValueKind(vk_str) if vk_str in {v.value for v in FactValueKind} else FactValueKind.VERIFIED
+                uom = str(f.get("unit_of_measure", "count")).strip() or "count"
+                source_str = str(f.get("source", "manual")).strip()
+                src = ValueSource(source_str) if source_str in {s.value for s in ValueSource} else ValueSource.MANUAL
+                fact_obj = Fact(
+                    metric=metric,
+                    value=val,
+                    value_kind=vk,
+                    unit_of_measure=uom,
+                    scope=str(f.get("scope", "province")),
+                    evidence_refs=tuple(str(r) for r in f.get("evidence_refs", ())),
+                    source=src,
+                    created_by=reg_id or reg_name or "",
+                    note=str(f.get("note", "")),
+                )
+                try:
+                    fact_obj.validate()
+                except ValueError as exc:
+                    return _error(400, f"fact validation error: {exc}")
+                facts_list.append(fact_obj)
+
+    occ_class_raw = payload.get("occasion_class")
+    occ_class = (
+        OccasionClass(str(occ_class_raw))
+        if occ_class_raw and str(occ_class_raw) in {o.value for o in OccasionClass}
+        else None
+    )
+
+    official_raw = payload.get("official_present")
+    official_present = bool(official_raw) if official_raw is not None else None
+
+    duration_raw = payload.get("duration_minutes")
+    duration_val = None
+    if duration_raw is not None:
+        try:
+            duration_val = int(duration_raw)
+        except (ValueError, TypeError):
+            duration_val = None
+
     event = ReportedEvent(
         event_id=str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}"),
         program_kinds=kinds,
@@ -94,6 +155,16 @@ def _build_event_payload(payload: Mapping[str, Any]):
         unit=UnitScope(unit_str),
         unit_name=str(payload.get("unit_name", "")),
         occasion=str(payload.get("occasion", "")),
+        occasion_class=occ_class,
+        facts=facts_list,
+        official_present=official_present,
+        is_standalone_titled=bool(payload.get("is_standalone_titled", True)),
+        duration_minutes=duration_val,
+        prior_announcement=bool(payload.get("prior_announcement", False)),
+        had_reception=bool(payload.get("had_reception", False)),
+        is_ashura_pilgrimage=bool(payload.get("is_ashura_pilgrimage", False)),
+        contains_inner_contest=bool(payload.get("contains_inner_contest", False)),
+        campaign=str(payload.get("campaign", "")),
         notes=str(payload.get("notes", "")),
         created_by=reg_id or reg_name or "",
         review_status=status_str,
@@ -171,6 +242,32 @@ def transition_event(store: ReportingStore, actor: str, event_id: str, action: s
     denied = _forbidden(roles, needed)
     if denied:
         return denied
+
+    if action == "approve":
+        force_approve = bool(payload.get("force_approve", False))
+        if not force_approve:
+            from eitaa_bridge.reporting.defect_scanner import scan_event_defects
+            ev = store.get_event(event_id)
+            if ev is not None:
+                with store._connect() as conn:
+                    witness_cnt = conn.execute(
+                        "SELECT COUNT(*) FROM reporting_event_witness_links WHERE event_id = ? AND detached_at IS NULL",
+                        (event_id,),
+                    ).fetchone()[0]
+                    doc_cnt = conn.execute(
+                        "SELECT COUNT(*) FROM event_documents WHERE event_id = ?",
+                        (event_id,),
+                    ).fetchone()[0]
+                defects = scan_event_defects(ev, witnesses_count=witness_cnt, documents_count=doc_cnt)
+                blockers = [d for d in defects if d.severity == "blocker"]
+                if blockers:
+                    return _error(
+                        422,
+                        f"approval blocked by {len(blockers)} blocker defect(s)",
+                        error_code="approval_blocked_by_defects",
+                        blockers=[d.to_dict() for d in blockers],
+                    )
+
     try:
         defects_val = payload.get("defects")
         defects_json_str = json.dumps(defects_val, ensure_ascii=False) if isinstance(defects_val, list) else None
@@ -439,6 +536,37 @@ def list_aliases(store: ReportingStore, query: Mapping[str, Any] | None):
     return _ok({"aliases": items})
 
 
+def list_events_v3(store: ReportingStore, query: Mapping[str, Any] | None):
+    q = query or {}
+    try:
+        limit = int(q.get("limit", 100))
+    except (ValueError, TypeError):
+        limit = 100
+    review_status = str(q.get("review_status", "")).strip() or None
+    registered_by_id = str(q.get("registered_by_id", "")).strip() or None
+    events = store.list_events(limit=limit, review_status=review_status, registered_by_id=registered_by_id)
+    return _ok({
+        "events": [
+            {
+                "event_id": ev.event_id,
+                "program_kinds": [k.value for k in ev.program_kinds],
+                "occurred_on": ev.occurred_on.isoformat(),
+                "unit": ev.unit.value,
+                "unit_name": ev.unit_name,
+                "occasion": ev.occasion,
+                "review_status": ev.review_status,
+                "registered_by_id": ev.registered_by_id,
+                "registered_by_name": ev.registered_by_name,
+                "reviewed_by_id": ev.reviewed_by_id,
+                "reviewed_by_name": ev.reviewed_by_name,
+                "defects_json": ev.defects_json,
+                "facts_count": len(ev.facts),
+            }
+            for ev in events
+        ]
+    })
+
+
 def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
              payload: Mapping[str, Any] | None = None,
              query: Mapping[str, Any] | None = None,
@@ -515,6 +643,8 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if _ROLES_ROUTE.match(path):
             return set_roles(store, actor, roles, payload)
     if method == "GET":
+        if _EVENTS_ROUTE.match(path):
+            return list_events_v3(store, query)
         defects_get = _EVENT_DEFECTS_ROUTE.match(path)
         if defects_get:
             return get_event_defects(store, defects_get.group("event_id"))

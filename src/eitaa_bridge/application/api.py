@@ -4764,7 +4764,13 @@ class BridgeApplicationApi:
 
     def _reporting_list_events(self, query: Mapping[str, str]) -> ApiResponse:
         limit = int(query.get("limit", 100))
-        events = self._reporting_service.get_stored_events(limit=limit)
+        review_status = query.get("review_status") or None
+        registered_by_id = query.get("registered_by_id") or None
+        events = self._reporting_service.get_stored_events(
+            limit=limit,
+            review_status=review_status,
+            registered_by_id=registered_by_id,
+        )
         serialized = []
         for ev in events:
             defects_parsed = []

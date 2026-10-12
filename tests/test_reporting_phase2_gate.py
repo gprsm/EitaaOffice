@@ -180,7 +180,7 @@ def test_conflict_resolution_requires_approver_role(tmp_path: Path) -> None:
         editor_roles,
         "POST",
         f"/api/v3/reporting/events/{event.event_id}/approve",
-        {},
+        {"force_approve": True, "reason": "تلاش ویرایشگر"},
     )
     assert status_ed == 403
     assert body_ed["ok"] is False
@@ -192,7 +192,7 @@ def test_conflict_resolution_requires_approver_role(tmp_path: Path) -> None:
         approver_roles,
         "POST",
         f"/api/v3/reporting/events/{event.event_id}/approve",
-        {},
+        {"force_approve": True, "reason": "تأیید سرپرست"},
     )
     assert status_app == 200
     assert body_app["ok"] is True

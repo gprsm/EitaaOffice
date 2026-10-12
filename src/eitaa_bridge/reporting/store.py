@@ -2168,12 +2168,26 @@ class ReportingStore:
                     ),
                 )
 
-    def list_events(self, *, limit: int = 100) -> list[ReportedEvent]:
+    def list_events(
+        self,
+        *,
+        limit: int = 100,
+        review_status: str | None = None,
+        registered_by_id: str | None = None,
+    ) -> list[ReportedEvent]:
         with self._connect() as conn:
-            event_rows = conn.execute(
-                "SELECT * FROM reported_events ORDER BY occurred_on DESC, created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            clauses: list[str] = []
+            params: list[Any] = []
+            if review_status:
+                clauses.append("review_status = ?")
+                params.append(review_status)
+            if registered_by_id:
+                clauses.append("(registered_by_id = ? OR created_by = ?)")
+                params.extend([registered_by_id, registered_by_id])
+            where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+            sql = f"SELECT * FROM reported_events {where} ORDER BY occurred_on DESC, created_at DESC LIMIT ?"
+            params.append(limit)
+            event_rows = conn.execute(sql, tuple(params)).fetchall()
 
             results: list[ReportedEvent] = []
             for row in event_rows:

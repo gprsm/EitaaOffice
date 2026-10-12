@@ -1603,8 +1603,10 @@ class SQLiteContentIndexStore:
                     }
 
                 summaries: list[dict[str, Any]] = []
+                seen_ops: set[str] = set()
                 for r in rows:
                     op_id = str(r["operator_id"])
+                    seen_ops.add(op_id)
                     op_role = str(r["operator_role"] or "user")
                     total_acts = int(r["total_actions"] or 0)
                     accept_cnt = int(r["accept_count"] or 0)
@@ -1638,6 +1640,26 @@ class SQLiteContentIndexStore:
                             (ts["resolved_tasks"] / ts["total_tasks"] * 100) if ts["total_tasks"] > 0 else 100.0, 1
                         ),
                     })
+
+                # Also include operators who have tasks in staff_tasks but had no index_actions
+                for op_id, ts in sorted(task_stats.items()):
+                    if op_id not in seen_ops:
+                        summaries.append({
+                            "operator_id": op_id,
+                            "operator_name": op_id,
+                            "operator_role": "user",
+                            "total_actions": 0,
+                            "accept_count": 0,
+                            "reject_count": 0,
+                            "override_count": 0,
+                            "accuracy_rate": 100.0,
+                            "assigned_tasks": ts["total_tasks"],
+                            "resolved_tasks": ts["resolved_tasks"],
+                            "task_resolution_rate": round(
+                                (ts["resolved_tasks"] / ts["total_tasks"] * 100) if ts["total_tasks"] > 0 else 100.0, 1
+                            ),
+                        })
+
                 return summaries
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
