@@ -2935,6 +2935,32 @@
   - آزمون‌های پایتون: اجرای کامل `tests/test_content_index.py` (۲۱ پاس)، `tests/test_observability_contract.py` (۶ پاس)، `tests/test_g07_release_packaging.py` (۱۵ پاس و تطابق ۱۰۰٪ Wheel با سورس).
   - یکپارچگی مستندات: `check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links` هر دو PASS/exit=0.
 
+### V-279 — اعتبارسنجی سامانه مدیریت کارمندان، نشان انتساب و ارزیابی دقت ایندکس، استراتژی ناهمگام و کارتابل نواقص
+
+- تاریخ: 2026-10-12؛ Trigger: پیاده‌سازی الزامات مدیریت کارمندان، نشان انتساب کارمندان روی ایندکس‌ها، تایید یا بازنویسی مدیر، گزارش‌گیری عملکرد ۱، ۲، ۶ و ۱۲ ماهه، استراتژی ایندکس ناهمگام (lazy) و کارتابل پیگیری نواقص پیام‌ها.
+- راستی‌آزمایی اسکیما و ذخیره‌سازی (`ContentIndexStore`):
+  1. مهاجرت تمیز اسکیما به نسخه ۵ (`CONTENT_INDEX_SCHEMA = 5`).
+  2. ایجاد جدول‌های `index_actions`، `staff_tasks`، `content_index_settings` و ستون‌های انتساب `operator_id`, `operator_name`, `operator_role`, `review_status` در `index_results`.
+  3. رفع نشت کانکشن SQLite روی ویندوز با مدیریت قطعی اتصال (`contextmanager` با بسته شدن حتمی در `finally`).
+  4. اعمال بی‌درنگ انتساب کارمند و اوورراید مدیر در `add_feedback` و درج خودکار وضعیت تایید/اوورراید در `index_actions` و نتایج زنده.
+  5. محاسبه دقیق شاخص‌های عملکرد (`get_staff_performance`)، درصد دقت کارمندان بر پایه عدم دستکاری مدیر و کسر نمره در صورت بازنویسی، و محاسبه نرخ رفع نواقص.
+- راستی‌آزمایی API و وب‌سرویس (`api.py`):
+  1. اندپوینت `/api/v2/staff/performance` برای دریافت آمار و کارت‌های ارزیابی با فیلتر زمانی.
+  2. اندپوینت‌های کارتابل وظایف `/api/v2/staff/tasks`, `/resolve`, `/close` با پشتیبانی از ارجاع، رفع نقص و بستن/بازگشایی مدیر.
+  3. اندپوینت `/api/v2/settings/indexing-strategy` برای خواندن و ذخیره استراتژی ناهمگام `auto_index_on_load`.
+  4. پشتیبانی منعطف از حالت تک‌کاربره محلی و چندکاربره با احراز هویت `app_session.principal`.
+- راستی‌آزمایی رابط کاربری React:
+  1. نمایش نشان انتساب نام و نقش کارمند (`MessageContentCard.tsx`) در کنار تراشه‌های ایندکس با تیک تایید مدیر.
+  2. دیالوگ ارزیابی عملکرد و دقت کارمندان (`StaffPerformanceDialog.tsx`) با کارت‌های خلاصه KPI، فیلترهای ۱، ۲، ۶، ۱۲ ماهه و جدول تفکیکی کارمندان.
+  3. دیالوگ کارتابل و مدیریت نواقص گزارش‌ها (`StaffTasksDialog.tsx`) با تب‌های وضعیت، ثبت وظیفه، ثبت توضیحات رفع نقص توسط کارمند و تایید/بازگشایی مدیر.
+  4. امکان فعال‌سازی استراتژی ایندکس‌گذاری خودکار ناهمگام (`ContentIndexDialog.tsx` و `App.tsx`) و اجرای سایلنت پس‌زمینه بدون وقفه در بارگذاری پیام‌ها.
+- کنترل کیفیت و گیت‌های پروژه:
+  - آزمون TypeScript فرانت‌اند (`npm.cmd --prefix ui run check`): موفقیت ۱۰۰٪ (exit=0).
+  - آزمون آبزروابیلیتی UI (`npm.cmd --prefix ui run test:observability`): موفقیت ۱۰۰٪ (exit=0).
+  - آزمون‌های متمرکز: `tests/test_staff_indexing_performance.py` و `tests/test_reporting_indexer.py` و `tests/test_content_index.py` (همگی ۱۰۰٪ سبز).
+  - کل سوئیت تست بک‌اند: `.\.venv\Scripts\python.exe -m pytest -q` با ۱۰۰٪ پاس (exit=0).
+  - سلامت مستندات و حافظه: `scripts/check_project_memory_integrity.py` موفقیت ۱۰۰٪.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.
