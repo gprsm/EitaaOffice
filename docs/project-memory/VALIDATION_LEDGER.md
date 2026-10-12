@@ -2961,6 +2961,30 @@
   - کل سوئیت تست بک‌اند: `.\.venv\Scripts\python.exe -m pytest -q` با ۱۰۰٪ پاس (exit=0).
   - سلامت مستندات و حافظه: `scripts/check_project_memory_integrity.py` موفقیت ۱۰۰٪.
 
+### V-280 — آزمون عمیق و غیرسازشکارانهٔ فرآیند مدیریت کارمندان، همگام‌سازی سراسری اسکوپ، استرس کانکارنسی و تطابق بسته Wheel
+
+- تاریخ: 2026-10-12؛ Trigger: راستی‌آزمایی عمیق و سخت‌گیرانه (Adversarial) بدون اتکا به ادعاها، کشف موارد مغفول‌مانده در همگام‌سازی چندحسابه، تفکیک اسکوپ اکانت‌های پیام‌رسان و استرس دسترسی همزمان چندنخی.
+- موارد کشف و اصلاح‌شده (Oversight Remediation):
+  1. **همگام‌سازی سراسری ایندکس بدون نقض ایزولاسیون اسکوپ اکانت‌ها:** اصلاح `add_feedback` و `list_results` با پیشوند `scope_prefix` جهت همگام‌سازی بلادرنگ تمامی حساب‌های مرتبط با یک اسکوپ واحد همراه با حفظ کامل مرزبندی ایزولاسیون اکانت‌های مستقل پیام‌رسان در `test_phase8a_account_scoped_data.py`.
+  2. **فیلتر بازه زمانی در اووررایدهای مدیر و وظایف نقص:** اعمال محدودیت `from_date` و `to_date` روی استخراج `overrides_suffered` و `staff_tasks` در `get_staff_performance` تا عملکرد گذشته به ماه‌های جاری سرایت نکند.
+  3. **تطابق ۱۰۰٪ بسته توزیع Wheel (`dist/`):** بازتولید بسته رسمی پایتون با `build_wheel_stdlib.py --force` پس از تغییرات اسکیما و پاس‌شدن کامل تست‌های `test_g07_release_packaging.py`.
+- آزمون‌های عمیق تازه پیاده‌سازی‌شده (`tests/test_staff_deep_validation.py`):
+  1. تست همگام‌سازی سراسری بین ۳ حساب مجزا و بازتاب بلادرنگ انتساب و تایید مدیر (`test_global_multi_account_consistency`).
+  2. تست عدم جریمه در ویرایش کارمند روی کارمند دیگر و جریمه اختصاصی در اوورراید مدیر (`test_peer_to_peer_edits_not_penalized_as_manager_override`).
+  3. تست ایزولاسیون کامل عملکرد، اووررایدها و تسک‌ها در بازه‌های زمانی مختلف (`test_isolated_time_window_kpis`).
+  4. چرخه کامل نقص، حل توسط کارمند، بازگشایی توسط مدیر و تایید نهایی (`test_defect_task_reopening_lifecycle`).
+  5. تست پایداری در برابر کاراکترهای پیچیده یونیکد فارسی، نیم‌فاصله و کاراکترهای تزریق (`test_persian_unicode_and_safety_resilience`).
+  6. راستی‌آزمایی بندهای ۲۱ تا ۲۸ کتابچه قانون ایندکس در دسته‌بندی تعارفات، ارزشیابی منابع انسانی، ایثارگران، تبریک برون‌سازمانی و موکب‌های نیازمند احراز قضایی (`test_rulebook_edge_cases_classification`).
+  7. استرس‌تست دسترسی همزمان ۸ نخ مستقل برای خواندن و نوشتن همزمان بدون هیچ‌گونه قفل پایگاه داده (`test_concurrent_feedback_and_query_stress`).
+  8. پایداری تنظیمات استراتژی ایندکس در ریبوت‌های مکرر انبار داده (`test_setting_persistence_across_reboots`).
+- شواهد و نتایج آزمون:
+  - `tests/test_staff_deep_validation.py`: ۸ از ۸ پاس (۱۰۰٪).
+  - `tests/test_phase8a_account_scoped_data.py`: ۶ از ۶ پاس (۱۰۰٪).
+  - `tests/test_g07_release_packaging.py`: ۱۵ از ۱۵ پاس (۱۰۰٪).
+  - کل سوئیت بک‌اند (`pytest -q`): ۱۰۰٪ پاس (۱۲۸۱ تست).
+  - رابط کاربری: `npm run check` و `npm run test:observability` و `npm run build` ۱۰۰٪ موفق.
+  - یکپارچگی حافظه و اسناد: `check_project_memory_integrity.py` و `refresh_project_docs.py --check-links` هر دو PASS/exit=0.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.

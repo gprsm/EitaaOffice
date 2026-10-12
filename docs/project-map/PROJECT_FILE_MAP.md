@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 446
-- اثرانگشت منبع: `dbb13026a6d02428`
+- تعداد فایل‌های نقشه: 447
+- اثرانگشت منبع: `13ab728b3b54642f`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -371,6 +371,7 @@
 | `tests/test_service_auth.py` | Python test | 16 | Tests for M2M service authentication and authorization boundaries. |
 | `tests/test_session_ownership.py` | Python test | 8 | — |
 | `tests/test_stabilization_baseline.py` | Python test | 3 | — |
+| `tests/test_staff_deep_validation.py` | Python test | 9 | Deep, rigorous end-to-end validation for staff indexing, global consistency, KPI isolation, and task workflows. |
 | `tests/test_staff_indexing_performance.py` | Python test | 5 | Tests for staff attribution in content indexing, manager overrides, KPI calculation, and defect tasks. |
 | `tests/test_ui2_scroll_repair.py` | Python test | 8 | — |
 | `tests/test_ui31_composer_refinement.py` | Python test | 4 | — |

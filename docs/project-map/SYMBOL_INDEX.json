@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "dbb13026a6d02428",
+  "source_fingerprint": "13ab728b3b54642f",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -10184,142 +10184,142 @@
         {
           "name": "SQLiteContentIndexStore.list_auto_index_targets",
           "kind": "method",
-          "line": 509
+          "line": 510
         },
         {
           "name": "SQLiteContentIndexStore.get_latest_run_labels",
           "kind": "method",
-          "line": 533
+          "line": 534
         },
         {
           "name": "SQLiteContentIndexStore.add_feedback",
           "kind": "method",
-          "line": 554
+          "line": 555
         },
         {
           "name": "SQLiteContentIndexStore.list_feedback",
           "kind": "method",
-          "line": 731
+          "line": 758
         },
         {
           "name": "SQLiteContentIndexStore.start_run",
           "kind": "method",
-          "line": 764
+          "line": 791
         },
         {
           "name": "SQLiteContentIndexStore.finish_run",
           "kind": "method",
-          "line": 801
+          "line": 828
         },
         {
           "name": "SQLiteContentIndexStore.list_custom_indexes",
           "kind": "method",
-          "line": 831
+          "line": 858
         },
         {
           "name": "SQLiteContentIndexStore.save_custom_index",
           "kind": "method",
-          "line": 893
+          "line": 920
         },
         {
           "name": "SQLiteContentIndexStore.delete_custom_index",
           "kind": "method",
-          "line": 952
+          "line": 979
         },
         {
           "name": "SQLiteContentIndexStore.save_custom_indexes_batch",
           "kind": "method",
-          "line": 976
+          "line": 1003
         },
         {
           "name": "SQLiteContentIndexStore.list_historical_labels",
           "kind": "method",
-          "line": 1054
+          "line": 1081
         },
         {
           "name": "SQLiteContentIndexStore._connect",
           "kind": "method",
-          "line": 1093
+          "line": 1120
         },
         {
           "name": "SQLiteContentIndexStore._backup_connection",
           "kind": "method",
-          "line": 1108
+          "line": 1135
         },
         {
           "name": "SQLiteContentIndexStore._upgrade_scope_schema",
           "kind": "method",
-          "line": 1126
+          "line": 1153
         },
         {
           "name": "SQLiteContentIndexStore._upgrade_custom_indexes_schema",
           "kind": "method",
-          "line": 1207
+          "line": 1234
         },
         {
           "name": "SQLiteContentIndexStore._upgrade_v5_schema",
           "kind": "method",
-          "line": 1240
+          "line": 1267
         },
         {
           "name": "SQLiteContentIndexStore._register_scope",
           "kind": "method",
-          "line": 1362
+          "line": 1389
         },
         {
           "name": "SQLiteContentIndexStore._site_key",
           "kind": "method",
-          "line": 1398
+          "line": 1425
         },
         {
           "name": "SQLiteContentIndexStore._source_key",
           "kind": "method",
-          "line": 1401
+          "line": 1428
         },
         {
           "name": "SQLiteContentIndexStore._job_key",
           "kind": "method",
-          "line": 1404
+          "line": 1431
         },
         {
           "name": "SQLiteContentIndexStore.get_setting",
           "kind": "method",
-          "line": 1407
+          "line": 1434
         },
         {
           "name": "SQLiteContentIndexStore.set_setting",
           "kind": "method",
-          "line": 1423
+          "line": 1450
         },
         {
           "name": "SQLiteContentIndexStore.list_actions",
           "kind": "method",
-          "line": 1443
+          "line": 1470
         },
         {
           "name": "SQLiteContentIndexStore.get_staff_performance",
           "kind": "method",
-          "line": 1501
+          "line": 1528
         },
         {
           "name": "SQLiteContentIndexStore.create_task",
           "kind": "method",
-          "line": 1603
+          "line": 1648
         },
         {
           "name": "SQLiteContentIndexStore.list_tasks",
           "kind": "method",
-          "line": 1668
+          "line": 1713
         },
         {
           "name": "SQLiteContentIndexStore.resolve_task",
           "kind": "method",
-          "line": 1705
+          "line": 1750
         },
         {
           "name": "SQLiteContentIndexStore.close_task",
           "kind": "method",
-          "line": 1739
+          "line": 1784
         }
       ]
     },
@@ -25780,6 +25780,58 @@
           "name": "test_baseline_archive_is_deterministic_and_receipt_verifies_content",
           "kind": "function",
           "line": 56
+        }
+      ]
+    },
+    {
+      "path": "tests/test_staff_deep_validation.py",
+      "role": "Python test",
+      "summary": "Deep, rigorous end-to-end validation for staff indexing, global consistency, KPI isolation, and task workflows.",
+      "symbols": [
+        {
+          "name": "temp_store",
+          "kind": "function",
+          "line": 16
+        },
+        {
+          "name": "test_global_multi_account_consistency",
+          "kind": "function",
+          "line": 24
+        },
+        {
+          "name": "test_peer_to_peer_edits_not_penalized_as_manager_override",
+          "kind": "function",
+          "line": 114
+        },
+        {
+          "name": "test_isolated_time_window_kpis",
+          "kind": "function",
+          "line": 195
+        },
+        {
+          "name": "test_defect_task_reopening_lifecycle",
+          "kind": "function",
+          "line": 288
+        },
+        {
+          "name": "test_persian_unicode_and_safety_resilience",
+          "kind": "function",
+          "line": 343
+        },
+        {
+          "name": "test_rulebook_edge_cases_classification",
+          "kind": "function",
+          "line": 388
+        },
+        {
+          "name": "test_concurrent_feedback_and_query_stress",
+          "kind": "function",
+          "line": 421
+        },
+        {
+          "name": "test_setting_persistence_across_reboots",
+          "kind": "function",
+          "line": 469
         }
       ]
     },

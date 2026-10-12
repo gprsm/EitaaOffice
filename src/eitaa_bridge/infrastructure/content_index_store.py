@@ -450,16 +450,17 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 scoped_site_key = self._site_key(site_key)
+                scope_prefix = f"{self.scope.scope_key}:content-site:%"
                 rows = connection.execute(
                     """
                     SELECT message_id, text_hash, model_version, predictions_json, indexed_at,
                            operator_id, operator_name, operator_role, review_status, site_key
                     FROM index_results
-                    WHERE peer_type=? AND peer_id=?
-                    ORDER BY message_id DESC, (CASE WHEN site_key=? THEN 0 ELSE 1 END) ASC
+                    WHERE site_key LIKE ? AND peer_type=? AND peer_id=?
+                    ORDER BY message_id DESC, (CASE WHEN site_key=? THEN 0 ELSE 1 END) ASC, indexed_at DESC
                     LIMIT ?
                     """,
-                    (peer_type, peer_id, scoped_site_key, limit),
+                    (scope_prefix, peer_type, peer_id, scoped_site_key, limit),
                 ).fetchall()
                 results: list[dict[str, object]] = []
                 seen_message_ids: set[int] = set()
@@ -691,36 +692,62 @@ class SQLiteContentIndexStore:
                         })
 
                     preds_json = json.dumps(preds, ensure_ascii=False, separators=(",", ":"))
-                    connection.execute(
+                    scope_prefix = f"{self.scope.scope_key}:content-site:%"
+                    updated_cnt = connection.execute(
                         """
-                        INSERT INTO index_results (
-                            site_key, peer_type, peer_id, message_id, text_hash,
-                            model_version, predictions_json, indexed_at,
-                            operator_id, operator_name, operator_role, review_status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(site_key, peer_type, peer_id, message_id) DO UPDATE SET
-                            predictions_json = excluded.predictions_json,
-                            indexed_at = excluded.indexed_at,
-                            operator_id = excluded.operator_id,
-                            operator_name = excluded.operator_name,
-                            operator_role = excluded.operator_role,
-                            review_status = excluded.review_status
+                        UPDATE index_results SET
+                            predictions_json = ?,
+                            indexed_at = ?,
+                            operator_id = ?,
+                            operator_name = ?,
+                            operator_role = ?,
+                            review_status = ?
+                        WHERE site_key LIKE ? AND peer_type = ? AND peer_id = ? AND message_id = ?
                         """,
                         (
-                            scoped_site_key,
-                            peer_type,
-                            peer_id,
-                            message_id,
-                            txt_hash,
-                            model_ver,
                             preds_json,
                             now,
                             operator_id,
                             operator_name,
                             role,
                             review_status,
+                            scope_prefix,
+                            peer_type,
+                            peer_id,
+                            message_id,
                         ),
-                    )
+                    ).rowcount
+                    if updated_cnt == 0:
+                        connection.execute(
+                            """
+                            INSERT INTO index_results (
+                                site_key, peer_type, peer_id, message_id, text_hash,
+                                model_version, predictions_json, indexed_at,
+                                operator_id, operator_name, operator_role, review_status
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(site_key, peer_type, peer_id, message_id) DO UPDATE SET
+                                predictions_json = excluded.predictions_json,
+                                indexed_at = excluded.indexed_at,
+                                operator_id = excluded.operator_id,
+                                operator_name = excluded.operator_name,
+                                operator_role = excluded.operator_role,
+                                review_status = excluded.review_status
+                            """,
+                            (
+                                scoped_site_key,
+                                peer_type,
+                                peer_id,
+                                message_id,
+                                txt_hash,
+                                model_ver,
+                                preds_json,
+                                now,
+                                operator_id,
+                                operator_name,
+                                role,
+                                review_status,
+                            ),
+                        )
                 return feedback_id
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
@@ -1529,27 +1556,45 @@ class SQLiteContentIndexStore:
                 rows = connection.execute(sql, tuple(params)).fetchall()
 
                 # Get overrides suffered per operator (where manager overruled this operator)
+                override_clauses: list[str] = ["overridden_operator_id != ''"]
+                override_params: list[Any] = []
+                if from_date:
+                    override_clauses.append("created_at >= ?")
+                    override_params.append(from_date)
+                if to_date:
+                    override_clauses.append("created_at <= ?")
+                    override_params.append(to_date)
                 overrides_suffered_rows = connection.execute(
-                    """
+                    f"""
                     SELECT overridden_operator_id, COUNT(*) as cnt
                     FROM index_actions
-                    WHERE overridden_operator_id != ''
+                    WHERE {' AND '.join(override_clauses)}
                     GROUP BY overridden_operator_id
-                    """
+                    """,
+                    tuple(override_params),
                 ).fetchall()
                 overrides_suffered = {str(r["overridden_operator_id"]): int(r["cnt"] or 0) for r in overrides_suffered_rows}
 
                 # Also get task stats for these operators
                 task_stats: dict[str, dict[str, int]] = {}
+                task_clauses: list[str] = ["assigned_to_user_id != ''"]
+                task_params: list[Any] = []
+                if from_date:
+                    task_clauses.append("created_at >= ?")
+                    task_params.append(from_date)
+                if to_date:
+                    task_clauses.append("created_at <= ?")
+                    task_params.append(to_date)
                 task_rows = connection.execute(
-                    """
+                    f"""
                     SELECT assigned_to_user_id,
                            COUNT(*) as total_tasks,
                            SUM(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END) as resolved_tasks
                     FROM staff_tasks
-                    WHERE assigned_to_user_id != ''
+                    WHERE {' AND '.join(task_clauses)}
                     GROUP BY assigned_to_user_id
-                    """
+                    """,
+                    tuple(task_params),
                 ).fetchall()
                 for tr in task_rows:
                     task_stats[str(tr["assigned_to_user_id"])] = {
