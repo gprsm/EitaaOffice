@@ -1967,6 +1967,27 @@
 - شاهد: V-292، آزمون‌های متمرکز بک‌اند در `tests/test_judicial_units_and_liaisons.py` (شامل `test_sync_liaison_to_eitaa_contact` و `test_api_v3_sync_eitaa_contact_routes` با ۱۳/۱۳ تست پاس‌شده)، تست بسته‌بندی ویل استاندارد پایتون (`tests/test_g07_release_packaging.py` با ۱۵/۱۵ تست پاس‌شده)، اعتبارسنجی کامل تایپ‌اسکریپت فرانت‌اند (`npm run check` با صفر خطا)، آزمون‌های Observability و Chat Surface، و تایید نهایی با رأی APPROVED ناظر داوری OSP-1.0.
 - Trigger ابطال: تغییر در ساختار فیلدهای مخاطب پیام‌رسان ایتا یا تغییر در الگوی عنوان رسمی رابطین.
 
+### F-127 — ریشه‌یابی و رفع خطای «درخواست امنیتی معتبر نیست»، مهاجرت indicators.ts به کلاینت متمرکز api() و تزریق هدر X-CSRF-Token
+
+- وضعیت: `IMPLEMENTED / TEST_VERIFIED / VISUALLY_AUDITED`
+- تاریخ: 2026-10-18
+- منبع و مشکل گزارش‌شده توسط کاربر:
+  1. هنگام اقدام به ذخیره‌سازی یک شاخصه جزئی جدید در پنل مدیریت شاخصه‌ها، خطای «درخواست امنیتی معتبر نیست؛ صفحه را تازه‌سازی کنید.» نمایش داده می‌شد.
+  2. در محیط واقعی وب، فراخوانی‌های جهش داده (Mutation) شاخصه‌های جزئی و تفکیک پیام توسط گیت‌های امنیتی CSRF بک‌اند مسدود می‌شدند.
+- ریشه‌یابی و تحلیل مهندسی:
+  1. در ماژول `ui/src/lib/indicators.ts`، توابع ارتباط با سرور (`saveMicroIndicator`, `updateMicroIndicator`, `deleteMicroIndicator`, `assignMessageIndicators`, `saveMessageSplits`) به اشتباه از `fetch` خام به جای متد انتزاعی متمرکز `api()` موجود در `ui/src/lib/api.ts` استفاده می‌کردند.
+  2. در سامانه هماهنگ‌کننده (`src/eitaa_bridge/infrastructure/coordinator/app_auth.py`) و `api.py`، متدهای تغییردهنده وضعیت (POST, PUT, DELETE) ملزم به ارسال هدر `X-CSRF-Token` منطبق با توکن نشست کاربر (`app_user_auth`) هستند و درخواست‌های بدون این هدر با خطای استاندارد `app_auth_csrf_invalid` و پیام فارسی «درخواست امنیتی معتبر نیست؛ صفحه را تازه‌سازی کنید.» رد می‌شوند.
+  3. همچنین پردازش پس‌زمینه HTTP سرور پایتون روی پورت ۸۷۶۵ از اجرای اولیه صبحگاه فعال مانده بود که با ری‌استارت مجدد از طریق `background_server.py restart` و اعمال روت‌های تکمیلی همگام شد.
+- تصمیم‌ها و اقدامات انجام‌شده:
+  1. بازنویسی کامل `ui/src/lib/indicators.ts` با استفاده از کلاینت استاندارد `api()`:
+     - تزریق خودکار و تضمین‌شده هدر `X-CSRF-Token` در تمامی درخواست‌های POST، PUT و DELETE.
+     - ارسال خودکار هدرهای `X-Eitaa-Client-Kind: 'browser'`، اسکوپ اکانت و مدیریت یکپارچه خطاها (`ApiError`).
+     - افزودن قابلیت بازیابی خودکار در صورت مسدود بودن متد HTTP DELETE به مسیر ثانویه `POST .../delete`.
+  2. بیلد مجدد باندل پروداکشن فرانت‌اند (`npm run build`) و نوسازی دارایی‌های ایستا در `ui/dist/`.
+  3. راه‌اندازی و آزمون موفق چرخه کامل با مرورگر بی‌سر (Headless Edge) تحت پروتکل CDP در `scripts/capture_indicators_visual_audit.py` که ثبت شاخصه در مودال، عدم وجود خطای امنیتی، و انتساب با نمایش اعلان سبز رنگ «شاخصه‌های جزئی با موفقیت ثبت شدند.» را اثبات نمود.
+- شاهد: V-293، اسکرین‌شات‌های زنده ثبت‌شده در Artifacts شامل `11_desktop_micro_indicators_management_modal.png` (مودال بدون خطا) و `12_desktop_message_with_saved_micro_indicator.png` (اعلان سبز موفقیت روی تایم‌لاین)، تایپ‌چک کامل فرانت‌اند (`npm run check` با صفر خطا)، آزمون observability، و آزمون‌های pytest بک‌اند (`tests/test_judicial_units_and_liaisons.py`).
+- Trigger ابطال: تغییر در خط‌مشی هدرهای CSRF در CoordinatorAppAuth یا جداسازی مکانیزم احراز هویت وب.
+
 ## رکوردهای تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) در تاریخ 2026-10-08 ادغام شده‌اند. از آنجا که شناسه‌های اولیهٔ آن‌ها (F-090 تا F-111) با یافته‌های بومی سامانهٔ گزارش و کارتابل دفتر محلی هم‌پوشانی داشتند، طبق اصل تقدم محلی (Local-First Precedence) و قواعد AGENTS.md، شناسه‌های محلی تثبیت‌شده باقی ماندند و یافته‌های دسکتاپ با پیشوند LEGACY-DESKTOP- برای ثبت تاریخچه و زنجیرهٔ شواهد حفظ گردیدند.

@@ -1,3 +1,5 @@
+import { api } from './api'
+
 export const MACRO_INDICATORS: string[] = [
   'برگزاری مراسم در مناسبت‌های ملی، مذهبی و انقلابی',
   'ترویج و توسعه فرهنگ اقامه نماز',
@@ -29,9 +31,10 @@ export type MessageIndicatorData = {
 
 export async function fetchMacroIndicators(): Promise<string[]> {
   try {
-    const res = await fetch('/api/v3/reporting/indicators/macro')
-    if (!res.ok) return MACRO_INDICATORS
-    const data = await res.json()
+    const data = await api<{ ok: boolean; macro_indicators: string[] }>(
+      'GET',
+      '/api/v3/reporting/indicators/macro',
+    )
     return Array.isArray(data.macro_indicators) ? data.macro_indicators : MACRO_INDICATORS
   } catch {
     return MACRO_INDICATORS
@@ -40,9 +43,10 @@ export async function fetchMacroIndicators(): Promise<string[]> {
 
 export async function fetchMicroIndicators(): Promise<MicroIndicatorItem[]> {
   try {
-    const res = await fetch('/api/v3/reporting/indicators/micro')
-    if (!res.ok) return []
-    const data = await res.json()
+    const data = await api<{ ok: boolean; micro_indicators: MicroIndicatorItem[] }>(
+      'GET',
+      '/api/v3/reporting/indicators/micro',
+    )
     return Array.isArray(data.micro_indicators) ? data.micro_indicators : []
   } catch {
     return []
@@ -54,15 +58,11 @@ export async function saveMicroIndicator(payload: {
   category?: string
   color?: string
 }): Promise<MicroIndicatorItem> {
-  const res = await fetch('/api/v3/reporting/indicators/micro', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data?.error?.message || 'خطا در ثبت شاخصه جزئی')
-  }
+  const data = await api<{ ok: boolean; indicator: MicroIndicatorItem }>(
+    'POST',
+    '/api/v3/reporting/indicators/micro',
+    payload,
+  )
   return data.indicator
 }
 
@@ -70,27 +70,29 @@ export async function updateMicroIndicator(
   indicatorId: string,
   payload: { title?: string; category?: string; color?: string },
 ): Promise<MicroIndicatorItem> {
-  const res = await fetch(`/api/v3/reporting/indicators/micro/${encodeURIComponent(indicatorId)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data?.error?.message || 'خطا در ویرایش شاخصه جزئی')
-  }
+  const data = await api<{ ok: boolean; indicator: MicroIndicatorItem }>(
+    'PUT',
+    `/api/v3/reporting/indicators/micro/${encodeURIComponent(indicatorId)}`,
+    payload,
+  )
   return data.indicator
 }
 
 export async function deleteMicroIndicator(indicatorId: string): Promise<boolean> {
-  const res = await fetch(`/api/v3/reporting/indicators/micro/${encodeURIComponent(indicatorId)}`, {
-    method: 'DELETE',
-  })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data?.error?.message || 'خطا در حذف شاخصه جزئی')
+  try {
+    const data = await api<{ ok: boolean; deleted: boolean }>(
+      'DELETE',
+      `/api/v3/reporting/indicators/micro/${encodeURIComponent(indicatorId)}`,
+    )
+    return Boolean(data.deleted)
+  } catch {
+    const data = await api<{ ok: boolean; deleted: boolean }>(
+      'POST',
+      `/api/v3/reporting/indicators/micro/${encodeURIComponent(indicatorId)}/delete`,
+      {},
+    )
+    return Boolean(data.deleted)
   }
-  return Boolean(data.deleted)
 }
 
 export async function fetchMessageIndicators(
@@ -103,9 +105,10 @@ export async function fetchMessageIndicators(
     if (messageIds && messageIds.length > 0) {
       url += `&message_ids=${encodeURIComponent(messageIds.join(','))}`
     }
-    const res = await fetch(url)
-    if (!res.ok) return {}
-    const data = await res.json()
+    const data = await api<{ ok: boolean; indicators: Record<string, MessageIndicatorData> }>(
+      'GET',
+      url,
+    )
     return data.indicators || {}
   } catch {
     return {}
@@ -118,23 +121,20 @@ export async function assignMessageIndicators(payload: {
   macro_indicator: string
   micro_indicators: string[]
 }): Promise<void> {
-  const res = await fetch('/api/v3/reporting/indicators/messages/assign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data?.error?.message || 'خطا در انتساب شاخصه‌ها به پیام')
-  }
+  await api<{ ok: boolean }>(
+    'POST',
+    '/api/v3/reporting/indicators/messages/assign',
+    payload,
+  )
 }
 
 export async function fetchMessageSplits(peerKey: string): Promise<number[]> {
   if (!peerKey) return []
   try {
-    const res = await fetch(`/api/v3/reporting/splits?peer_key=${encodeURIComponent(peerKey)}`)
-    if (!res.ok) return []
-    const data = await res.json()
+    const data = await api<{ ok: boolean; detached_message_ids: number[] }>(
+      'GET',
+      `/api/v3/reporting/splits?peer_key=${encodeURIComponent(peerKey)}`,
+    )
     return Array.isArray(data.detached_message_ids) ? data.detached_message_ids : []
   } catch {
     return []
@@ -146,14 +146,10 @@ export async function saveMessageSplits(payload: {
   detached_ids?: number[]
   unified_ids?: number[]
 }): Promise<number[]> {
-  const res = await fetch('/api/v3/reporting/splits', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const data = await res.json()
-  if (!res.ok || !data.ok) {
-    throw new Error(data?.error?.message || 'خطا در ثبت تفکیک پیام')
-  }
+  const data = await api<{ ok: boolean; detached_message_ids: number[] }>(
+    'POST',
+    '/api/v3/reporting/splits',
+    payload,
+  )
   return Array.isArray(data.detached_message_ids) ? data.detached_message_ids : []
 }

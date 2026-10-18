@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "a9a7174075bc3a5a",
+  "source_fingerprint": "4c924b58bf9247be",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -247,6 +247,58 @@
       "role": "Operations/tooling",
       "summary": "",
       "symbols": []
+    },
+    {
+      "path": "scripts/capture_indicators_visual_audit.py",
+      "role": "Operations/tooling",
+      "summary": "Visual Acceptance Runner for Macro & Micro Indicators and Message Splitting Control Bar",
+      "symbols": [
+        {
+          "name": "CDPClient",
+          "kind": "class",
+          "line": 47
+        },
+        {
+          "name": "CDPClient.__init__",
+          "kind": "method",
+          "line": 48
+        },
+        {
+          "name": "CDPClient.send",
+          "kind": "method",
+          "line": 52
+        },
+        {
+          "name": "CDPClient.eval",
+          "kind": "method",
+          "line": 65
+        },
+        {
+          "name": "CDPClient.wait_for_selector",
+          "kind": "method",
+          "line": 74
+        },
+        {
+          "name": "CDPClient.set_viewport",
+          "kind": "method",
+          "line": 84
+        },
+        {
+          "name": "CDPClient.capture_screenshot",
+          "kind": "method",
+          "line": 93
+        },
+        {
+          "name": "issue_admin_session",
+          "kind": "function",
+          "line": 109
+        },
+        {
+          "name": "run_visual_audit",
+          "kind": "async function",
+          "line": 132
+        }
+      ]
     },
     {
       "path": "scripts/check_gmi4_invariants.py",
@@ -1927,6 +1979,58 @@
           "name": "main",
           "kind": "async function",
           "line": 33
+        }
+      ]
+    },
+    {
+      "path": "scripts/test_micro_indicator_save_flow.py",
+      "role": "Operations/tooling",
+      "summary": "Automated End-to-End Test for Saving Micro Indicator in UI",
+      "symbols": [
+        {
+          "name": "CDPClient",
+          "kind": "class",
+          "line": 45
+        },
+        {
+          "name": "CDPClient.__init__",
+          "kind": "method",
+          "line": 46
+        },
+        {
+          "name": "CDPClient.send",
+          "kind": "method",
+          "line": 50
+        },
+        {
+          "name": "CDPClient.eval",
+          "kind": "method",
+          "line": 63
+        },
+        {
+          "name": "CDPClient.wait_for_condition",
+          "kind": "method",
+          "line": 72
+        },
+        {
+          "name": "CDPClient.set_viewport",
+          "kind": "method",
+          "line": 84
+        },
+        {
+          "name": "CDPClient.capture_screenshot",
+          "kind": "method",
+          "line": 93
+        },
+        {
+          "name": "issue_admin_session",
+          "kind": "function",
+          "line": 109
+        },
+        {
+          "name": "run_test",
+          "kind": "async function",
+          "line": 132
         }
       ]
     },
@@ -29235,17 +29339,17 @@
         {
           "name": "fetchMacroIndicators",
           "kind": "script symbol",
-          "line": 29
+          "line": 31
         },
         {
           "name": "fetchMicroIndicators",
           "kind": "script symbol",
-          "line": 40
+          "line": 43
         },
         {
           "name": "saveMicroIndicator",
           "kind": "script symbol",
-          "line": 51
+          "line": 55
         },
         {
           "name": "updateMicroIndicator",
@@ -29255,22 +29359,22 @@
         {
           "name": "deleteMicroIndicator",
           "kind": "script symbol",
-          "line": 84
+          "line": 80
         },
         {
           "name": "fetchMessageIndicators",
           "kind": "script symbol",
-          "line": 95
+          "line": 97
         },
         {
           "name": "assignMessageIndicators",
           "kind": "script symbol",
-          "line": 114
+          "line": 117
         },
         {
           "name": "fetchMessageSplits",
           "kind": "script symbol",
-          "line": 131
+          "line": 130
         },
         {
           "name": "saveMessageSplits",

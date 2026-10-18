@@ -3290,6 +3290,27 @@
   - داوری و نظارت دوایجنتی OpenCode (OSP-1.0): صدور حکم تاییدیه `APPROVED` با تایید تمامی ۱۳ آیتم در `diagnostics/opencode_supervision_verdict.json`.
 - نتیجه: قابلیت ثبت و همگام‌سازی رابطین فرهنگی در دفترچه مخاطبین پیام‌رسان ایتا با رعایت فرمت استاندارد، ثبت تکی و گروهی، اخذ هوشمند شماره تماس و تایید کامل قراردادهای دوایجنتی با موفقیت پیاده‌سازی و اعتبارسنجی شد.
 
+### V-293 — اعتبارسنجی جامع ریشه‌یابی و رفع خطای امنیتی CSRF در ذخیره شاخصه‌های جزئی و تفکیک پیام
+
+- تاریخ: 2026-10-18؛ Trigger: گزارش صریح کاربر مبنی بر خطای امنیتی «درخواست امنیتی معتبر نیست؛ صفحه را تازه‌سازی کنید.» هنگام تلاش برای ذخیره‌سازی شاخصه جزئی جدید در پنل مدیریت شاخصه‌ها و لزوم ممیزی موشکافانه جریان از رابط کاربری تا ذخیره پایگاه‌داده.
+- دامنهٔ تغییرات:
+  - `ui/src/lib/indicators.ts`: جایگزینی تمامی فراخوانی‌های خام `fetch()` با کلاینت استاندارد برنامه `api()` از `ui/src/lib/api.ts` برای توابع `saveMicroIndicator`, `updateMicroIndicator`, `deleteMicroIndicator`, `assignMessageIndicators`, `saveMessageSplits`، `fetchMacroIndicators` و `fetchMicroIndicators` جهت تضمین ارسال هدرهای امنیتی `X-CSRF-Token`، `X-Eitaa-Client-Kind` و کوکی نشست اعتبارسنجی‌شده.
+  - `scripts/background_server.py`: ری‌استارت کامل پردازش سرور پس‌زمینه HTTP روی پورت ۸۷۶۵ جهت لود آخرین ماژول‌های پایتون و روت‌های `/api/v3/reporting/indicators/*`.
+  - `scripts/capture_indicators_visual_audit.py`: توسعه و اجرای آزمون تعاملی ۵ سناریویی تحت پروتکل CDP در محیط مرورگر مایکروسافت اج (Headless Edge) بر روی سرور زنده.
+  - `ui/dist/`: بیلد مجدد باندل پروداکشن رابط کاربری با اجرای `npm run build` جهت انتشار تغییرات کلاینت.
+- آزمون‌های متمرکز و ممیزی:
+  - آزمون کامل تعاملی و ثبت اسکرین‌شات زنده (`scripts/capture_indicators_visual_audit.py`):
+    - ثبت اسکرین‌شات `08_desktop_chat_timeline_with_indicators.png`: نمایش موفق کنترل‌بار ذیل کارت پیام شامل دکمه تفکیک، شاخصه کلی بولد و شاخصه جزئی تفکیک‌پذیر.
+    - ثبت اسکرین‌شات `09_desktop_macro_indicator_select_popover.png`: انتخابگر شاخصه‌های ۹ گانه کلان.
+    - ثبت اسکرین‌شات `10_desktop_split_message_dialog.png`: دیالوگ تفکیک و ادغام پیام‌ها بدون درز شناسه‌های داخلی دیتابیس.
+    - ثبت اسکرین‌شات `11_desktop_micro_indicators_management_modal.png`: ورود عنوان شاخصه جزئی در مودال و ثبت بدون خطای امنیتی.
+    - ثبت اسکرین‌شات `12_desktop_message_with_saved_micro_indicator.png`: انتساب شاخصه جزئی به پیام با دریافت کد وضعیت HTTP 200 و نمایش بنر توست سبز رنگ «✅ شاخصه‌های جزئی با موفقیت ثبت شدند.».
+  - تایپ‌چک فرانت‌اند: `npm run check` با صفر خطا (exit code 0).
+  - آزمون‌های Observability فرانت‌اند: `npm run test:observability` بدون نقض قرارداد (exit code 0).
+  - آزمون‌های بک‌اند: `pytest tests/test_judicial_units_and_liaisons.py -q` (۱۳/۱۳ پاس) و `pytest tests/test_reporting_store.py tests/test_reporting_api.py -q` (۳۰/۳۰ پاس).
+  - راستی‌آزمایی یکپارچگی حافظه و اسناد: `python scripts/check_project_memory_integrity.py` و `refresh_project_docs.py --check --check-links`.
+- نتیجه: خطای «درخواست امنیتی معتبر نیست» به طور کامل ریشه‌کن شد؛ تمامی جهش‌های شاخصه‌ها اکنون از طریق کلاینت مجهز به هدر CSRF انجام می‌شوند و جریان کامل افزودن و انتساب شاخصه‌ها به صورت بصری و خودکار اثبات گردید.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.

@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 468
-- اثرانگشت منبع: `a9a7174075bc3a5a`
+- تعداد فایل‌های نقشه: 470
+- اثرانگشت منبع: `4c924b58bf9247be`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -18,6 +18,7 @@
 | `scripts/build_self_contained_setup.py` | Operations/tooling | 4 | Build a one-file Windows setup bootstrap with embedded release resources. |
 | `scripts/build_wheel_stdlib.py` | Operations/tooling | 9 | Build the pure-Python bridge wheel without network or build backends. |
 | `scripts/build_windows_icon.ps1` | Operations/tooling | 0 | — |
+| `scripts/capture_indicators_visual_audit.py` | Operations/tooling | 9 | Visual Acceptance Runner for Macro & Micro Indicators and Message Splitting Control Bar |
 | `scripts/check_gmi4_invariants.py` | Operations/tooling | 1 | Compare frozen assets directly against the signed clean GMI3 base ZIP. |
 | `scripts/check_office_payload_privacy.py` | Operations/tooling | 2 | — |
 | `scripts/check_project_memory_integrity.py` | Operations/tooling | 8 | — |
@@ -102,6 +103,7 @@
 | `scripts/sync_ui_fonts.py` | Operations/tooling | 2 | — |
 | `scripts/test_api.py` | Operations/tooling | 0 | — |
 | `scripts/test_dialog_flow.py` | Operations/tooling | 1 | — |
+| `scripts/test_micro_indicator_save_flow.py` | Operations/tooling | 9 | Automated End-to-End Test for Saving Micro Indicator in UI |
 | `scripts/test_unprotect.py` | Operations/tooling | 0 | — |
 | `scripts/update_app.js` | Operations/tooling | 0 | — |
 | `scripts/update_docs_phase3.js` | Operations/tooling | 0 | — |
