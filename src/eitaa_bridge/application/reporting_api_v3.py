@@ -51,6 +51,8 @@ _LIAISONS_PROFILE_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/profile$")
 _LIAISON_ID_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/(?P<liaison_id>[A-Za-z0-9_-]+)$")
 _LIAISON_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/(?P<liaison_id>[A-Za-z0-9_-]+)/delete$")
 _LIAISONS_RESOLVE_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/resolve$")
+_LIAISON_SYNC_EITAA_CONTACT_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/(?P<liaison_id>[A-Za-z0-9_-]+)/sync-eitaa-contact$")
+_LIAISONS_SYNC_ALL_EITAA_CONTACTS_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/sync-all-eitaa-contacts$")
 _INDICATORS_MACRO_ROUTE = re.compile(r"^/api/v3/reporting/indicators/macro$")
 _INDICATORS_MICRO_ROUTE = re.compile(r"^/api/v3/reporting/indicators/micro$")
 _INDICATORS_MICRO_ID_ROUTE = re.compile(r"^/api/v3/reporting/indicators/micro/(?P<indicator_id>[A-Za-z0-9_-]+)$")
@@ -817,6 +819,25 @@ def get_liaison_profile(store: ReportingStore, query: Mapping[str, Any]):
     return _ok({"profile": profile})
 
 
+def sync_liaison_eitaa_contact(store: ReportingStore, liaison_id: str, payload: Mapping[str, Any], bridge_api: Any = None):
+    try:
+        phone = str(payload.get("phone", "") or "").strip()
+        result = store.sync_liaison_to_eitaa_contact(liaison_id, phone=phone, bridge_api=bridge_api)
+        return _ok(result)
+    except ValueError as ve:
+        return _error(400, str(ve))
+    except Exception as exc:
+        return _error(500, f"خطا در ثبت مخاطب در ایتا: {exc}")
+
+
+def sync_all_liaisons_eitaa_contacts(store: ReportingStore, bridge_api: Any = None):
+    try:
+        result = store.sync_all_liaisons_to_eitaa_contacts(bridge_api=bridge_api)
+        return _ok(result)
+    except Exception as exc:
+        return _error(500, f"خطا در ثبت گروهی مخاطبین در ایتا: {exc}")
+
+
 def list_macro_indicators(store: ReportingStore):
     return _ok({"macro_indicators": store.list_macro_indicators()})
 
@@ -921,7 +942,8 @@ def set_message_splits(store: ReportingStore, actor: str, payload: Mapping[str, 
 def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
              payload: Mapping[str, Any] | None = None,
              query: Mapping[str, Any] | None = None,
-             if_match: str | None = None):
+             if_match: str | None = None,
+             bridge_api: Any = None):
     """Route /api/v3/reporting/* requests; None when the path is unknown."""
     payload = payload or {}
     query = query or {}
@@ -955,6 +977,11 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
             return assign_message_indicators(store, actor, payload)
         if _MESSAGE_SPLITS_ROUTE.match(path):
             return set_message_splits(store, actor, payload)
+        sync_contact_match = _LIAISON_SYNC_EITAA_CONTACT_ROUTE.match(path)
+        if sync_contact_match:
+            return sync_liaison_eitaa_contact(store, sync_contact_match.group("liaison_id"), payload, bridge_api=bridge_api)
+        if _LIAISONS_SYNC_ALL_EITAA_CONTACTS_ROUTE.match(path):
+            return sync_all_liaisons_eitaa_contacts(store, bridge_api=bridge_api)
         unit_post_del = _UNIT_DELETE_POST_ROUTE.match(path)
         if unit_post_del:
             return delete_unit(store, actor, unit_post_del.group("unit_id"))

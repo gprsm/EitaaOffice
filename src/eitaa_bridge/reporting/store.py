@@ -3331,6 +3331,152 @@ class ReportingStore:
             return False
         return self.delete_liaison(target_id)
 
+    def sync_liaison_to_eitaa_contact(
+        self,
+        liaison_id: str,
+        *,
+        phone: str = "",
+        bridge_api: Any = None,
+    ) -> dict[str, Any]:
+        """Register or update a cultural liaison as an Eitaa contact with their standardized name."""
+        liaison = self.get_liaison(liaison_id)
+        if not liaison:
+            raise ValueError(f"رابط فرهنگی با شناسه '{liaison_id}' یافت نشد.")
+
+        unit = self.get_unit(liaison.unit_id) if liaison.unit_id else None
+        unit_name = (unit.display_name if unit else liaison.unit_display_name or "").strip()
+
+        # Resolve phone
+        selected_phone = (phone or liaison.phone or "").strip()
+        if not selected_phone:
+            selected_phone = self._lookup_contact_phone(
+                user_id=liaison.eitaa_user_id,
+                username=liaison.eitaa_username,
+                full_name=liaison.full_name,
+            )
+        if not selected_phone:
+            raise ValueError("شماره تماس برای این رابط یافت نشد. لطفاً شماره تلفن را وارد کنید.")
+
+        from ..infrastructure.contact_store import SQLiteContactStore, normalize_phone
+        try:
+            selected_phone = normalize_phone(selected_phone)
+        except Exception:
+            pass
+
+        # Update phone in liaison record if it was discovered or passed anew
+        if selected_phone and liaison.phone != selected_phone:
+            liaison.phone = selected_phone
+            self.save_liaison(liaison)
+
+        # Standardized naming per user specification:
+        # مثلاً حامد باباجانی - رابط فرهنگی فلان جا
+        if unit_name:
+            contact_display_name = f"{liaison.full_name.strip()} - رابط فرهنگی {unit_name}".strip()
+            first_name = liaison.full_name.strip()
+            last_name = f"- رابط فرهنگی {unit_name}".strip()
+        else:
+            contact_display_name = f"{liaison.full_name.strip()} - رابط فرهنگی".strip()
+            first_name = liaison.full_name.strip()
+            last_name = "- رابط فرهنگی"
+
+        # 1. Update / Upsert in local contacts SQLite database
+        resolved_db = Path(self.db_path).resolve()
+        if "data" in resolved_db.parts and (resolved_db.parent.parent / "contacts.sqlite3").exists():
+            contacts_db = resolved_db.parent.parent / "contacts.sqlite3"
+        elif (resolved_db.parent / "contacts.sqlite3").exists():
+            contacts_db = resolved_db.parent / "contacts.sqlite3"
+        elif (resolved_db.parent.parent / "contacts.sqlite3").exists():
+            contacts_db = resolved_db.parent.parent / "contacts.sqlite3"
+        else:
+            contacts_db = resolved_db.parent / "contacts.sqlite3"
+        contacts_db.parent.mkdir(parents=True, exist_ok=True)
+
+        from ..infrastructure.contact_store import SQLiteContactStore
+        contact_store = SQLiteContactStore(contacts_db)
+        contact_store.initialize()
+
+        e_uid = int(liaison.eitaa_user_id.strip()) if liaison.eitaa_user_id and liaison.eitaa_user_id.strip().isdigit() else None
+        contact_payload = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "phones": [selected_phone],
+            "username": liaison.eitaa_username.lstrip("@").strip() if liaison.eitaa_username else "",
+            "eitaa_user_id": e_uid,
+            "source": "cultural_liaison",
+            "sendable": True,
+        }
+        local_contact = contact_store.upsert_contact(contact_payload, duplicate_policy="update")
+
+        # 2. Push to live Eitaa messenger if available
+        eitaa_synced = False
+        eitaa_error = None
+        if bridge_api is not None and hasattr(bridge_api, "_eitaa_contacts_add"):
+            try:
+                bridge_api._eitaa_contacts_add({
+                    "phone": selected_phone,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "save_local": True,
+                })
+                eitaa_synced = True
+            except Exception as exc:
+                eitaa_error = str(exc)
+
+        return {
+            "ok": True,
+            "liaison_id": liaison.liaison_id,
+            "full_name": liaison.full_name,
+            "unit_display_name": unit_name,
+            "contact_display_name": contact_display_name,
+            "first_name": first_name,
+            "last_name": last_name,
+            "phone": selected_phone,
+            "local_contact_id": local_contact.get("id"),
+            "eitaa_synced": eitaa_synced,
+            "eitaa_error": eitaa_error,
+            "message": f"رابط فرهنگی «{liaison.full_name}» با موفقیت با عنوان «{contact_display_name}» در مخاطبین ایتا ثبت گردید.",
+        }
+
+    def sync_all_liaisons_to_eitaa_contacts(
+        self,
+        *,
+        bridge_api: Any = None,
+    ) -> dict[str, Any]:
+        """Sync all cultural liaisons with a phone number to Eitaa contacts with their standardized title."""
+        all_liaisons = self.list_liaisons()
+        synced: list[dict[str, Any]] = []
+        skipped_no_phone: list[dict[str, Any]] = []
+
+        for l in all_liaisons:
+            try:
+                res = self.sync_liaison_to_eitaa_contact(l.liaison_id, bridge_api=bridge_api)
+                synced.append(res)
+            except ValueError as ve:
+                unit = self.get_unit(l.unit_id) if l.unit_id else None
+                skipped_no_phone.append({
+                    "liaison_id": l.liaison_id,
+                    "full_name": l.full_name,
+                    "unit_display_name": unit.display_name if unit else (l.unit_display_name or ""),
+                    "reason": str(ve),
+                })
+            except Exception as exc:
+                skipped_no_phone.append({
+                    "liaison_id": l.liaison_id,
+                    "full_name": l.full_name,
+                    "unit_display_name": l.unit_display_name or "",
+                    "reason": str(exc),
+                })
+
+        return {
+            "ok": True,
+            "total": len(all_liaisons),
+            "synced_count": len(synced),
+            "skipped_count": len(skipped_no_phone),
+            "synced": synced,
+            "skipped": skipped_no_phone,
+            "message": f"{len(synced)} رابط فرهنگی با عنوان رسمی در مخاطبین ایتا ثبت شدند. ({len(skipped_no_phone)} بدون تلفن رد شدند)",
+        }
+
     def get_liaison_profile_analytics(
         self,
         *,

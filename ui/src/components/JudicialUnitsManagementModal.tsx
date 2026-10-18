@@ -39,6 +39,7 @@ import AccountBalanceRounded from '@mui/icons-material/AccountBalanceRounded'
 import PersonRounded from '@mui/icons-material/PersonRounded'
 import RefreshRounded from '@mui/icons-material/RefreshRounded'
 import BarChartRounded from '@mui/icons-material/BarChartRounded'
+import ContactPhoneRounded from '@mui/icons-material/ContactPhoneRounded'
 import { api } from '../lib/api'
 import { LiaisonAuthorDialog } from './LiaisonAuthorDialog'
 
@@ -109,6 +110,64 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
   const [liaisonModalOpen, setLiaisonModalOpen] = useState(false)
   const [editingLiaison, setEditingLiaison] = useState<Partial<LiaisonItem> | null>(null)
   const [selectedLiaisonForProfile, setSelectedLiaisonForProfile] = useState<LiaisonItem | null>(null)
+
+  // Contact sync states
+  const [syncingAll, setSyncingAll] = useState(false)
+  const [syncingLiaisonId, setSyncingLiaisonId] = useState<string | null>(null)
+  const [phonePromptLiaison, setPhonePromptLiaison] = useState<LiaisonItem | null>(null)
+  const [phonePromptValue, setPhonePromptValue] = useState('')
+
+  const handleSyncEitaaContact = async (l: LiaisonItem, customPhone?: string) => {
+    const targetPhone = (customPhone ?? l.phone ?? '').trim()
+    if (!targetPhone) {
+      setPhonePromptLiaison(l)
+      setPhonePromptValue('')
+      return
+    }
+    setSyncingLiaisonId(l.liaison_id)
+    setErrorText('')
+    setSuccessText('')
+    try {
+      const res = await api<{
+        ok: boolean
+        message?: string
+        full_name: string
+        contact_display_name: string
+        phone: string
+      }>('POST', `/api/v3/reporting/liaisons/${l.liaison_id}/sync-eitaa-contact`, {
+        phone: targetPhone,
+      })
+      setSuccessText(res.message || `رابط فرهنگی «${res.full_name}» با موفقیت با عنوان «${res.contact_display_name}» در مخاطبین ایتا ثبت شد.`)
+      setPhonePromptLiaison(null)
+      await loadData()
+      onDataChanged?.()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ثبت مخاطب در ایتا')
+    } finally {
+      setSyncingLiaisonId(null)
+    }
+  }
+
+  const handleSyncAllEitaaContacts = async () => {
+    setSyncingAll(true)
+    setErrorText('')
+    setSuccessText('')
+    try {
+      const res = await api<{
+        ok: boolean
+        message?: string
+        synced_count: number
+        total: number
+      }>('POST', '/api/v3/reporting/liaisons/sync-all-eitaa-contacts')
+      setSuccessText(res.message || `${res.synced_count} رابط فرهنگی در مخاطبین ایتا ثبت شدند.`)
+      await loadData()
+      onDataChanged?.()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ثبت گروهی رابطین در ایتا')
+    } finally {
+      setSyncingAll(false)
+    }
+  }
 
   // Load data
   const loadData = async () => {
@@ -424,7 +483,16 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
                   }}
                   sx={{ flex: 1, width: { xs: '100%', sm: 'auto' } }}
                 />
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={syncingAll ? <CircularProgress size={16} color="inherit" /> : <ContactPhoneRounded />}
+                    onClick={handleSyncAllEitaaContacts}
+                    disabled={loading || syncingAll}
+                  >
+                    {syncingAll ? 'در حال ثبت...' : 'ثبت همه در مخاطبین ایتا'}
+                  </Button>
                   <Button
                     variant="outlined"
                     startIcon={<RefreshRounded />}
@@ -501,6 +569,20 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
                               {l.match_keywords || '—'}
                             </TableCell>
                             <TableCell align="center">
+                              <Tooltip title="ثبت در مخاطبین ایتا با عنوان رسمی">
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  onClick={() => handleSyncEitaaContact(l)}
+                                  disabled={syncingLiaisonId === l.liaison_id}
+                                >
+                                  {syncingLiaisonId === l.liaison_id ? (
+                                    <CircularProgress size={16} color="inherit" />
+                                  ) : (
+                                    <ContactPhoneRounded fontSize="small" />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
                               <Tooltip title="مشاهده کارنامه و پروفایل فعالیت">
                                 <IconButton
                                   size="small"
@@ -710,6 +792,52 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setLiaisonModalOpen(false)}>انصراف</Button>
           <Button onClick={handleSaveLiaison} variant="contained" color="primary">ذخیره رابط</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PHONE PROMPT DIALOG */}
+      <Dialog
+        open={Boolean(phonePromptLiaison)}
+        onClose={() => setPhonePromptLiaison(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          ثبت رابط در مخاطبین ایتا
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              برای ثبت رسمی رابط فرهنگی «<strong>{phonePromptLiaison?.full_name}</strong>» در مخاطبین ایتا، لطفاً شماره تماس ایشان را وارد فرمایید:
+            </Typography>
+            <TextField
+              autoFocus
+              label="شماره تماس"
+              placeholder="0911..."
+              value={phonePromptValue}
+              onChange={e => setPhonePromptValue(e.target.value)}
+              fullWidth
+              dir="ltr"
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><ContactPhoneRounded fontSize="small" /></InputAdornment>,
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setPhonePromptLiaison(null)}>انصراف</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!phonePromptValue.trim()}
+            onClick={() => {
+              if (phonePromptLiaison) {
+                void handleSyncEitaaContact(phonePromptLiaison, phonePromptValue.trim())
+              }
+            }}
+          >
+            ثبت در مخاطبین ایتا
+          </Button>
         </DialogActions>
       </Dialog>
 

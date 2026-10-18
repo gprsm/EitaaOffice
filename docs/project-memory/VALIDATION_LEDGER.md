@@ -3268,6 +3268,28 @@
   - داوری و نظارت دوایجنتی OpenCode (OSP-1.0): ثبت پرونده نظارتی و صدور تاییدیه `APPROVED` در `diagnostics/opencode_supervision_verdict.json`.
 - نتیجه: کلیه قابلیت‌های تفکیک پیام، شاخصه‌های کلی و جزئی، نوار کنترلی پیام‌ها و اتصال به ثبت گزارش به طور کامل با رعایت تمامی استانداردها و بدون شکست تست‌های پیشین پیاده‌سازی و اعتبارسنجی گردید.
 
+### V-292 — اعتبارسنجی جامع ثبت و همگام‌سازی رابطین فرهنگی در دفترچه مخاطبین ایتا با عنوان استاندارد
+
+- تاریخ: 2026-10-18؛ Trigger: درخواست کاربر برای ثبت رابطین فرهنگی تعریف‌شده در پنل به عنوان مخاطب رسمی ایتا با فرمت عنوان استاندارد (`نام - رابط فرهنگی نام حوزه`؛ مانند: `حامد باباجانی - رابط فرهنگی بابل - دادگستری`)، قابلیت ثبت تکی و گروهی، و کشف/ورود شماره تلفن.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/store.py`: پیاده‌سازی متدهای `sync_liaison_to_eitaa_contact` و `sync_all_liaisons_to_eitaa_contacts` با فرمت‌بندی رسمی نام، تطبیق با مخزن مخاطبین `SQLiteContactStore` با سیاست `duplicate_policy="update"` و فراخوانی متد پیام‌رسان ایتا `bridge_api._eitaa_contacts_add`.
+  - `src/eitaa_bridge/application/reporting_api_v3.py`: افزودن روت‌های `/api/v3/reporting/liaisons/{id}/sync-eitaa-contact` و `/api/v3/reporting/liaisons/sync-all-eitaa-contacts` و اتصال هندلرهای متناظر.
+  - `src/eitaa_bridge/application/api.py`: ارسال پارامتر `bridge_api=self` در `_reporting_v3_dispatch` به لایه هندلر ریپورتینگ v3.
+  - `ui/src/components/JudicialUnitsManagementModal.tsx`: اضافه شدن دکمه «ثبت همه در مخاطبین ایتا» در نوار ابزار، دکمه اکشن سطر «ثبت در مخاطبین ایتا با عنوان رسمی» با آیکون `ContactPhoneRounded`، و دیالوگ هوشمند دریافت شماره تماس هنگام فقدان شماره تلفن.
+  - `ui/src/components/LiaisonAuthorDialog.tsx`: افزودن دکمه «ثبت در مخاطبین ایتا» در نوار اقدامات سریع تب کارنامه (Tab 0) و دکمه «ثبت در مخاطبین ایتا با عنوان ...» در تب مشخصات رابط (Tab 1).
+  - `tests/test_judicial_units_and_liaisons.py`: افزودن آزمون‌های `test_sync_liaison_to_eitaa_contact` و `test_api_v3_sync_eitaa_contact_routes` جهت تست جامع رفتار تکی، گروهی، فرمت نام، ثبت مخاطب و اندپوینت‌های REST.
+  - `scripts/run_opencode_supervision.py`: به‌روزرسانی چک‌لیست و پرامپت ناظر داوری دوایجنتی به ۱۳ نیازمندی و آزمون خودکار قرارداد.
+  - `diagnostics/opencode_supervision_dossier.json`: تشکیل پرونده نظارتی `TASK-20261018-REPORTING-LIAISONS-EITAA-CONTACT-SYNC`.
+- آزمون‌های متمرکز و ممیزی:
+  - آزمون‌های واحد و یکپارچگی بک‌اند: `python -m pytest tests/test_judicial_units_and_liaisons.py -q` (۱۳/۱۳ پاس).
+  - آزمون بسته‌بندی ویل استاندارد: `python -m pytest tests/test_g07_release_packaging.py -q` (۱۵/۱۵ پاس).
+  - تایپ‌چک فرانت‌اند: `npm run check` با صفر خطا (exit code 0).
+  - آزمون‌های Observability فرانت‌اند: `npm run test:observability` بدون نقض قرارداد (exit code 0).
+  - آزمون‌های چت فرانت‌اند: `node ui/scripts/run-reporting-chat-surface-tests.mjs` (exit code 0).
+  - آزمون‌های ریپورتینگ و مالکیت: `test_reporting_shell.py`، `test_reporting_ownership.py`، `test_material_ui_repair.py` (همگی ۱۰۰٪ پاس).
+  - داوری و نظارت دوایجنتی OpenCode (OSP-1.0): صدور حکم تاییدیه `APPROVED` با تایید تمامی ۱۳ آیتم در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه: قابلیت ثبت و همگام‌سازی رابطین فرهنگی در دفترچه مخاطبین پیام‌رسان ایتا با رعایت فرمت استاندارد، ثبت تکی و گروهی، اخذ هوشمند شماره تماس و تایید کامل قراردادهای دوایجنتی با موفقیت پیاده‌سازی و اعتبارسنجی شد.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.

@@ -4635,6 +4635,7 @@ class BridgeApplicationApi:
         resp = _reporting_v3_route_dispatch(
             self._reporting_store, actor, roles, method, path,
             payload=payload, query=query, if_match=if_match,
+            bridge_api=self,
         )
         if resp is not None and method == "POST":
             status_code = resp[0] if isinstance(resp, tuple) else getattr(resp, "status_code", 0)

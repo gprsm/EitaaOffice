@@ -49,6 +49,7 @@ import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded'
 import RefreshRounded from '@mui/icons-material/RefreshRounded'
 import SaveRounded from '@mui/icons-material/SaveRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
+import ContactPhoneRounded from '@mui/icons-material/ContactPhoneRounded'
 import { api } from '../lib/api'
 import type { JudicialUnitItem, LiaisonItem } from './JudicialUnitsManagementModal'
 
@@ -246,6 +247,40 @@ export function LiaisonAuthorDialog({
     }
   }
 
+  const [syncingContact, setSyncingContact] = useState(false)
+
+  const handleSyncEitaaContact = async () => {
+    let targetId = profile?.liaison?.liaison_id
+    if (!targetId) {
+      if (!selectedUnit) {
+        setErrorText('لطفاً ابتدا حوزه قضایی رابط را انتخاب کنید.')
+        return
+      }
+      await handleSaveLiaison()
+      targetId = profile?.liaison?.liaison_id
+    }
+    setSyncingContact(true)
+    setErrorText('')
+    setSuccessText('')
+    try {
+      const res = await api<{
+        ok: boolean
+        message?: string
+        full_name: string
+        contact_display_name: string
+      }>('POST', `/api/v3/reporting/liaisons/${targetId || 'active'}/sync-eitaa-contact`, {
+        phone: phone.trim(),
+      })
+      setSuccessText(res.message || `با موفقیت با عنوان «${res.contact_display_name}» در مخاطبین ایتا ثبت شد.`)
+      onLiaisonUpdated?.()
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ثبت مخاطب در ایتا')
+    } finally {
+      setSyncingContact(false)
+    }
+  }
+
   const handleCopyPhone = () => {
     if (phone) {
       void navigator.clipboard.writeText(phone)
@@ -393,6 +428,18 @@ export function LiaisonAuthorDialog({
                       }}
                     >
                       ثبت گزارش برای این پیام
+                    </Button>
+                  )}
+                  {isLiaison && selectedUnit && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="secondary"
+                      startIcon={syncingContact ? <CircularProgress size={14} color="inherit" /> : <ContactPhoneRounded fontSize="small" />}
+                      onClick={handleSyncEitaaContact}
+                      disabled={saving || syncingContact}
+                    >
+                      {syncingContact ? 'در حال ثبت...' : 'ثبت در مخاطبین ایتا'}
                     </Button>
                   )}
                 </Stack>
@@ -734,6 +781,20 @@ export function LiaisonAuthorDialog({
                           {selectedUnit ? `${fullName || authorName} - حوزه قضایی ${selectedUnit.display_name}` : fullName || authorName}
                         </Typography>
                       </Alert>
+
+                      {selectedUnit && (
+                        <Box sx={{ mt: 1 }}>
+                          <Button
+                            variant="outlined"
+                            color="secondary"
+                            startIcon={syncingContact ? <CircularProgress size={16} color="inherit" /> : <ContactPhoneRounded />}
+                            onClick={handleSyncEitaaContact}
+                            disabled={saving || syncingContact}
+                          >
+                            {syncingContact ? 'در حال ثبت در مخاطبین...' : `ثبت در مخاطبین ایتا با عنوان «${fullName || authorName} - رابط فرهنگی ${selectedUnit.display_name}»`}
+                          </Button>
+                        </Box>
+                      )}
                     </Stack>
                   </Paper>
                 )}

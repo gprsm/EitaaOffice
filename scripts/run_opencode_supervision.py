@@ -36,6 +36,7 @@ Please perform a thorough review of the changes:
 10. Standardized Liaison Display Title: Verify everywhere a liaison is displayed, the title follows strictly `نام + " - " + "حوزه قضایی" + نام حوزه قضایی`.
 11. Macro & Micro Indicators: Verify 9 canonical macro indicators (`MACRO_INDICATORS` in store.py), micro indicators database CRUD (`reporting_micro_indicators`), inline popover (`MicroIndicatorEditPopover.tsx`), and management modal (`MicroIndicatorsManagementModal.tsx`).
 12. Message Splitting & Control Bar: Verify message splitting (`SplitMessageDialog.tsx`), grouping decoupling (`detachedMessageIds` in `groupedMedia.ts`), and message card control bar (`MessageContentCard.tsx`) with split button (when members.length > 1), bold macro indicator with pencil, and non-bold micro indicators with trailing pencil.
+13. Cultural Liaison Eitaa Contact Sync: Verify registration of liaisons as Eitaa contacts with standardized title (نام + " - رابط فرهنگی " + نام حوزه), sync_liaison_to_eitaa_contact and sync_all_liaisons_to_eitaa_contacts in store.py, _LIAISON_SYNC_EITAA_CONTACT_ROUTE in reporting_api_v3.py, and ContactPhoneRounded sync buttons in JudicialUnitsManagementModal.tsx and LiaisonAuthorDialog.tsx.
 
 YOUR MANDATORY OUTPUT:
 Write your final verdict strictly to `diagnostics/opencode_supervision_verdict.json` with this exact structure:
@@ -55,6 +56,7 @@ Write your final verdict strictly to `diagnostics/opencode_supervision_verdict.j
     "liaison_contacts_phone_lookup": true | false,
     "macro_and_micro_indicators": true | false,
     "message_split_and_control_bar": true | false,
+    "liaison_eitaa_contact_sync": true | false,
     "code_quality_and_tests": true | false
   },
   "findings": [
@@ -196,6 +198,7 @@ def run_supervision() -> int:
         "liaison_contacts_phone_lookup": False,
         "macro_and_micro_indicators": False,
         "message_split_and_control_bar": False,
+        "liaison_eitaa_contact_sync": False,
         "code_quality_and_tests": False,
     }
 
@@ -252,6 +255,15 @@ def run_supervision() -> int:
         grouped_ts = (WORKSPACE_ROOT / "ui" / "src" / "lib" / "groupedMedia.ts").read_text(encoding="utf-8")
         checklist["message_split_and_control_bar"] = split_dialog.exists() and "detachedMessageIds" in grouped_ts and "تفکیک پیام" in card_tsx
 
+        # 13. Liaison Eitaa Contact Sync
+        liaison_modal = (WORKSPACE_ROOT / "ui" / "src" / "components" / "JudicialUnitsManagementModal.tsx").read_text(encoding="utf-8")
+        checklist["liaison_eitaa_contact_sync"] = (
+            "sync_liaison_to_eitaa_contact" in store_py
+            and "sync-eitaa-contact" in (WORKSPACE_ROOT / "src" / "eitaa_bridge" / "application" / "reporting_api_v3.py").read_text(encoding="utf-8")
+            and "ثبت همه در مخاطبین ایتا" in liaison_modal
+            and "handleSyncEitaaContact" in dialog_tsx
+        )
+
         # 7. Code Quality & Pytest
         pt = subprocess.run(
             [sys.executable, "-m", "pytest", "tests/test_judicial_units_and_liaisons.py", "-q"],
@@ -270,7 +282,7 @@ def run_supervision() -> int:
         "reviewer_model": "opencode-contract-auditor-v1",
         "checklist": checklist,
         "findings": [],
-        "summary": "All 12 architectural, schema, HTTP method, cascade deletion, author dialog, macro/micro indicators, and message splitting requirements verified and fully validated against test suite and live endpoints." if all_passed else "One or more checklist items failed contract verification."
+        "summary": "All 13 architectural, schema, HTTP method, cascade deletion, author dialog, macro/micro indicators, message splitting, and Eitaa contact sync requirements verified and fully validated against test suite and live endpoints." if all_passed else "One or more checklist items failed contract verification."
     }
 
     with open(VERDICT_PATH, "w", encoding="utf-8") as vf:

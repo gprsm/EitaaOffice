@@ -486,4 +486,70 @@ def test_message_indicators_and_splits_api(tmp_path: Path) -> None:
     assert 102 not in pay5["detached_message_ids"]
 
 
+def test_sync_liaison_to_eitaa_contact(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+    babol_unit = store.find_unit_by_name("بابل - دادگستری")
+    assert babol_unit is not None
 
+    liaison = LiaisonRecord(
+        liaison_id="liaison-babol-1",
+        unit_id=babol_unit.unit_id,
+        full_name="حامد باباجانی",
+        eitaa_username="hamed_babajani",
+        phone="09112223344",
+    )
+    store.save_liaison(liaison)
+
+    # 1. Sync liaison to Eitaa contact
+    res = store.sync_liaison_to_eitaa_contact(liaison.liaison_id)
+    assert res["ok"] is True
+    assert res["full_name"] == "حامد باباجانی"
+    assert res["unit_display_name"] == "بابل - دادگستری"
+    assert res["contact_display_name"] == "حامد باباجانی - رابط فرهنگی بابل - دادگستری"
+    assert res["first_name"] == "حامد باباجانی"
+    assert res["last_name"] == "- رابط فرهنگی بابل - دادگستری"
+    assert res["phone"] == "+989112223344"
+
+    # Verify in SQLiteContactStore
+    from eitaa_bridge.infrastructure.contact_store import SQLiteContactStore
+    contacts_db = tmp_path / "contacts.sqlite3"
+    assert contacts_db.exists()
+    c_store = SQLiteContactStore(contacts_db)
+    found = c_store.get_contacts([res["local_contact_id"]])
+    assert len(found) == 1
+    assert found[0]["first_name"] == "حامد باباجانی"
+    assert found[0]["last_name"] == "- رابط فرهنگی بابل - دادگستری"
+
+
+def test_api_v3_sync_eitaa_contact_routes(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+    sari_unit = store.find_unit_by_name("ساری - دادگستری")
+    assert sari_unit is not None
+
+    liaison = LiaisonRecord(
+        liaison_id="liaison-sari-test",
+        unit_id=sari_unit.unit_id,
+        full_name="محمد علیزاده",
+        eitaa_username="m_alizadeh",
+        phone="09121112233",
+    )
+    store.save_liaison(liaison)
+
+    # 1. POST single sync route
+    status, payload, _ = v3.dispatch(
+        store, "staff", ["editor"], "POST",
+        f"/api/v3/reporting/liaisons/{liaison.liaison_id}/sync-eitaa-contact",
+        payload={"phone": "09121112233"}
+    )
+    assert status == 200
+    assert payload["ok"] is True
+    assert payload["contact_display_name"] == "محمد علیزاده - رابط فرهنگی ساری - دادگستری"
+
+    # 2. POST bulk sync route
+    status_all, payload_all, _ = v3.dispatch(
+        store, "staff", ["editor"], "POST",
+        "/api/v3/reporting/liaisons/sync-all-eitaa-contacts",
+    )
+    assert status_all == 200
+    assert payload_all["ok"] is True
+    assert payload_all["synced_count"] >= 1
