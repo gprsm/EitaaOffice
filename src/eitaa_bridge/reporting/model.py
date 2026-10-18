@@ -193,6 +193,10 @@ class ReportedEvent:
     unit_name: str = ""
     occasion: str = ""
     occasion_class: OccasionClass | None = None
+    macro_category: str = "workbook_approved"  # "workbook_approved" | "other_cultural"
+    custom_topic: str = ""
+    macro_indicator: str = ""  # General Indicator (8 official programs + غیر برنامه‌ای)
+    micro_indicators: list[str] = field(default_factory=list)  # Detailed / Micro indicators
     facts: list[Fact] = field(default_factory=list)
     evidence: list[Evidence] = field(default_factory=list)
     official_present: bool | None = None

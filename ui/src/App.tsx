@@ -36,6 +36,19 @@ const StaffTasksDialog = lazy(() => import('./StaffTasksDialog').then(module => 
 const MessageIndexEditor = lazy(() => import('./MessageIndexEditor').then(module => ({ default: module.MessageIndexEditor })))
 const ReportingWorkbench = lazy(() => import('./ReportingWorkbench').then(module => ({ default: module.ReportingWorkbench })))
 const ReportingRegistrationPanel = lazy(() => import('./ReportingRegistrationPanel').then(module => ({ default: module.ReportingRegistrationPanel })))
+const LiaisonAuthorDialog = lazy(() => import('./components/LiaisonAuthorDialog').then(module => ({ default: module.LiaisonAuthorDialog })))
+import type { LiaisonItem } from './components/JudicialUnitsManagementModal'
+import {
+  type MessageIndicatorData,
+  assignMessageIndicators,
+  fetchMessageIndicators,
+  fetchMessageSplits,
+  saveMessageSplits,
+} from './lib/indicators'
+import { SplitMessageDialog } from './components/SplitMessageDialog'
+import { MacroIndicatorSelectPopover } from './components/MacroIndicatorSelectPopover'
+import { MicroIndicatorEditPopover } from './components/MicroIndicatorEditPopover'
+import { MicroIndicatorsManagementModal } from './components/MicroIndicatorsManagementModal'
 import {
   AddMessengerAccountButton,
   MessengerAccountGate,
@@ -417,7 +430,175 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [selectionMode, setSelectionMode] = useState(false)
   const [reportUsageByMessage, setReportUsageByMessage] = useState<Record<string, ReportingWitnessStatus>>({})
   const [reportUsageRefresh, setReportUsageRefresh] = useState(0)
-  const [registrationPanel, setRegistrationPanel] = useState<{ open: boolean; messageIds: number[] }>({ open: false, messageIds: [] })
+  const [registrationPanel, setRegistrationPanel] = useState<{
+    open: boolean
+    messageIds: number[]
+    sourceMessage?: MessageItem
+    sourceMembers?: MessageItem[]
+    initialMacroIndicator?: string
+    initialMicroIndicators?: string[]
+  }>({ open: false, messageIds: [] })
+  const [detachedMessageIds, setDetachedMessageIds] = useState<Set<number>>(new Set())
+  const [messageIndicatorsMap, setMessageIndicatorsMap] = useState<Record<string, MessageIndicatorData>>({})
+  const [splitDialogState, setSplitDialogState] = useState<{ open: boolean; messages: MessageItem[] }>({
+    open: false,
+    messages: [],
+  })
+  const [macroSelectState, setMacroSelectState] = useState<{
+    open: boolean
+    messageIds: number[]
+    currentMacro: string
+  }>({
+    open: false,
+    messageIds: [],
+    currentMacro: '',
+  })
+  const [microEditState, setMicroEditState] = useState<{
+    open: boolean
+    messageIds: number[]
+    currentMicros: string[]
+  }>({
+    open: false,
+    messageIds: [],
+    currentMicros: [],
+  })
+  const [microManagementOpen, setMicroManagementOpen] = useState(false)
+
+  // Load splits and indicators for current active dialog
+  useEffect(() => {
+    if (!dialog?.peer_key) {
+      setDetachedMessageIds(new Set())
+      setMessageIndicatorsMap({})
+      return
+    }
+    let active = true
+    void fetchMessageSplits(dialog.peer_key).then(ids => {
+      if (active) setDetachedMessageIds(new Set(ids))
+    })
+    void fetchMessageIndicators(dialog.peer_key).then(map => {
+      if (active) setMessageIndicatorsMap(map)
+    })
+    return () => {
+      active = false
+    }
+  }, [dialog?.peer_key, reportUsageRefresh])
+
+  const handleSaveSplits = async (detachedIds: number[], unifiedIds: number[]) => {
+    if (!dialog?.peer_key) return
+    try {
+      const newDetached = await saveMessageSplits({
+        peer_key: dialog.peer_key,
+        detached_ids: detachedIds,
+        unified_ids: unifiedIds,
+      })
+      setDetachedMessageIds(new Set(newDetached))
+      toast.success('تفکیک/ادغام پیام‌ها با موفقیت اعمال شد.')
+    } catch (err: any) {
+      toast.error(err.message || 'خطا در ثبت تفکیک پیام')
+    }
+  }
+
+  const handleSaveMacro = async (macro: string) => {
+    if (!dialog?.peer_key || !macroSelectState.messageIds.length) return
+    try {
+      const existingMicros = macroSelectState.messageIds.flatMap(
+        mid => messageIndicatorsMap[String(mid)]?.micro_indicators || []
+      )
+      const uniqueMicros = [...new Set(existingMicros)]
+      await assignMessageIndicators({
+        peer_key: dialog.peer_key,
+        message_ids: macroSelectState.messageIds,
+        macro_indicator: macro,
+        micro_indicators: uniqueMicros,
+      })
+      setMessageIndicatorsMap(prev => {
+        const next = { ...prev }
+        for (const mid of macroSelectState.messageIds) {
+          next[String(mid)] = {
+            macro_indicator: macro,
+            micro_indicators: uniqueMicros,
+            updated_at: new Date().toISOString(),
+          }
+        }
+        return next
+      })
+      toast.success('شاخصه کلی با موفقیت ثبت شد.')
+    } catch (err: any) {
+      toast.error(err.message || 'خطا در ثبت شاخصه کلی')
+    }
+  }
+
+  const handleSaveMicros = async (micros: string[]) => {
+    if (!dialog?.peer_key || !microEditState.messageIds.length) return
+    try {
+      const existingMacro = microEditState.messageIds
+        .map(mid => messageIndicatorsMap[String(mid)]?.macro_indicator)
+        .find(Boolean) || ''
+      await assignMessageIndicators({
+        peer_key: dialog.peer_key,
+        message_ids: microEditState.messageIds,
+        macro_indicator: existingMacro,
+        micro_indicators: micros,
+      })
+      setMessageIndicatorsMap(prev => {
+        const next = { ...prev }
+        for (const mid of microEditState.messageIds) {
+          next[String(mid)] = {
+            macro_indicator: existingMacro,
+            micro_indicators: micros,
+            updated_at: new Date().toISOString(),
+          }
+        }
+        return next
+      })
+      toast.success('شاخصه‌های جزئی با موفقیت ثبت شدند.')
+    } catch (err: any) {
+      toast.error(err.message || 'خطا در ثبت شاخصه‌های جزئی')
+    }
+  }
+
+  const [liaisonsMap, setLiaisonsMap] = useState<Record<string, { full_name: string; unit_display_name: string; phone?: string }>>({})
+  const [liaisonDialogOpen, setLiaisonDialogOpen] = useState(false)
+  const [selectedAuthorForLiaison, setSelectedAuthorForLiaison] = useState<{
+    name: string
+    username?: string
+    userId?: string
+    senderKey?: string
+    message?: MessageItem
+  } | null>(null)
+
+  const refreshLiaisonsMap = useCallback(async () => {
+    try {
+      const res = await api<{ liaisons: LiaisonItem[] }>('GET', '/api/v3/reporting/liaisons')
+      const map: Record<string, { full_name: string; unit_display_name: string; phone?: string }> = {}
+      for (const l of res.liaisons || []) {
+        if (!l.unit_display_name) continue
+        const item = { full_name: l.full_name, unit_display_name: l.unit_display_name, phone: l.phone }
+        if (l.sender_key) map[l.sender_key] = item
+        if (l.eitaa_user_id) map[l.eitaa_user_id] = item
+        if (l.eitaa_username) map[l.eitaa_username.toLowerCase().replace(/^@/, '')] = item
+        if (l.full_name) map[l.full_name] = item
+        if (l.match_keywords) {
+          for (const kw of l.match_keywords.split(/[,،]/)) {
+            const cleanKw = kw.trim()
+            if (cleanKw.length >= 3) map[cleanKw] = item
+          }
+        }
+      }
+      setLiaisonsMap(map)
+    } catch {
+      // background load failure ignored
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshLiaisonsMap()
+  }, [refreshLiaisonsMap, reportUsageRefresh])
+
+  const handleAuthorClick = useCallback((author: { name: string; username?: string; userId?: string; senderKey?: string; message?: MessageItem }) => {
+    setSelectedAuthorForLiaison(author)
+    setLiaisonDialogOpen(true)
+  }, [])
   const [activeUsage, setActiveUsage] = useState<{ message: MessageItem; usage: MessageUsage } | null>(null)
   const [categories, setCategories] = useState<Term[]>([])
   const [tags, setTags] = useState<Term[]>([])
@@ -1789,7 +1970,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
 
   const messageGroupLookup = useMemo(() => buildMessageGroupLookup(indexedMessages, {
     fallbackIncomingSenderKey: dialog && dialog.display_kind !== 'group' ? dialog.peer_key : null,
-  }), [dialog, indexedMessages])
+    detachedMessageIds,
+  }), [dialog, indexedMessages, detachedMessageIds])
 
   const filteredMessages = useMemo(() => {
     const q = messageSearch.trim().toLowerCase()
@@ -2189,7 +2371,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           onSearch={setMessageSearch}
           onOpenComposer={() => { setCommunityOpen(!wordpressPanelAvailable); setComposerOpen(true) }}
         />
-        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} paginationEnabled={databaseSearchResults === null && !dateRange} readReceiptsEnabled={!dateRange && !messageSearch.trim() && databaseSearchResults === null && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={messageIds => setRegistrationPanel({ open: true, messageIds })} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} />}
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} paginationEnabled={databaseSearchResults === null && !dateRange} readReceiptsEnabled={!dateRange && !messageSearch.trim() && databaseSearchResults === null && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={(messageIds, sourceMsg, sourceMembers, initialMacro, initialMicros) => { const msg = sourceMsg || filteredMessages.find(item => messageIds.includes(item.id)); const members = sourceMembers || filteredMessages.filter(item => messageIds.includes(item.id)); setRegistrationPanel({ open: true, messageIds, sourceMessage: msg, sourceMembers: members, initialMacroIndicator: initialMacro, initialMicroIndicators: initialMicros }) }} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} liaisonsMap={liaisonsMap} onAuthorClick={handleAuthorClick} indicatorsMap={messageIndicatorsMap} detachedMessageIds={detachedMessageIds} onOpenSplitDialog={messages => setSplitDialogState({ open: true, messages })} onOpenMacroSelect={(mids, macro) => setMacroSelectState({ open: true, messageIds: mids, currentMacro: macro })} onOpenMicroEdit={(mids, micros) => setMicroEditState({ open: true, messageIds: mids, currentMicros: micros })} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
@@ -2217,7 +2399,80 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       </DialogContent>
     </Dialog>
     {registrationPanel.open && <Suspense fallback={null}>
-      <ReportingRegistrationPanel siteKey={siteKey} dialogPeerKey={dialog?.peer_key || ''} messageIds={registrationPanel.messageIds} onClose={() => { setRegistrationPanel({ open: false, messageIds: [] }); setReportUsageRefresh(value => value + 1) }} />
+      <ReportingRegistrationPanel siteKey={siteKey} dialog={dialog} dialogPeerKey={dialog?.peer_key || ''} messageIds={registrationPanel.messageIds} sourceMessage={registrationPanel.sourceMessage} sourceMessages={registrationPanel.sourceMembers} initialMacroIndicator={registrationPanel.initialMacroIndicator} initialMicroIndicators={registrationPanel.initialMicroIndicators} onClose={() => { setRegistrationPanel({ open: false, messageIds: [] }); setReportUsageRefresh(value => value + 1) }} />
+    </Suspense>}
+    {splitDialogState.open && (
+      <SplitMessageDialog
+        open={splitDialogState.open}
+        onClose={() => setSplitDialogState({ open: false, messages: [] })}
+        peerKey={dialog?.peer_key || ''}
+        messages={splitDialogState.messages}
+        detachedMessageIds={detachedMessageIds}
+        onSaveSplits={handleSaveSplits}
+      />
+    )}
+    {macroSelectState.open && (
+      <MacroIndicatorSelectPopover
+        open={macroSelectState.open}
+        onClose={() => setMacroSelectState({ open: false, messageIds: [], currentMacro: '' })}
+        currentValue={macroSelectState.currentMacro}
+        onSelect={handleSaveMacro}
+      />
+    )}
+    {microEditState.open && (
+      <MicroIndicatorEditPopover
+        open={microEditState.open}
+        onClose={() => setMicroEditState({ open: false, messageIds: [], currentMicros: [] })}
+        currentMicroIndicators={microEditState.currentMicros}
+        onSave={handleSaveMicros}
+        onOpenManagement={() => setMicroManagementOpen(true)}
+      />
+    )}
+    {microManagementOpen && (
+      <MicroIndicatorsManagementModal
+        open={microManagementOpen}
+        onClose={() => setMicroManagementOpen(false)}
+        onIndicatorsChanged={() => {
+          if (dialog?.peer_key) {
+            void fetchMessageIndicators(dialog.peer_key).then(setMessageIndicatorsMap)
+          }
+        }}
+      />
+    )}
+    {liaisonDialogOpen && selectedAuthorForLiaison && <Suspense fallback={null}>
+      <LiaisonAuthorDialog
+        open={liaisonDialogOpen}
+        onClose={() => { setLiaisonDialogOpen(false); setSelectedAuthorForLiaison(null) }}
+        authorName={selectedAuthorForLiaison.name}
+        authorUsername={selectedAuthorForLiaison.username}
+        authorUserId={selectedAuthorForLiaison.userId}
+        senderKey={selectedAuthorForLiaison.senderKey}
+        onLiaisonUpdated={() => { void refreshLiaisonsMap() }}
+        onDirectMessage={(author) => {
+          const targetDialog = dialogs.find(d => {
+            if (author.username && d.peer?.username && d.peer.username.toLowerCase() === author.username.toLowerCase().replace(/^@/, '')) return true
+            if (author.name && d.peer?.title && d.peer.title === author.name) return true
+            if (author.senderKey && d.peer_key && d.peer_key.includes(author.senderKey.replace('u:', ''))) return true
+            return false
+          })
+          if (targetDialog) {
+            selectDialog(targetDialog)
+          } else {
+            toast.info(`گفتگوی مستقیم با ${author.name} در لیست چت‌های فعال یافت نشد.`)
+          }
+        }}
+        onQuickRegisterReport={({ authorName: aName, judicialUnit: jUnit }) => {
+          const targetMsg = selectedAuthorForLiaison?.message || (filteredMessages.length > 0 ? filteredMessages[0] : undefined)
+          if (targetMsg) {
+            setRegistrationPanel({
+              open: true,
+              messageIds: [targetMsg.id],
+              sourceMessage: targetMsg,
+              sourceMembers: [targetMsg],
+            })
+          }
+        }}
+      />
     </Suspense>}
     {bulkOpen && <BulkOperationsModal siteKey={siteKey} dialog={dialog} initialMode={bulkMode} initialMemberIds={bulkMemberIds} initialMemberScope={bulkMemberScope} initialNumbers={bulkInitialNumbers} close={() => setBulkOpen(false)} />}
     {membersOpen && <CommunityMembersModal siteKey={siteKey} dialog={dialog} dialogs={dialogs} close={() => setMembersOpen(false)} openBulk={selection => { setMembersOpen(false); openBulk('members', selection.memberIds, [], selection.scope) }} />}
@@ -2350,7 +2605,46 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   </Box>
 }
 
-function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messages: MessageItem[]; groupLookup: Map<number, MessageGroup>; media: Record<string, string | null>; mediaDisplay: 'dynamic' | 'framed'; selectedKeys: string[]; selectionMode: boolean; loading: boolean; paginationEnabled?: boolean; readReceiptsEnabled: boolean; focusMessageId: number | null; focusEpoch: number; scrollMemory: Map<string, MessageScrollMemory>; loadMedia: (message: MessageItem) => Promise<void>; openFullMedia: (message: MessageItem) => Promise<void>; toggleMessage: (message: MessageItem) => void; editIndex: (message: MessageItem, members: MessageItem[]) => void; loadOlder: () => Promise<number>; loadNewer: () => Promise<void>; markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>; openUsage: (message: MessageItem) => void; reportUsageByMessage: Record<string, ReportingWitnessStatus>; openReportEvent: (eventId: string) => void; openRegistration: (messageIds: number[]) => void }) {
+function VirtualMessageList(props: {
+  dialog: DialogItem
+  siteKey: string
+  messages: MessageItem[]
+  groupLookup: Map<number, MessageGroup>
+  media: Record<string, string | null>
+  mediaDisplay: 'dynamic' | 'framed'
+  selectedKeys: string[]
+  selectionMode: boolean
+  loading: boolean
+  paginationEnabled?: boolean
+  readReceiptsEnabled: boolean
+  focusMessageId: number | null
+  focusEpoch: number
+  scrollMemory: Map<string, MessageScrollMemory>
+  loadMedia: (message: MessageItem) => Promise<void>
+  openFullMedia: (message: MessageItem) => Promise<void>
+  toggleMessage: (message: MessageItem) => void
+  editIndex: (message: MessageItem, members: MessageItem[]) => void
+  loadOlder: () => Promise<number>
+  loadNewer: () => Promise<void>
+  markRead: (dialog: DialogItem, maxId: number, remainingUnreadCount: number) => Promise<void>
+  openUsage: (message: MessageItem) => void
+  reportUsageByMessage: Record<string, ReportingWitnessStatus>
+  openReportEvent: (eventId: string) => void
+  openRegistration: (
+    messageIds: number[],
+    sourceMessage?: MessageItem,
+    sourceMembers?: MessageItem[],
+    initialMacroIndicator?: string,
+    initialMicroIndicators?: string[],
+  ) => void
+  liaisonsMap?: Record<string, { full_name: string; unit_display_name: string; phone?: string }>
+  onAuthorClick?: (author: { name: string; username?: string; userId?: string; senderKey?: string }) => void
+  indicatorsMap?: Record<string, MessageIndicatorData>
+  detachedMessageIds?: Set<number>
+  onOpenSplitDialog?: (groupMessages: MessageItem[]) => void
+  onOpenMacroSelect?: (messageIds: number[], currentMacro: string) => void
+  onOpenMicroEdit?: (messageIds: number[], currentMicros: string[]) => void
+}) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastScroll = useRef(0)
   const nearBottomRef = useRef(true)
@@ -2666,8 +2960,31 @@ function VirtualMessageList(props: { dialog: DialogItem; siteKey: string; messag
         return <Box key={key} data-index={row.index} data-message-key={key} ref={virtualizer.measureElement} sx={{ position: 'absolute', top: 0, right: 0, width: '100%', py: isGroupFollower ? 0 : 0.75, height: isGroupFollower ? 0 : undefined, overflow: 'hidden', overflowAnchor: 'none', contain: isGroupFollower ? 'strict' : 'layout style', pointerEvents: isGroupFollower ? 'none' : undefined, transform: `translateY(${row.start}px)`, '& > article': focused ? { outline: '3px solid', outlineColor: 'primary.main', boxShadow: theme => `0 0 0 7px ${theme.palette.action.selected}` } : undefined }}>
           {!isGroupFollower && <>
           {(row.index === 0 || dayKeys[row.index - 1] !== dayKeys[row.index]) && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'text.secondary' }}><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /><Chip label={jalaliDayLabel(message.date)} size="small" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'divider', flex: 1 }} /></Stack>}
-          {row.index === firstUnreadIndex && <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.75, color: 'error.main' }}><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /><Chip label={`${props.dialog.unread_count.toLocaleString('fa-IR')} پیام خوانده‌نشده`} size="small" color="error" variant="outlined" sx={{ bgcolor: 'background.paper' }} /><Box sx={{ height: 1, bgcolor: 'error.light', flex: 1 }} /></Stack>}
-          <MessageContentCard siteKey={props.siteKey} dialog={props.dialog} message={message} group={group} media={props.media} mediaDisplay={props.mediaDisplay} selectedKeys={props.selectedKeys} selectionMode={props.selectionMode} loadMedia={props.loadMedia} openFullMedia={props.openFullMedia} toggle={() => props.toggleMessage(message)} editIndex={() => props.editIndex(message, group?.messages || [message])} openUsage={() => props.openUsage(group?.messages.find(item => item.usage.used) || message)} reportUsageByMessage={props.reportUsageByMessage} openReportEvent={props.openReportEvent} openRegistration={props.openRegistration} />
+          <MessageContentCard
+            siteKey={props.siteKey}
+            dialog={props.dialog}
+            message={message}
+            group={group}
+            media={props.media}
+            mediaDisplay={props.mediaDisplay}
+            selectedKeys={props.selectedKeys}
+            selectionMode={props.selectionMode}
+            loadMedia={props.loadMedia}
+            openFullMedia={props.openFullMedia}
+            toggle={() => props.toggleMessage(message)}
+            editIndex={() => props.editIndex(message, group?.messages || [message])}
+            openUsage={() => props.openUsage(group?.messages.find(item => item.usage.used) || message)}
+            reportUsageByMessage={props.reportUsageByMessage}
+            openReportEvent={props.openReportEvent}
+            openRegistration={props.openRegistration}
+            liaisonsMap={props.liaisonsMap}
+            onAuthorClick={props.onAuthorClick}
+            indicatorsMap={props.indicatorsMap}
+            detachedMessageIds={props.detachedMessageIds}
+            onOpenSplitDialog={props.onOpenSplitDialog}
+            onOpenMacroSelect={props.onOpenMacroSelect}
+            onOpenMicroEdit={props.onOpenMicroEdit}
+          />
           </>}
         </Box>
       })}

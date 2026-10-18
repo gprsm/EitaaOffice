@@ -148,6 +148,8 @@ export interface StaffPerformanceSummary {
   total_reports?: number
   approved_reports?: number
   average_composite_score?: number
+  total_overdue?: number
+  total_revoked?: number
 }
 
 export interface StaffPerformanceItem {
@@ -162,6 +164,8 @@ export interface StaffPerformanceItem {
   assigned_tasks: number
   resolved_tasks: number
   task_resolution_rate: number
+  overdue_tasks?: number
+  revoked_tasks?: number
   total_reports?: number
   approved_reports?: number
   first_time_approved?: number
@@ -206,6 +210,11 @@ export interface StaffTask {
   unit_name?: string
   checklist?: StaffTaskChecklistItem[]
   requires_manager_approval?: boolean
+  reassigned_from_user_id?: string
+  reassigned_from_name?: string
+  is_escalated?: boolean
+  escalated_at?: string | null
+  escalation_notes?: string
 }
 
 export interface ContentIndexJob {

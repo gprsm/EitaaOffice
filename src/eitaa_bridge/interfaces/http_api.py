@@ -480,13 +480,18 @@ class _ApiHandler(BaseHTTPRequestHandler):
             return
         self._dispatch("PUT")
 
+    def do_DELETE(self) -> None:  # noqa: N802
+        if not self._enforce_deployment_policy("DELETE"):
+            return
+        self._dispatch("DELETE")
+
     def do_HEAD(self) -> None:  # noqa: N802
         """Reject HEAD without dispatching application code or mutating state."""
 
         if not self._enforce_deployment_policy("HEAD"):
             return
         self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
-        self.send_header("Allow", "GET, POST, PUT, OPTIONS")
+        self.send_header("Allow", "GET, POST, PUT, DELETE, OPTIONS")
         self.send_header("Content-Length", "0")
         self._send_security_headers(
             cache_control="no-store, max-age=0",
@@ -498,7 +503,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
         if not self._enforce_deployment_policy("OPTIONS"):
             return
         self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Allow", "GET, POST, OPTIONS")
+        self.send_header("Allow", "GET, POST, PUT, DELETE, OPTIONS")
         self._send_security_headers(
             cache_control="no-store, max-age=0",
             content_security_policy=_API_CONTENT_SECURITY_POLICY,

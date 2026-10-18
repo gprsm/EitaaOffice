@@ -237,6 +237,8 @@ class ReportingService:
         is_ashura_pilgrimage: bool = False,
         is_standalone_titled: bool = True,
         occasion_class: OccasionClass | str | None = None,
+        macro_category: str = "workbook_approved",
+        custom_topic: str = "",
         dimension_facts: Mapping[str, Any] | None = None,
         notes: str = "",
         staff_member: str = "",
@@ -261,6 +263,8 @@ class ReportingService:
             unit=unit,
             unit_name=unit_name,
             occasion_class=occ_cls,
+            macro_category="other_cultural" if macro_category == "other_cultural" else "workbook_approved",
+            custom_topic=custom_topic.strip(),
             is_ashura_pilgrimage=ashura_flag,
             official_present=official_present,
             is_standalone_titled=is_standalone_titled,
@@ -467,6 +471,7 @@ class ReportingService:
         limit: int = 100,
         review_status: str | None = None,
         registered_by_id: str | None = None,
+        macro_category: str | None = None,
     ) -> list[ReportedEvent]:
         """Load confirmed events from persistent storage."""
         if self.store is not None:
@@ -474,6 +479,7 @@ class ReportingService:
                 limit=limit,
                 review_status=review_status,
                 registered_by_id=registered_by_id,
+                macro_category=macro_category,
             )
         return []
 

@@ -52,6 +52,8 @@ def aggregate_program_report(
     report = ProgramReport(program_id=program_id)
 
     for event in events:
+        if getattr(event, "macro_category", "workbook_approved") == "other_cultural":
+            continue
         shares = engine.classify(event)
         share = next((s for s in shares if s.program_id is program_id), None)
         if share is None:
@@ -141,6 +143,8 @@ def build_traceability_manifest(
     programs: dict[str, dict[str, Any]] = {}
     excluded: list[dict[str, str]] = []
     for event in events:
+        if getattr(event, "macro_category", "workbook_approved") == "other_cultural":
+            continue
         shares = engine.classify(event)
         if not shares:
             excluded.append({"event_id": event.event_id, "reason": "no_program_share"})

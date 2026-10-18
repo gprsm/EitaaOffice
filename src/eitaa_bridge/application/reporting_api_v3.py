@@ -19,6 +19,7 @@ from eitaa_bridge.reporting.model import (
     UnitScope,
     ValueSource,
 )
+from eitaa_bridge.reporting.registry import LiaisonRecord, UnitRecord
 from eitaa_bridge.reporting.store import (
     EtagConflictError,
     EventNotFoundError,
@@ -39,6 +40,25 @@ _EVENT_REOPEN_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-
 _EVENT_WITNESSES_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/witnesses$")
 _EVENT_DOCUMENTS_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents$")
 _LINK_DETACH_ROUTE = re.compile(r"^/api/v3/reporting/witness-links/(?P<link_id>[A-Za-z0-9_-]+)/detach$")
+_UNITS_ROUTE = re.compile(r"^/api/v3/reporting/units$")
+_UNIT_ID_ROUTE = re.compile(r"^/api/v3/reporting/units/(?P<unit_id>[A-Za-z0-9_-]+)$")
+_UNIT_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/units/(?P<unit_id>[A-Za-z0-9_-]+)/delete$")
+_LIAISONS_ROUTE = re.compile(r"^/api/v3/reporting/liaisons$")
+_LIAISONS_ASSIGN_AUTHOR_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/assign-author$")
+_LIAISONS_UNLINK_AUTHOR_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/unlink-author$")
+_LIAISONS_LOOKUP_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/lookup$")
+_LIAISONS_PROFILE_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/profile$")
+_LIAISON_ID_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/(?P<liaison_id>[A-Za-z0-9_-]+)$")
+_LIAISON_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/(?P<liaison_id>[A-Za-z0-9_-]+)/delete$")
+_LIAISONS_RESOLVE_ROUTE = re.compile(r"^/api/v3/reporting/liaisons/resolve$")
+_INDICATORS_MACRO_ROUTE = re.compile(r"^/api/v3/reporting/indicators/macro$")
+_INDICATORS_MICRO_ROUTE = re.compile(r"^/api/v3/reporting/indicators/micro$")
+_INDICATORS_MICRO_ID_ROUTE = re.compile(r"^/api/v3/reporting/indicators/micro/(?P<indicator_id>[A-Za-z0-9_-]+)$")
+_INDICATORS_MICRO_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/indicators/micro/(?P<indicator_id>[A-Za-z0-9_-]+)/delete$")
+_INDICATORS_MESSAGES_ROUTE = re.compile(r"^/api/v3/reporting/indicators/messages$")
+_INDICATORS_MESSAGES_ASSIGN_ROUTE = re.compile(r"^/api/v3/reporting/indicators/messages/assign$")
+_MESSAGE_SPLITS_ROUTE = re.compile(r"^/api/v3/reporting/splits$")
+
 
 
 def _ok(payload: dict, status: int = 200, headers: dict | None = None):
@@ -148,6 +168,18 @@ def _build_event_payload(payload: Mapping[str, Any]):
         except (ValueError, TypeError):
             duration_val = None
 
+    macro_cat = str(payload.get("macro_category", "workbook_approved") or "workbook_approved").strip()
+    macro_category = "other_cultural" if macro_cat == "other_cultural" else "workbook_approved"
+    custom_topic = str(payload.get("custom_topic", "") or "").strip()
+    macro_indicator = str(payload.get("macro_indicator", "") or "").strip()
+    raw_micros = payload.get("micro_indicators", [])
+    if isinstance(raw_micros, str):
+        try:
+            raw_micros = json.loads(raw_micros)
+        except Exception:
+            raw_micros = [s.strip() for s in raw_micros.split(",") if s.strip()]
+    micro_indicators = [str(m).strip() for m in raw_micros if str(m).strip()] if isinstance(raw_micros, (list, tuple)) else []
+
     event = ReportedEvent(
         event_id=str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}"),
         program_kinds=kinds,
@@ -156,6 +188,10 @@ def _build_event_payload(payload: Mapping[str, Any]):
         unit_name=str(payload.get("unit_name", "")),
         occasion=str(payload.get("occasion", "")),
         occasion_class=occ_class,
+        macro_category=macro_category,
+        custom_topic=custom_topic,
+        macro_indicator=macro_indicator,
+        micro_indicators=micro_indicators,
         facts=facts_list,
         official_present=official_present,
         is_standalone_titled=bool(payload.get("is_standalone_titled", True)),
@@ -567,6 +603,321 @@ def list_events_v3(store: ReportingStore, query: Mapping[str, Any] | None):
     })
 
 
+def list_units(store: ReportingStore, query: Mapping[str, Any]):
+    county = str(query.get("county") or "").strip() if query else None
+    units = store.list_units(county=county or None)
+    counties = store.list_counties()
+    return _ok({
+        "units": [u.to_dict() for u in units],
+        "counties": counties,
+    })
+
+
+def save_unit(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    unit_id = str(payload.get("unit_id") or "").strip()
+    name = str(payload.get("name") or "").strip()
+    county = str(payload.get("county") or "").strip()
+    unit_type = str(payload.get("unit_type") or "").strip()
+    display_name = str(payload.get("display_name") or "").strip()
+    kind = str(payload.get("kind") or "judicial_domain").strip()
+    notes = str(payload.get("notes") or "").strip()
+
+    if not name and county and unit_type:
+        name = f"{county} - {unit_type}"
+    if not display_name:
+        if county and unit_type:
+            display_name = f"{county} - {unit_type}"
+        else:
+            display_name = name
+
+    if not name:
+        return _error(400, "نام واحد یا شهرستان و نوع واحد الزامی است.")
+
+    unit = UnitRecord(
+        unit_id=unit_id,
+        name=name,
+        county=county,
+        unit_type=unit_type,
+        display_name=display_name,
+        kind=kind,
+        notes=notes,
+    )
+    saved = store.save_unit(unit)
+    return _ok({"unit": saved.to_dict()})
+
+
+def delete_unit(store: ReportingStore, actor: str, unit_id: str):
+    success = store.delete_unit(unit_id)
+    if not success:
+        return _error(404, f"واحد قضایی با شناسه {unit_id} یافت نشد.")
+    return _ok({"deleted": True, "unit_id": unit_id})
+
+
+def list_liaisons(store: ReportingStore, query: Mapping[str, Any]):
+    unit_id = str(query.get("unit_id") or "").strip() if query else None
+    liaisons = store.list_liaisons(unit_id=unit_id or None)
+    all_units_by_id = {u.unit_id: u for u in store.list_units()}
+    res = []
+    for l in liaisons:
+        d = l.to_dict()
+        u = all_units_by_id.get(l.unit_id)
+        d["unit_display_name"] = u.display_name if u else ""
+        d["county"] = u.county if u else ""
+        res.append(d)
+    return _ok({"liaisons": res})
+
+
+def save_liaison(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    liaison_id = str(payload.get("liaison_id") or "").strip()
+    unit_id = str(payload.get("unit_id") or "").strip()
+    full_name = str(payload.get("full_name") or "").strip()
+    eitaa_username = str(payload.get("eitaa_username") or "").strip()
+    eitaa_user_id = str(payload.get("eitaa_user_id") or "").strip()
+    sender_key = str(payload.get("sender_key") or "").strip()
+    phone = str(payload.get("phone") or "").strip()
+    match_keywords = str(payload.get("match_keywords") or "").strip()
+    notes = str(payload.get("notes") or "").strip()
+
+    if not unit_id:
+        return _error(400, "انتخاب واحد یا حوزه قضایی برای رابط الزامی است.")
+    if not full_name:
+        return _error(400, "نام و نام خانوادگی رابط فرهنگی الزامی است.")
+
+    liaison = LiaisonRecord(
+        liaison_id=liaison_id,
+        unit_id=unit_id,
+        full_name=full_name,
+        eitaa_username=eitaa_username,
+        eitaa_user_id=eitaa_user_id,
+        sender_key=sender_key,
+        phone=phone,
+        match_keywords=match_keywords,
+        notes=notes,
+    )
+    saved = store.save_liaison(liaison)
+    unit = store.get_unit(saved.unit_id)
+    res = saved.to_dict()
+    res["unit_display_name"] = unit.display_name if unit else ""
+    return _ok({"liaison": res})
+
+
+def delete_liaison(store: ReportingStore, actor: str, liaison_id: str):
+    success = store.delete_liaison(liaison_id)
+    if not success:
+        return _error(404, f"رابط فرهنگی با شناسه {liaison_id} یافت نشد.")
+    return _ok({"deleted": True, "liaison_id": liaison_id})
+
+
+def resolve_liaison(store: ReportingStore, payload: Mapping[str, Any]):
+    sender_key = str(payload.get("sender_key") or "")
+    username = str(payload.get("username") or "")
+    full_name = str(payload.get("full_name") or "")
+    text = str(payload.get("text") or "")
+
+    liaison, unit = store.resolve_liaison_and_unit(
+        sender_key=sender_key,
+        username=username,
+        full_name=full_name,
+        text=text,
+    )
+    return _ok({
+        "matched": liaison is not None or unit is not None,
+        "liaison": liaison.to_dict() if liaison else None,
+        "unit": unit.to_dict() if unit else None,
+    })
+
+
+def assign_author_liaison(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    unit_id = str(payload.get("unit_id") or "").strip()
+    full_name = str(payload.get("full_name") or "").strip()
+    sender_key = str(payload.get("sender_key") or "").strip()
+    eitaa_username = str(payload.get("eitaa_username") or "").strip()
+    eitaa_user_id = str(payload.get("eitaa_user_id") or "").strip()
+    phone = str(payload.get("phone") or "").strip()
+    notes = str(payload.get("notes") or "").strip()
+    match_keywords = str(payload.get("match_keywords") or "").strip()
+
+    if not unit_id:
+        return _error(400, "انتخاب حوزه قضایی الزامی است.")
+    if not full_name and not eitaa_username and not sender_key and not eitaa_user_id:
+        return _error(400, "اطلاعات نام یا شناسه نویسنده الزامی است.")
+
+    try:
+        liaison, unit = store.assign_author_as_liaison(
+            unit_id=unit_id,
+            full_name=full_name,
+            sender_key=sender_key,
+            eitaa_username=eitaa_username,
+            eitaa_user_id=eitaa_user_id,
+            phone=phone,
+            notes=notes,
+            match_keywords=match_keywords,
+        )
+        res = liaison.to_dict()
+        res["unit_display_name"] = unit.display_name
+        res["county"] = unit.county
+        return _ok({"liaison": res, "unit": unit.to_dict()})
+    except Exception as exc:
+        return _error(400, str(exc))
+
+
+def unlink_author_liaison(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    sender_key = str(payload.get("sender_key") or "").strip()
+    liaison_id = str(payload.get("liaison_id") or "").strip()
+    if not sender_key and not liaison_id:
+        return _error(400, "sender_key یا liaison_id الزامی است.")
+    success = store.unlink_author_liaison(sender_key=sender_key, liaison_id=liaison_id)
+    return _ok({"unlinked": success})
+
+
+def lookup_liaison(store: ReportingStore, query: Mapping[str, Any]):
+    sender_key = str(query.get("sender_key") or "").strip()
+    username = str(query.get("username") or "").strip()
+    user_id = str(query.get("user_id") or "").strip()
+    full_name = str(query.get("full_name") or "").strip()
+
+    liaison, unit = store.find_liaison_by_sender(
+        sender_key=sender_key,
+        username=username,
+        user_id=user_id,
+        full_name=full_name,
+    )
+    res_liaison = liaison.to_dict() if liaison else None
+    if res_liaison and unit:
+        res_liaison["unit_display_name"] = unit.display_name
+        res_liaison["county"] = unit.county
+    return _ok({
+        "matched": liaison is not None,
+        "liaison": res_liaison,
+        "unit": unit.to_dict() if unit else None,
+    })
+
+
+def get_liaison_profile(store: ReportingStore, query: Mapping[str, Any]):
+    liaison_id = str(query.get("liaison_id") or "").strip()
+    unit_id = str(query.get("unit_id") or "").strip()
+    sender_key = str(query.get("sender_key") or "").strip()
+    user_id = str(query.get("user_id") or "").strip()
+    username = str(query.get("username") or "").strip()
+    full_name = str(query.get("full_name") or "").strip()
+    try:
+        days = int(query.get("days", 365))
+    except (ValueError, TypeError):
+        days = 365
+
+    profile = store.get_liaison_profile_analytics(
+        liaison_id=liaison_id,
+        unit_id=unit_id,
+        sender_key=sender_key,
+        user_id=user_id,
+        username=username,
+        full_name=full_name,
+        days=days,
+    )
+    return _ok({"profile": profile})
+
+
+def list_macro_indicators(store: ReportingStore):
+    return _ok({"macro_indicators": store.list_macro_indicators()})
+
+
+def list_micro_indicators(store: ReportingStore):
+    return _ok({"micro_indicators": store.list_micro_indicators()})
+
+
+def save_micro_indicator(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    title = str(payload.get("title", "") or "").strip()
+    category = str(payload.get("category", "") or "").strip()
+    color = str(payload.get("color", "") or "").strip()
+    if not title:
+        return _error(400, "عنوان شاخصه جزئی نمی‌تواند خالی باشد.")
+    try:
+        ind = store.save_micro_indicator(title, category=category, color=color)
+        return _ok({"indicator": ind}, status=201)
+    except Exception as exc:
+        return _error(400, str(exc))
+
+
+def update_micro_indicator(store: ReportingStore, actor: str, indicator_id: str, payload: Mapping[str, Any]):
+    title = payload.get("title")
+    category = payload.get("category")
+    color = payload.get("color")
+    try:
+        ind = store.update_micro_indicator(indicator_id, title=title, category=category, color=color)
+        return _ok({"indicator": ind})
+    except Exception as exc:
+        return _error(400, str(exc))
+
+
+def delete_micro_indicator(store: ReportingStore, actor: str, indicator_id: str):
+    success = store.delete_micro_indicator(indicator_id)
+    return _ok({"deleted": success, "indicator_id": indicator_id})
+
+
+def get_message_indicators(store: ReportingStore, query: Mapping[str, Any]):
+    peer_key = str(query.get("peer_key", "") or "").strip()
+    if not peer_key:
+        return _error(400, "peer_key is required")
+    raw_mids = query.get("message_ids")
+    message_ids = None
+    if raw_mids:
+        try:
+            if isinstance(raw_mids, str):
+                message_ids = [int(x.strip()) for x in raw_mids.split(",") if x.strip()]
+            elif isinstance(raw_mids, (list, tuple)):
+                message_ids = [int(x) for x in raw_mids]
+        except (ValueError, TypeError):
+            message_ids = None
+    indicators = store.get_message_indicators(peer_key, message_ids)
+    str_indicators = {str(k): v for k, v in indicators.items()}
+    return _ok({"indicators": str_indicators})
+
+
+def assign_message_indicators(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    peer_key = str(payload.get("peer_key", "") or "").strip()
+    if not peer_key:
+        return _error(400, "peer_key is required")
+    message_ids = payload.get("message_ids", [])
+    if not isinstance(message_ids, (list, tuple)) or not message_ids:
+        return _error(400, "message_ids list is required")
+    macro_indicator = str(payload.get("macro_indicator", "") or "").strip()
+    raw_micros = payload.get("micro_indicators", [])
+    if isinstance(raw_micros, str):
+        try:
+            raw_micros = json.loads(raw_micros)
+        except Exception:
+            raw_micros = [s.strip() for s in raw_micros.split(",") if s.strip()]
+    micro_indicators = [str(m).strip() for m in raw_micros if str(m).strip()] if isinstance(raw_micros, (list, tuple)) else []
+    int_mids = [int(m) for m in message_ids]
+    store.set_message_indicators(peer_key, int_mids, macro_indicator, micro_indicators, updated_by=actor)
+    return _ok({
+        "peer_key": peer_key,
+        "message_ids": int_mids,
+        "macro_indicator": macro_indicator,
+        "micro_indicators": micro_indicators,
+    })
+
+
+def get_message_splits(store: ReportingStore, query: Mapping[str, Any]):
+    peer_key = str(query.get("peer_key", "") or "").strip()
+    if not peer_key:
+        return _error(400, "peer_key is required")
+    detached = store.get_detached_message_ids(peer_key)
+    return _ok({"peer_key": peer_key, "detached_message_ids": detached})
+
+
+def set_message_splits(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    peer_key = str(payload.get("peer_key", "") or "").strip()
+    if not peer_key:
+        return _error(400, "peer_key is required")
+    raw_detached = payload.get("detached_ids", [])
+    detached_ids = [int(x) for x in raw_detached] if isinstance(raw_detached, (list, tuple)) else []
+    raw_unified = payload.get("unified_ids", [])
+    unified_ids = [int(x) for x in raw_unified] if isinstance(raw_unified, (list, tuple)) else []
+    res = store.set_message_splits(peer_key, detached_ids, unified_ids)
+    return _ok({"peer_key": peer_key, "detached_message_ids": res})
+
+
 def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
              payload: Mapping[str, Any] | None = None,
              query: Mapping[str, Any] | None = None,
@@ -590,7 +941,36 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
             if denied:
                 return denied
             return update_event(store, actor, event_id, payload, if_match=if_match)
+    if method == "PUT":
+        micro_put = _INDICATORS_MICRO_ID_ROUTE.match(path)
+        if micro_put:
+            return update_micro_indicator(store, actor, micro_put.group("indicator_id"), payload)
     if method == "POST":
+        micro_post_del = _INDICATORS_MICRO_DELETE_POST_ROUTE.match(path)
+        if micro_post_del:
+            return delete_micro_indicator(store, actor, micro_post_del.group("indicator_id"))
+        if _INDICATORS_MICRO_ROUTE.match(path):
+            return save_micro_indicator(store, actor, payload)
+        if _INDICATORS_MESSAGES_ASSIGN_ROUTE.match(path):
+            return assign_message_indicators(store, actor, payload)
+        if _MESSAGE_SPLITS_ROUTE.match(path):
+            return set_message_splits(store, actor, payload)
+        unit_post_del = _UNIT_DELETE_POST_ROUTE.match(path)
+        if unit_post_del:
+            return delete_unit(store, actor, unit_post_del.group("unit_id"))
+        liaison_post_del = _LIAISON_DELETE_POST_ROUTE.match(path)
+        if liaison_post_del:
+            return delete_liaison(store, actor, liaison_post_del.group("liaison_id"))
+        if _UNITS_ROUTE.match(path):
+            return save_unit(store, actor, payload)
+        if _LIAISONS_ASSIGN_AUTHOR_ROUTE.match(path):
+            return assign_author_liaison(store, actor, payload)
+        if _LIAISONS_UNLINK_AUTHOR_ROUTE.match(path):
+            return unlink_author_liaison(store, actor, payload)
+        if _LIAISONS_ROUTE.match(path):
+            return save_liaison(store, actor, payload)
+        if _LIAISONS_RESOLVE_ROUTE.match(path):
+            return resolve_liaison(store, payload)
         if _ASSISTANT_FEEDBACK_ROUTE.match(path):
             return record_feedback(store, actor, roles, payload)
         fb_revoke_match = _ASSISTANT_FEEDBACK_REVOKE_ROUTE.match(path)
@@ -643,6 +1023,22 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if _ROLES_ROUTE.match(path):
             return set_roles(store, actor, roles, payload)
     if method == "GET":
+        if _INDICATORS_MACRO_ROUTE.match(path):
+            return list_macro_indicators(store)
+        if _INDICATORS_MICRO_ROUTE.match(path):
+            return list_micro_indicators(store)
+        if _INDICATORS_MESSAGES_ROUTE.match(path):
+            return get_message_indicators(store, query)
+        if _MESSAGE_SPLITS_ROUTE.match(path):
+            return get_message_splits(store, query)
+        if _LIAISONS_LOOKUP_ROUTE.match(path):
+            return lookup_liaison(store, query)
+        if _LIAISONS_PROFILE_ROUTE.match(path):
+            return get_liaison_profile(store, query)
+        if _UNITS_ROUTE.match(path):
+            return list_units(store, query)
+        if _LIAISONS_ROUTE.match(path):
+            return list_liaisons(store, query)
         if _EVENTS_ROUTE.match(path):
             return list_events_v3(store, query)
         defects_get = _EVENT_DEFECTS_ROUTE.match(path)
@@ -659,5 +1055,16 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         audit = _EVENT_AUDIT_ROUTE.match(path)
         if audit:
             return get_event_audit(store, actor, roles, audit.group("event_id"))
+    if method == "DELETE":
+        micro_del = _INDICATORS_MICRO_ID_ROUTE.match(path)
+        if micro_del:
+            return delete_micro_indicator(store, actor, micro_del.group("indicator_id"))
+        unit_del = _UNIT_ID_ROUTE.match(path)
+        if unit_del:
+            return delete_unit(store, actor, unit_del.group("unit_id"))
+        liaison_del = _LIAISON_ID_ROUTE.match(path)
+        if liaison_del:
+            return delete_liaison(store, actor, liaison_del.group("liaison_id"))
     return None
+
 

@@ -94,13 +94,15 @@ export function parseSourceKey(value: string) {
   return { peerType: peerType as PeerType, peerId: Number(peerId), messageId: Number(messageId), peerKey: `${peerType}:${peerId}` }
 }
 
+import { formatJalaliDate, jalaliDayLabel as robustJalaliDayLabel } from './jalaliDateTime'
+
 export function jalaliDayLabel(value: string) {
-  try { return JALALI_DAY_LABEL_FORMATTER.format(new Date(value)) }
+  try { return robustJalaliDayLabel(new Date(value)) }
   catch { return value }
 }
 
 export function jalaliDayKey(value: string) {
-  try { return JALALI_DAY_KEY_FORMATTER.format(new Date(value)) }
+  try { return formatJalaliDate(new Date(value)) }
   catch { return value.slice(0, 10) }
 }
 

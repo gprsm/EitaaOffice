@@ -28,12 +28,14 @@ import ReplayRounded from '@mui/icons-material/ReplayRounded'
 import VideoFileRounded from '@mui/icons-material/VideoFileRounded'
 import AssignmentRounded from '@mui/icons-material/AssignmentRounded'
 import AddTaskRounded from '@mui/icons-material/AddTaskRounded'
+import CallSplitRounded from '@mui/icons-material/CallSplitRounded'
 import type { ReportingWitnessStatus } from './lib/api'
 import type { MessageGroup } from './lib/groupedMedia'
 import { playableMediaKind } from './lib/messageMedia'
 import { stableMessageKey } from './lib/scrollMath'
 import type { DialogItem, IndexPrediction, MessageItem } from './lib/types'
 import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
+import type { MessageIndicatorData } from './lib/indicators'
 
 const MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat('fa-IR', {
   hour: '2-digit',
@@ -56,7 +58,20 @@ type MessageContentCardProps = {
   openUsage: () => void
   reportUsageByMessage?: Record<string, ReportingWitnessStatus>
   openReportEvent: (eventId: string) => void
-  openRegistration: (messageIds: number[]) => void
+  openRegistration: (
+    messageIds: number[],
+    sourceMessage?: MessageItem,
+    sourceMembers?: MessageItem[],
+    initialMacroIndicator?: string,
+    initialMicroIndicators?: string[],
+  ) => void
+  liaisonsMap?: Record<string, { full_name: string; unit_display_name: string }>
+  onAuthorClick?: (author: { name: string; username?: string; userId?: string; senderKey?: string; message?: MessageItem }) => void
+  indicatorsMap?: Record<string, MessageIndicatorData>
+  detachedMessageIds?: Set<number>
+  onOpenSplitDialog?: (groupMessages: MessageItem[]) => void
+  onOpenMacroSelect?: (messageIds: number[], currentMacro: string) => void
+  onOpenMicroEdit?: (messageIds: number[], currentMicros: string[]) => void
 }
 
 type MessageContentBlock =
@@ -69,16 +84,17 @@ function formatDate(value: string) {
   catch { return value }
 }
 
-function authorLabel(dialog: DialogItem, message: MessageItem) {
+export function authorLabel(dialog?: DialogItem | null, message?: MessageItem | null) {
+  if (!message) return 'نویسنده نامشخص'
   if (message.outgoing || message.sender_resolution === 'self') return 'شما'
   const displayName = message.sender_display_name?.trim()
   if (displayName) return displayName
   const username = message.sender_username?.trim()
   if (username) return `@${username.replace(/^@/, '')}`
-  if (dialog.display_kind === 'personal') {
+  if (dialog?.display_kind === 'personal') {
     return dialog.peer.title?.trim() || (dialog.peer.username ? `@${dialog.peer.username}` : 'مخاطب ایتا')
   }
-  return 'نویسنده نامشخص'
+  return dialog?.peer?.title?.trim() || 'نویسنده نامشخص'
 }
 
 function authorInitials(value: string) {
@@ -249,12 +265,23 @@ export function MessageContentCard({
   reportUsageByMessage,
   openReportEvent,
   openRegistration,
+  liaisonsMap,
+  onAuthorClick,
+  indicatorsMap,
+  detachedMessageIds,
+  onOpenSplitDialog,
+  onOpenMacroSelect,
+  onOpenMicroEdit,
 }: MessageContentCardProps) {
   const [expanded, setExpanded] = useState(false)
   const members = group?.messages || [message]
   const reportUsage = reportUsageByMessage?.[String(message.id)]
     || members.map(item => reportUsageByMessage?.[String(item.id)]).find(Boolean)
     || undefined
+
+  const messageIndicator = indicatorsMap?.[String(message.id)] || indicatorsMap?.[String(members[0].id)]
+  const currentMacro = messageIndicator?.macro_indicator || ''
+  const currentMicros = messageIndicator?.micro_indicators || []
   const contentBlocks = buildContentBlocks(members)
   const images = members.filter(item => item.media?.is_image)
   const memberKeys = members.map(item => stableMessageKey(dialog.peer_key, item.id))
@@ -263,7 +290,29 @@ export function MessageContentCard({
   const allUsed = members.every(item => item.usage.used)
   const anyStale = members.some(item => item.usage.usage_state === 'stale')
   const collapsible = contentBlocks.some(block => block.kind === 'text' && (block.text.length > 700 || block.text.split('\n').length > 8))
-  const writer = authorLabel(dialog, message)
+  const rawWriter = authorLabel(dialog, message)
+  const senderUserId = message.sender_key?.startsWith('u:') ? message.sender_key.slice(2) : undefined
+
+  const matchedLiaison = useMemo(() => {
+    if (!liaisonsMap || message.outgoing) return null
+    if (message.sender_key && liaisonsMap[message.sender_key]) return liaisonsMap[message.sender_key]
+    if (senderUserId && liaisonsMap[senderUserId]) return liaisonsMap[senderUserId]
+    if (message.sender_username) {
+      const clean = message.sender_username.toLowerCase().replace(/^@/, '')
+      if (liaisonsMap[clean]) return liaisonsMap[clean]
+    }
+    const rawName = message.sender_display_name?.trim()
+    if (rawName && liaisonsMap[rawName]) return liaisonsMap[rawName]
+    if (rawWriter && liaisonsMap[rawWriter]) return liaisonsMap[rawWriter]
+    return null
+  }, [liaisonsMap, message.outgoing, message.sender_key, senderUserId, message.sender_username, message.sender_display_name, rawWriter])
+
+  // Requirement 4: نام + " - " + "حوزه قضایی" + نام حوزه قضایی
+  const writer = matchedLiaison && matchedLiaison.unit_display_name
+    ? `${matchedLiaison.full_name || rawWriter} - حوزه قضایی ${matchedLiaison.unit_display_name}`
+    : rawWriter
+  const isLiaison = Boolean(matchedLiaison)
+
   const senderIsSelf = message.outgoing || message.sender_resolution === 'self'
   const senderIsContact = Boolean(
     !senderIsSelf
@@ -335,16 +384,60 @@ export function MessageContentCard({
     }}
   >
     {dialog.display_kind !== 'channel' && <CardHeader
-      title={<Stack direction="row" spacing={0.5} alignItems="center">
-        <Typography variant="subtitle2" component="h3" color={senderIsContact ? 'primary.main' : 'text.primary'} fontWeight={senderIsContact ? 900 : senderIsSelf ? 850 : 500}>{writer}</Typography>
-        {!senderIsSelf && <Tooltip arrow title={senderIsContact ? 'مخاطب' : 'غیرمخاطب'}>
+      title={<Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+        <Typography
+          variant="subtitle2"
+          component="h3"
+          color={senderIsContact ? 'primary.main' : 'text.primary'}
+          fontWeight={senderIsContact ? 900 : senderIsSelf ? 850 : 500}
+          onClick={onAuthorClick ? (event) => {
+            event.stopPropagation()
+            onAuthorClick({
+              name: matchedLiaison?.full_name || rawWriter,
+              username: message.sender_username || undefined,
+              userId: senderUserId,
+              senderKey: message.sender_key || undefined,
+              message,
+            })
+          } : undefined}
+          sx={{
+            cursor: onAuthorClick ? 'pointer' : 'default',
+            '&:hover': onAuthorClick ? { textDecoration: 'underline' } : {},
+            ...(isLiaison ? { color: 'primary.dark', fontWeight: 900 } : {}),
+          }}
+          title={onAuthorClick ? "برای مشاهده کارنامه یا تنظیمات رابط کلیک کنید" : undefined}
+        >
+          {writer}
+        </Typography>
+        {isLiaison && (
+          <Tooltip title="رابط فرهنگی تاییدشده - برای مشاهده کارنامه و پروفایل فعالیت کلیک کنید">
+            <Chip
+              size="small"
+              color="primary"
+              variant="filled"
+              label="رابط فرهنگی"
+              onClick={onAuthorClick ? (event) => {
+                event.stopPropagation()
+                onAuthorClick({
+                  name: matchedLiaison?.full_name || rawWriter,
+                  username: message.sender_username || undefined,
+                  userId: senderUserId,
+                  senderKey: message.sender_key || undefined,
+                  message,
+                })
+              } : undefined}
+              sx={{ height: 20, fontSize: '0.65rem', cursor: onAuthorClick ? 'pointer' : 'default' }}
+            />
+          </Tooltip>
+        )}
+        {!senderIsSelf && !isLiaison && <Tooltip arrow title={senderIsContact ? 'مخاطب' : 'غیرمخاطب'}>
           <Box component="span" role="img" tabIndex={0} aria-label={senderIsContact ? 'مخاطب' : 'غیرمخاطب'} sx={{ display: 'inline-flex', cursor: 'help' }}>
             <InfoOutlined color={senderIsContact ? 'primary' : 'disabled'} fontSize="small" />
           </Box>
         </Tooltip>}
       </Stack>}
       subheader={<Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
-        {message.sender_username && writer !== `@${message.sender_username.replace(/^@/, '')}` && <Typography variant="caption" color="text.secondary" dir="ltr">@${message.sender_username.replace(/^@/, '')}</Typography>}
+        {message.sender_username && rawWriter !== `@${message.sender_username.replace(/^@/, '')}` && <Typography variant="caption" color="text.secondary" dir="ltr">@${message.sender_username.replace(/^@/, '')}</Typography>}
       </Stack>}
       sx={{ px: { xs: 1.25, sm: 1.75 }, py: 1.1 }}
     />}
@@ -413,6 +506,151 @@ export function MessageContentCard({
       </Stack>
     </CardContent>}
 
+    {/* نوار شاخصه‌های کلی و جزئی و دکمه تفکیک پیام */}
+    <Box
+      sx={{
+        px: { xs: 1.25, sm: 1.75 },
+        py: 0.75,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'action.hover',
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 1,
+      }}
+    >
+      {/* ۱. دکمه تفکیک پیام (فقط زمانی که پیام‌ها یکپارچه شده‌اند نشان داده می‌شود) */}
+      {members.length > 1 && (
+        <Button
+          size="small"
+          variant="outlined"
+          color="warning"
+          startIcon={<CallSplitRounded sx={{ fontSize: '1rem' }} />}
+          onClick={event => {
+            event.stopPropagation()
+            onOpenSplitDialog?.(members)
+          }}
+          sx={{ minHeight: 26, py: 0.25, px: 1, fontSize: '0.72rem', fontWeight: 700 }}
+        >
+          تفکیک پیام
+        </Button>
+      )}
+
+      {/* ۲. شاخصه کلی: بولد + دکمه مداد برای اصلاح */}
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        <Typography
+          variant="caption"
+          component="span"
+          sx={{
+            fontWeight: 700, // بولد مطابق خواسته کاربر
+            color: currentMacro ? 'primary.main' : 'text.secondary',
+            fontSize: '0.78rem',
+            cursor: 'pointer',
+          }}
+          onClick={event => {
+            event.stopPropagation()
+            onOpenMacroSelect?.(members.map(m => m.id), currentMacro)
+          }}
+          title="شاخصه کلی (سرفصل برنامه‌ای)"
+        >
+          {currentMacro ? `شاخصه کلی: ${currentMacro}` : 'شاخصه کلی (تعیین‌نشده)'}
+        </Typography>
+        <Tooltip title="اصلاح شاخصه کلی">
+          <IconButton
+            size="small"
+            aria-label="اصلاح شاخصه کلی"
+            onClick={event => {
+              event.stopPropagation()
+              onOpenMacroSelect?.(members.map(m => m.id), currentMacro)
+            }}
+            sx={{ p: 0.25 }}
+          >
+            <EditRounded sx={{ fontSize: '0.85rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+
+      {/* فاصله ملموس و تفکیک‌کننده بین شاخصه کلی و شاخصه‌های جزئی */}
+      <Box sx={{ width: 1, height: 16, bgcolor: 'divider', mx: 0.5 }} />
+
+      {/* ۳. شاخصه‌های جزئی: رنگ دیگر، بولد نباشد، مداد در انتها، امکان چند خطی شدن */}
+      <Stack
+        direction="row"
+        spacing={0.5}
+        alignItems="center"
+        flexWrap="wrap"
+        sx={{ flex: 1, minWidth: 160 }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 400, // بولد نباشد مطابق خواسته کاربر
+            color: 'secondary.main',
+            fontSize: '0.75rem',
+            ml: 0.5,
+          }}
+        >
+          شاخصه‌های جزئی:
+        </Typography>
+
+        {currentMicros.length === 0 ? (
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 400,
+              color: 'text.disabled',
+              fontSize: '0.75rem',
+              fontStyle: 'italic',
+              cursor: 'pointer',
+            }}
+            onClick={event => {
+              event.stopPropagation()
+              onOpenMicroEdit?.(members.map(m => m.id), currentMicros)
+            }}
+          >
+            (تعیین‌نشده)
+          </Typography>
+        ) : (
+          currentMicros.map(micro => (
+            <Chip
+              key={micro}
+              label={micro}
+              size="small"
+              variant="filled"
+              color="secondary" // رنگ دیگر
+              onClick={event => {
+                event.stopPropagation()
+                onOpenMicroEdit?.(members.map(m => m.id), currentMicros)
+              }}
+              sx={{
+                height: 22,
+                fontSize: '0.68rem',
+                fontWeight: 400, // بولد نباشد
+                my: 0.25,
+                cursor: 'pointer',
+              }}
+            />
+          ))
+        )}
+
+        {/* علامت مداد در انتهای شاخصه‌های جزئی */}
+        <Tooltip title="اصلاح شاخصه‌های جزئی">
+          <IconButton
+            size="small"
+            aria-label="اصلاح شاخصه‌های جزئی"
+            onClick={event => {
+              event.stopPropagation()
+              onOpenMicroEdit?.(members.map(m => m.id), currentMicros)
+            }}
+            sx={{ p: 0.25 }}
+          >
+            <EditRounded sx={{ fontSize: '0.85rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Box>
+
     <CardActions disableSpacing sx={{ minHeight: 44, px: 1, pt: 0, gap: 0.25 }}>
       <Checkbox
         inputProps={{ 'aria-label': members.length > 1 ? 'انتخاب گروه پیام' : 'انتخاب پیام' }}
@@ -443,7 +681,7 @@ export function MessageContentCard({
         onClick={event => { event.stopPropagation(); openReportEvent(reportUsage.events[0].event_id) }}
         sx={{ minHeight: 28 }}
       />}
-      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id)) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
+      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, currentMacro, currentMicros) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
       {anyUsed && <Button size="small" color={anyStale ? 'warning' : 'error'} variant="outlined" onClick={event => { event.stopPropagation(); openUsage() }} sx={{ minHeight: 28, py: 0 }}>{anyStale ? 'تغییرکرده' : allUsed ? 'وردپرس' : 'بخشی در وردپرس'}</Button>}
       {collapsible && <IconButton
         aria-label={expanded ? 'بستن ادامه پیام' : 'نمایش ادامه پیام'}
@@ -451,7 +689,24 @@ export function MessageContentCard({
         onClick={event => { event.stopPropagation(); setExpanded(value => !value) }}
         sx={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: theme => theme.transitions.create('transform', { duration: theme.transitions.duration.shortest }) }}
       ><ExpandMoreRounded /></IconButton>}
-      {dialog.display_kind !== 'channel' && <MessageAuthorAvatar siteKey={siteKey} peerKey={authorPeerKey} name={writer} />}
+      {dialog.display_kind !== 'channel' && (
+        <Box
+          onClick={onAuthorClick ? (event) => {
+            event.stopPropagation()
+            onAuthorClick({
+              name: matchedLiaison?.full_name || rawWriter,
+              username: message.sender_username || undefined,
+              userId: senderUserId,
+              senderKey: message.sender_key || undefined,
+              message,
+            })
+          } : undefined}
+          sx={{ cursor: onAuthorClick ? 'pointer' : 'default', display: 'inline-flex' }}
+          title={onAuthorClick ? "مشاهده کارنامه و پروفایل رابط" : undefined}
+        >
+          <MessageAuthorAvatar siteKey={siteKey} peerKey={authorPeerKey} name={matchedLiaison?.full_name || rawWriter} />
+        </Box>
+      )}
     </CardActions>
   </Card>
 }

@@ -127,9 +127,14 @@ def test_heartbeat_thread(tmp_path: Path) -> None:
     try:
         hb_values = []
         for _ in range(3):
-            time.sleep(0.3)
-            data = json.loads(lease.lock_path.read_text(encoding="utf-8"))
-            hb_values.append(data["heartbeat_at"])
+            prev = hb_values[-1] if hb_values else -1.0
+            start = time.time()
+            val = prev
+            while val <= prev and (time.time() - start) < 3.0:
+                time.sleep(0.1)
+                data = json.loads(lease.lock_path.read_text(encoding="utf-8"))
+                val = data["heartbeat_at"]
+            hb_values.append(val)
 
         assert len(hb_values) == 3
         assert hb_values[0] < hb_values[1] < hb_values[2]

@@ -163,6 +163,11 @@ export function StaffTasksDialog({
   const [reassignReason, setReassignReason] = useState('')
   const [reassigning, setReassigning] = useState(false)
 
+  // Escalate Modal State
+  const [escalateTaskId, setEscalateTaskId] = useState<string | null>(null)
+  const [escalateNotes, setEscalateNotes] = useState('')
+  const [escalating, setEscalating] = useState(false)
+
   const loadTasks = useCallback(async () => {
     setLoading(true)
     try {
@@ -322,6 +327,25 @@ export function StaffTasksDialog({
       // error
     } finally {
       setReassigning(false)
+    }
+  }
+
+  const handleEscalateTask = async () => {
+    if (!escalateTaskId) return
+    setEscalating(true)
+    try {
+      await api('POST', '/api/v2/staff/tasks/escalate', {
+        task_id: escalateTaskId,
+        notes: escalateNotes.trim(),
+        escalated_by_name: currentUserName,
+      })
+      setEscalateTaskId(null)
+      setEscalateNotes('')
+      void loadTasks()
+    } catch {
+      // error
+    } finally {
+      setEscalating(false)
     }
   }
 
@@ -568,6 +592,34 @@ export function StaffTasksDialog({
                             </Box>
                           )}
 
+                          {/* Escalation & Reassignment provenance */}
+                          {(task.is_escalated || task.reassigned_from_name) && (
+                            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1, mb: 1 }}>
+                              {task.is_escalated && (
+                                <Tooltip title={task.escalation_notes ? `علت اخطار: ${task.escalation_notes}` : 'اخطار مدیریتی برای تسریع در اقدام'}>
+                                  <Chip
+                                    size="small"
+                                    color="error"
+                                    variant="filled"
+                                    label="🚨 اخطار مدیریتی فعال (افزایش اولویت)"
+                                    sx={{ fontWeight: 800 }}
+                                  />
+                                </Tooltip>
+                              )}
+                              {task.reassigned_from_name && (
+                                <Tooltip title="این وظیفه به دلیل عدم اقدام یا تغییر حوزه مسئولیت از کارمند قبلی سلب شده است">
+                                  <Chip
+                                    size="small"
+                                    color="warning"
+                                    variant="outlined"
+                                    label={`سلب مسئولیت شده از: ${task.reassigned_from_name}`}
+                                    sx={{ fontWeight: 700 }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Stack>
+                          )}
+
                           {/* Description */}
                           {task.description && (
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, whiteSpace: 'pre-line' }}>
@@ -673,6 +725,22 @@ export function StaffTasksDialog({
                             }}
                           >
                             ارجاع به دیگری
+                          </Button>
+                        )}
+
+                        {/* Escalate action for managers if task is not closed */}
+                        {currentUserRole === 'admin' && task.status !== 'closed' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<WarningRounded />}
+                            onClick={() => {
+                              setEscalateTaskId(task.task_id)
+                              setEscalateNotes('')
+                            }}
+                          >
+                            اخطار و افزایش اولویت
                           </Button>
                         )}
 
@@ -1186,6 +1254,48 @@ export function StaffTasksDialog({
             disabled={reassigning || !reassignTargetName.trim()}
           >
             {reassigning ? 'در حال ارجاع…' : 'تایید و ارجاع مجدد'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Escalate Task Modal */}
+      <Dialog open={Boolean(escalateTaskId)} onClose={() => setEscalateTaskId(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <WarningRounded color="error" />
+            <Typography variant="h6" fontWeight={800} color="error.main">
+              صدور اخطار مدیریتی و افزایش اولویت
+            </Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2}>
+            <Alert severity="error" sx={{ py: 0.5 }}>
+              با ثبت این اخطار، اولویت ماموریت به «فوری» ارتقا یافته و در کارنامه و سوابق کارمند مسئول به عنوان تاخیر و اخطار مدیریتی ثبت خواهد شد.
+            </Alert>
+
+            <TextField
+              label="علت صدور اخطار مدیریتی و دستور تسریع"
+              placeholder="مثال: تاخیر غیرموجه در تکمیل شناسنامه رویداد / نزدیک شدن به موعد ارسال گزارش استانی"
+              multiline
+              rows={3}
+              value={escalateNotes}
+              onChange={(e) => setEscalateNotes(e.target.value)}
+              fullWidth
+              size="small"
+              required
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+          <Button onClick={() => setEscalateTaskId(null)}>انصراف</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleEscalateTask}
+            disabled={escalating || !escalateNotes.trim()}
+          >
+            {escalating ? 'در حال ثبت اخطار…' : 'تایید و صدور اخطار فوری'}
           </Button>
         </DialogActions>
       </Dialog>

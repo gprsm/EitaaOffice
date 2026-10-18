@@ -3071,6 +3071,203 @@
   - بسته نصبی Wheel پایتون: بازتولید با موفقیت با هش `5c01e13b86cb57ff64b533ad4b4acf26b2b7fc0aa6e643664581979ddcb1e29b`.
   - یکپارچگی حافظه و اسناد: انطباق کامل با `check_project_memory_integrity.py`.
 
+### V-284 — ممیزی بصری زنده، سازگاری چندسکویی (دسکتاپ، تبلت و موبایل) و پذیرش تعاملی دیالوگ‌های کارکنان و کتابچه
+
+- تاریخ: 2026-10-13؛ Trigger: آزمون و ممیزی بصری زنده و سخت‌گیرانه (Visual Acceptance Audit) واسط کاربری به درخواست کاربر، با تمرکز بر تعامل در ابعاد مختلف به‌ویژه گوشی تلفن همراه (Mobile Responsive)، بررسی پایداری راست‌به‌چپ (RTL)، تایپوگرافی فارسی، لودینگ داده‌ها و اکشن‌های تعاملی.
+- محیط آزمون:
+  - سرور عملیاتی محلی روی `http://127.0.0.1:8765/` با توزیع بیلد نهایی Vite (`ui/dist`).
+  - تزریق نشست احراز هویت ادمین (`admin`) از طریق پروتکل Chrome DevTools (`CDP`) و کوکی `CoordinatorAppAuth`.
+  - اجرای خودکار مرورگر Edge/Chromium بدون سر (Headless) در سه بعد:
+    1. دسکتاپ بزرگ: ۱۴۴۰ در ۹۰۰ پیکسل (`Desktop 1440x900`).
+    2. موبایل آیفون: ۳۹۰ در ۸۴۴ پیکسل (`iPhone 14/15 390x844`).
+    3. موبایل اندورید فشرده: ۳۶۰ در ۷۸۰ پیکسل (`Compact Android 360x780`).
+- بخش‌ها و رفتارهای ممیزی و اثبات‌شده با آرتیفکت‌های تصویری:
+  1. **محیط کار و تایم‌لاین پیام‌ها (`Desktop & Mobile Timeline`):**
+     - زیرعنوان داینامیک هدر با مشخصات کانال/گفتگو (`Peer ID: 6015778 | ۱٬۱۱۴ پیام ذخیره‌شده | در حال همگام‌سازی`).
+     - دکمه اکشن سریع تنظیمات و ایندکس‌گذاری در هدر.
+     - چیدمان صحیح راست‌به‌چپ و متون فارسی بدون به‌هم‌ریختگی یا کراپ.
+  2. **دیالوگ ایندکس محتوا و پکیج کتابچه فرهنگی (`ContentIndexDialog`):**
+     - نمایش برجستهٔ دکمه بنفش‌رنگ با نشان رسمی **«کتابچه فرهنگی ۱۴۰۵»**.
+     - کلیک روی دکمه و بارگذاری بلادرنگ سرفصل‌ها با نمایش پیام Toast موفقیت سبز: `«۷ سرفصل رسمی کتابچه فرهنگی ۱۴۰۵ با موفقیت افزوده شد»`.
+     - فعال شدن بلافاصله دکمه اصلی عملیات (`شروع ایندکس`).
+     - وجود و صحت دسترسی سریع به دکمه‌های «ارزیابی کارمندان» و «پیگیری نواقص».
+  3. **دیالوگ ارزیابی عملکرد کارکنان (`StaffPerformanceDialog`):**
+     - بارگذاری کامل ۴ کارت شاخص کلیدی عملکرد (KPI Cards): تطابق کامل، اصلاحات مدیر، میانگین تأخیر و نرخ خطا.
+     - تب‌های افقی فیلتر بازه زمانی (۱ ماهه، ۲ ماهه، ۶ ماهه، ۱ ساله، کل تاریخچه) و عملکرد تعویض آنی به «کل تاریخچه».
+     - جدول نمرات ۳۶۰ درجه کارکنان با اسکرول ریسپانسیو و چینش صحیح ستون‌ها در موبایل.
+  4. **کارتابل وظایف و نواقص کارکنان (`StaffTasksDialog`):**
+     - سلکتور کلان‌عنوان‌ها شامل برنامه‌های مصوب کاربرگ ۱۴۰۵، سایر فعالیت‌های فرهنگی و تمام موارد.
+     - سوئیچ فیلتر تاخیرات («فقط وظایف دارای تاخیر») و تب‌های وظایف جاری، تکمیل‌شده و منقضی.
+     - نمایش پیام راهنمای فارسی تمیز در وضعیت خالی (Empty State).
+  5. **سازگاری موبایل و صفحات کوچک (Mobile & Compact Viewport):**
+     - رندر کشوی ناوبری گفتگوها (`ConversationListPage.tsx`) با نوار جستجو و ناوبری پایینی.
+     - سوئیچ تمیز به صفحه چت با کلیک روی آیتم گفتگو در موبایل.
+     - رفتار تمام‌صفحه (`fullScreen`) خودکار تمام مودال‌ها در موبایل جهت جلوگیری از سرریز یا اسکرول مضاعف.
+     - چیدمان عمودی (Stack) کارت‌های KPI در موبایل و حفظ خوانایی کامل در عرض فشرده ۳۶۰ پیکسل اندروید.
+- شواهد تصویری و آرتیفکت‌های ذخیره‌شده در پوشهٔ `.rtl-acceptance/visual-audit-2026-10-13/` و آرتیفکت‌های چت:
+  - `01_desktop_workspace_timeline.png` (محیط کار دسکتاپ و تایم‌لاین)
+  - `02_desktop_content_index_dialog.png` (مودال ایندکس با دکمه کتابچه)
+  - `03_desktop_cultural_pack_loaded.png` (اعمال موفق پکیج فرهنگی با پیام سبز)
+  - `desktop_v2_04_staff_performance_fully_loaded.png` (کارنامه کارکنان لود شده)
+  - `desktop_v2_05_staff_performance_all_history.png` (فیلتر کل تاریخچه در دسکتاپ)
+  - `desktop_v2_06_staff_tasks_fully_loaded.png` (کارتابل وظایف کارکنان در دسکتاپ)
+  - `mobile_v2_01_conversations_list.png` (لیست گفتگوها در ابعاد آیفون)
+  - `mobile_v2_02_chat_timeline.png` (تایم‌لاین گفتگو در ابعاد آیفون)
+  - `mobile_v2_03_content_index_dialog.png` (مودال تمام‌صفحه ایندکس در موبایل)
+  - `mobile_v2_04_staff_performance_dialog.png` (کارنامه کارکنان تمام‌صفحه در موبایل)
+  - `mobile_v2_06_staff_tasks_dialog.png` (کارتابل وظایف در موبایل)
+  - `mobile_v2_07_android_staff_tasks.png` (کارتابل در موبایل فشرده ۳۶۰ پیکسلی اندروید)
+- نتیجه: ۱۲ عکس از زوایای دسکتاپ و موبایل ثبت و بررسی بصری شدند؛ هیچ‌گونه خطای جاوااسکریپت، شکستگی استایل یا ناخوانایی متن مشاهده نشد.
+
+### V-285 — اتصال پیام ایتا به باکس ثبت گزارش، استخراج زمان، نویسنده، شهر/حوزه قضایی و ممیزی بصری زنده
+
+- تاریخ: 2026-10-15؛ Trigger: درخواست گام‌به‌گام کاربر جهت اتصال داده‌های پیام به باکس ثبت گزارش، ممیزی بصری زنده، تست استخراج زمان، نویسنده و واحد قضایی و حفظ این فراداده‌ها در پیش‌نویس، بازبینی و ثبت.
+- دامنهٔ تغییرات:
+  - `ui/src/MessageContentCard.tsx`: صادر کردن تابع `authorLabel` و ارسال شیء پیام منبع (`primaryMsg`) و اعضای گروه (`members`) در فراخوانی `openRegistration`.
+  - `ui/src/App.tsx`: ارتقای استیت `registrationPanel` به ذخیره `sourceMessage` و `sourceMembers`، و ارسال آن‌ها به `ReportingRegistrationPanel`.
+  - `ui/src/ReportingRegistrationPanel.tsx`: اضافه شدن تابع `inferRegistrationDefaults` با تبدیل تاریخ میلادی به کلید و برچسب جلالی (`jalaliDayKey` / `jalaliDayLabel`)، تشخیص تاریخ صریح درون متن، اتصال رابط فرهنگی به حوزه قضایی از روی `SENDER_BINDINGS` و رجیستری شهرهای مازندران (`MAZANDARAN_CITIES`)، اضافه شدن فیلد `author` به درفت، بنر مشخصات پیام در مرحله ۰، نمایش در مرحله ۳ (خلاصه)، و ذخیره در یادداشت‌ها و پی‌لود ثبت رویداد.
+- آزمون‌های متمرکز و ممیزی بصری:
+  - بررسی تایپ‌اسکریپت `npm.cmd --prefix ui run check` با خروجی صفر (بدون خطا).
+  - آزمون‌های قراردادی استنتاج فراداده `ui/scripts/test-registration-inference.mjs`: هر ۵ آزمون پاس شدند.
+  - آزمون آبزروابیلیتی واسط کاربری `npm.cmd --prefix ui run test:observability`: موفق (خروجی صفر).
+  - ممیزی بصری زنده CDP در Edge بدون سربرگ (`scripts/run_reporting_registration_visual_audit.py`):
+    - گفتگوی «رابطان فرهنگی دادگستری استان مازندران» باز شد.
+    - کلیک روی دکمهٔ «ثبت در گزارش» کارت پیام محمدامین دیوسالار (`#31240`).
+    - تاریخ وقوع استخراج‌شده: `1405/7/22` (زمان ارسال: ۱۴۰۵ مهر ۲۲ · ساعت ۱۷:۲۰).
+    - نویسنده / رابط استخراج‌شده: `محمدامین دیوسالار (رابط فرهنگی نور)`.
+    - حوزهٔ قضایی / شهر استنتاج‌شده: `حوزهٔ قضایی (دادگستری نور)`.
+    - بنر بالای مرحله ۰، فیلدهای ورودی و خلاصهٔ مرحله ۳ با مقادیر پر شدند.
+    - شواهد تصویری ذخیره‌شده در `.rtl-acceptance/visual-audit-2026-10-15/` و آرتیفکت‌های چت:
+      - `01_desktop_chat_timeline.png`
+      - `02_desktop_reporting_registration_step0.png`
+      - `03_desktop_reporting_registration_summary.png`
+      - `04_mobile_reporting_registration.png`
+- نتیجه: گام اول به‌طور کامل پیاده‌سازی و هم از نظر تستی و هم از نظر بصری در محیط زنده پذیرفته شد.
+
+### V-286 — اصلاح ماژول تاریخ شمسی و DateTimePicker، ثبت جدول حوزه‌های قضایی، رابطین و اتصال هوشمند حوزه به فرستنده
+
+- تاریخ: 2026-10-17؛ Trigger: درخواست گام دوم کاربر جهت اصلاح خطای فرمت تاریخ شمسی (`AP`) و ساخت ماژول و کامپوننت تقویم و زمان تعاملی، ایجاد جدول پایگاه‌داده شهرستان‌ها، حوزه‌ها و رابطین قضایی، اتصال خودکار فرستنده پیام به حوزه و رابط، و تبدیل انتخاب حوزه به یک فیلد یکتای Autocomplete با فرمت «شهرستان - واحد» و دسترسی به مودال مدیریت.
+- دامنهٔ تغییرات:
+  - `ui/src/utils/jalaliDateTime.ts`: توسعه ماژول تاریخ شمسی مستقل بدون پسوند AP انگلیسی، شامل توابع فرمت‌بندی، پارس، استخراج اجزا و طول ماه‌ها.
+  - `ui/src/components/JalaliDateTimePicker.tsx`: مؤلفه تقویم پاپ‌اور تعاملی جلالی با امکان تغییر ماه و سال، انتخاب زمان (ساعت و دقیقه) و دکمه «هم‌اکنون».
+  - `src/eitaa_bridge/reporting/store.py` & `registry.py`: ایجاد و نگهداری جداول SQLite `reporting_units` (با ستون‌های شهرستان، نوع واحد، عنوان نمایشی) و `reporting_liaisons` (با ستون‌های کلید فرستنده، نام کاربری ایتا، نام کامل رابط، سمت و شناسه حوزه قضایی) همراه با ایندکس‌ها، سیدینگ اولیه ۸۹ واحد قضایی مازندران و رابطین نمونه، و متدهای کامل CRUD و متد استنتاج `resolve_liaison_and_unit`.
+  - `src/eitaa_bridge/application/reporting_api_v3.py`: مسیرهای REST v3 برای حوزه‌ها و رابطین (`/api/v3/reporting/units`، `/api/v3/reporting/liaisons`) و سرویس انطباق فرستنده (`/api/v3/reporting/liaisons/resolve`).
+  - `ui/src/components/JudicialUnitsManagementModal.tsx`: مودال کامل مدیریت حوزه‌ها و رابطین با دو تب تفکیک‌شده، فیلتر شهرستان، جستجو، افزودن، ویرایش و حذف.
+  - `ui/src/ReportingRegistrationPanel.tsx`: جایگزینی فیلدهای مجزا با فیلد یکتای Autocomplete حوزه‌های قضایی با گروه‌بندی شهرستان، افزودن دکمه دسترسی به مدیریت، استعلام خودکار رابط و حوزه بر اساس فرستنده پیام منبع، و جایگزینی ورودی تاریخ با `JalaliDateTimePicker`.
+- آزمون‌های متمرکز و ممیزی بصری:
+  - آزمون‌های واحد پایتون `tests/test_judicial_units_and_liaisons.py`: ۵/۵ آزمون با موفقیت پاس شدند (CRUD واحدها، CRUD رابطین، استنتاج رابط و حوزه، رفتار در غیاب داده، و نگاشت چندگانه شهرستان-واحد).
+  - آزمون‌های رگرسیون ریپورتینگ: ۵۸ آزمون پایتون با موفقیت پاس شدند.
+  - بررسی تایپ‌اسکریپت: `npm.cmd --prefix ui run check` با خروجی صفر (بدون خطا).
+  - ساخت باندل UI: `npm.cmd --prefix ui run build` با کد خروج صفر.
+  - ممیزی بصری زنده CDP در مرورگر:
+    - بررسی فرم مرحله ۰ با تاریخ تمیز `1405/07/23` بدون AP.
+    - باز شدن موفق پاپ‌اور انتخابگر تاریخ شمسی با قابلیت انتخاب تاریخ و زمان.
+    - باز شدن فیلد جست‌وجوپذیر حوزه قضایی با فرمت «شهرستان - واحد».
+    - باز شدن مودال «مدیریت حوزه‌های قضایی و رابطین» با تب‌های حوزه‌ها و رابطین فرهنگی و فیلترهای شهرستان.
+    - شواهد تصویری ذخیره‌شده در دایرکتوری آرتیفکت:
+      - `02_desktop_reporting_registration_step0.png`
+      - `05_desktop_jalali_datepicker_popover.png`
+      - `06_desktop_judicial_units_management_modal.png`
+      - `07_desktop_liaisons_management_tab.png`
+- نتیجه: تمامی خواسته‌های کاربر با حفظ معماری محلی، سازگاری پایگاه داده، ممیزی بصری و عبور از کلیه گیت‌های کیفی تحویل داده شد.
+
+### V-287 — پیاده‌سازی رانر نظارت دوایجنتی با OpenCode (OSP-1.0)، تدوین پرونده Dossier و آزمون اجرای خط فرمان
+
+- تاریخ: 2026-10-17؛ Trigger: درخواست صریح کاربر جهت ارائه نتایج کار به مدل مستقل بیرونی از طریق دستور کامندی `opencode`، تدوین قرارداد تبادل داده و صدور حکم ساختاریافته در قالب فایل JSON، و تکرار چرخه بازخورد.
+- دامنهٔ تغییرات:
+  - `docs/protocols/OPENCODE_SUPERVISION_PROTOCOL.md`: نگارش سند دائمی استاندارد پروتکل نظارت دوایجنتی، الزامات Dossier و اسکیمای رسمی حکم نهایی (`opencode_supervision_verdict.json`).
+  - `diagnostics/opencode_supervision_dossier.json`: ایجاد پرونده نظارتی متمرکز شامل نیازمندی‌های کاربر، مسیر فایل‌های اصلاح‌شده، شواهد آزمون‌ها و تصاویر ممیزی بصری.
+  - `scripts/run_opencode_supervision.py`: رانر خودکار پایتون جهت یافتن باینری `opencode.exe`، ارسال پرامپت داوری، پایش اجرا، اعتبارسنجی خروجی JSON و مدیریت خطاهای اعتبارسنجی ابری.
+  - `AGENTS.md`: ثبت قاعده اجباری اجرای پروتکل نظارت برای تمامی قابلیت‌های آتی.
+- آزمون‌های متمرکز و ممیزی:
+  - اجرای کامندی رانر: `python scripts/run_opencode_supervision.py` با کشف موفق باینری `opencode.exe` و بارگیری پرونده Dossier اجرا شد.
+  - راستی‌آزمایی پاسخ ابری: پاسخ سرور بالادست OpenCode مبنی بر `FreeTierError` استخراج و راهنمای اتصال کلید ارائه‌دهنده‌های مجاز توسط رانر گزارش گردید.
+  - بررسی سلامت حافظه پروژه: `scripts/check_project_memory_integrity.py` با خروجی صفر (بدون کاراکتر کنترلی یا لینک شکسته) تأیید شد.
+- نتیجه: پروتکل دائمی نظارت، رانر خودکار و پرونده Dossier کاملاً مستقر و آماده ارزیابی مستمر شدند.
+
+### V-288 — اعتبارسنجی جامع حذف حوزه‌های قضایی و رابطین فرهنگی: پیاده‌سازی do_DELETE، حذف آبشاری، مسیرهای تکمیلی POST و آزمون سرور زنده
+
+- تاریخ: 2026-10-17؛ Trigger: گزارش کاربر مبنی بر بروز خطای «HTTP request could not be completed» هنگام اقدام به حذف یک حوزه قضایی در مودال مدیریت حوزه‌ها.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/interfaces/http_api.py`: پیاده‌سازی متد استاندارد `do_DELETE` در کلاس `_ApiHandler`، ارسال درخواست به متد `_dispatch("DELETE")` با ارزیابی سیاست استقرار (`_enforce_deployment_policy`) و به‌روزرسانی سرآیند `Allow` در `do_HEAD` و `do_OPTIONS`.
+  - `src/eitaa_bridge/reporting/store.py`: اصلاح متد `delete_unit` با پاک‌سازی خودکار و آبشاری رکوردهای رابطین فرهنگی متصل در جدول `reporting_liaisons` پیش از حذف ردیف اصلی حوزه قضایی.
+  - `src/eitaa_bridge/application/reporting_api_v3.py`: افزودن مسیرهای تکمیلی `POST /api/v3/reporting/units/<id>/delete` و `POST /api/v3/reporting/liaisons/<id>/delete` جهت اطمینان از عملکرد در محیط‌های فایروال یا پروکسی با محدودیت DELETE.
+  - `ui/src/components/JudicialUnitsManagementModal.tsx`: به‌روزرسانی هندلرهای `handleDeleteUnit` و `handleDeleteLiaison` با فراخوانی متد DELETE و فال‌بک خودکار به روت POST در صورت بروز خطا.
+  - `tests/test_judicial_units_and_liaisons.py`: افزودن آزمون‌های `test_v3_api_post_delete_fallback`، `test_unit_deletion_cascades_liaisons` و `test_http_api_handler_has_do_delete`.
+- آزمون‌های متمرکز و ممیزی:
+  - آزمون‌های یونیت بک‌اند: `python -m pytest tests/test_judicial_units_and_liaisons.py` با ۸ آزمون سبز در ۲.۲۸ ثانیه (`8 passed`).
+  - آزمون سرور زنده (Live HTTP Test): ارسال درخواست واقعی `DELETE /api/v3/reporting/units/<id>` به سرور در حال اجرا روی پورت ۸۷۶۵ با دریافت وضعیت HTTP 200 و خروجی `{"ok": true, "deleted": true}`؛ ارسال درخواست واقعی `POST .../delete` با دریافت وضعیت HTTP 200 و خروجی `{"ok": true, "deleted": true}`.
+  - تایپ‌چک فرانت‌اند: `npm run check` با خروجی صفر خطا.
+  - کامپایل نهایی فرانت‌اند: `npm run build` با ساخت موفق باندل UI.
+  - آزمون‌های Observability: `npm run test:observability` با نتیجه موفق قراردادهای دسکتاپ و الکترون.
+  - داوری و نظارت OpenCode (OSP-1.0): اجرای `scripts/run_opencode_supervision.py` و صدور حکم `APPROVED` با تأیید هر ۷ آیتم چک‌لیست معماری در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه: خطای عدم تکمیل درخواست HTTP در حذف حوزه قضایی به طور ریشه‌ای برطرف گردید و حذف حوزه‌ها و رابطین چه از طریق متد DELETE و چه مسیرهای کمکی با پاک‌سازی کامل پایگاه داده تایید شد.
+
+### V-289 — اعتبارسنجی جامع دیالوگ رابط نویسنده پیام، تحلیل کارنامه و فراوانی موضوعات، کشف تلفن مخاطب، و عناوین استاندارد
+
+- تاریخ: 2026-10-18؛ Trigger: درخواست کاربر برای اتصال پیام‌های گروه به رابطین فرهنگی، تفکیک سوابق هر رابط، کارنامه فعالیت، چارت فراوانی موضوعات، کشف شماره تماس از مخاطبین، و استانداردسازی عناوین رابطین در تمام سطوح رابط کاربری.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/store.py`: پیاده‌سازی متدهای `_lookup_contact_phone`، `find_liaison_by_sender`، `assign_author_as_liaison`، `unlink_author_liaison`، و `get_liaison_profile_analytics`.
+  - `src/eitaa_bridge/application/reporting_api_v3.py`: افزودن مسیرها و روت‌های `assign-author`، `unlink-author`، `lookup`، و `profile`.
+  - `ui/src/components/LiaisonAuthorDialog.tsx`: طراحی و پیاده‌سازی دیالوگ دومنظوره شامل تب کارنامه تحلیلی (بازه ۳/۶/۱۲ ماه، ۴ کارت شاخص کلیدی، چارت میله‌ای فراوانی موضوعات، آمار مقایسه‌ای واحد، جدول گزارش‌ها، دکمه چت مستقیم و ثبت سریع گزارش) و تب انتساب رابط (سوییچ رابط فرهنگی، سلکتور شهرستان/واحد، چیپ کپی شماره تلفن، کلیدواژه‌ها و یادداشت).
+  - `ui/src/MessageContentCard.tsx`: اعمال فرمت استاندارد `نام + " - " + "حوزه قضایی" + نام حوزه قضایی`، افزودن بج قابل کلیک «رابط فرهنگی»، و اتصال کلیک نویسنده و آواتار به دیالوگ رابط.
+  - `ui/src/components/JudicialUnitsManagementModal.tsx`: به‌روزرسانی جدول رابطین با فرمت استاندارد و دکمه مشاهده کارنامه فعالیت.
+  - `ui/src/App.tsx`: اتصال دیالوگ، کش نگاشت رابطین `liaisonsMap`، ارسال پیام خصوصی و ارسال به پنل ثبت گزارش.
+  - `tests/test_judicial_units_and_liaisons.py`: افزودن آزمون‌های پوشش‌دهنده انتساب رابط، بازیابی تلفن از مخاطبین محلی، کارنامه تحلیلی و فرمت استاندارد عنوان.
+  - `ui/scripts/run-reporting-chat-surface-tests.mjs`: افزودن آزمون‌های اعتبارسنجی فرانت‌اند برای دیالوگ رابط و عنوان‌بندی استاندارد.
+  - `scripts/run_opencode_supervision.py`: به‌روزرسانی پرامپت و چک‌لیست ۱۰گانه نظارت دوایجنتی OpenCode.
+  - `diagnostics/opencode_supervision_dossier.json`: تشکیل پرونده نظارتی `TASK-20261018-REPORTING-AUTHOR-LIAISON-PROFILE-AND-FORMATTING`.
+- آزمون‌های متمرکز و ممیزی:
+  - آزمون‌های بک‌اند: `python -m pytest tests/test_judicial_units_and_liaisons.py -v` با ۹ آزمون سبز (۱۰۰٪ پاس).
+  - آزمون‌های شل ریپورتینگ: `python -m pytest tests/test_reporting_shell.py -q` با ۲۷ آزمون سبز (۱۰۰٪ پاس).
+  - تایپ‌چک فرانت‌اند: `npm run check` بدون هیچ‌گونه خطای کامپایلری تایپ‌اسکریپت (exit code 0).
+  - آزمون‌های قرارداد چت فرانت‌اند: `node ui/scripts/run-reporting-chat-surface-tests.mjs` با تایید کامل ادغام دیالوگ و فرمت نمایش (exit code 0).
+  - آزمون‌های Observability: `npm run test:observability` با نتیجه موفق قراردادهای دسکتاپ و الکترون (exit code 0).
+  - داوری و نظارت OpenCode (OSP-1.0): اجرای رانر و صدور رأی `APPROVED` با تایید تمامی ۱۰ آیتم چک‌لیست معماری و قرارداد در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه: قابلیت‌های تنسیق رابطه رابطین و حوزه‌های قضایی، باز شدن دیالوگ با کلیک روی نویسنده، تحلیل سوابق و کارنامه یک‌ساله، کشف شماره تماس، و استانداردسازی نمایش نام‌ها در کل سیستم پیاده‌سازی و کاملاً تایید شد.
+
+### V-290 — اعتبارسنجی تدقیق فهرست ۳۴ حوزه و ۳۸ واحد قضایی استان مازندران و پالایش دیتابیس
+
+- تاریخ: 2026-10-18؛ Trigger: ورود فهرست رسمی ۳۴ حوزه قضایی استان مازندران شامل ۳۸ واحد قضایی کانونیکال (ساری ۴ واحد، بابل ۲ واحد، قائمشهر ۲ واحد، و ۳۰ شهرستان/بخش تک‌واحدی).
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/store.py`: بازتعریف `_DEFAULT_JUDICIAL_UNITS` با ۳۸ واحد قضایی رسمی، اصلاح الگوریتم backfill نام‌های چندکلمه‌ای و پالایش واحدهای بذری مازاد.
+  - `tests/test_judicial_units_and_liaisons.py`: بازبینی تست `test_schema_migration_and_seed_defaults` و راستی‌آزمایی تفکیک ساری (۴)، بابل (۲) و قائمشهر (۲) و مجموع ۳۸ واحد.
+  - `scripts/run_opencode_supervision.py`: به‌روزرسانی اعتبارسنجی شرط ۳۸ واحد قضایی در چک‌لیست OSP-1.0.
+  - `diagnostics/opencode_supervision_dossier.json`: ثبت الزامات و جزییات در پرونده نظارتی دوایجنتی.
+  - `data/reporting/reporting.sqlite3`: اجرای مهاجرت و تثبیت دقیق ۳۸ واحد و ۳۳ شهرستان، حفظ ۱۰۰٪ سوابق رابطین و گزارش‌ها.
+- آزمون‌های متمرکز و ممیزی:
+  - آزمون‌های بک‌اند: `python -m pytest tests/test_judicial_units_and_liaisons.py -q` با ۹ پاس کامل (exit code 0).
+  - آزمون‌های شل ریپورتینگ: `python -m pytest tests/test_reporting_shell.py -q` با ۲۷ پاس کامل (exit code 0).
+  - تایپ‌چک فرانت‌اند: `npm run check` بدون خطا (exit code 0).
+  - آزمون‌های قرارداد چت فرانت‌اند: `node ui/scripts/run-reporting-chat-surface-tests.mjs` (exit code 0).
+  - آزمون‌های Observability: `npm run test:observability` (exit code 0).
+  - داوری و نظارت OpenCode (OSP-1.0): تاییدیه رسمی با وضعیت `APPROVED` و checklist ۱۰/۱۰ در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه: فهرست حوزه‌های قضایی به طور دقیق مطابق دستور کاربر با تفکیک ساختاری در دیتابیس و کد نهایی تثبیت گردید.
+
+### V-291 — اعتبارسنجی جامع شاخصه‌های کلی و جزئی (Macro/Micro Indicators)، تفکیک پیام‌های یکپارچه‌شده و کنترل‌بار پیام
+
+- تاریخ: 2026-10-18؛ Trigger: درخواست کاربر برای تفکیک شاخصه‌ها به کلی (۹ شاخصه شامل ۸ سرفصل کلان + ۱ عنوان غیر برنامه‌ای) و جزئی (تایپ برخط و پنل مدیریت)، دکمه «تفکیک پیام» در پیام‌های یکپارچه‌شده با مخفی ماندن شناسه‌های فنی، کنترل‌بار زیر پیام (شاخصه کلی بولد با مداد، فاصله، شاخصه‌های جزئی غیربولد با رنگ دیگر و مداد در انتها)، و اتصال ثبت گزارش‌ها به شاخصه‌ها.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/store.py`: ایجاد جداول `reporting_micro_indicators`، `reporting_message_indicators` و `reporting_message_splits`، به‌روزرسانی مدل `ReportedEvent` با فیلدهای `macro_indicator` و `micro_indicators_json`، تعریف ثابت `MACRO_INDICATORS` و `_DEFAULT_MICRO_INDICATORS`، و پیاده‌سازی متدهای CRUD و تفکیک پیام.
+  - `src/eitaa_bridge/application/reporting_api_v3.py`: افزودن روت‌های `/api/v3/reporting/indicators/macro`, `/api/v3/reporting/indicators/micro`, `/api/v3/reporting/indicators/message`, و `/api/v3/reporting/indicators/splits`.
+  - `ui/src/lib/indicators.ts`: ایجاد ماژول کلاینت و انواع داده شاخصه‌ها و متدهای ارتباط با API.
+  - `ui/src/lib/groupedMedia.ts`: افزودن پارامتر `detachedMessageIds` به تابع محاسباتی `buildMessageGroupLookup` جهت شکستن لحظه‌ای گروه‌های پیام.
+  - `ui/src/components/SplitMessageDialog.tsx`: دیالوگ تفکیک پیام بدون افشای شناسه‌های خام دیتابیس با پیش‌نمایش متنی بخش‌ها.
+  - `ui/src/components/MacroIndicatorSelectPopover.tsx`: پنجره انتخاب سریع ۹ شاخصه کلی کانونیکال.
+  - `ui/src/components/MicroIndicatorEditPopover.tsx`: ویرایشگر سریع شاخصه‌های جزئی با تایپ آزاد و ایجاد همزمان.
+  - `ui/src/components/MicroIndicatorsManagementModal.tsx`: مودال کامل مدیریت شاخصه‌های جزئی.
+  - `ui/src/MessageContentCard.tsx`: پیاده‌سازی کنترل‌بار زیر هر پیام (دکمه تفکیک پیام، شاخصه بولد کلی با مداد، شاخصه‌های غیربولد رنگی جزئی با مداد در انتها).
+  - `ui/src/ReportingRegistrationPanel.tsx`: اضافه شدن ورودی‌های شاخصه کلی و جزئی به فرم ثبت گزارش و ارسال به API.
+  - `ui/src/App.tsx`: اتصال وضعیت‌های تفکیک و نگاشت شاخصه‌ها در سطح استیت سراسری پیام‌ها.
+- آزمون‌های متمرکز و ممیزی:
+  - آزمون‌های واحد و یکپارچگی بک‌اند: `python -m pytest tests/test_judicial_units_and_liaisons.py -q` (۱۱/۱۱ پاس).
+  - آزمون‌های کامل بک‌اند: `python -m pytest -q` با نتیجه کامل (exit code 0).
+  - تایپ‌چک فرانت‌اند: `npm run check` بدون خطای نوع (exit code 0).
+  - آزمون‌های Observability: `npm run test:observability` بدون نقض قرارداد (exit code 0).
+  - آزمون‌های چت فرانت‌اند: `node ui/scripts/run-reporting-chat-surface-tests.mjs` (exit code 0).
+  - داوری و نظارت دوایجنتی OpenCode (OSP-1.0): ثبت پرونده نظارتی و صدور تاییدیه `APPROVED` در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه: کلیه قابلیت‌های تفکیک پیام، شاخصه‌های کلی و جزئی، نوار کنترلی پیام‌ها و اتصال به ثبت گزارش به طور کامل با رعایت تمامی استانداردها و بدون شکست تست‌های پیشین پیاده‌سازی و اعتبارسنجی گردید.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.

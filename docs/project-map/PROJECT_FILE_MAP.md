@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 450
-- اثرانگشت منبع: `39515673381b0436`
+- تعداد فایل‌های نقشه: 468
+- اثرانگشت منبع: `3a9f6a1e1d9dc04b`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -25,6 +25,7 @@
 | `scripts/clean_app.py` | Operations/tooling | 0 | — |
 | `scripts/create_diagnostics_bundle.py` | Operations/tooling | 11 | — |
 | `scripts/create_shortcuts.ps1` | Operations/tooling | 0 | — |
+| `scripts/desktop_final_runner.py` | Operations/tooling | 1 | — |
 | `scripts/doctor.py` | Operations/tooling | 0 | — |
 | `scripts/export_cultural_report.py` | Operations/tooling | 3 | Export cultural report Excel spreadsheet with safety timeout. |
 | `scripts/extract_block.py` | Operations/tooling | 0 | — |
@@ -74,6 +75,7 @@
 | `scripts/gmi4_smoke.py` | Operations/tooling | 2 | Deterministic no-network smoke suite for source and installed-wheel validation. |
 | `scripts/migrate_legacy_account.py` | Operations/tooling | 6 | Interactive, no-network migration utility for the initial legacy Eitaa account. |
 | `scripts/migrate_reporting_v5_isolated.py` | Operations/tooling | 11 | Isolated reporting v5 migration rehearsal and reconciliation checker. |
+| `scripts/mobile_visual_runner.py` | Operations/tooling | 1 | Dedicated mobile visual acceptance runner (Edge Headless via CDP). |
 | `scripts/new_internal_code_signing_certificate.ps1` | Operations/tooling | 0 | — |
 | `scripts/office_runtime.py` | Operations/tooling | 55 | — |
 | `scripts/phase10_auth_failure_verify.py` | Operations/tooling | 1 | Print only safe recent authentication failure metadata from the live coordinator. |
@@ -90,6 +92,8 @@
 | `scripts/read_sync.py` | Operations/tooling | 0 | — |
 | `scripts/refresh_project_docs.py` | Operations/tooling | 11 | Generate safe project maps and document indexes without reading runtime data. |
 | `scripts/restore_runtime.py` | Operations/tooling | 6 | — |
+| `scripts/run_opencode_supervision.py` | Operations/tooling | 2 | OpenCode Supervision & Quality Gate Runner |
+| `scripts/run_reporting_registration_visual_audit.py` | Operations/tooling | 10 | Visual Acceptance Runner for Reporting Registration Panel (F-120, V-284) |
 | `scripts/runtime_state.py` | Operations/tooling | 9 | — |
 | `scripts/scan_diagnostics_bundle.py` | Operations/tooling | 5 | Verify a diagnostics ZIP without echoing any bundled value. |
 | `scripts/screenshot.ps1` | Operations/tooling | 0 | — |
@@ -97,6 +101,7 @@
 | `scripts/stabilization_baseline.py` | Operations/tooling | 14 | — |
 | `scripts/sync_ui_fonts.py` | Operations/tooling | 2 | — |
 | `scripts/test_api.py` | Operations/tooling | 0 | — |
+| `scripts/test_dialog_flow.py` | Operations/tooling | 1 | — |
 | `scripts/test_unprotect.py` | Operations/tooling | 0 | — |
 | `scripts/update_app.js` | Operations/tooling | 0 | — |
 | `scripts/update_docs_phase3.js` | Operations/tooling | 0 | — |
@@ -112,7 +117,7 @@
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
 | `src/eitaa_bridge/application/account_runtime.py` | Application | 50 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 41 | AI Agent Chat Gateway (chat-only surface). |
-| `src/eitaa_bridge/application/api.py` | Application | 335 | UI-facing local application API independent of any web framework. |
+| `src/eitaa_bridge/application/api.py` | Application | 336 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_account_owner.py` | Application | 28 | Account-owned Bale connection on one persistent asyncio loop. |
 | `src/eitaa_bridge/application/bale_client/__init__.py` | Application | 1 | Bale Personal Client research framework and the Bale branch modular API. |
 | `src/eitaa_bridge/application/bale_client/api.py` | Application | 55 | Stable Python API facade for the Bale personal client. |
@@ -149,7 +154,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 26 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 46 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -176,7 +181,7 @@
 | `src/eitaa_bridge/infrastructure/config/loader.py` | Infrastructure | 28 | — |
 | `src/eitaa_bridge/infrastructure/config/site_settings.py` | Infrastructure | 12 | Safe local editing of WordPress site configuration and credentials. |
 | `src/eitaa_bridge/infrastructure/contact_store.py` | Infrastructure | 31 | Bridge-owned local contact directory with conservative deduplication. |
-| `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 39 | Bridge-owned SQLite storage for local index suggestions and feedback. |
+| `src/eitaa_bridge/infrastructure/content_index_store.py` | Infrastructure | 40 | Bridge-owned SQLite storage for local index suggestions and feedback. |
 | `src/eitaa_bridge/infrastructure/coordinator/__init__.py` | Infrastructure | 0 | Coordinator persistence and safe legacy-migration primitives. |
 | `src/eitaa_bridge/infrastructure/coordinator/ai_connection.py` | Infrastructure | 20 | AI Model Connection Configuration & Protected Secret Store (P5). |
 | `src/eitaa_bridge/infrastructure/coordinator/ai_data_policy.py` | Infrastructure | 14 | Server-Side AI Data Policy & Egress Gate (P6). |
@@ -215,7 +220,7 @@
 | `src/eitaa_bridge/infrastructure/worker_ipc/secret_file.py` | Infrastructure | 11 | Short-lived, current-user-only authentication material for worker IPC. |
 | `src/eitaa_bridge/interfaces/__init__.py` | Interface | 0 | — |
 | `src/eitaa_bridge/interfaces/cli.py` | Interface | 5 | — |
-| `src/eitaa_bridge/interfaces/http_api.py` | Interface | 65 | Config-bound loopback/trusted-LAN HTTP adapter for the application API. |
+| `src/eitaa_bridge/interfaces/http_api.py` | Interface | 66 | Config-bound loopback/trusted-LAN HTTP adapter for the application API. |
 | `src/eitaa_bridge/interfaces/license_activation.py` | Interface | 5 | First-run Windows activation dialog and safe command-line checks. |
 | `src/eitaa_bridge/interfaces/provider_worker.py` | Interface | 6 | Independent provider-worker process entrypoint for the Phase 7 IPC contract. |
 | `src/eitaa_bridge/interfaces/windows_lan.py` | Interface | 3 | — |
@@ -253,11 +258,11 @@
 | `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-088 / design doc §3, §10). |
 | `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-088). |
 | `src/eitaa_bridge/reporting/reconcile.py` | Project | 3 | Reconciliation and audit tools for WordPress legacy archive and native store. |
-| `src/eitaa_bridge/reporting/registry.py` | Project | 17 | Registry layer of the reporting section shell (F-088 / ADR-61). |
+| `src/eitaa_bridge/reporting/registry.py` | Project | 21 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 92 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 117 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -314,6 +319,7 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
+| `tests/test_judicial_units_and_liaisons.py` | Python test | 12 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
 | `tests/test_linux_identity_protection.py` | Python test | 4 | — |
 | `tests/test_m2m_endpoints.py` | Python test | 44 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
@@ -376,6 +382,7 @@
 | `tests/test_stabilization_baseline.py` | Python test | 3 | — |
 | `tests/test_staff_deep_validation.py` | Python test | 9 | Deep, rigorous end-to-end validation for staff indexing, global consistency, KPI isolation, and task workflows. |
 | `tests/test_staff_indexing_performance.py` | Python test | 6 | Tests for staff attribution in content indexing, manager overrides, KPI calculation, and defect tasks. |
+| `tests/test_staff_tasks_delinquency.py` | Python test | 8 | Unit and integration tests for staff delinquency tracking, manager escalation, |
 | `tests/test_ui2_scroll_repair.py` | Python test | 8 | — |
 | `tests/test_ui31_composer_refinement.py` | Python test | 4 | — |
 | `tests/test_ui32_composer_usage_layout.py` | Python test | 5 | — |
@@ -404,8 +411,10 @@
 | `ui/scripts/run-reporting-chat-surface-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-reporting-ui-tests.mjs` | UI validation | 0 | — |
 | `ui/scripts/run-scroll-tests.mjs` | UI validation | 2 | — |
+| `ui/scripts/test-jalali-datetime.mjs` | UI validation | 2 | — |
+| `ui/scripts/test-registration-inference.mjs` | UI validation | 0 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 71 | — |
+| `ui/src/App.tsx` | React UI | 74 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 3 | — |
@@ -417,6 +426,13 @@
 | `ui/src/BaleWorkspace.tsx` | React UI | 15 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
+| `ui/src/components/JalaliDateTimePicker.tsx` | React UI | 7 | — |
+| `ui/src/components/JudicialUnitsManagementModal.tsx` | React UI | 6 | — |
+| `ui/src/components/LiaisonAuthorDialog.tsx` | React UI | 4 | — |
+| `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
+| `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
+| `ui/src/components/MicroIndicatorsManagementModal.tsx` | React UI | 6 | — |
+| `ui/src/components/SplitMessageDialog.tsx` | React UI | 6 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
 | `ui/src/ContactDirectoryModal.tsx` | React UI | 20 | — |
 | `ui/src/ContentIndexDialog.tsx` | React UI | 2 | — |
@@ -428,6 +444,7 @@
 | `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
 | `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
 | `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |
+| `ui/src/lib/indicators.ts` | React UI | 9 | — |
 | `ui/src/lib/messageMedia.ts` | React UI | 2 | — |
 | `ui/src/lib/polling.mjs` | React UI | 3 | — |
 | `ui/src/lib/scrollMath.ts` | React UI | 8 | — |
@@ -441,20 +458,21 @@
 | `ui/src/MessengerAccountGate.tsx` | React UI | 12 | — |
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
-| `ui/src/ReportingRegistrationPanel.tsx` | React UI | 5 | — |
+| `ui/src/ReportingRegistrationPanel.tsx` | React UI | 7 | — |
 | `ui/src/ReportingWorkbench.tsx` | React UI | 26 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |
 | `ui/src/SettingsPage.tsx` | React UI | 10 | — |
 | `ui/src/StaffPerformanceDialog.tsx` | React UI | 1 | — |
-| `ui/src/StaffTasksDialog.tsx` | React UI | 10 | — |
+| `ui/src/StaffTasksDialog.tsx` | React UI | 11 | — |
 | `ui/src/stylis.d.ts` | React UI | 0 | — |
 | `ui/src/theme.ts` | React UI | 2 | — |
 | `ui/src/ui33-runtime-patch.js` | React UI | 26 | — |
 | `ui/src/UsageInfoDialog.tsx` | React UI | 1 | — |
 | `ui/src/utils/helpers.tsx` | React UI | 28 | — |
 | `ui/src/utils/jalali.tsx` | React UI | 20 | — |
+| `ui/src/utils/jalaliDateTime.ts` | React UI | 21 | — |
 | `ui/src/vite-env.d.ts` | React UI | 0 | — |
 | `ui/src/WordPressIcon.tsx` | React UI | 1 | — |
 | `ui/src/WorkspaceNavigation.tsx` | React UI | 4 | — |

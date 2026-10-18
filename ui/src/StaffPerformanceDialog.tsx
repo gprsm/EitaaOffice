@@ -212,11 +212,16 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                       <AssignmentTurnedInRounded color="info" sx={{ fontSize: 32 }} />
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          وظایف نقص حل‌شده
+                          وظایف و ماموریت‌های انجام‌شده
                         </Typography>
                         <Typography variant="h6" fontWeight={800}>
                           {summary.resolved_tasks.toLocaleString('fa-IR')} از {summary.total_tasks.toLocaleString('fa-IR')}
                         </Typography>
+                        {(summary.total_overdue ?? 0) > 0 && (
+                          <Typography variant="caption" color="error.main" fontWeight={700} display="block">
+                            {(summary.total_overdue ?? 0).toLocaleString('fa-IR')} وظیفه معوق
+                          </Typography>
+                        )}
                       </Box>
                     </Stack>
                   </CardContent>
@@ -275,7 +280,7 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                     <TableCell align="center">گزارش‌های ثبت‌شده</TableCell>
                     <TableCell align="center">تایید مدیر</TableCell>
                     <TableCell align="center">نرخ بدون نقص (FTR)</TableCell>
-                    <TableCell align="center">وظایف رفع نقص</TableCell>
+                    <TableCell align="center">وظایف سازمانی و ماموریت‌ها</TableCell>
                     <TableCell align="center">شاخص جامع ۳۶۰</TableCell>
                   </TableRow>
                 </TableHead>
@@ -329,8 +334,35 @@ export function StaffPerformanceDialog({ open, onClose }: Props) {
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
-                          <Typography variant="body2">
+                          <Typography variant="body2" fontWeight={700}>
                             {staff.resolved_tasks.toLocaleString('fa-IR')} از {staff.assigned_tasks.toLocaleString('fa-IR')}
+                          </Typography>
+                          <Stack direction="row" spacing={0.5} justifyContent="center" sx={{ mt: 0.5 }}>
+                            {(staff.overdue_tasks ?? 0) > 0 && (
+                              <Tooltip title="تعداد وظایف معوق و تاخیردار فعال">
+                                <Chip
+                                  size="small"
+                                  color="error"
+                                  variant="filled"
+                                  label={`${(staff.overdue_tasks ?? 0).toLocaleString('fa-IR')} معوق`}
+                                  sx={{ fontSize: '0.7rem', height: 20 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {(staff.revoked_tasks ?? 0) > 0 && (
+                              <Tooltip title="تعداد وظایفی که به دلیل عدم اقدام از این فرد سلب و به دیگری ارجاع شد">
+                                <Chip
+                                  size="small"
+                                  color="warning"
+                                  variant="outlined"
+                                  label={`${(staff.revoked_tasks ?? 0).toLocaleString('fa-IR')} ارجاع‌مجدد`}
+                                  sx={{ fontSize: '0.7rem', height: 20 }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            اقدام: {(staff.task_resolution_rate ?? 100).toLocaleString('fa-IR')}٪
                           </Typography>
                         </TableCell>
                         <TableCell align="center">

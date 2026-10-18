@@ -184,7 +184,12 @@ class SQLiteContentIndexStore:
                             unit_scope TEXT NOT NULL DEFAULT 'provincial_hq',
                             unit_name TEXT NOT NULL DEFAULT '',
                             checklist_json TEXT NOT NULL DEFAULT '[]',
-                            requires_manager_approval INTEGER NOT NULL DEFAULT 1
+                            requires_manager_approval INTEGER NOT NULL DEFAULT 1,
+                            reassigned_from_user_id TEXT NOT NULL DEFAULT '',
+                            reassigned_from_name TEXT NOT NULL DEFAULT '',
+                            is_escalated INTEGER NOT NULL DEFAULT 0,
+                            escalated_at TEXT,
+                            escalation_notes TEXT NOT NULL DEFAULT ''
                         );
                         CREATE INDEX idx_staff_tasks_assigned
                             ON staff_tasks(assigned_to_user_id, status);
@@ -192,6 +197,8 @@ class SQLiteContentIndexStore:
                             ON staff_tasks(status);
                         CREATE INDEX idx_staff_tasks_macro
                             ON staff_tasks(macro_category);
+                        CREATE INDEX idx_staff_tasks_reassigned
+                            ON staff_tasks(reassigned_from_user_id);
 
                         CREATE TABLE content_index_settings (
                             setting_key TEXT PRIMARY KEY,
@@ -1373,7 +1380,12 @@ class SQLiteContentIndexStore:
                     unit_scope TEXT NOT NULL DEFAULT 'provincial_hq',
                     unit_name TEXT NOT NULL DEFAULT '',
                     checklist_json TEXT NOT NULL DEFAULT '[]',
-                    requires_manager_approval INTEGER NOT NULL DEFAULT 1
+                    requires_manager_approval INTEGER NOT NULL DEFAULT 1,
+                    reassigned_from_user_id TEXT NOT NULL DEFAULT '',
+                    reassigned_from_name TEXT NOT NULL DEFAULT '',
+                    is_escalated INTEGER NOT NULL DEFAULT 0,
+                    escalated_at TEXT,
+                    escalation_notes TEXT NOT NULL DEFAULT ''
                 )
                 """
             )
@@ -1396,6 +1408,16 @@ class SQLiteContentIndexStore:
                 connection.execute("ALTER TABLE staff_tasks ADD COLUMN checklist_json TEXT NOT NULL DEFAULT '[]'")
             if "requires_manager_approval" not in task_columns:
                 connection.execute("ALTER TABLE staff_tasks ADD COLUMN requires_manager_approval INTEGER NOT NULL DEFAULT 1")
+            if "reassigned_from_user_id" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN reassigned_from_user_id TEXT NOT NULL DEFAULT ''")
+            if "reassigned_from_name" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN reassigned_from_name TEXT NOT NULL DEFAULT ''")
+            if "is_escalated" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN is_escalated INTEGER NOT NULL DEFAULT 0")
+            if "escalated_at" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN escalated_at TEXT")
+            if "escalation_notes" not in task_columns:
+                connection.execute("ALTER TABLE staff_tasks ADD COLUMN escalation_notes TEXT NOT NULL DEFAULT ''")
 
             connection.execute(
                 """
@@ -1413,6 +1435,12 @@ class SQLiteContentIndexStore:
                 """
                 CREATE INDEX IF NOT EXISTS idx_staff_tasks_macro
                     ON staff_tasks(macro_category)
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_staff_tasks_reassigned
+                    ON staff_tasks(reassigned_from_user_id)
                 """
             )
             connection.execute(
@@ -1629,22 +1657,57 @@ class SQLiteContentIndexStore:
                 if to_date:
                     task_clauses.append("created_at <= ?")
                     task_params.append(to_date)
+
+                now_iso = _now()
                 task_rows = connection.execute(
                     f"""
                     SELECT assigned_to_user_id,
                            COUNT(*) as total_tasks,
-                           SUM(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END) as resolved_tasks
+                           SUM(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END) as resolved_tasks,
+                           SUM(CASE WHEN status NOT IN ('resolved', 'closed') AND due_date IS NOT NULL AND due_date != '' AND due_date < ? THEN 1 ELSE 0 END) as overdue_tasks
                     FROM staff_tasks
                     WHERE {' AND '.join(task_clauses)}
                     GROUP BY assigned_to_user_id
                     """,
-                    tuple(task_params),
+                    tuple([now_iso] + task_params),
                 ).fetchall()
                 for tr in task_rows:
                     task_stats[str(tr["assigned_to_user_id"])] = {
                         "total_tasks": int(tr["total_tasks"] or 0),
                         "resolved_tasks": int(tr["resolved_tasks"] or 0),
+                        "overdue_tasks": int(tr["overdue_tasks"] or 0),
+                        "revoked_tasks": 0,
                     }
+
+                # Query revoked / reassigned tasks where this operator failed/had task revoked
+                revoked_clauses: list[str] = ["reassigned_from_user_id != ''"]
+                revoked_params: list[Any] = []
+                if from_date:
+                    revoked_clauses.append("updated_at >= ?")
+                    revoked_params.append(from_date)
+                if to_date:
+                    revoked_clauses.append("updated_at <= ?")
+                    revoked_params.append(to_date)
+                revoked_rows = connection.execute(
+                    f"""
+                    SELECT reassigned_from_user_id, COUNT(*) as revoked_cnt
+                    FROM staff_tasks
+                    WHERE {' AND '.join(revoked_clauses)}
+                    GROUP BY reassigned_from_user_id
+                    """,
+                    tuple(revoked_params),
+                ).fetchall()
+                for rr in revoked_rows:
+                    rev_id = str(rr["reassigned_from_user_id"])
+                    if rev_id not in task_stats:
+                        task_stats[rev_id] = {
+                            "total_tasks": 0,
+                            "resolved_tasks": 0,
+                            "overdue_tasks": 0,
+                            "revoked_tasks": int(rr["revoked_cnt"] or 0),
+                        }
+                    else:
+                        task_stats[rev_id]["revoked_tasks"] = int(rr["revoked_cnt"] or 0)
 
                 summaries: list[dict[str, Any]] = []
                 seen_ops: set[str] = set()
@@ -1668,7 +1731,15 @@ class SQLiteContentIndexStore:
                         if total_acts > 0:
                             accuracy = round(max(0.0, (total_acts - override_cnt) / total_acts * 100), 1)
 
-                    ts = task_stats.get(op_id, {"total_tasks": 0, "resolved_tasks": 0})
+                    ts = task_stats.get(op_id, {"total_tasks": 0, "resolved_tasks": 0, "overdue_tasks": 0, "revoked_tasks": 0})
+                    effective_total = ts["total_tasks"] + ts["revoked_tasks"]
+                    if effective_total > 0:
+                        base_res = (ts["resolved_tasks"] / effective_total) * 100.0
+                        overdue_penalty = min(50.0, ts["overdue_tasks"] * 10.0)
+                        task_res_rate = round(max(0.0, base_res - overdue_penalty), 1)
+                    else:
+                        task_res_rate = 100.0
+
                     summaries.append({
                         "operator_id": op_id,
                         "operator_name": str(r["operator_name"] or op_id),
@@ -1680,14 +1751,22 @@ class SQLiteContentIndexStore:
                         "accuracy_rate": accuracy,
                         "assigned_tasks": ts["total_tasks"],
                         "resolved_tasks": ts["resolved_tasks"],
-                        "task_resolution_rate": round(
-                            (ts["resolved_tasks"] / ts["total_tasks"] * 100) if ts["total_tasks"] > 0 else 100.0, 1
-                        ),
+                        "overdue_tasks": ts["overdue_tasks"],
+                        "revoked_tasks": ts["revoked_tasks"],
+                        "task_resolution_rate": task_res_rate,
                     })
 
                 # Also include operators who have tasks in staff_tasks but had no index_actions
                 for op_id, ts in sorted(task_stats.items()):
                     if op_id not in seen_ops:
+                        effective_total = ts["total_tasks"] + ts["revoked_tasks"]
+                        if effective_total > 0:
+                            base_res = (ts["resolved_tasks"] / effective_total) * 100.0
+                            overdue_penalty = min(50.0, ts["overdue_tasks"] * 10.0)
+                            task_res_rate = round(max(0.0, base_res - overdue_penalty), 1)
+                        else:
+                            task_res_rate = 100.0
+
                         summaries.append({
                             "operator_id": op_id,
                             "operator_name": op_id,
@@ -1699,9 +1778,9 @@ class SQLiteContentIndexStore:
                             "accuracy_rate": 100.0,
                             "assigned_tasks": ts["total_tasks"],
                             "resolved_tasks": ts["resolved_tasks"],
-                            "task_resolution_rate": round(
-                                (ts["resolved_tasks"] / ts["total_tasks"] * 100) if ts["total_tasks"] > 0 else 100.0, 1
-                            ),
+                            "overdue_tasks": ts["overdue_tasks"],
+                            "revoked_tasks": ts["revoked_tasks"],
+                            "task_resolution_rate": task_res_rate,
                         })
 
                 return summaries
@@ -1853,7 +1932,8 @@ class SQLiteContentIndexStore:
                    created_by_user_id, created_by_name, due_date, resolution_notes,
                    created_at, updated_at, resolved_at, closed_at,
                    macro_category, program_codes_json, custom_topic, task_kind,
-                   unit_scope, unit_name, checklist_json, requires_manager_approval
+                   unit_scope, unit_name, checklist_json, requires_manager_approval,
+                   reassigned_from_user_id, reassigned_from_name, is_escalated, escalated_at, escalation_notes
             FROM staff_tasks
             {where_clause}
             ORDER BY (CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'resolved' THEN 3 ELSE 4 END) ASC, created_at DESC
@@ -1875,6 +1955,7 @@ class SQLiteContentIndexStore:
                     except (json.JSONDecodeError, TypeError):
                         item["checklist"] = []
                     item["requires_manager_approval"] = bool(item.get("requires_manager_approval", 1))
+                    item["is_escalated"] = bool(item.get("is_escalated", 0))
                     results.append(item)
                 return results
         except sqlite3.Error as exc:
@@ -1897,7 +1978,7 @@ class SQLiteContentIndexStore:
         try:
             with self._connect() as connection:
                 row = connection.execute(
-                    "SELECT assigned_to_name, resolution_notes, status FROM staff_tasks WHERE task_id = ?",
+                    "SELECT assigned_to_user_id, assigned_to_name, resolution_notes, status FROM staff_tasks WHERE task_id = ?",
                     (task_id,),
                 ).fetchone()
                 if not row:
@@ -1905,9 +1986,10 @@ class SQLiteContentIndexStore:
                         "Task not found for reassignment.",
                         safe_context={"task_id": task_id},
                     )
-                prev_assigned = row["assigned_to_name"]
+                prev_assigned_id = str(row["assigned_to_user_id"] or "").strip()
+                prev_assigned_name = str(row["assigned_to_name"] or "").strip()
                 prev_notes = row["resolution_notes"] or ""
-                reassign_note = f"[ارجاع مجدد از {prev_assigned or 'نامشخص'} به {new_assigned_to_name} توسط {reassigned_by_name or 'مدیر'}. علت: {reason or 'عدم اقدام در مهلت مقرر'}]"
+                reassign_note = f"[ارجاع مجدد از {prev_assigned_name or 'نامشخص'} به {new_assigned_to_name} توسط {reassigned_by_name or 'مدیر'}. علت: {reason or 'عدم اقدام در مهلت مقرر'}]"
                 new_notes = f"{prev_notes}\n{reassign_note}".strip() if prev_notes else reassign_note
 
                 cursor = connection.execute(
@@ -1915,17 +1997,21 @@ class SQLiteContentIndexStore:
                     UPDATE staff_tasks
                     SET assigned_to_user_id = ?,
                         assigned_to_name = ?,
+                        reassigned_from_user_id = ?,
+                        reassigned_from_name = ?,
                         status = 'open',
                         resolution_notes = ?,
                         updated_at = ?
                     WHERE task_id = ?
                     """,
-                    (new_assigned_to_user_id.strip(), new_assigned_to_name.strip(), new_notes, now, task_id),
+                    (new_assigned_to_user_id.strip(), new_assigned_to_name.strip(), prev_assigned_id, prev_assigned_name, new_notes, now, task_id),
                 )
                 return {
                     "task_id": task_id,
                     "assigned_to_user_id": new_assigned_to_user_id.strip(),
                     "assigned_to_name": new_assigned_to_name.strip(),
+                    "reassigned_from_user_id": prev_assigned_id,
+                    "reassigned_from_name": prev_assigned_name,
                     "status": "open",
                     "resolution_notes": new_notes,
                     "updated_at": now,
@@ -1933,6 +2019,60 @@ class SQLiteContentIndexStore:
         except sqlite3.Error as exc:
             raise LocalContentIndexStoreError(
                 "Task could not be reassigned.",
+                safe_context={"task_id": task_id, "error_type": type(exc).__name__},
+            ) from exc
+
+    def escalate_task(
+        self,
+        *,
+        task_id: str,
+        escalated_by_id: str = "",
+        escalated_by_name: str = "",
+        notes: str = "",
+    ) -> dict[str, Any]:
+        now = _now()
+        try:
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT priority, resolution_notes, status FROM staff_tasks WHERE task_id = ?",
+                    (task_id,),
+                ).fetchone()
+                if not row:
+                    raise LocalContentIndexStoreError(
+                        "Task not found for escalation.",
+                        safe_context={"task_id": task_id},
+                    )
+                prev_prio = str(row["priority"] or "medium")
+                new_prio = "urgent" if prev_prio in ("high", "urgent") else "high"
+                prev_notes = row["resolution_notes"] or ""
+                esc_note = f"[اخطار مدیریتی و افزایش اولویت به {new_prio} توسط {escalated_by_name or 'مدیر'}. علت: {notes or 'تاخیر در پیگیری و نیاز به اقدام فوری'}]"
+                new_notes = f"{prev_notes}\n{esc_note}".strip() if prev_notes else esc_note
+
+                connection.execute(
+                    """
+                    UPDATE staff_tasks
+                    SET is_escalated = 1,
+                        escalated_at = ?,
+                        escalation_notes = ?,
+                        priority = ?,
+                        resolution_notes = ?,
+                        updated_at = ?
+                    WHERE task_id = ?
+                    """,
+                    (now, notes.strip(), new_prio, new_notes, now, task_id),
+                )
+                return {
+                    "task_id": task_id,
+                    "is_escalated": True,
+                    "escalated_at": now,
+                    "escalation_notes": notes.strip(),
+                    "priority": new_prio,
+                    "resolution_notes": new_notes,
+                    "updated_at": now,
+                }
+        except sqlite3.Error as exc:
+            raise LocalContentIndexStoreError(
+                "Task could not be escalated.",
                 safe_context={"task_id": task_id, "error_type": type(exc).__name__},
             ) from exc
 

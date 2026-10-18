@@ -16,16 +16,15 @@ export type IndexPrediction = {
 
 const PERSIAN_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند']
 
-const JALALI_DAY_LABEL_FORMATTER = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-const JALALI_DAY_KEY_FORMATTER = new Intl.DateTimeFormat('en-US-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit' })
+import { formatJalaliDate, jalaliDayLabel as robustJalaliDayLabel } from './jalaliDateTime'
 
 export function jalaliDayLabel(value: string) {
-  try { return JALALI_DAY_LABEL_FORMATTER.format(new Date(value)) }
+  try { return robustJalaliDayLabel(new Date(value)) }
   catch { return value }
 }
 
 export function jalaliDayKey(value: string) {
-  try { return JALALI_DAY_KEY_FORMATTER.format(new Date(value)) }
+  try { return formatJalaliDate(new Date(value)) }
   catch { return value.slice(0, 10) }
 }
 

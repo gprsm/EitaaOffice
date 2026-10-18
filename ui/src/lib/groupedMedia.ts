@@ -22,6 +22,7 @@ export type MessageGroup = {
 
 export type MessageGroupOptions = {
   fallbackIncomingSenderKey?: string | null
+  detachedMessageIds?: Set<number> | number[]
 }
 
 function createAlbum(key: string, groupedId: number | null, kind: MediaAlbum['kind'], messages: MessageItem[]): MediaAlbum {
@@ -170,13 +171,23 @@ export function buildMessageGroupLookup(
   messages: MessageItem[],
   options: MessageGroupOptions = {},
 ): Map<number, MessageGroup> {
+  const detachedSet = options.detachedMessageIds instanceof Set
+    ? options.detachedMessageIds
+    : new Set(options.detachedMessageIds ?? [])
+
   const ordered = [...messages].sort((a, b) => a.id - b.id)
   const albums = buildAlbumLookup(ordered)
   const units: { messages: MessageItem[]; album?: MediaAlbum }[] = []
   for (const message of ordered) {
-    const album = albums.get(message.id)
+    const isDetached = detachedSet.has(message.id)
+    const album = !isDetached ? albums.get(message.id) : undefined
     if (album) {
-      if (album.leader.id === message.id) units.push({ messages: album.messages, album })
+      if (album.leader.id === message.id) {
+        const nonDetached = album.messages.filter(m => !detachedSet.has(m.id))
+        if (nonDetached.length > 0) {
+          units.push({ messages: nonDetached, album: nonDetached.length > 1 ? album : undefined })
+        }
+      }
       continue
     }
     units.push({ messages: [message] })
@@ -190,11 +201,17 @@ export function buildMessageGroupLookup(
     while (next < units.length) {
       const previousUnit = run[run.length - 1]
       const candidateUnit = units[next]
-      if (!canJoinMessageUnits(
-        previousUnit.messages[previousUnit.messages.length - 1],
-        candidateUnit.messages[0],
-        options.fallbackIncomingSenderKey,
-      )) break
+      const prevLast = previousUnit.messages[previousUnit.messages.length - 1]
+      const candFirst = candidateUnit.messages[0]
+      if (
+        detachedSet.has(prevLast.id)
+        || detachedSet.has(candFirst.id)
+        || !canJoinMessageUnits(
+          prevLast,
+          candFirst,
+          options.fallbackIncomingSenderKey,
+        )
+      ) break
       run.push(candidateUnit)
       next += 1
     }

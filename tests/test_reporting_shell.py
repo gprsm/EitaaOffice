@@ -215,7 +215,7 @@ class TestStoreShell:
         first = store.save_unit(UnitRecord(unit_id="", name="حوزهٔ آزمایشی الف"))
         second = store.save_unit(UnitRecord(unit_id="", name="حوزهٔ آزمایشی الف"))
         assert first.unit_id == second.unit_id
-        assert len(store.list_units()) == 1
+        assert len([u for u in store.list_units() if u.name == "حوزهٔ آزمایشی الف"]) == 1
 
     def test_imam_version_bump_on_update(self, store: ReportingStore) -> None:
         unit = store.save_unit(UnitRecord(unit_id="", name="حوزهٔ آزمایشی ب"))

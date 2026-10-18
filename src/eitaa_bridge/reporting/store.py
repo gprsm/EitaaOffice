@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import sqlite3
 import threading
 import time
@@ -35,7 +36,7 @@ from .model import (
 )
 from .monitor import DialogWatchConfig
 from .plans import Mandate, PlanItem
-from .registry import EntityFact, ImamRecord, NomokalafRecord, PersonRecord, UnitRecord, VenueRecord
+from .registry import EntityFact, ImamRecord, LiaisonRecord, NomokalafRecord, PersonRecord, UnitRecord, VenueRecord
 from .sections import OFFICE_SECTIONS
 from .wp_links import WpPostLink
 
@@ -82,6 +83,79 @@ class WitnessConflictError(ReportingStoreError):
 # the lease file itself.
 _SHARED_REPORTING_LEASES: dict[str, list[Any]] = {}
 _SHARED_LEASES_LOCK = threading.Lock()
+
+_DEFAULT_JUDICIAL_UNITS: list[tuple[str, str, str, str]] = [
+    # 1. اداره کل
+    ("ساری", "اداره کل", "ساری - اداره کل", "provincial_hq"),
+    # 2. ساری (دادگستری، دادسرا، شورای حل اختلاف)
+    ("ساری", "دادگستری", "ساری - دادگستری", "judicial_domain"),
+    ("ساری", "دادسرا", "ساری - دادسرا", "judicial_domain"),
+    ("ساری", "شورای حل اختلاف", "ساری - شورای حل اختلاف", "judicial_domain"),
+    # 3. بابل (دادگستری، دادسرا)
+    ("بابل", "دادگستری", "بابل - دادگستری", "judicial_domain"),
+    ("بابل", "دادسرا", "بابل - دادسرا", "judicial_domain"),
+    # 4. قائمشهر (دادگستری، دادسرا)
+    ("قائمشهر", "دادگستری", "قائمشهر - دادگستری", "judicial_domain"),
+    ("قائمشهر", "دادسرا", "قائمشهر - دادسرا", "judicial_domain"),
+    # 5. الباقی ۳۰ حوزه قضایی (تک‌واحدی)
+    ("آمل", "دادگستری", "آمل - دادگستری", "judicial_domain"),
+    ("بابلسر", "دادگستری", "بابلسر - دادگستری", "judicial_domain"),
+    ("بندپی شرقی", "دادگاه عمومی بخش", "بندپی شرقی - دادگاه عمومی بخش", "judicial_domain"),
+    ("بهشهر", "دادگستری", "بهشهر - دادگستری", "judicial_domain"),
+    ("تنکابن", "دادگستری", "تنکابن - دادگستری", "judicial_domain"),
+    ("جویبار", "دادگستری", "جویبار - دادگستری", "judicial_domain"),
+    ("چالوس", "دادگستری", "چالوس - دادگستری", "judicial_domain"),
+    ("چمستان", "دادگاه عمومی بخش", "چمستان - دادگاه عمومی بخش", "judicial_domain"),
+    ("چهاردانگه", "دادگاه عمومی بخش", "چهاردانگه - دادگاه عمومی بخش", "judicial_domain"),
+    ("خرم آباد", "دادگاه عمومی بخش", "خرم آباد - دادگاه عمومی بخش", "judicial_domain"),
+    ("دابودشت", "دادگاه عمومی بخش", "دابودشت - دادگاه عمومی بخش", "judicial_domain"),
+    ("رامسر", "دادگستری", "رامسر - دادگستری", "judicial_domain"),
+    ("سرخرود", "دادگاه عمومی بخش", "سرخرود - دادگاه عمومی بخش", "judicial_domain"),
+    ("سوادکوه", "دادگستری", "سوادکوه - دادگستری", "judicial_domain"),
+    ("سوادکوه شمالی", "دادگستری", "سوادکوه شمالی - دادگستری", "judicial_domain"),
+    ("سیمرغ", "دادگستری", "سیمرغ - دادگستری", "judicial_domain"),
+    ("عباس آباد", "دادگستری", "عباس آباد - دادگستری", "judicial_domain"),
+    ("فریدونکنار", "دادگستری", "فریدونکنار - دادگستری", "judicial_domain"),
+    ("کجور", "دادگاه عمومی بخش", "کجور - دادگاه عمومی بخش", "judicial_domain"),
+    ("کلاردشت", "دادگستری", "کلاردشت - دادگستری", "judicial_domain"),
+    ("گتاب", "دادگاه عمومی بخش", "گتاب - دادگاه عمومی بخش", "judicial_domain"),
+    ("گلوگاه", "دادگستری", "گلوگاه - دادگستری", "judicial_domain"),
+    ("لاریجان", "دادگاه عمومی بخش", "لاریجان - دادگاه عمومی بخش", "judicial_domain"),
+    ("محمودآباد", "دادگستری", "محمودآباد - دادگستری", "judicial_domain"),
+    ("مرزن آباد", "دادگاه عمومی بخش", "مرزن آباد - دادگاه عمومی بخش", "judicial_domain"),
+    ("میاندورود", "دادگستری", "میاندورود - دادگستری", "judicial_domain"),
+    ("نشتارود", "دادگاه عمومی بخش", "نشتارود - دادگاه عمومی بخش", "judicial_domain"),
+    ("نکا", "دادگستری", "نکا - دادگستری", "judicial_domain"),
+    ("نور", "دادگستری", "نور - دادگستری", "judicial_domain"),
+    ("نوشهر", "دادگستری", "نوشهر - دادگستری", "judicial_domain"),
+]
+
+# 8 Official program titles + 1 non-programmatic title (کاربر: عیناً ۸ عنوان سرفصل + غیر برنامه‌ای)
+MACRO_INDICATORS: tuple[str, ...] = (
+    "برگزاری مراسم در مناسبت‌های ملی، مذهبی و انقلابی",
+    "ترویج و توسعه فرهنگ اقامه نماز",
+    "تکریم و تجلیل از همکاران و خانواده",
+    "برگزاری مسابقات استانی فرهنگی، قرآنی و ورزشی",
+    "برگزاری اردوهای فرهنگی زیارتی برای کارکنان و خانواده",
+    "تشویق کارمندان و تکریم ارباب رجوع",
+    "اجرای منشور اخلاقی و رفتار حرفه‌ای",
+    "دوره‌های آموزشی، توانمندسازی و تولیدات فرهنگی",
+    "غیر برنامه‌ای",
+)
+
+# Initial seeded micro indicators
+_DEFAULT_MICRO_INDICATORS: list[tuple[str, str, str]] = [
+    ("زیارت عاشورا", "مراسم", "#0284c7"),
+    ("ایستگاه صلواتی و موکب", "مراسم", "#0d9488"),
+    ("مسابقات قرآنی و حفظ", "مسابقات", "#16a34a"),
+    ("مسابقات ورزشی و فوتسال", "مسابقات", "#ca8a04"),
+    ("پویش فرزندآوری و ازدواج", "خانواده", "#ea580c"),
+    ("محفل انس با قرآن", "نماز و قرآن", "#15803d"),
+    ("تکریم بازنشستگان و پیشکسوتان", "تکریم", "#7c3aed"),
+    ("میز خدمت جهادی و پاسخگویی", "ارباب رجوع", "#2563eb"),
+    ("کارگاه خانواده مهدوی و اخلاق", "آموزش", "#c026d3"),
+    ("تولید کلیپ، موشن‌گرافی و پوستر", "رسانه", "#db2777"),
+]
 
 
 class ReportingStore:
@@ -233,6 +307,8 @@ class ReportingStore:
                     had_reception INTEGER NOT NULL DEFAULT 0,
                     is_ashura_pilgrimage INTEGER NOT NULL DEFAULT 0,
                     contains_inner_contest INTEGER NOT NULL DEFAULT 0,
+                    macro_category TEXT NOT NULL DEFAULT 'workbook_approved',
+                    custom_topic TEXT NOT NULL DEFAULT '',
                     notes TEXT,
                     created_at TEXT NOT NULL,
                     created_by TEXT
@@ -283,11 +359,65 @@ class ReportingStore:
                 CREATE TABLE IF NOT EXISTS reporting_units (
                     unit_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL UNIQUE,
+                    county TEXT NOT NULL DEFAULT '',
+                    unit_type TEXT NOT NULL DEFAULT '',
+                    display_name TEXT NOT NULL DEFAULT '',
                     kind TEXT NOT NULL DEFAULT 'judicial_domain',
                     source TEXT NOT NULL DEFAULT 'manual',
                     notes TEXT,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT ''
                 );
+
+                CREATE TABLE IF NOT EXISTS reporting_liaisons (
+                    liaison_id TEXT PRIMARY KEY,
+                    unit_id TEXT NOT NULL REFERENCES reporting_units(unit_id) ON DELETE CASCADE,
+                    full_name TEXT NOT NULL,
+                    eitaa_username TEXT NOT NULL DEFAULT '',
+                    eitaa_user_id TEXT NOT NULL DEFAULT '',
+                    sender_key TEXT NOT NULL DEFAULT '',
+                    phone TEXT NOT NULL DEFAULT '',
+                    match_keywords TEXT NOT NULL DEFAULT '',
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_liaisons_unit ON reporting_liaisons(unit_id);
+                CREATE INDEX IF NOT EXISTS idx_liaisons_username ON reporting_liaisons(eitaa_username);
+                CREATE INDEX IF NOT EXISTS idx_liaisons_sender_key ON reporting_liaisons(sender_key);
+                CREATE INDEX IF NOT EXISTS idx_liaisons_name ON reporting_liaisons(full_name);
+
+                CREATE TABLE IF NOT EXISTS reporting_micro_indicators (
+                    indicator_id TEXT PRIMARY KEY,
+                    title TEXT UNIQUE NOT NULL,
+                    category TEXT NOT NULL DEFAULT '',
+                    color TEXT NOT NULL DEFAULT '',
+                    usage_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_micro_indicators_title ON reporting_micro_indicators(title);
+
+                CREATE TABLE IF NOT EXISTS reporting_message_indicators (
+                    peer_key TEXT NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    macro_indicator TEXT NOT NULL DEFAULT '',
+                    micro_indicators_json TEXT NOT NULL DEFAULT '[]',
+                    updated_at TEXT NOT NULL,
+                    updated_by TEXT NOT NULL DEFAULT 'user',
+                    PRIMARY KEY (peer_key, message_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_msg_indicators_peer ON reporting_message_indicators(peer_key);
+
+                CREATE TABLE IF NOT EXISTS reporting_message_splits (
+                    peer_key TEXT NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    is_detached INTEGER NOT NULL DEFAULT 1,
+                    group_key TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (peer_key, message_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_msg_splits_peer ON reporting_message_splits(peer_key);
 
                 CREATE TABLE IF NOT EXISTS registry_imams (
                     imam_id TEXT PRIMARY KEY,
@@ -774,8 +904,33 @@ class ReportingStore:
                     conn.execute("ALTER TABLE reported_events ADD COLUMN revision_count INTEGER NOT NULL DEFAULT 0")
                 if "defects_json" not in _v9_event_cols:
                     conn.execute("ALTER TABLE reported_events ADD COLUMN defects_json TEXT NOT NULL DEFAULT '[]'")
+                if "macro_category" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN macro_category TEXT NOT NULL DEFAULT 'workbook_approved'")
+                if "custom_topic" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN custom_topic TEXT NOT NULL DEFAULT ''")
+                if "macro_indicator" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN macro_indicator TEXT NOT NULL DEFAULT ''")
+                if "micro_indicators_json" not in _v9_event_cols:
+                    conn.execute("ALTER TABLE reported_events ADD COLUMN micro_indicators_json TEXT NOT NULL DEFAULT '[]'")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_reported_events_staff ON reported_events(registered_by_id, review_status)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_reported_events_reviewed ON reported_events(reviewed_by_id, reviewed_at)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_reported_events_macro ON reported_events(macro_category)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_reported_events_macro_ind ON reported_events(macro_indicator)")
+
+            # Seed initial micro indicators if empty
+            existing_micro_count = conn.execute("SELECT COUNT(*) FROM reporting_micro_indicators").fetchone()[0]
+            if existing_micro_count == 0:
+                now_ind = _utc_now()
+                for ind_title, ind_cat, ind_clr in _DEFAULT_MICRO_INDICATORS:
+                    new_ind_id = f"ind-micro-{uuid.uuid4().hex[:10]}"
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO reporting_micro_indicators (
+                            indicator_id, title, category, color, usage_count, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, 0, ?, ?)
+                        """,
+                        (new_ind_id, ind_title, ind_cat, ind_clr, now_ind, now_ind),
+                    )
 
             # Self-healing seed (F-096): canonical mandates upsert on every
             # init so corrected titles/numbers/codes from the official
@@ -932,6 +1087,9 @@ class ReportingStore:
                         "INSERT INTO reporting_config (key, value_json, updated_at) VALUES (?, ?, ?)",
                         (k, json.dumps(v, ensure_ascii=False), now),
                     )
+
+            # Migrate and seed judicial units and liaisons
+            self._migrate_and_seed_judicial_units_and_liaisons(conn)
 
     # ----------------------------------------------------------------------
     # Watch Targets
@@ -1225,6 +1383,7 @@ class ReportingStore:
         "unit_name", "occasion", "occasion_class", "notes", "campaign",
         "duration_minutes", "official_present", "prior_announcement",
         "had_reception", "is_ashura_pilgrimage", "contains_inner_contest",
+        "macro_category", "custom_topic", "macro_indicator", "micro_indicators_json",
     })
 
     def _run_in_transaction(self, operation):
@@ -2080,8 +2239,9 @@ class ReportingStore:
                     duration_minutes, prior_announcement, had_reception,
                     is_ashura_pilgrimage, contains_inner_contest, campaign, notes, created_at, created_by, review_status,
                     registered_by_id, registered_by_name, reviewed_by_id, reviewed_by_name,
-                    reviewed_at, review_notes, revision_count, defects_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    reviewed_at, review_notes, revision_count, defects_json,
+                    macro_category, custom_topic, macro_indicator, micro_indicators_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(event_id) DO UPDATE SET
                     program_kinds_json = excluded.program_kinds_json,
                     occurred_on = excluded.occurred_on,
@@ -2107,7 +2267,11 @@ class ReportingStore:
                     reviewed_at = CASE WHEN excluded.reviewed_at IS NOT NULL THEN excluded.reviewed_at ELSE reported_events.reviewed_at END,
                     review_notes = CASE WHEN excluded.review_notes != '' THEN excluded.review_notes ELSE reported_events.review_notes END,
                     revision_count = CASE WHEN excluded.revision_count > 0 THEN excluded.revision_count ELSE reported_events.revision_count END,
-                    defects_json = CASE WHEN excluded.defects_json != '[]' THEN excluded.defects_json ELSE reported_events.defects_json END
+                    defects_json = CASE WHEN excluded.defects_json != '[]' THEN excluded.defects_json ELSE reported_events.defects_json END,
+                    macro_category = excluded.macro_category,
+                    custom_topic = excluded.custom_topic,
+                    macro_indicator = excluded.macro_indicator,
+                    micro_indicators_json = excluded.micro_indicators_json
                 """,
                 (
                     event.event_id,
@@ -2137,6 +2301,10 @@ class ReportingStore:
                     event.review_notes or "",
                     event.revision_count or 0,
                     event.defects_json or "[]",
+                    getattr(event, "macro_category", "workbook_approved") or "workbook_approved",
+                    getattr(event, "custom_topic", "") or "",
+                    getattr(event, "macro_indicator", "") or "",
+                    json.dumps(getattr(event, "micro_indicators", []) or [], ensure_ascii=False),
                 ),
             )
 
@@ -2174,6 +2342,7 @@ class ReportingStore:
         limit: int = 100,
         review_status: str | None = None,
         registered_by_id: str | None = None,
+        macro_category: str | None = None,
     ) -> list[ReportedEvent]:
         with self._connect() as conn:
             clauses: list[str] = []
@@ -2184,6 +2353,9 @@ class ReportingStore:
             if registered_by_id:
                 clauses.append("(registered_by_id = ? OR created_by = ?)")
                 params.extend([registered_by_id, registered_by_id])
+            if macro_category:
+                clauses.append("macro_category = ?")
+                params.append(macro_category)
             where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
             sql = f"SELECT * FROM reported_events {where} ORDER BY occurred_on DESC, created_at DESC LIMIT ?"
             params.append(limit)
@@ -2232,6 +2404,10 @@ class ReportingStore:
                     unit_name=row["unit_name"] or "",
                     occasion=row["occasion"] or "",
                     occasion_class=occasion_class,
+                    macro_category=row["macro_category"] if "macro_category" in row.keys() and row["macro_category"] else "workbook_approved",
+                    custom_topic=row["custom_topic"] if "custom_topic" in row.keys() and row["custom_topic"] else "",
+                    macro_indicator=row["macro_indicator"] if "macro_indicator" in row.keys() and row["macro_indicator"] else "",
+                    micro_indicators=json.loads(row["micro_indicators_json"]) if "micro_indicators_json" in row.keys() and row["micro_indicators_json"] else [],
                     facts=facts,
                     official_present=official_present,
                     is_standalone_titled=bool(row["is_standalone_titled"]),
@@ -2240,7 +2416,7 @@ class ReportingStore:
                     had_reception=bool(row["had_reception"]),
                     is_ashura_pilgrimage=bool(row["is_ashura_pilgrimage"]),
                     contains_inner_contest=bool(row["contains_inner_contest"]),
-                    campaign=row["campaign"] or "" if "campaign" in row.keys() else "",
+                    campaign=(row["campaign"] or "") if "campaign" in row.keys() else "",
                     notes=row["notes"] or "",
                     created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else datetime.now(timezone.utc),
                     created_by=row["created_by"] or "",
@@ -2299,6 +2475,10 @@ class ReportingStore:
                 unit_name=row["unit_name"] or "",
                 occasion=row["occasion"] or "",
                 occasion_class=occasion_class,
+                macro_category=row["macro_category"] if "macro_category" in row.keys() and row["macro_category"] else "workbook_approved",
+                custom_topic=row["custom_topic"] if "custom_topic" in row.keys() and row["custom_topic"] else "",
+                macro_indicator=row["macro_indicator"] if "macro_indicator" in row.keys() and row["macro_indicator"] else "",
+                micro_indicators=json.loads(row["micro_indicators_json"]) if "micro_indicators_json" in row.keys() and row["micro_indicators_json"] else [],
                 facts=facts,
                 official_present=official_present,
                 is_standalone_titled=bool(row["is_standalone_titled"]),
@@ -2553,62 +2733,800 @@ class ReportingStore:
                 )
 
     # ----------------------------------------------------------------------
-    # Registry: Units (shell phase 1, F-088)
+    # Registry: Units & Liaisons (حوزه‌های قضایی، شهرستان‌ها و رابطین)
     # ----------------------------------------------------------------------
+    def _migrate_and_seed_judicial_units_and_liaisons(self, conn: sqlite3.Connection) -> None:
+        """Migrate legacy reporting_units columns and seed default Mazandaran judicial units & liaisons."""
+        unit_cols = {row[1] for row in conn.execute("PRAGMA table_info(reporting_units)")}
+        if unit_cols:
+            if "county" not in unit_cols:
+                conn.execute("ALTER TABLE reporting_units ADD COLUMN county TEXT NOT NULL DEFAULT ''")
+            if "unit_type" not in unit_cols:
+                conn.execute("ALTER TABLE reporting_units ADD COLUMN unit_type TEXT NOT NULL DEFAULT ''")
+            if "display_name" not in unit_cols:
+                conn.execute("ALTER TABLE reporting_units ADD COLUMN display_name TEXT NOT NULL DEFAULT ''")
+            if "updated_at" not in unit_cols:
+                conn.execute("ALTER TABLE reporting_units ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''")
+
+        # 1. Backfill legacy rows where county or display_name is empty
+        legacy_rows = conn.execute(
+            "SELECT unit_id, name, county, unit_type, display_name FROM reporting_units"
+        ).fetchall()
+        for r in legacy_rows:
+            u_id = r["unit_id"]
+            name = (r["name"] or "").strip()
+            county = (r["county"] or "").strip()
+            u_type = (r["unit_type"] or "").strip()
+            disp = (r["display_name"] or "").strip()
+
+            if not county:
+                for city in (
+                    "سوادکوه شمالی", "سوادکوه", "بندپی شرقی", "ساری", "بابل", "آمل", "قائمشهر", "قائم‌شهر", "تنکابن", "چالوس",
+                    "نوشهر", "نکا", "بهشهر", "رامسر", "بابلسر", "محمودآباد",
+                    "جویبار", "فریدونکنار", "فریدون‌کنار", "گلوگاه",
+                    "میاندرود", "میاندورود", "کلاردشت", "سیمرغ", "عباس‌آباد", "عباس آباد", "نور",
+                    "زیراب", "پل‌سفید", "چمستان", "دابودشت", "سرخرود", "لاریجان", "چهاردانگه",
+                ):
+                    if city in name:
+                        county = city.replace("قائم‌شهر", "قائمشهر").replace("عباس‌آباد", "عباس آباد").replace("فریدون‌کنار", "فریدونکنار")
+                        break
+            if not u_type:
+                if "اداره کل" in name or "ستاد" in name:
+                    u_type = "اداره کل"
+                elif "دادسرا" in name:
+                    u_type = "دادسرا"
+                elif "شورای حل اختلاف" in name:
+                    u_type = "شورای حل اختلاف"
+                elif "تجدیدنظر" in name:
+                    u_type = "دادگاه تجدیدنظر"
+                elif "دادگاه عمومی بخش" in name or "دادگاه بخش" in name or "بخش" in name:
+                    u_type = "دادگاه عمومی بخش"
+                elif "دادگستری" in name:
+                    u_type = "دادگستری"
+                elif county:
+                    u_type = "دادگستری"
+
+            if not disp:
+                if county and u_type:
+                    disp = f"{county} - {u_type}"
+                else:
+                    disp = name
+
+            conn.execute(
+                "UPDATE reporting_units SET county = ?, unit_type = ?, display_name = ? WHERE unit_id = ?",
+                (county, u_type, disp, u_id),
+            )
+
+        # 2. Seed standard Mazandaran units and sync official canonical list
+        now = _utc_now()
+        canonical_display_names = set()
+        for c_name, u_type, d_name, kind in _DEFAULT_JUDICIAL_UNITS:
+            canonical_display_names.add(d_name)
+            existing = conn.execute(
+                "SELECT unit_id FROM reporting_units WHERE display_name = ? OR name = ?",
+                (d_name, d_name),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE reporting_units SET county = ?, unit_type = ?, display_name = ?, name = ?, kind = ?, updated_at = ? WHERE unit_id = ?",
+                    (c_name, u_type, d_name, d_name, kind, now, existing[0]),
+                )
+            else:
+                u_id = f"unit-{uuid.uuid4().hex[:10]}"
+                conn.execute(
+                    """
+                    INSERT INTO reporting_units (
+                        unit_id, name, county, unit_type, display_name, kind, source, notes, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'system_seed', '', ?, ?)
+                    """,
+                    (u_id, d_name, c_name, u_type, d_name, kind, now, now),
+                )
+
+        # Prune obsolete system_seed units that are not in the canonical list and have no liaisons
+        placeholders = ",".join("?" for _ in canonical_display_names)
+        conn.execute(
+            f"""
+            DELETE FROM reporting_units
+            WHERE display_name NOT IN ({placeholders})
+              AND name NOT IN ({placeholders})
+              AND unit_id NOT IN (SELECT DISTINCT unit_id FROM reporting_liaisons)
+            """,
+            list(canonical_display_names) + list(canonical_display_names),
+        )
+
+        # Deduplicate any duplicate display_names (keep the one linked to liaisons, or the earliest created)
+        conn.execute("""
+            DELETE FROM reporting_units
+            WHERE unit_id IN (
+                SELECT u1.unit_id
+                FROM reporting_units u1
+                JOIN reporting_units u2 ON u1.display_name = u2.display_name AND u1.unit_id != u2.unit_id
+                WHERE u1.unit_id NOT IN (SELECT DISTINCT unit_id FROM reporting_liaisons)
+                  AND (u2.unit_id IN (SELECT DISTINCT unit_id FROM reporting_liaisons) OR u1.rowid > u2.rowid)
+            )
+        """)
+
+        # 3. Seed default liaisons if table is empty
+        count_liaisons = conn.execute("SELECT COUNT(*) FROM reporting_liaisons").fetchone()[0]
+        if count_liaisons == 0:
+            default_liaisons = [
+                ("قاسمی شورابی", "ساری - اداره کل", "ghasemi_sho", "قاسمی,شورابی,ستاد,اداره کل", "رابط فرهنگی اداره کل دادگستری استان مازندران"),
+                ("دیوسالار", "نور - دادگستری", "divsalar", "دیوسالار,نور", "رابط فرهنگی دادگستری شهرستان نور"),
+                ("مهدوی", "سوادکوه - دادگستری", "mahdavi_c", "مهدوی,سوادکوه", "رابط فرهنگی دادگستری شهرستان سوادکوه"),
+                ("احسانی", "بابل - دادگستری", "ehsani", "احسانی,بابل", "رابط فرهنگی دادگستری شهرستان بابل"),
+            ]
+            for f_name, target_unit_disp, uname, kws, notes in default_liaisons:
+                unit_row = conn.execute(
+                    "SELECT unit_id FROM reporting_units WHERE display_name = ? OR name = ?",
+                    (target_unit_disp, target_unit_disp),
+                ).fetchone()
+                if unit_row:
+                    l_id = f"liaison-{uuid.uuid4().hex[:10]}"
+                    conn.execute(
+                        """
+                        INSERT INTO reporting_liaisons (
+                            liaison_id, unit_id, full_name, eitaa_username, eitaa_user_id,
+                            sender_key, phone, match_keywords, notes, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, '', '', '', ?, ?, ?, ?)
+                        """,
+                        (l_id, unit_row["unit_id"], f_name, uname, kws, notes, now, now),
+                    )
+
+    @staticmethod
+    def _row_to_unit(row: sqlite3.Row) -> UnitRecord:
+        keys = row.keys()
+        created_raw = row["created_at"]
+        updated_raw = row["updated_at"] if "updated_at" in keys and row["updated_at"] else created_raw
+        return UnitRecord(
+            unit_id=row["unit_id"],
+            name=row["name"],
+            county=row["county"] if "county" in keys and row["county"] else "",
+            unit_type=row["unit_type"] if "unit_type" in keys and row["unit_type"] else "",
+            display_name=row["display_name"] if "display_name" in keys and row["display_name"] else row["name"],
+            kind=row["kind"],
+            source=ValueSource(row["source"]) if row["source"] in {s.value for s in ValueSource} else ValueSource.MANUAL,
+            notes=row["notes"] or "",
+            created_at=datetime.fromisoformat(created_raw) if isinstance(created_raw, str) else created_raw,
+            updated_at=datetime.fromisoformat(updated_raw) if isinstance(updated_raw, str) else updated_raw,
+        )
+
+    @staticmethod
+    def _row_to_liaison(row: sqlite3.Row) -> LiaisonRecord:
+        keys = row.keys()
+        created_raw = row["created_at"]
+        updated_raw = row["updated_at"] if "updated_at" in keys and row["updated_at"] else created_raw
+        return LiaisonRecord(
+            liaison_id=row["liaison_id"],
+            unit_id=row["unit_id"],
+            full_name=row["full_name"],
+            eitaa_username=row["eitaa_username"] or "",
+            eitaa_user_id=row["eitaa_user_id"] or "",
+            sender_key=row["sender_key"] or "",
+            phone=row["phone"] or "",
+            match_keywords=row["match_keywords"] or "",
+            notes=row["notes"] or "",
+            created_at=datetime.fromisoformat(created_raw) if isinstance(created_raw, str) else created_raw,
+            updated_at=datetime.fromisoformat(updated_raw) if isinstance(updated_raw, str) else updated_raw,
+        )
+
     def find_unit_by_name(self, name: str) -> UnitRecord | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM reporting_units WHERE name = ?", (name,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM reporting_units WHERE name = ? OR display_name = ?", (name, name)
+            ).fetchone()
             if not row:
                 return None
-            return UnitRecord(
-                unit_id=row["unit_id"],
-                name=row["name"],
-                kind=row["kind"],
-                source=ValueSource(row["source"]) if row["source"] in {s.value for s in ValueSource} else ValueSource.MANUAL,
-                notes=row["notes"] or "",
-                created_at=datetime.fromisoformat(row["created_at"]),
-            )
+            return self._row_to_unit(row)
+
+    def get_unit(self, unit_id: str) -> UnitRecord | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM reporting_units WHERE unit_id = ?", (unit_id,)).fetchone()
+            if not row:
+                return None
+            return self._row_to_unit(row)
 
     def save_unit(self, unit: UnitRecord) -> UnitRecord:
         unit.validate()
         now = _utc_now()
         with self._connect() as conn:
-            existing = conn.execute("SELECT unit_id FROM reporting_units WHERE name = ?", (unit.name,)).fetchone()
+            existing = None
+            if unit.unit_id:
+                existing = conn.execute("SELECT unit_id FROM reporting_units WHERE unit_id = ?", (unit.unit_id,)).fetchone()
+            if not existing and unit.name:
+                existing = conn.execute("SELECT unit_id FROM reporting_units WHERE name = ? OR display_name = ?", (unit.name, unit.name)).fetchone()
+
             if existing:
                 unit.unit_id = str(existing["unit_id"])
                 conn.execute(
-                    "UPDATE reporting_units SET kind = ?, source = ?, notes = ? WHERE unit_id = ?",
-                    (unit.kind, unit.source.value, unit.notes, unit.unit_id),
+                    """
+                    UPDATE reporting_units
+                    SET name = ?, county = ?, unit_type = ?, display_name = ?,
+                        kind = ?, source = ?, notes = ?, updated_at = ?
+                    WHERE unit_id = ?
+                    """,
+                    (
+                        unit.name,
+                        unit.county,
+                        unit.unit_type,
+                        unit.display_name or unit.name,
+                        unit.kind,
+                        unit.source.value if hasattr(unit.source, "value") else str(unit.source),
+                        unit.notes,
+                        now,
+                        unit.unit_id,
+                    ),
                 )
             else:
                 if not unit.unit_id:
                     unit.unit_id = f"unit-{uuid.uuid4().hex[:10]}"
                 conn.execute(
                     """
-                    INSERT INTO reporting_units (unit_id, name, kind, source, notes, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO reporting_units (
+                        unit_id, name, county, unit_type, display_name,
+                        kind, source, notes, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(unit_id) DO UPDATE SET
-                        name = excluded.name, kind = excluded.kind,
-                        source = excluded.source, notes = excluded.notes
+                        name = excluded.name,
+                        county = excluded.county,
+                        unit_type = excluded.unit_type,
+                        display_name = excluded.display_name,
+                        kind = excluded.kind,
+                        source = excluded.source,
+                        notes = excluded.notes,
+                        updated_at = excluded.updated_at
                     """,
-                    (unit.unit_id, unit.name, unit.kind, unit.source.value, unit.notes, now),
+                    (
+                        unit.unit_id,
+                        unit.name,
+                        unit.county,
+                        unit.unit_type,
+                        unit.display_name or unit.name,
+                        unit.kind,
+                        unit.source.value if hasattr(unit.source, "value") else str(unit.source),
+                        unit.notes,
+                        now,
+                        now,
+                    ),
                 )
         return unit
 
-    def list_units(self) -> list[UnitRecord]:
+    def delete_unit(self, unit_id: str) -> bool:
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM reporting_units ORDER BY name").fetchall()
-            return [
-                UnitRecord(
-                    unit_id=row["unit_id"],
-                    name=row["name"],
-                    kind=row["kind"],
-                    source=ValueSource(row["source"]) if row["source"] in {s.value for s in ValueSource} else ValueSource.MANUAL,
-                    notes=row["notes"] or "",
-                    created_at=datetime.fromisoformat(row["created_at"]),
-                )
-                for row in rows
-            ]
+            conn.execute("DELETE FROM reporting_liaisons WHERE unit_id = ?", (unit_id,))
+            cur = conn.execute("DELETE FROM reporting_units WHERE unit_id = ?", (unit_id,))
+            return cur.rowcount > 0
+
+    def list_units(self, *, county: str | None = None) -> list[UnitRecord]:
+        with self._connect() as conn:
+            if county:
+                rows = conn.execute(
+                    "SELECT * FROM reporting_units WHERE county = ? ORDER BY display_name, name", (county,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM reporting_units ORDER BY county, display_name, name"
+                ).fetchall()
+            return [self._row_to_unit(row) for row in rows]
+
+    def list_counties(self) -> list[str]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT county FROM reporting_units WHERE county != '' ORDER BY county"
+            ).fetchall()
+            return [row["county"] for row in rows]
+
+    # Liaisons (رابطین فرهنگی)
+    def save_liaison(self, liaison: LiaisonRecord) -> LiaisonRecord:
+        liaison.validate()
+        now = _utc_now()
+        if not liaison.liaison_id:
+            liaison.liaison_id = f"liaison-{uuid.uuid4().hex[:10]}"
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO reporting_liaisons (
+                    liaison_id, unit_id, full_name, eitaa_username, eitaa_user_id,
+                    sender_key, phone, match_keywords, notes, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(liaison_id) DO UPDATE SET
+                    unit_id = excluded.unit_id,
+                    full_name = excluded.full_name,
+                    eitaa_username = excluded.eitaa_username,
+                    eitaa_user_id = excluded.eitaa_user_id,
+                    sender_key = excluded.sender_key,
+                    phone = excluded.phone,
+                    match_keywords = excluded.match_keywords,
+                    notes = excluded.notes,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    liaison.liaison_id,
+                    liaison.unit_id,
+                    liaison.full_name,
+                    liaison.eitaa_username.lstrip("@").strip(),
+                    liaison.eitaa_user_id.strip(),
+                    liaison.sender_key.strip(),
+                    liaison.phone.strip(),
+                    liaison.match_keywords.strip(),
+                    liaison.notes.strip(),
+                    now,
+                    now,
+                ),
+            )
+        return liaison
+
+    def get_liaison(self, liaison_id: str) -> LiaisonRecord | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM reporting_liaisons WHERE liaison_id = ?", (liaison_id,)).fetchone()
+            if not row:
+                return None
+            return self._row_to_liaison(row)
+
+    def delete_liaison(self, liaison_id: str) -> bool:
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM reporting_liaisons WHERE liaison_id = ?", (liaison_id,))
+            return cur.rowcount > 0
+
+    def list_liaisons(self, *, unit_id: str | None = None) -> list[LiaisonRecord]:
+        with self._connect() as conn:
+            if unit_id:
+                rows = conn.execute(
+                    "SELECT * FROM reporting_liaisons WHERE unit_id = ? ORDER BY full_name", (unit_id,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM reporting_liaisons ORDER BY full_name"
+                ).fetchall()
+            return [self._row_to_liaison(row) for row in rows]
+
+    def resolve_liaison_and_unit(
+        self,
+        *,
+        sender_key: str = "",
+        username: str = "",
+        full_name: str = "",
+        text: str = "",
+    ) -> tuple[LiaisonRecord | None, UnitRecord | None]:
+        """Resolve sender/message metadata to an assigned liaison and judicial unit."""
+        s_key = sender_key.strip()
+        u_name = username.strip().lstrip("@").lower()
+        f_name = full_name.strip()
+        msg_text = text.strip()
+
+        all_liaisons = self.list_liaisons()
+        matched_liaison: LiaisonRecord | None = None
+
+        # 1. Exact sender_key match
+        if s_key:
+            for l in all_liaisons:
+                if l.sender_key and l.sender_key == s_key:
+                    matched_liaison = l
+                    break
+
+        # 2. Exact username match
+        if not matched_liaison and u_name:
+            for l in all_liaisons:
+                if l.eitaa_username and l.eitaa_username.lower() == u_name:
+                    matched_liaison = l
+                    break
+
+        # 3. Full name match (exact or significant substring)
+        if not matched_liaison and f_name:
+            for l in all_liaisons:
+                if l.full_name and (l.full_name == f_name or (len(f_name) >= 3 and f_name in l.full_name)):
+                    matched_liaison = l
+                    break
+
+        # 4. Check match_keywords on liaisons against f_name, u_name, or text
+        if not matched_liaison:
+            target_str = f"{f_name} {u_name} {msg_text}"
+            for l in all_liaisons:
+                if not l.match_keywords:
+                    continue
+                kws = [k.strip() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
+                if any(kw in target_str for kw in kws):
+                    matched_liaison = l
+                    break
+
+        if matched_liaison:
+            unit = self.get_unit(matched_liaison.unit_id)
+            return (matched_liaison, unit)
+
+        # 5. If no liaison matched, try to infer unit directly from text / f_name
+        all_units = self.list_units()
+        corpus = f"{f_name} {msg_text}"
+        # First check full display_name or name
+        for u in all_units:
+            if u.display_name and u.display_name in corpus:
+                return (None, u)
+            if u.name and u.name in corpus:
+                return (None, u)
+
+        # Check county + unit_type combination
+        for u in all_units:
+            if u.county and u.county in corpus:
+                if u.unit_type and u.unit_type in corpus:
+                    return (None, u)
+
+        # Check county alone (fallback to general or first unit of that county)
+        for u in all_units:
+            if u.county and u.county in corpus:
+                return (None, u)
+
+        return (None, None)
+
+    def _lookup_contact_phone(
+        self,
+        *,
+        user_id: str = "",
+        username: str = "",
+        full_name: str = "",
+    ) -> str:
+        """Helper to find matching phone number from local contacts SQLite database if present."""
+        contacts_db = Path(__file__).resolve().parents[3] / "data" / "contacts.sqlite3"
+        if not contacts_db.exists():
+            return ""
+        try:
+            with sqlite3.connect(contacts_db) as conn:
+                cur = conn.cursor()
+                if user_id:
+                    row = cur.execute(
+                        "SELECT p.normalized_phone FROM contacts c JOIN contact_phones p ON c.contact_id = p.contact_id WHERE c.eitaa_user_id = ? AND p.normalized_phone != '' LIMIT 1",
+                        (user_id,),
+                    ).fetchone()
+                    if row and row[0]:
+                        return str(row[0])
+                if username:
+                    clean_u = username.lower().replace("@", "")
+                    row = cur.execute(
+                        "SELECT p.normalized_phone FROM contacts c JOIN contact_phones p ON c.contact_id = p.contact_id WHERE LOWER(c.username) = ? AND p.normalized_phone != '' LIMIT 1",
+                        (clean_u,),
+                    ).fetchone()
+                    if row and row[0]:
+                        return str(row[0])
+                if full_name and len(full_name) >= 3:
+                    row = cur.execute(
+                        "SELECT p.normalized_phone FROM contacts c JOIN contact_phones p ON c.contact_id = p.contact_id WHERE (c.first_name || ' ' || c.last_name) LIKE ? AND p.normalized_phone != '' LIMIT 1",
+                        (f"%{full_name}%",),
+                    ).fetchone()
+                    if row and row[0]:
+                        return str(row[0])
+        except Exception:
+            pass
+        return ""
+
+    def find_liaison_by_sender(
+        self,
+        *,
+        sender_key: str = "",
+        username: str = "",
+        user_id: str = "",
+        full_name: str = "",
+    ) -> tuple[LiaisonRecord | None, UnitRecord | None]:
+        """Find a designated liaison record by sender attributes."""
+        s_key = sender_key.strip()
+        u_name = username.strip().lower().replace("@", "")
+        u_id = user_id.strip()
+        f_name = full_name.strip()
+        all_liaisons = self.list_liaisons()
+
+        # 1. Exact sender_key match
+        if s_key:
+            for l in all_liaisons:
+                if l.sender_key and (l.sender_key == s_key or l.sender_key.replace("u:", "") == s_key.replace("u:", "")):
+                    unit = self.get_unit(l.unit_id)
+                    return (l, unit)
+
+        # 2. Exact user_id match
+        if u_id:
+            for l in all_liaisons:
+                if l.eitaa_user_id and (l.eitaa_user_id == u_id or l.sender_key == f"u:{u_id}"):
+                    unit = self.get_unit(l.unit_id)
+                    return (l, unit)
+
+        # 3. Exact username match
+        if u_name:
+            for l in all_liaisons:
+                if l.eitaa_username and l.eitaa_username.lower().replace("@", "") == u_name:
+                    unit = self.get_unit(l.unit_id)
+                    return (l, unit)
+
+        # 4. Full name match
+        if f_name:
+            for l in all_liaisons:
+                if l.full_name and (l.full_name == f_name or (len(f_name) >= 3 and f_name in l.full_name)):
+                    unit = self.get_unit(l.unit_id)
+                    return (l, unit)
+
+        return (None, None)
+
+    def assign_author_as_liaison(
+        self,
+        *,
+        unit_id: str,
+        full_name: str,
+        sender_key: str = "",
+        eitaa_username: str = "",
+        eitaa_user_id: str = "",
+        phone: str = "",
+        notes: str = "",
+        match_keywords: str = "",
+    ) -> tuple[LiaisonRecord, UnitRecord]:
+        """Designate or update an author as a cultural liaison for a judicial unit."""
+        unit = self.get_unit(unit_id)
+        if not unit:
+            raise ValueError(f"Judicial unit with ID '{unit_id}' not found.")
+
+        clean_name = full_name.strip()
+        clean_user = eitaa_username.strip().replace("@", "")
+        clean_key = sender_key.strip()
+        clean_uid = eitaa_user_id.strip()
+        clean_phone = phone.strip()
+
+        # If phone is not provided, try to discover it from local contacts
+        if not clean_phone:
+            discovered_phone = self._lookup_contact_phone(user_id=clean_uid, username=clean_user, full_name=clean_name)
+            if discovered_phone:
+                clean_phone = discovered_phone
+
+        existing_liaison, _ = self.find_liaison_by_sender(
+            sender_key=clean_key,
+            username=clean_user,
+            user_id=clean_uid,
+            full_name=clean_name,
+        )
+
+        now = _utc_now()
+        if existing_liaison:
+            existing_liaison.unit_id = unit_id
+            if clean_name:
+                existing_liaison.full_name = clean_name
+            if clean_key:
+                existing_liaison.sender_key = clean_key
+            if clean_user:
+                existing_liaison.eitaa_username = clean_user
+            if clean_uid:
+                existing_liaison.eitaa_user_id = clean_uid
+            if clean_phone:
+                existing_liaison.phone = clean_phone
+            if notes:
+                existing_liaison.notes = notes
+            if match_keywords:
+                existing_liaison.match_keywords = match_keywords
+            existing_liaison.updated_at = now
+            saved = self.save_liaison(existing_liaison)
+            return (saved, unit)
+        else:
+            new_id = f"liaison-{uuid.uuid4().hex[:10]}"
+            new_liaison = LiaisonRecord(
+                liaison_id=new_id,
+                unit_id=unit_id,
+                full_name=clean_name or (f"@{clean_user}" if clean_user else f"کاربر {clean_uid or clean_key}"),
+                eitaa_username=clean_user,
+                eitaa_user_id=clean_uid,
+                sender_key=clean_key,
+                phone=clean_phone,
+                match_keywords=match_keywords or clean_name,
+                notes=notes,
+                created_at=now,
+                updated_at=now,
+            )
+            saved = self.save_liaison(new_liaison)
+            return (saved, unit)
+
+    def unlink_author_liaison(
+        self,
+        *,
+        sender_key: str = "",
+        liaison_id: str = "",
+    ) -> bool:
+        """Unlink/remove a cultural liaison record by liaison_id or sender_key."""
+        target_id = liaison_id.strip()
+        if not target_id and sender_key.strip():
+            existing, _ = self.find_liaison_by_sender(sender_key=sender_key)
+            if existing:
+                target_id = existing.liaison_id
+
+        if not target_id:
+            return False
+        return self.delete_liaison(target_id)
+
+    def get_liaison_profile_analytics(
+        self,
+        *,
+        liaison_id: str = "",
+        unit_id: str = "",
+        sender_key: str = "",
+        user_id: str = "",
+        username: str = "",
+        full_name: str = "",
+        days: int = 365,
+    ) -> dict[str, Any]:
+        """Aggregate activities, message counts, topic frequencies, and judicial unit comparison."""
+        liaison: LiaisonRecord | None = None
+        unit: UnitRecord | None = None
+
+        if liaison_id.strip():
+            liaison = self.get_liaison(liaison_id.strip())
+            if liaison:
+                unit = self.get_unit(liaison.unit_id)
+
+        if not liaison:
+            liaison, unit = self.find_liaison_by_sender(
+                sender_key=sender_key,
+                username=username,
+                user_id=user_id,
+                full_name=full_name,
+            )
+
+        if not unit and unit_id.strip():
+            unit = self.get_unit(unit_id.strip())
+
+        now_dt = datetime.now(timezone.utc)
+        cutoff_dt = now_dt - timedelta(days=max(1, int(days)))
+        cutoff_date = cutoff_dt.strftime("%Y-%m-%d")
+        cutoff_iso = cutoff_dt.isoformat()
+
+        # Format display title per Requirement 4
+        liaison_name = liaison.full_name if liaison else (full_name.strip() or username.strip() or "کاربر نامشخص")
+        unit_display_name = unit.display_name if unit else ""
+        if liaison and unit_display_name:
+            display_title = f"{liaison_name} - حوزه قضایی {unit_display_name}"
+        elif unit_display_name:
+            display_title = f"حوزه قضایی {unit_display_name}"
+        else:
+            display_title = liaison_name
+
+        # 1. Messages analytics from data/eitaa_messages.sqlite3
+        total_messages = 0
+        monthly_messages: list[dict[str, Any]] = []
+        messages_db = Path(__file__).resolve().parents[3] / "data" / "eitaa_messages.sqlite3"
+        clean_uid_int = None
+        raw_uid = user_id.strip() or (liaison.eitaa_user_id if liaison else "")
+        if not raw_uid and sender_key.strip():
+            match_uid = re.search(r"\d+", sender_key)
+            if match_uid:
+                raw_uid = match_uid.group(0)
+        if raw_uid and raw_uid.isdigit():
+            clean_uid_int = int(raw_uid)
+
+        if clean_uid_int is not None and messages_db.exists():
+            try:
+                with sqlite3.connect(messages_db) as mconn:
+                    mcur = mconn.cursor()
+                    mrow = mcur.execute(
+                        "SELECT COUNT(*) FROM messages WHERE from_peer_id = ? AND date_utc >= ?",
+                        (clean_uid_int, cutoff_iso),
+                    ).fetchone()
+                    total_messages = int(mrow[0]) if mrow else 0
+
+                    monthly_rows = mcur.execute(
+                        """
+                        SELECT SUBSTR(date_utc, 1, 7) as ym, COUNT(*)
+                        FROM messages
+                        WHERE from_peer_id = ? AND date_utc >= ?
+                        GROUP BY ym
+                        ORDER BY ym ASC
+                        """,
+                        (clean_uid_int, cutoff_iso),
+                    ).fetchall()
+                    monthly_messages = [{"period": r[0], "count": int(r[1])} for r in monthly_rows]
+            except Exception:
+                pass
+
+        # 2. Reports analytics from reporting_v3.db
+        total_reports = 0
+        reports_by_status = {"approved": 0, "needs_review": 0, "draft": 0, "rejected": 0}
+        topic_frequency: list[dict[str, Any]] = []
+        unit_total_reports = 0
+        unit_topic_frequency: list[dict[str, Any]] = []
+        recent_reports: list[dict[str, Any]] = []
+
+        with self._connect() as conn:
+            # Query liaison reports
+            liaison_filter_sql = ""
+            liaison_params: list[Any] = [cutoff_date]
+            if liaison:
+                conds = ["registered_by_id = ?", "registered_by_name = ?", "created_by = ?"]
+                liaison_params.extend([liaison.liaison_id, liaison.full_name, liaison.full_name])
+                if liaison.eitaa_username:
+                    conds.append("created_by = ?")
+                    liaison_params.append(liaison.eitaa_username)
+                liaison_filter_sql = f"AND ({' OR '.join(conds)})"
+            elif clean_name := full_name.strip():
+                liaison_filter_sql = "AND (registered_by_name = ? OR created_by = ?)"
+                liaison_params.extend([clean_name, clean_name])
+
+            if liaison_filter_sql:
+                # Count and status
+                status_rows = conn.execute(
+                    f"""
+                    SELECT COALESCE(review_status, 'draft') as st, COUNT(*)
+                    FROM reported_events
+                    WHERE occurred_on >= ? {liaison_filter_sql}
+                    GROUP BY st
+                    """,
+                    liaison_params,
+                ).fetchall()
+                for st_name, st_count in status_rows:
+                    total_reports += int(st_count)
+                    reports_by_status[str(st_name)] = int(st_count)
+
+                # Topics frequency
+                topic_rows = conn.execute(
+                    f"""
+                    SELECT COALESCE(NULLIF(occasion, ''), NULLIF(macro_category, ''), 'عمومی') as topic, COUNT(*) as cnt
+                    FROM reported_events
+                    WHERE occurred_on >= ? {liaison_filter_sql}
+                    GROUP BY topic
+                    ORDER BY cnt DESC
+                    """,
+                    liaison_params,
+                ).fetchall()
+                for t_name, t_count in topic_rows:
+                    pct = round((int(t_count) / total_reports * 100), 1) if total_reports > 0 else 0.0
+                    topic_frequency.append({"topic": str(t_name), "count": int(t_count), "percentage": pct})
+
+                # Recent reports
+                rec_rows = conn.execute(
+                    f"""
+                    SELECT event_id, occurred_on, occasion, review_status, unit_name
+                    FROM reported_events
+                    WHERE occurred_on >= ? {liaison_filter_sql}
+                    ORDER BY occurred_on DESC, created_at DESC
+                    LIMIT 5
+                    """,
+                    liaison_params,
+                ).fetchall()
+                for r in rec_rows:
+                    recent_reports.append({
+                        "event_id": str(r[0]),
+                        "occurred_on": str(r[1]),
+                        "occasion": str(r[2] or "بدون عنوان"),
+                        "review_status": str(r[3] or "draft"),
+                        "unit_name": str(r[4] or ""),
+                    })
+
+            # Unit analytics
+            if unit:
+                unit_conds = ["unit = ?", "unit = ?", "unit_name = ?", "unit_name = ?"]
+                unit_params = [cutoff_date, unit.display_name, unit.unit_id, unit.display_name, unit.name]
+                unit_topic_rows = conn.execute(
+                    f"""
+                    SELECT COALESCE(NULLIF(occasion, ''), NULLIF(macro_category, ''), 'عمومی') as topic, COUNT(*) as cnt
+                    FROM reported_events
+                    WHERE occurred_on >= ? AND ({' OR '.join(unit_conds)})
+                    GROUP BY topic
+                    ORDER BY cnt DESC
+                    """,
+                    unit_params,
+                ).fetchall()
+                for ut_name, ut_count in unit_topic_rows:
+                    unit_total_reports += int(ut_count)
+                for ut_name, ut_count in unit_topic_rows:
+                    u_pct = round((int(ut_count) / unit_total_reports * 100), 1) if unit_total_reports > 0 else 0.0
+                    unit_topic_frequency.append({"topic": str(ut_name), "count": int(ut_count), "percentage": u_pct})
+
+        unit_participation_percentage = round((total_reports / unit_total_reports * 100), 1) if unit_total_reports > 0 else 0.0
+
+        return {
+            "liaison": liaison.to_dict() if liaison else None,
+            "unit": unit.to_dict() if unit else None,
+            "liaison_name": liaison_name,
+            "unit_display_name": unit_display_name,
+            "display_title": display_title,
+            "is_liaison": liaison is not None,
+            "time_window_days": days,
+            "messages_count": total_messages,
+            "monthly_messages": monthly_messages,
+            "reports_count": total_reports,
+            "reports_by_status": reports_by_status,
+            "topic_frequency": topic_frequency,
+            "unit_total_reports": unit_total_reports,
+            "unit_participation_percentage": unit_participation_percentage,
+            "unit_topic_frequency": unit_topic_frequency,
+            "recent_reports": recent_reports,
+        }
 
     # ----------------------------------------------------------------------
     # Registry: Imams, Venues, نومکلف bank
@@ -3501,3 +4419,199 @@ class ReportingStore:
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
             return [dict(row) for row in rows]
+
+    # ----------------------------------------------------------------------
+    # Macro / Micro Indicators & Message Splits (F-125)
+    # ----------------------------------------------------------------------
+    def list_macro_indicators(self) -> list[str]:
+        """List canonical macro indicators (8 official programs + 1 non-programmatic)."""
+        return list(MACRO_INDICATORS)
+
+    def list_micro_indicators(self) -> list[dict[str, Any]]:
+        """List all registered micro indicators."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT indicator_id, title, category, color, usage_count, created_at, updated_at "
+                "FROM reporting_micro_indicators ORDER BY usage_count DESC, title ASC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def save_micro_indicator(self, title: str, category: str = "", color: str = "") -> dict[str, Any]:
+        """Create or return an existing micro indicator."""
+        clean_title = title.strip()
+        if not clean_title:
+            raise ValueError("عنوان شاخصه جزئی نمی‌تواند خالی باشد.")
+        now = _utc_now()
+        with self._connect() as conn:
+            existing = conn.execute(
+                "SELECT indicator_id, title, category, color, usage_count, created_at, updated_at "
+                "FROM reporting_micro_indicators WHERE title = ?",
+                (clean_title,),
+            ).fetchone()
+            if existing:
+                return dict(existing)
+            ind_id = f"ind-micro-{uuid.uuid4().hex[:10]}"
+            conn.execute(
+                """
+                INSERT INTO reporting_micro_indicators (
+                    indicator_id, title, category, color, usage_count, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 0, ?, ?)
+                """,
+                (ind_id, clean_title, category.strip(), color.strip(), now, now),
+            )
+            return {
+                "indicator_id": ind_id,
+                "title": clean_title,
+                "category": category.strip(),
+                "color": color.strip(),
+                "usage_count": 0,
+                "created_at": now,
+                "updated_at": now,
+            }
+
+    def update_micro_indicator(self, indicator_id: str, title: str | None = None,
+                               category: str | None = None, color: str | None = None) -> dict[str, Any]:
+        """Update/rename a micro indicator."""
+        now = _utc_now()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM reporting_micro_indicators WHERE indicator_id = ?",
+                (indicator_id,),
+            ).fetchone()
+            if not row:
+                raise ValueError(f"شاخصه جزئی با شناسه {indicator_id} یافت نشد.")
+            new_title = title.strip() if title is not None else row["title"]
+            new_cat = category.strip() if category is not None else row["category"]
+            new_clr = color.strip() if color is not None else row["color"]
+            conn.execute(
+                """
+                UPDATE reporting_micro_indicators
+                SET title = ?, category = ?, color = ?, updated_at = ?
+                WHERE indicator_id = ?
+                """,
+                (new_title, new_cat, new_clr, now, indicator_id),
+            )
+            return {
+                "indicator_id": indicator_id,
+                "title": new_title,
+                "category": new_cat,
+                "color": new_clr,
+                "usage_count": row["usage_count"],
+                "created_at": row["created_at"],
+                "updated_at": now,
+            }
+
+    def delete_micro_indicator(self, indicator_id: str) -> bool:
+        """Delete a micro indicator by ID."""
+        with self._connect() as conn:
+            res = conn.execute(
+                "DELETE FROM reporting_micro_indicators WHERE indicator_id = ?",
+                (indicator_id,),
+            )
+            return res.rowcount > 0
+
+    def get_message_indicators(self, peer_key: str, message_ids: list[int] | None = None) -> dict[int, dict[str, Any]]:
+        """Get assigned macro and micro indicators for message(s) under a peer."""
+        with self._connect() as conn:
+            if message_ids:
+                placeholders = ",".join("?" for _ in message_ids)
+                rows = conn.execute(
+                    f"SELECT message_id, macro_indicator, micro_indicators_json, updated_at, updated_by "
+                    f"FROM reporting_message_indicators WHERE peer_key = ? AND message_id IN ({placeholders})",
+                    [peer_key, *message_ids],
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT message_id, macro_indicator, micro_indicators_json, updated_at, updated_by "
+                    "FROM reporting_message_indicators WHERE peer_key = ?",
+                    (peer_key,),
+                ).fetchall()
+            res = {}
+            for r in rows:
+                mid = int(r["message_id"])
+                micros = []
+                try:
+                    micros = json.loads(r["micro_indicators_json"])
+                except Exception:
+                    pass
+                res[mid] = {
+                    "macro_indicator": r["macro_indicator"] or "",
+                    "micro_indicators": micros,
+                    "updated_at": r["updated_at"],
+                    "updated_by": r["updated_by"],
+                }
+            return res
+
+    def set_message_indicators(self, peer_key: str, message_ids: list[int], macro_indicator: str,
+                               micro_indicators: list[str], updated_by: str = "user") -> None:
+        """Assign macro and micro indicators to specified messages."""
+        now = _utc_now()
+        clean_macro = macro_indicator.strip()
+        clean_micros = [m.strip() for m in micro_indicators if m.strip()]
+        micros_json = json.dumps(clean_micros, ensure_ascii=False)
+        with self._connect() as conn:
+            for mid in message_ids:
+                conn.execute(
+                    """
+                    INSERT INTO reporting_message_indicators (
+                        peer_key, message_id, macro_indicator, micro_indicators_json, updated_at, updated_by
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(peer_key, message_id) DO UPDATE SET
+                        macro_indicator = excluded.macro_indicator,
+                        micro_indicators_json = excluded.micro_indicators_json,
+                        updated_at = excluded.updated_at,
+                        updated_by = excluded.updated_by
+                    """,
+                    (peer_key, mid, clean_macro, micros_json, now, updated_by),
+                )
+            for m in clean_micros:
+                conn.execute(
+                    """
+                    INSERT INTO reporting_micro_indicators (
+                        indicator_id, title, category, color, usage_count, created_at, updated_at
+                    ) VALUES (?, ?, '', '', 1, ?, ?)
+                    ON CONFLICT(title) DO UPDATE SET
+                        usage_count = reporting_micro_indicators.usage_count + 1,
+                        updated_at = excluded.updated_at
+                    """,
+                    (f"ind-micro-{uuid.uuid4().hex[:10]}", m, now, now),
+                )
+
+    def get_detached_message_ids(self, peer_key: str) -> list[int]:
+        """Get set of detached/split message IDs for a peer conversation."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT message_id FROM reporting_message_splits WHERE peer_key = ? AND is_detached = 1",
+                (peer_key,),
+            ).fetchall()
+            return [int(r["message_id"]) for r in rows]
+
+    def set_message_splits(self, peer_key: str, detached_ids: list[int],
+                           unified_ids: list[int] | None = None) -> list[int]:
+        """Save user's message split preferences: which message IDs are detached vs unified."""
+        now = _utc_now()
+        with self._connect() as conn:
+            for mid in detached_ids:
+                conn.execute(
+                    """
+                    INSERT INTO reporting_message_splits (
+                        peer_key, message_id, is_detached, updated_at
+                    ) VALUES (?, ?, 1, ?)
+                    ON CONFLICT(peer_key, message_id) DO UPDATE SET
+                        is_detached = 1,
+                        updated_at = excluded.updated_at
+                    """,
+                    (peer_key, mid, now),
+                )
+            if unified_ids:
+                for mid in unified_ids:
+                    conn.execute(
+                        "DELETE FROM reporting_message_splits WHERE peer_key = ? AND message_id = ?",
+                        (peer_key, mid),
+                    )
+            rows = conn.execute(
+                "SELECT message_id FROM reporting_message_splits WHERE peer_key = ? AND is_detached = 1",
+                (peer_key,),
+            ).fetchall()
+            return [int(r["message_id"]) for r in rows]
+

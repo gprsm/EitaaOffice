@@ -25,6 +25,7 @@
 - مخزن مرجع و انحصاری انتشار: مخزن رسمی و غایی این پروژه `https://github.com/gprsm/EitaaOffice.git` (`EitaaOffice`) است و تمامی انتشارات نهایی باید منحصراً به آن ارسال شوند. مخزن `https://github.com/gprsm/EitaaDesktop.git` (`EitaaDesktop`) صرفاً یک منبع خواندنی (Read-Only) است؛ هرگونه دستکاری، ارسال کامیت (push) یا تغییر مستقیم بر روی مخزن `EitaaDesktop` اکیداً ممنوع است.
 - اصل تقدم پیاده‌سازی محلی (Local-First Precedence): در فرایند ادغام قابلیت‌های `EitaaDesktop` به این پروژه، در صورت وجود هرگونه تعارض، تناقض یا تداخل در کدها، اسکیما یا رفتار، اولویت قطعی و تام با پیاده‌سازی و قابلیت‌های پروژه محلی است و هیچ تغییری نباید منجر به بازگشت به عقب (regression) یا تضعیف امکانات محلی (از جمله ایندکس‌گذاری مستقل، کش پایدار، تقویم و گزارش‌گیری) گردد.
 - یافته، تصمیم، شکست آزمون و پذیرش مهم نباید فقط در Chat بماند؛ مطابق `docs/project-memory/ENGINEERING_DOCUMENTATION_PROTOCOL.md` ثبت شود.
+- قرارداد دائمی نظارت و داوری دوایجنتی با OpenCode: مطابق دستور کاربر، تمامی قابلیت‌های کلیدی باید پرونده نظارتی در `diagnostics/opencode_supervision_dossier.json` تشکیل داده و بر اساس پروتکل `docs/protocols/OPENCODE_SUPERVISION_PROTOCOL.md` با رانر `scripts/run_opencode_supervision.py` از طریق دستور کامندی `opencode` به مدل ناظر ارائه شوند و پاسخ ساختاریافته در `diagnostics/opencode_supervision_verdict.json` بررسی شده و چرخه تا رفع کامل ایرادات تکرار گردد.
 
 ## جلوگیری از بررسی تکراری
 

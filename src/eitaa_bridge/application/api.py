@@ -1937,6 +1937,8 @@ class BridgeApplicationApi:
                 return self._staff_tasks_close(payload=payload, app_session=app_session)
             if selected_method == "POST" and path == "/api/v2/staff/tasks/reassign":
                 return self._staff_tasks_reassign(payload=payload, app_session=app_session)
+            if selected_method == "POST" and path == "/api/v2/staff/tasks/escalate":
+                return self._staff_tasks_escalate(payload=payload, app_session=app_session)
             if selected_method == "POST" and path == "/api/v2/staff/tasks/checklist":
                 return self._staff_tasks_checklist(payload=payload, app_session=app_session)
             if selected_method == "GET" and path == "/api/v2/settings/indexing-strategy":
@@ -4729,6 +4731,8 @@ class BridgeApplicationApi:
         is_ashura_pilgrimage = bool(payload.get("is_ashura_pilgrimage", False))
         is_standalone_titled = bool(payload.get("is_standalone_titled", True))
         occasion_class = payload.get("occasion_class")
+        macro_category = str(payload.get("macro_category") or "workbook_approved").strip()
+        custom_topic = str(payload.get("custom_topic") or "").strip()
         notes = str(payload.get("notes", ""))
         dimension_facts = payload.get("dimension_facts")
         if not isinstance(dimension_facts, Mapping):
@@ -4745,6 +4749,8 @@ class BridgeApplicationApi:
             is_ashura_pilgrimage=is_ashura_pilgrimage,
             is_standalone_titled=is_standalone_titled,
             occasion_class=occasion_class,
+            macro_category=macro_category,
+            custom_topic=custom_topic,
             dimension_facts=dimension_facts,
             notes=notes,
             staff_member=operator,
@@ -4761,6 +4767,8 @@ class BridgeApplicationApi:
                     "occurred_on": event.occurred_on.isoformat(),
                     "unit": event.unit.value,
                     "unit_name": event.unit_name,
+                    "macro_category": getattr(event, "macro_category", "workbook_approved"),
+                    "custom_topic": getattr(event, "custom_topic", ""),
                     "facts_count": len(event.facts),
                 },
             },
@@ -4770,10 +4778,12 @@ class BridgeApplicationApi:
         limit = int(query.get("limit", 100))
         review_status = query.get("review_status") or None
         registered_by_id = query.get("registered_by_id") or None
+        macro_category = query.get("macro_category") or None
         events = self._reporting_service.get_stored_events(
             limit=limit,
             review_status=review_status,
             registered_by_id=registered_by_id,
+            macro_category=macro_category,
         )
         serialized = []
         for ev in events:
@@ -4790,6 +4800,8 @@ class BridgeApplicationApi:
                     "occurred_on": ev.occurred_on.isoformat(),
                     "unit": ev.unit.value,
                     "unit_name": ev.unit_name,
+                    "macro_category": getattr(ev, "macro_category", "workbook_approved"),
+                    "custom_topic": getattr(ev, "custom_topic", ""),
                     "occasion": ev.occasion,
                     "occasion_class": ev.occasion_class.value if ev.occasion_class else None,
                     "official_present": ev.official_present,
@@ -5972,6 +5984,7 @@ class BridgeApplicationApi:
                 {"method": "POST", "path": "/api/v2/staff/tasks/resolve"},
                 {"method": "POST", "path": "/api/v2/staff/tasks/close"},
                 {"method": "POST", "path": "/api/v2/staff/tasks/reassign"},
+                {"method": "POST", "path": "/api/v2/staff/tasks/escalate"},
                 {"method": "POST", "path": "/api/v2/staff/tasks/checklist"},
                 {"method": "GET", "path": "/api/v2/settings/indexing-strategy"},
                 {"method": "POST", "path": "/api/v2/settings/indexing-strategy"},
@@ -10229,11 +10242,15 @@ class BridgeApplicationApi:
             if final_staff_list
             else 100.0
         )
+        total_overdue = sum(s.get("overdue_tasks", 0) for s in final_staff_list)
+        total_revoked = sum(s.get("revoked_tasks", 0) for s in final_staff_list)
         summary = {
             "total_staff": len(final_staff_list),
             "total_actions": total_actions,
             "total_tasks": total_tasks,
             "resolved_tasks": resolved_tasks,
+            "total_overdue": total_overdue,
+            "total_revoked": total_revoked,
             "average_accuracy": avg_accuracy,
             "total_reports": total_reports,
             "approved_reports": approved_reports,
@@ -10433,10 +10450,10 @@ class BridgeApplicationApi:
         if not task_id:
             raise CompositionValidationError("Invalid task_id.", code="api_invalid_task_id")
         new_assigned_to_user_id = str(
-            payload.get("assigned_to_user_id") or payload.get("new_user_id") or ""
+            payload.get("new_assigned_to_user_id") or payload.get("assigned_to_user_id") or payload.get("new_user_id") or ""
         ).strip()
         new_assigned_to_name = str(
-            payload.get("assigned_to_name") or payload.get("new_user_name") or ""
+            payload.get("new_assigned_to_name") or payload.get("assigned_to_name") or payload.get("new_user_name") or ""
         ).strip()
         if not new_assigned_to_name:
             raise CompositionValidationError("new assignee name is required.", code="api_invalid_assignee")
@@ -10464,7 +10481,40 @@ class BridgeApplicationApi:
             reassigned_by_name=reassigned_by_name,
             reason=reason,
         )
-        return ApiResponse(200, {"ok": True, **res})
+        return ApiResponse(200, {"ok": True, **res, "task": res})
+
+    def _staff_tasks_escalate(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        app_session: Any = None,
+    ) -> ApiResponse:
+        task_id = str(payload.get("task_id") or "").strip()
+        if not task_id:
+            raise CompositionValidationError("Invalid task_id.", code="api_invalid_task_id")
+        notes = str(payload.get("notes") or payload.get("reason") or "").strip()
+
+        escalated_by_id = ""
+        escalated_by_name = ""
+        if app_session is not None and getattr(app_session, "principal", None):
+            principal = app_session.principal
+            escalated_by_id = getattr(principal, "app_user_id", "") or ""
+            escalated_by_name = getattr(principal, "display_name", "") or getattr(principal, "username", "")
+        if not escalated_by_id:
+            escalated_by_id = str(payload.get("escalated_by_id") or payload.get("manager_id") or "").strip()
+        if not escalated_by_name:
+            escalated_by_name = str(
+                payload.get("escalated_by_name") or payload.get("manager_name") or "مدیر سیستم"
+            ).strip()
+
+        self._content_index_store.initialize()
+        res = self._content_index_store.escalate_task(
+            task_id=task_id,
+            escalated_by_id=escalated_by_id,
+            escalated_by_name=escalated_by_name,
+            notes=notes,
+        )
+        return ApiResponse(200, {"ok": True, **res, "task": res})
 
     def _staff_tasks_checklist(
         self,

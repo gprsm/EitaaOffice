@@ -39,16 +39,77 @@ class UnitRecord:
 
     unit_id: str
     name: str
+    county: str = ""
+    unit_type: str = ""
+    display_name: str = ""
     kind: str = "judicial_domain"
     source: ValueSource = ValueSource.MANUAL
     notes: str = ""
     created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
 
     def validate(self) -> None:
         if not self.name.strip():
             raise ValueError("Unit name cannot be empty.")
         if self.kind not in UNIT_KINDS:
             raise ValueError(f"Unknown unit kind: {self.kind!r}")
+        if not self.display_name.strip():
+            if self.county.strip() and self.unit_type.strip():
+                self.display_name = f"{self.county.strip()} - {self.unit_type.strip()}"
+            else:
+                self.display_name = self.name.strip()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "unit_id": self.unit_id,
+            "name": self.name,
+            "county": self.county,
+            "unit_type": self.unit_type,
+            "display_name": self.display_name or self.name,
+            "kind": self.kind,
+            "source": self.source.value if hasattr(self.source, "value") else str(self.source),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if hasattr(self.created_at, "isoformat") else str(self.created_at),
+            "updated_at": self.updated_at.isoformat() if hasattr(self.updated_at, "isoformat") else str(self.updated_at),
+        }
+
+
+@dataclass(slots=True)
+class LiaisonRecord:
+    """A cultural liaison (رابط فرهنگی) attached to a judicial unit."""
+
+    liaison_id: str
+    unit_id: str
+    full_name: str
+    eitaa_username: str = ""
+    eitaa_user_id: str = ""
+    sender_key: str = ""
+    phone: str = ""
+    match_keywords: str = ""
+    notes: str = ""
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
+
+    def validate(self) -> None:
+        if not self.unit_id.strip():
+            raise ValueError("Liaison must be assigned to a unit_id.")
+        if not self.full_name.strip():
+            raise ValueError("Liaison full_name cannot be empty.")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "liaison_id": self.liaison_id,
+            "unit_id": self.unit_id,
+            "full_name": self.full_name,
+            "eitaa_username": self.eitaa_username,
+            "eitaa_user_id": self.eitaa_user_id,
+            "sender_key": self.sender_key,
+            "phone": self.phone,
+            "match_keywords": self.match_keywords,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if hasattr(self.created_at, "isoformat") else str(self.created_at),
+            "updated_at": self.updated_at.isoformat() if hasattr(self.updated_at, "isoformat") else str(self.updated_at),
+        }
 
 
 @dataclass(slots=True)

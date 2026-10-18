@@ -148,6 +148,8 @@ export interface ReportedEventItem {
   occasion_class?: string | null
   official_present: boolean | null
   is_ashura_pilgrimage: boolean
+  macro_category?: 'workbook_approved' | 'other_cultural'
+  custom_topic?: string
   created_by: string
   review_status?: 'draft' | 'needs_review' | 'approved' | 'conflict'
   registered_by_id?: string
@@ -1993,8 +1995,25 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                           <TableRow key={ev.event_id} hover>
                             <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{ev.event_id}</TableCell>
                             <TableCell>
+                              {ev.macro_category === 'other_cultural' ? (
+                                <Chip
+                                  size="small"
+                                  color="secondary"
+                                  variant="outlined"
+                                  label={ev.custom_topic ? `سایر فرهنگی: ${ev.custom_topic}` : 'سایر برنامه‌های فرهنگی'}
+                                  sx={{ mr: 0.5, mb: 0.5, fontWeight: 700 }}
+                                />
+                              ) : (
+                                <Chip
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  label="مصوب شیت"
+                                  sx={{ mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                />
+                              )}
                               {ev.program_kinds.map(p => (
-                                <Chip key={p} size="small" label={PROGRAM_NAMES[p] || p} sx={{ mr: 0.5 }} />
+                                <Chip key={p} size="small" label={PROGRAM_NAMES[p] || p} sx={{ mr: 0.5, mb: 0.5 }} />
                               ))}
                             </TableCell>
                             <TableCell>{ev.occurred_on}</TableCell>

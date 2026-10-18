@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -21,9 +22,15 @@ import {
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
+import AccountBalanceRounded from '@mui/icons-material/AccountBalanceRounded'
 import { api } from './lib/api'
-import { parseJalaliDate } from './utils/helpers'
+import { jalaliDayKey, jalaliDayLabel, parseJalaliDate } from './utils/helpers'
+import { JalaliDateTimePicker } from './components/JalaliDateTimePicker'
+import { JudicialUnitsManagementModal, JudicialUnitItem, LiaisonItem } from './components/JudicialUnitsManagementModal'
 import { useAppUser } from './AppUserGate'
+import { authorLabel } from './MessageContentCard'
+import type { DialogItem, MessageItem } from './lib/types'
+import { MACRO_INDICATORS, type MicroIndicatorItem, fetchMicroIndicators } from './lib/indicators'
 
 const PROGRAM_KINDS = [
   { value: 'trip', label: 'بازدید و سفر' },
@@ -54,8 +61,162 @@ const VALUE_TYPES = [
   { value: 'unknown', label: 'نامعلوم' },
 ]
 
+export const MAZANDARAN_CITIES = [
+  'ساری', 'بابل', 'آمل', 'قائمشهر', 'قائم‌شهر', 'تنکابن', 'چالوس',
+  'نوشهر', 'نکا', 'بهشهر', 'رامسر', 'بابلسر', 'محمودآباد', 'سوادکوه',
+  'جویبار', 'فریدونکنار', 'فریدون‌کنار', 'گلوگاه', 'میاندرود', 'میاندورود',
+  'کلاردشت', 'سیمرغ', 'عباس‌آباد', 'زیراب', 'پل‌سفید', 'چمستان', 'دابودشت',
+  'کیاسر', 'بلده', 'کجور', 'نور',
+]
+
+export const SENDER_BINDINGS: Record<string, { unit: 'provincial_hq' | 'judicial_domain'; unit_name: string; canonicalAuthor?: string }> = {
+  'مهدوی': { unit: 'judicial_domain', unit_name: 'دادگستری سوادکوه', canonicalAuthor: 'مهدوی (رابط فرهنگی سوادکوه)' },
+  'دیوسالار': { unit: 'judicial_domain', unit_name: 'دادگستری نور', canonicalAuthor: 'محمدامین دیوسالار (رابط فرهنگی نور)' },
+  'احسا': { unit: 'judicial_domain', unit_name: 'دادگستری بابل', canonicalAuthor: 'احسانی (رابط فرهنگی بابل)' },
+  'قاسمی شورابی': { unit: 'provincial_hq', unit_name: 'ستاد دادگستری کل استان', canonicalAuthor: 'قاسمی شورابی (ستاد استانی)' },
+  'شورابی': { unit: 'provincial_hq', unit_name: 'ستاد دادگستری کل استان', canonicalAuthor: 'قاسمی شورابی (ستاد استانی)' },
+}
+
+export function inferRegistrationDefaults(
+  sourceMessage?: MessageItem | null,
+  dialog?: DialogItem | null,
+  sourceMessages?: MessageItem[] | null,
+) {
+  const members = sourceMessages && sourceMessages.length ? sourceMessages : sourceMessage ? [sourceMessage] : []
+  const primaryMsg = sourceMessage || (members.length ? members[0] : null)
+
+  // 1. Report Date (زمان گزارش)
+  let occurredOn = ''
+  let sourceTimeFormatted = ''
+  if (primaryMsg?.date) {
+    occurredOn = jalaliDayKey(primaryMsg.date)
+    try {
+      const d = new Date(primaryMsg.date)
+      const timeStr = d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+      sourceTimeFormatted = `${jalaliDayLabel(primaryMsg.date)} · ساعت ${timeStr}`
+    } catch {
+      sourceTimeFormatted = jalaliDayLabel(primaryMsg.date)
+    }
+  }
+
+  // Check if text has an explicit Jalali date
+  const combinedText = members.map(m => m.text || '').join('\n')
+  const dateMatch = combinedText.match(/(?:مورخ|تاریخ|روز)?\s*([1۱][34۳۴][0-9۰-۹]{2}[\/-][0-9۰-۹]{1,2}[\/-][0-9۰-۹]{1,2})/)
+  if (dateMatch) {
+    const rawDate = dateMatch[1].replace(/[۰-۹]/g, char => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(char))).replace('-', '/')
+    if (parseJalaliDate(rawDate)) {
+      occurredOn = rawDate
+    }
+  }
+
+  // 2. Author (نویسنده / رابط فرهنگی گزارش)
+  let author = ''
+  if (primaryMsg) {
+    author = authorLabel(dialog, primaryMsg)
+  }
+
+  const isGenericAuthor = !author || author === 'Eitaa' || author === 'شما' || author === 'نویسنده نامشخص' || author === 'مخاطب ایتا'
+
+  // If author is generic, inspect SENDER_BINDINGS against message text
+  if (isGenericAuthor) {
+    for (const [senderKey, binding] of Object.entries(SENDER_BINDINGS)) {
+      if (combinedText.includes(senderKey) && binding.canonicalAuthor) {
+        author = binding.canonicalAuthor
+        break
+      }
+    }
+  }
+
+  // Also check textual author/liaison regex if still generic
+  if (!author || author === 'Eitaa' || author === 'نویسنده نامشخص' || author === 'شما' || author === 'مخاطب ایتا') {
+    const textAuthorMatch = combinedText.match(/(?:رابط فرهنگی|گزارشگر|نویسنده|ارسال‌کننده|توسط)\s*[:：\-–]?\s*([^\n،,.:]{3,35})/)
+    if (textAuthorMatch && textAuthorMatch[1]?.trim()) {
+      author = textAuthorMatch[1].trim()
+    }
+  }
+
+  // Fallback to dialog title or username if still generic
+  if (!author || author === 'Eitaa' || author === 'نویسنده نامشخص') {
+    if (dialog?.peer?.title?.trim() && dialog.peer.title.trim() !== 'Eitaa') {
+      author = dialog.peer.title.trim()
+    } else if (primaryMsg?.sender_username) {
+      author = `@${primaryMsg.sender_username.replace(/^@/, '')}`
+    }
+  }
+
+  // 3. Judicial Domain / City (شهر یا حوزه قضایی)
+  let unit: 'provincial_hq' | 'judicial_domain' = 'provincial_hq'
+  let unit_name = ''
+
+  // First check sender bindings
+  for (const [senderName, binding] of Object.entries(SENDER_BINDINGS)) {
+    if (author.includes(senderName) || combinedText.includes(senderName)) {
+      unit = binding.unit
+      unit_name = binding.unit_name
+      break
+    }
+  }
+
+  if (!unit_name) {
+    if (combinedText.includes('شورای حل اختلاف') || author.includes('شورای حل اختلاف')) {
+      unit = 'judicial_domain'
+      unit_name = 'شورای حل اختلاف'
+    } else if (author.includes('ساری') || author.includes('ستاد') || author.includes('دادگستری کل') || combinedText.includes('دادگستری کل')) {
+      unit = 'provincial_hq'
+      unit_name = 'ستاد دادگستری کل استان'
+    } else {
+      // Check author first, then dialog title, then text for cities
+      const searchTargets = [author, dialog?.peer?.title || '', combinedText]
+      for (const target of searchTargets) {
+        for (const city of MAZANDARAN_CITIES) {
+          if (target.includes(city)) {
+            if (city === 'ساری') {
+              unit = 'provincial_hq'
+              unit_name = 'ستاد دادگستری کل استان'
+            } else {
+              unit = 'judicial_domain'
+              unit_name = `دادگستری ${city}`
+            }
+            break
+          }
+        }
+        if (unit_name) break
+      }
+    }
+  }
+
+  if (!unit_name && dialog?.display_kind === 'personal' && dialog.peer.title?.trim()) {
+    unit = 'judicial_domain'
+    unit_name = dialog.peer.title.trim()
+  }
+
+  // 4. Topic
+  let topic = ''
+  if (combinedText.trim()) {
+    const lines = combinedText.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length) {
+      const cleanLine = lines[0].replace(/^[\s#*•\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]+/u, '').trim()
+      if (cleanLine.length > 2) {
+        topic = cleanLine.slice(0, 100)
+      }
+    }
+  }
+
+  return {
+    occurredOn,
+    sourceTimeFormatted,
+    author: author === 'نویسنده نامشخص' ? '' : author,
+    unit,
+    unit_name,
+    topic,
+    notes: combinedText,
+  }
+}
+
 const EMPTY: RegistrationDraft = {
-  topic: '', notes: '', occurredOn: '', unit: 'provincial_hq', unit_name: '',
+  macroCategory: 'workbook_approved', customTopic: '',
+  macroIndicator: '', microIndicators: [],
+  topic: '', author: '', notes: '', occurredOn: '', unit: 'provincial_hq', unit_name: '',
   programKinds: ['ceremony'], witnesses: [], facts: [],
 }
 
@@ -72,7 +233,12 @@ type WitnessDraft = {
 type FactDraft = { metric: string; value: string; unit_of_measure: string; value_type: string }
 
 type RegistrationDraft = {
+  macroCategory: 'workbook_approved' | 'other_cultural'
+  customTopic: string
+  macroIndicator: string
+  microIndicators: string[]
   topic: string
+  author: string
   notes: string
   occurredOn: string
   unit: string
@@ -91,7 +257,12 @@ function witnessRow(peerKey: string, messageId: number | string): WitnessDraft {
 export function ReportingRegistrationPanel(props: {
   siteKey: string
   dialogPeerKey: string
+  dialog?: DialogItem | null
   messageIds: number[]
+  sourceMessage?: MessageItem | null
+  sourceMessages?: MessageItem[] | null
+  initialMacroIndicator?: string
+  initialMicroIndicators?: string[]
   onClose: () => void
 }) {
   const { principal } = useAppUser()
@@ -103,8 +274,18 @@ export function ReportingRegistrationPanel(props: {
     [props.dialogPeerKey, props.messageIds],
   )
   const [step, setStep] = useState(0)
+
+  const initialInferred = useMemo(
+    () => inferRegistrationDefaults(props.sourceMessage, props.dialog, props.sourceMessages),
+    [props.sourceMessage, props.dialog, props.sourceMessages],
+  )
+  const sourceTimeFormatted = initialInferred.sourceTimeFormatted
+
   const [draft, setDraft] = useState<RegistrationDraft>(() => ({
     ...EMPTY,
+    ...initialInferred,
+    macroIndicator: props.initialMacroIndicator || '',
+    microIndicators: props.initialMicroIndicators || [],
     witnesses: props.messageIds.map(id => witnessRow(props.dialogPeerKey, id)),
   }))
   const [restored, setRestored] = useState(false)
@@ -113,7 +294,57 @@ export function ReportingRegistrationPanel(props: {
   const [conflict, setConflict] = useState<{ message: string; current_etag?: string } | null>(null)
   const [confirmClose, setConfirmClose] = useState(false)
   const [errorText, setErrorText] = useState('')
+  const [judicialUnits, setJudicialUnits] = useState<JudicialUnitItem[]>([])
+  const [unitsModalOpen, setUnitsModalOpen] = useState(false)
   const dirtyRef = useRef(false)
+
+  const loadJudicialUnits = useCallback(async () => {
+    try {
+      const res = await api<{ units: JudicialUnitItem[]; counties: string[] }>('GET', '/api/v3/reporting/units')
+      if (res.units && res.units.length > 0) {
+        setJudicialUnits(res.units)
+      }
+    } catch (err) {
+      console.warn('Failed to load judicial units:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadJudicialUnits()
+  }, [loadJudicialUnits])
+
+  // Resolve liaison and unit from backend registry automatically
+  useEffect(() => {
+    const resolveSenderAndUnit = async () => {
+      try {
+        const primaryMsg = props.sourceMessage || (props.sourceMessages && props.sourceMessages.length ? props.sourceMessages[0] : null)
+        const combinedText = (props.sourceMessages || (props.sourceMessage ? [props.sourceMessage] : [])).map(m => m.text || '').join('\n')
+        const author = primaryMsg ? authorLabel(props.dialog, primaryMsg) : ''
+
+        const res = await api<{
+          matched: boolean
+          liaison: LiaisonItem | null
+          unit: JudicialUnitItem | null
+        }>('POST', '/api/v3/reporting/liaisons/resolve', {
+          sender_key: primaryMsg?.sender_username || props.dialog?.peer?.id || '',
+          username: primaryMsg?.sender_username || '',
+          full_name: author,
+          text: combinedText,
+        })
+        if (res.matched) {
+          setDraft(current => ({
+            ...current,
+            unit_name: res.unit?.display_name || current.unit_name,
+            unit: (res.unit?.kind === 'provincial_hq' ? 'provincial_hq' : 'judicial_domain') as any,
+            author: res.liaison?.full_name ? res.liaison.full_name : current.author,
+          }))
+        }
+      } catch (err) {
+        console.warn('Auto resolve liaison warning:', err)
+      }
+    }
+    resolveSenderAndUnit()
+  }, [props.sourceMessage, props.dialog, props.sourceMessages])
 
   // Restore a saved draft once on mount (incomplete forms must survive reloads).
   useEffect(() => {
@@ -124,6 +355,10 @@ export function ReportingRegistrationPanel(props: {
       setDraft(current => ({
         ...current,
         ...parsed,
+        author: parsed.author !== undefined && parsed.author !== '' ? parsed.author : current.author,
+        occurredOn: parsed.occurredOn || current.occurredOn,
+        unit: parsed.unit || current.unit,
+        unit_name: parsed.unit_name || current.unit_name,
         witnesses: parsed.witnesses && parsed.witnesses.length ? parsed.witnesses : current.witnesses,
       }))
       setRestored(true)
@@ -151,6 +386,12 @@ export function ReportingRegistrationPanel(props: {
       ? draft.witnesses.every(w => w.role === 'primary' || w.note.trim().length > 0)
       : true
 
+  const [availableMicroIndicators, setAvailableMicroIndicators] = useState<MicroIndicatorItem[]>([])
+
+  useEffect(() => {
+    void fetchMicroIndicators().then(setAvailableMicroIndicators).catch(() => {})
+  }, [])
+
   const submit = async () => {
     if (!jalaliDate) { setErrorText('تاریخ وقوع جلالی نامعتبر است (مثال: ۱۴۰۵/۰۵/۰۱)'); setStep(0); return }
     setSubmitting(true)
@@ -167,11 +408,16 @@ export function ReportingRegistrationPanel(props: {
         }))
 
       const created = await api<{ ok?: boolean; event_id: string; etag: string }>('POST', '/api/v3/reporting/events', {
+        macro_category: draft.macroCategory,
+        custom_topic: draft.customTopic,
+        macro_indicator: draft.macroIndicator,
+        micro_indicators: draft.microIndicators,
         program_kinds: draft.programKinds.length ? draft.programKinds : ['ceremony'],
         occurred_on: iso,
         unit: draft.unit,
         unit_name: draft.unit_name,
-        notes: [draft.topic, draft.notes].filter(Boolean).join('\n'),
+        notes: [draft.author ? `نویسنده / رابط گزارش: ${draft.author.trim()}` : '', draft.topic, draft.notes].filter(Boolean).join('\n'),
+        author: draft.author,
         registered_by_id: activeUserId,
         registered_by_name: activeUserName,
         facts: factsPayload,
@@ -241,13 +487,200 @@ export function ReportingRegistrationPanel(props: {
       {conflict && <Alert severity="warning" sx={{ mb: 2 }}>تعارض ویرایش: {conflict.message}{conflict.current_etag ? ' — نسخهٔ سرور تازهتر است.' : ''}</Alert>}
 
       {step === 0 && <Stack spacing={2} sx={{ maxWidth: 640, mx: 'auto' }}>
-        <TextField label="موضوع رویداد" value={draft.topic} onChange={event => update({ topic: event.target.value })} required fullWidth />
-        <TextField label="تاریخ وقوع (جلالی، مثال ۱۴۰۵/۰۵/۰۱)" value={draft.occurredOn} onChange={event => update({ occurredOn: event.target.value })} required fullWidth dir="ltr" error={draft.occurredOn.length > 3 && !jalaliDate} helperText={draft.occurredOn.length > 3 && !jalaliDate ? 'قالب تاریخ نامعتبر است' : undefined} />
-        <TextField select label="حوزهٔ ثبت" value={draft.unit} onChange={event => update({ unit: event.target.value })} fullWidth>
-          {UNIT_SCOPES.map(item => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
-        </TextField>
-        <TextField label="نام واحد" value={draft.unit_name} onChange={event => update({ unit_name: event.target.value })} fullWidth />
-        <TextField label="توضیحات تکمیلی" value={draft.notes} onChange={event => update({ notes: event.target.value })} multiline minRows={3} fullWidth />
+        {(sourceTimeFormatted || draft.author || draft.unit_name) && (
+          <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" fontWeight={800} sx={{ mb: 1, display: 'block' }}>
+              مشخصات استخراج‌شده از پیام ایتا:
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} divider={<Divider orientation="vertical" flexItem />}>
+              {sourceTimeFormatted && (
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">زمان ارسال گزارش:</Typography>
+                  <Typography variant="body2" fontWeight={800} color="text.primary">{sourceTimeFormatted}</Typography>
+                </Box>
+              )}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" display="block">نویسنده / رابط گزارش:</Typography>
+                <Typography variant="body2" fontWeight={800} color="primary.main">{draft.author || 'نامشخص'}</Typography>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" display="block">حوزه قضایی / شهر:</Typography>
+                <Typography variant="body2" fontWeight={800} color="secondary.main">{draft.unit_name || (draft.unit === 'provincial_hq' ? 'ستاد استانی' : 'تعیین‌نشده')}</Typography>
+              </Box>
+            </Stack>
+          </Box>
+        )}
+
+        <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+          <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
+            دسته‌بندی کلان برنامه:
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button
+              variant={draft.macroCategory === 'workbook_approved' ? 'contained' : 'outlined'}
+              color="primary"
+              onClick={() => update({ macroCategory: 'workbook_approved' })}
+              sx={{ flex: 1, py: 1 }}
+            >
+              برنامه‌های مصوب سازمانی (شیت‌های ۸ گانه)
+            </Button>
+            <Button
+              variant={draft.macroCategory === 'other_cultural' ? 'contained' : 'outlined'}
+              color="secondary"
+              onClick={() => update({ macroCategory: 'other_cultural' })}
+              sx={{ flex: 1, py: 1 }}
+            >
+              سایر برنامه‌های فرهنگی (فعالیت‌های آزاد و مشارکتی)
+            </Button>
+          </Stack>
+        </Box>
+
+        {draft.macroCategory === 'other_cultural' && (
+          <TextField
+            label="عنوان / محور برنامه فرهنگی خارج از شیت"
+            placeholder="مثال: پویش‌های مردمی، یادواره‌های خاص، همکاری با ائمه جمعه و نهادهای انقلابی"
+            value={draft.customTopic}
+            onChange={event => update({ customTopic: event.target.value })}
+            required
+            fullWidth
+            color="secondary"
+            helperText="این فعالیت در پیوست فرهنگی ثبت شده و بدون اختلال در جداول شیت‌های ۸ گانه محاسبه می‌گردد."
+          />
+        )}
+
+        <TextField label="موضوع رویداد" value={draft.topic} onChange={event => update({ topic: event.target.value })} required fullWidth placeholder="مثال: برگزاری مراسم زیارت عاشورا / تجلیل از فعالان فرهنگی" />
+
+        {/* شاخصه‌های کلی و جزئی متصل به گزارش */}
+        <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+          <Stack spacing={1.5}>
+            <TextField
+              select
+              label="شاخصه کلی (سرفصل برنامه فرهنگی)"
+              value={draft.macroIndicator || ''}
+              onChange={event => update({ macroIndicator: event.target.value })}
+              fullWidth
+              helperText="انتخاب از بین ۸ برنامه مصوب یا عنوان «غیر برنامه‌ای»"
+            >
+              <MenuItem value="">
+                <em>(تعیین‌نشده)</em>
+              </MenuItem>
+              {MACRO_INDICATORS.map(ind => (
+                <MenuItem key={ind} value={ind} sx={{ fontWeight: 600 }}>
+                  {ind}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Autocomplete
+              multiple
+              freeSolo
+              options={availableMicroIndicators.map(i => i.title)}
+              value={draft.microIndicators || []}
+              onChange={(_, val) => update({ microIndicators: val })}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={option}
+                    label={option}
+                    size="small"
+                    color="secondary"
+                    variant="filled"
+                    sx={{ fontWeight: 400 }}
+                  />
+                ))
+              }
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="شاخصه‌های جزئی (تایپ آزاد یا انتخاب از فهرست)"
+                  placeholder="عنوان شاخصه جزئی را تایپ کرده و Enter بزنید..."
+                  helperText="عناوین تفصیلی و کلیدواژه‌های موضوعی مرتبط با فعالیت فرهنگی"
+                />
+              )}
+            />
+          </Stack>
+        </Box>
+
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Box sx={{ flex: 1 }}>
+            <JalaliDateTimePicker
+              value={draft.occurredOn}
+              onChange={val => update({ occurredOn: val })}
+              label="تاریخ و زمان رویداد (شمسی)"
+              required
+              fullWidth
+              error={Boolean(draft.occurredOn.length > 3 && !parseJalaliDate(draft.occurredOn))}
+              helperText={draft.occurredOn.length > 3 && !parseJalaliDate(draft.occurredOn) ? 'قالب تاریخ نامعتبر است' : 'تقویم خورشیدی و انتخاب ساعت/دقیقه'}
+            />
+          </Box>
+          <TextField
+            label="نویسنده / رابط فرهنگی گزارش"
+            value={draft.author}
+            onChange={event => update({ author: event.target.value })}
+            fullWidth
+            placeholder="مثال: روابط عمومی دادگستری بابل / مهدوی"
+            helperText="نام رابط فرهنگی یا ارسال‌کننده پیام در ایتا"
+            sx={{ flex: 1 }}
+          />
+        </Stack>
+
+        <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
+            <Autocomplete
+              freeSolo
+              options={judicialUnits}
+              getOptionLabel={option => (typeof option === 'string' ? option : option.display_name || option.name)}
+              groupBy={option => (typeof option === 'string' ? 'سایر' : (option.county || 'واحدهای استانی'))}
+              value={draft.unit_name}
+              onChange={(_, val) => {
+                if (typeof val === 'string') {
+                  const isHq = val.includes('اداره کل') || val.includes('ستاد')
+                  update({
+                    unit_name: val,
+                    unit: isHq ? 'provincial_hq' : 'judicial_domain',
+                  })
+                } else if (val) {
+                  update({
+                    unit_name: val.display_name || val.name,
+                    unit: val.kind === 'provincial_hq' ? 'provincial_hq' : 'judicial_domain',
+                  })
+                } else {
+                  update({ unit_name: '', unit: 'judicial_domain' })
+                }
+              }}
+              onInputChange={(_, val) => {
+                const isHq = val.includes('اداره کل') || val.includes('ستاد')
+                update({
+                  unit_name: val,
+                  unit: isHq ? 'provincial_hq' : 'judicial_domain',
+                })
+              }}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="حوزه قضایی / واحد سازمانی (انتخابی با قابلیت سرچ)"
+                  placeholder="جستجو یا انتخاب: مثال: ساری - اداره کل، ساری - دادسرا، نور - دادگستری..."
+                  required
+                  fullWidth
+                  helperText="حوزه‌های دارای چند واحد به‌صورت چندگانه (شهرستان - واحد) دسته‌بندی شده‌اند"
+                />
+              )}
+              sx={{ flex: 1 }}
+            />
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<AccountBalanceRounded />}
+              onClick={() => setUnitsModalOpen(true)}
+              sx={{ height: 48, whiteSpace: 'nowrap', minWidth: 'fit-content' }}
+            >
+              مدیریت حوزه‌ها و رابطین
+            </Button>
+          </Stack>
+        </Box>
+
+        <TextField label="توضیحات تکمیلی (متن گزارش)" value={draft.notes} onChange={event => update({ notes: event.target.value })} multiline minRows={3} fullWidth />
       </Stack>}
 
       {step === 1 && <Stack spacing={2} sx={{ maxWidth: 720, mx: 'auto' }}>
@@ -295,8 +728,13 @@ export function ReportingRegistrationPanel(props: {
 
       {step === 3 && !results && <Stack spacing={2} sx={{ maxWidth: 640, mx: 'auto' }}>
         <Typography variant="subtitle2" fontWeight={800}>خلاصهٔ اطلاعات و ارزیابی اولیه کیفیت پرونده</Typography>
+        <Typography variant="body2">
+          دسته‌بندی کلان: <strong>{draft.macroCategory === 'workbook_approved' ? 'برنامه مصوب سازمانی (شیت‌های ۸ گانه)' : `سایر برنامه‌های فرهنگی ${draft.customTopic ? `(${draft.customTopic})` : ''}`}</strong>
+        </Typography>
         <Typography variant="body2">موضوع: {draft.topic || '—'}</Typography>
-        <Typography variant="body2">تاریخ وقوع: {draft.occurredOn || '—'} (جلالی)</Typography>
+        <Typography variant="body2">نویسنده / رابط گزارش: <strong>{draft.author || '—'}</strong></Typography>
+        <Typography variant="body2">تاریخ وقوع: <strong>{draft.occurredOn || '—'}</strong> (جلالی)</Typography>
+        <Typography variant="body2">حوزه و واحد: <strong>{draft.unit === 'provincial_hq' ? 'ستاد استانی' : 'حوزهٔ قضایی'}{draft.unit_name ? ` (${draft.unit_name})` : ''}</strong></Typography>
         <Typography variant="body2">برنامه‌ها: {draft.programKinds.join('، ') || '—'}</Typography>
         <Typography variant="body2">تعداد فکت‌ها: {draft.facts.length}</Typography>
         <Typography variant="body2">شاهدان: {draft.witnesses.filter(w => w.message_id.trim()).length} مورد ({draft.witnesses.filter(w => w.role === 'primary').length} اصلی، {draft.witnesses.filter(w => w.role === 'supporting').length} پشتیبان)</Typography>
@@ -347,5 +785,12 @@ export function ReportingRegistrationPanel(props: {
         <Button color="warning" onClick={() => { setConfirmClose(false); props.onClose() }}>بستن پنل</Button>
       </DialogActions>
     </Dialog>}
+    {unitsModalOpen && (
+      <JudicialUnitsManagementModal
+        open={unitsModalOpen}
+        onClose={() => setUnitsModalOpen(false)}
+        onDataChanged={() => loadJudicialUnits()}
+      />
+    )}
   </Dialog>
 }
