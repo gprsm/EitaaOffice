@@ -60,6 +60,8 @@ _INDICATORS_MICRO_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/indicators
 _INDICATORS_MESSAGES_ROUTE = re.compile(r"^/api/v3/reporting/indicators/messages$")
 _INDICATORS_MESSAGES_ASSIGN_ROUTE = re.compile(r"^/api/v3/reporting/indicators/messages/assign$")
 _MESSAGE_SPLITS_ROUTE = re.compile(r"^/api/v3/reporting/splits$")
+_PROGRAM_CATALOG_ROUTE = re.compile(r"^/api/v3/reporting/catalog/programs$")
+_PROGRAM_CATALOG_TOGGLE_ROUTE = re.compile(r"^/api/v3/reporting/catalog/programs/toggle-active$")
 
 
 
@@ -838,6 +840,70 @@ def sync_all_liaisons_eitaa_contacts(store: ReportingStore, bridge_api: Any = No
         return _error(500, f"خطا در ثبت گروهی مخاطبین در ایتا: {exc}")
 
 
+def list_program_catalog(store: ReportingStore, query: Mapping[str, Any] | None):
+    q = query or {}
+    year = None
+    if q.get("year"):
+        try:
+            year = int(q["year"])
+        except (ValueError, TypeError):
+            year = None
+    include_inactive = q.get("include_inactive") in ("1", "true", "True")
+    programs = store.list_program_catalog(year=year, include_inactive=include_inactive)
+    return _ok({"programs": programs})
+
+
+def save_program_catalog_item(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    program_code = str(payload.get("program_code", "") or "").strip()
+    title = str(payload.get("title", "") or "").strip()
+    canonical_macro = str(payload.get("canonical_macro", "") or "").strip()
+    kind = str(payload.get("kind", "custom") or "custom").strip()
+    workbook_sheet = str(payload.get("workbook_sheet", "") or "").strip()
+    description = str(payload.get("description", "") or "").strip()
+    try:
+        valid_from_year = int(payload.get("valid_from_year", 1403))
+    except (ValueError, TypeError):
+        valid_from_year = 1403
+    raw_to_year = payload.get("valid_to_year")
+    valid_to_year = int(raw_to_year) if raw_to_year not in (None, "") else None
+    is_active = bool(payload.get("is_active", True))
+    try:
+        display_order = int(payload.get("display_order", 0))
+    except (ValueError, TypeError):
+        display_order = 0
+
+    if not program_code or not title:
+        return _error(400, "کد برنامه و عنوان برنامه الزامی است.")
+    try:
+        item = store.save_program_catalog_item(
+            program_code=program_code,
+            title=title,
+            canonical_macro=canonical_macro,
+            kind=kind,
+            workbook_sheet=workbook_sheet,
+            valid_from_year=valid_from_year,
+            valid_to_year=valid_to_year,
+            is_active=is_active,
+            display_order=display_order,
+            description=description,
+        )
+        return _ok({"program": item}, status=201)
+    except Exception as exc:
+        return _error(400, str(exc))
+
+
+def toggle_program_active(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    program_code = str(payload.get("program_code", "") or "").strip()
+    if not program_code:
+        return _error(400, "کد برنامه الزامی است.")
+    is_active = bool(payload.get("is_active", True))
+    try:
+        item = store.toggle_program_active(program_code, is_active=is_active)
+        return _ok({"program": item})
+    except Exception as exc:
+        return _error(400, str(exc))
+
+
 def list_macro_indicators(store: ReportingStore):
     return _ok({"macro_indicators": store.list_macro_indicators()})
 
@@ -971,6 +1037,10 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         micro_post_del = _INDICATORS_MICRO_DELETE_POST_ROUTE.match(path)
         if micro_post_del:
             return delete_micro_indicator(store, actor, micro_post_del.group("indicator_id"))
+        if _PROGRAM_CATALOG_ROUTE.match(path):
+            return save_program_catalog_item(store, actor, payload)
+        if _PROGRAM_CATALOG_TOGGLE_ROUTE.match(path):
+            return toggle_program_active(store, actor, payload)
         if _INDICATORS_MICRO_ROUTE.match(path):
             return save_micro_indicator(store, actor, payload)
         if _INDICATORS_MESSAGES_ASSIGN_ROUTE.match(path):
@@ -1050,6 +1120,8 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         if _ROLES_ROUTE.match(path):
             return set_roles(store, actor, roles, payload)
     if method == "GET":
+        if _PROGRAM_CATALOG_ROUTE.match(path):
+            return list_program_catalog(store, query)
         if _INDICATORS_MACRO_ROUTE.match(path):
             return list_macro_indicators(store)
         if _INDICATORS_MICRO_ROUTE.match(path):

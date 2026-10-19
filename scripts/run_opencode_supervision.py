@@ -199,6 +199,7 @@ def run_supervision() -> int:
         "macro_and_micro_indicators": False,
         "message_split_and_control_bar": False,
         "liaison_eitaa_contact_sync": False,
+        "program_catalog_and_two_tier_indicators": False,
         "code_quality_and_tests": False,
     }
 
@@ -264,9 +265,19 @@ def run_supervision() -> int:
             and "handleSyncEitaaContact" in dialog_tsx
         )
 
+        # 14. Program Catalog & Two-Tier Indicators
+        catalog_items = st.list_program_catalog(include_inactive=True)
+        has_catalog_table = len(catalog_items) >= 9
+        has_soft_deprecation = hasattr(st, "toggle_program_active") and "toggle_program_active" in store_py
+        has_tab2_ui = "کاتالوگ و سرفصل‌های برنامه‌ها" in liaison_modal and "handleToggleProgramActive" in liaison_modal
+        has_clean_message_card = "autoSuggestedMacro" in card_tsx and "indexPredictions" not in card_tsx
+        checklist["program_catalog_and_two_tier_indicators"] = (
+            has_catalog_table and has_soft_deprecation and has_tab2_ui and has_clean_message_card
+        )
+
         # 7. Code Quality & Pytest
         pt = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests/test_judicial_units_and_liaisons.py", "-q"],
+            [sys.executable, "-m", "pytest", "tests/test_judicial_units_and_liaisons.py", "tests/test_program_catalog_and_indexing.py", "-q"],
             cwd=str(WORKSPACE_ROOT),
             capture_output=True,
             text=True

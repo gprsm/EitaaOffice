@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 470
-- اثرانگشت منبع: `4c924b58bf9247be`
+- اثرانگشت منبع: `4ab84bf1dda52afc`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -103,7 +103,6 @@
 | `scripts/sync_ui_fonts.py` | Operations/tooling | 2 | — |
 | `scripts/test_api.py` | Operations/tooling | 0 | — |
 | `scripts/test_dialog_flow.py` | Operations/tooling | 1 | — |
-| `scripts/test_micro_indicator_save_flow.py` | Operations/tooling | 9 | Automated End-to-End Test for Saving Micro Indicator in UI |
 | `scripts/test_unprotect.py` | Operations/tooling | 0 | — |
 | `scripts/update_app.js` | Operations/tooling | 0 | — |
 | `scripts/update_docs_phase3.js` | Operations/tooling | 0 | — |
@@ -111,7 +110,7 @@
 | `scripts/update_ledger.py` | Operations/tooling | 0 | — |
 | `scripts/update_tests.js` | Operations/tooling | 0 | — |
 | `scripts/verify_windows_release_signature.ps1` | Operations/tooling | 0 | — |
-| `scripts/visual_acceptance_runner.py` | Operations/tooling | 10 | Comprehensive visual acceptance runner via Edge Headless and Chrome DevTools Protocol (CDP). |
+| `scripts/visual_acceptance_runner.py` | Operations/tooling | 11 | Visual Acceptance Runner for Program Catalog & Consolidated Indexing (F-128, V-294) |
 | `scripts/web_client_live_runner.py` | Operations/tooling | 28 | Web Client & M2M Live Warm Acceptance Runner (Phase 8). |
 | `scripts/write_iexpress_sed.py` | Operations/tooling | 1 | — |
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
@@ -156,7 +155,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 48 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 51 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -264,7 +263,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 119 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 123 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -356,6 +355,7 @@
 | `tests/test_phase9c_device_sessions.py` | Python test | 4 | — |
 | `tests/test_phase9d_multi_client_acceptance.py` | Python test | 2 | — |
 | `tests/test_priority_scheduler.py` | Python test | 2 | — |
+| `tests/test_program_catalog_and_indexing.py` | Python test | 7 | Tests for Official Cultural Program Catalog (کاتالوگ سرفصل‌های برنامه‌های فرهنگی) |
 | `tests/test_project_memory_integrity.py` | Python test | 5 | — |
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_receipt_attempt_fence.py` | Python test | 4 | — |
@@ -429,7 +429,7 @@
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/components/JalaliDateTimePicker.tsx` | React UI | 7 | — |
-| `ui/src/components/JudicialUnitsManagementModal.tsx` | React UI | 8 | — |
+| `ui/src/components/JudicialUnitsManagementModal.tsx` | React UI | 10 | — |
 | `ui/src/components/LiaisonAuthorDialog.tsx` | React UI | 5 | — |
 | `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
 | `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
@@ -446,7 +446,7 @@
 | `ui/src/lib/avatarLoader.ts` | React UI | 7 | — |
 | `ui/src/lib/avatarQueue.mjs` | React UI | 2 | — |
 | `ui/src/lib/groupedMedia.ts` | React UI | 12 | — |
-| `ui/src/lib/indicators.ts` | React UI | 9 | — |
+| `ui/src/lib/indicators.ts` | React UI | 12 | — |
 | `ui/src/lib/messageMedia.ts` | React UI | 2 | — |
 | `ui/src/lib/polling.mjs` | React UI | 3 | — |
 | `ui/src/lib/scrollMath.ts` | React UI | 8 | — |

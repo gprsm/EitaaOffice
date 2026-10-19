@@ -157,6 +157,118 @@ _DEFAULT_MICRO_INDICATORS: list[tuple[str, str, str]] = [
     ("تولید کلیپ، موشن‌گرافی و پوستر", "رسانه", "#db2777"),
 ]
 
+# Canonical operational programs catalog with multi-year lifecycle and soft-deprecation support
+_CANONICAL_PROGRAM_CATALOG: list[dict[str, Any]] = [
+    {
+        "program_code": "80403",
+        "title": "برگزاری مراسم در مناسبت‌های ملی، مذهبی و انقلابی",
+        "canonical_macro": "برگزاری مراسم در مناسبت‌های ملی، مذهبی و انقلابی",
+        "kind": "ceremony",
+        "workbook_sheet": "مراسم  مذهبی",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 1,
+        "description": "برگزاری مراسم در مناسبت‌های مذهبی، ملی و انقلابی و بزرگداشت‌ها",
+    },
+    {
+        "program_code": "80501",
+        "title": "ترویج و توسعه فرهنگ اقامه نماز",
+        "canonical_macro": "ترویج و توسعه فرهنگ اقامه نماز",
+        "kind": "prayer",
+        "workbook_sheet": "ترویج و توسعه فرهنگ اقامه نماز",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 2,
+        "description": "اقامه نماز جماعت، تجهیز نمازخانه‌ها و مسابقات احکام و خادمیاری نماز",
+    },
+    {
+        "program_code": "80406",
+        "title": "تکریم و تجلیل از همکاران و خانواده",
+        "canonical_macro": "تکریم و تجلیل از همکاران و خانواده",
+        "kind": "honor",
+        "workbook_sheet": "تکریم و تجلیل",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 3,
+        "description": "تجلیل از همکاران ساعی، بازنشستگان، جانبازان و خانواده‌ها",
+    },
+    {
+        "program_code": "80402",
+        "title": "برگزاری مسابقات استانی فرهنگی، قرآنی و ورزشی",
+        "canonical_macro": "برگزاری مسابقات استانی فرهنگی، قرآنی و ورزشی",
+        "kind": "contest",
+        "workbook_sheet": "مسابقات",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 4,
+        "description": "مسابقات قرآن، کتابخوانی و مسابقات ورزشی کارکنان و فرزندان",
+    },
+    {
+        "program_code": "80401",
+        "title": "برگزاری اردوهای فرهنگی زیارتی برای کارکنان و خانواده",
+        "canonical_macro": "برگزاری اردوهای فرهنگی زیارتی برای کارکنان و خانواده",
+        "kind": "trip",
+        "workbook_sheet": "اردو",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 5,
+        "description": "اردوهای زیارتی مشهد، قم و بازدیدهای فرهنگی خانواده و پرسنل",
+    },
+    {
+        "program_code": "80601",
+        "title": "تشویق کارمندان و تکریم ارباب رجوع",
+        "canonical_macro": "تشویق کارمندان و تکریم ارباب رجوع",
+        "kind": "customer_care",
+        "workbook_sheet": "تشویق ارباب رجوع",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 6,
+        "description": "طرح‌های تکریم مراجعان، میز خدمت و تشویق کارکنان با بیشترین رضایت ارباب رجوع",
+    },
+    {
+        "program_code": "80202",
+        "title": "اجرای منشور اخلاقی و رفتار حرفه‌ای",
+        "canonical_macro": "اجرای منشور اخلاقی و رفتار حرفه‌ای",
+        "kind": "charter",
+        "workbook_sheet": "منشور",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 7,
+        "description": "نظارت بر اجرای منشور اخلاق و رفتار سازمانی و ارتقای سلامت اداری",
+    },
+    {
+        "program_code": "80301",
+        "title": "دوره‌های آموزشی، توانمندسازی و تولیدات فرهنگی",
+        "canonical_macro": "دوره‌های آموزشی، توانمندسازی و تولیدات فرهنگی",
+        "kind": "training",
+        "workbook_sheet": "آموزش",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 8,
+        "description": "کارگاه‌های مهارتی، اخلاقی، فرزندآوری و تولیدات رسانه‌ای و مکتوب",
+    },
+    {
+        "program_code": "00000",
+        "title": "غیر برنامه‌ای",
+        "canonical_macro": "غیر برنامه‌ای",
+        "kind": "non_programmatic",
+        "workbook_sheet": "",
+        "valid_from_year": 1403,
+        "valid_to_year": None,
+        "is_active": 1,
+        "display_order": 9,
+        "description": "فعالیت‌های فرهنگی آزاد خارج از شیت‌های هشت‌گانه مصوب",
+    },
+]
+
 
 class ReportingStore:
     """Thread-safe SQLite store for reporting entities and candidate workflows."""
@@ -418,6 +530,24 @@ class ReportingStore:
                     PRIMARY KEY (peer_key, message_id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_msg_splits_peer ON reporting_message_splits(peer_key);
+
+                -- Unified Operational Programs Catalog (multi-year lifecycle & soft-deprecation)
+                CREATE TABLE IF NOT EXISTS reporting_program_catalog (
+                    program_code TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    canonical_macro TEXT NOT NULL,
+                    kind TEXT NOT NULL DEFAULT 'custom',
+                    workbook_sheet TEXT NOT NULL DEFAULT '',
+                    valid_from_year INTEGER NOT NULL DEFAULT 1403,
+                    valid_to_year INTEGER,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    display_order INTEGER NOT NULL DEFAULT 0,
+                    description TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_program_catalog_active
+                    ON reporting_program_catalog(is_active, valid_from_year);
 
                 CREATE TABLE IF NOT EXISTS registry_imams (
                     imam_id TEXT PRIMARY KEY,
@@ -931,6 +1061,39 @@ class ReportingStore:
                         """,
                         (new_ind_id, ind_title, ind_cat, ind_clr, now_ind, now_ind),
                     )
+
+            # Self-healing seed for reporting_program_catalog
+            now_prog = _utc_now()
+            for prog in _CANONICAL_PROGRAM_CATALOG:
+                conn.execute(
+                    """
+                    INSERT INTO reporting_program_catalog (
+                        program_code, title, canonical_macro, kind, workbook_sheet,
+                        valid_from_year, valid_to_year, is_active, display_order,
+                        description, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(program_code) DO UPDATE SET
+                        canonical_macro = excluded.canonical_macro,
+                        kind = excluded.kind,
+                        workbook_sheet = excluded.workbook_sheet,
+                        display_order = excluded.display_order,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        prog["program_code"],
+                        prog["title"],
+                        prog["canonical_macro"],
+                        prog["kind"],
+                        prog["workbook_sheet"],
+                        prog["valid_from_year"],
+                        prog["valid_to_year"],
+                        prog["is_active"],
+                        prog["display_order"],
+                        prog["description"],
+                        now_prog,
+                        now_prog,
+                    ),
+                )
 
             # Self-healing seed (F-096): canonical mandates upsert on every
             # init so corrected titles/numbers/codes from the official
@@ -4567,10 +4730,127 @@ class ReportingStore:
             return [dict(row) for row in rows]
 
     # ----------------------------------------------------------------------
-    # Macro / Micro Indicators & Message Splits (F-125)
+    # Operational Program Catalog & Indicators (F-128)
     # ----------------------------------------------------------------------
-    def list_macro_indicators(self) -> list[str]:
-        """List canonical macro indicators (8 official programs + 1 non-programmatic)."""
+    def list_program_catalog(
+        self,
+        *,
+        year: int | None = None,
+        include_inactive: bool = False,
+    ) -> list[dict[str, Any]]:
+        """List operational program catalog items, optionally filtered by year and active status."""
+        with self._connect() as conn:
+            query = "SELECT * FROM reporting_program_catalog WHERE 1=1"
+            params: list[Any] = []
+            if not include_inactive:
+                query += " AND is_active = 1"
+            if year is not None:
+                query += " AND valid_from_year <= ? AND (valid_to_year IS NULL OR valid_to_year >= ?)"
+                params.extend([year, year])
+            query += " ORDER BY display_order ASC, program_code ASC"
+            rows = conn.execute(query, params).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_program_by_code(self, program_code: str, *, year: int | None = None) -> dict[str, Any] | None:
+        """Retrieve a program catalog row by program_code."""
+        clean_code = program_code.strip()
+        with self._connect() as conn:
+            query = "SELECT * FROM reporting_program_catalog WHERE program_code = ?"
+            params: list[Any] = [clean_code]
+            if year is not None:
+                query += " AND valid_from_year <= ? AND (valid_to_year IS NULL OR valid_to_year >= ?)"
+                params.extend([year, year])
+            row = conn.execute(query, params).fetchone()
+            return dict(row) if row else None
+
+    def save_program_catalog_item(
+        self,
+        program_code: str,
+        title: str,
+        canonical_macro: str = "",
+        kind: str = "custom",
+        workbook_sheet: str = "",
+        valid_from_year: int = 1403,
+        valid_to_year: int | None = None,
+        is_active: bool = True,
+        display_order: int = 0,
+        description: str = "",
+    ) -> dict[str, Any]:
+        """Create or update an operational program catalog entry."""
+        clean_code = program_code.strip()
+        clean_title = title.strip()
+        clean_macro = canonical_macro.strip() or clean_title
+        if not clean_code:
+            raise ValueError("کد برنامه نمی‌تواند خالی باشد.")
+        if not clean_title:
+            raise ValueError("عنوان برنامه نمی‌تواند خالی باشد.")
+        now = _utc_now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO reporting_program_catalog (
+                    program_code, title, canonical_macro, kind, workbook_sheet,
+                    valid_from_year, valid_to_year, is_active, display_order,
+                    description, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(program_code) DO UPDATE SET
+                    title = excluded.title,
+                    canonical_macro = excluded.canonical_macro,
+                    kind = excluded.kind,
+                    workbook_sheet = excluded.workbook_sheet,
+                    valid_from_year = excluded.valid_from_year,
+                    valid_to_year = excluded.valid_to_year,
+                    is_active = excluded.is_active,
+                    display_order = excluded.display_order,
+                    description = excluded.description,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    clean_code,
+                    clean_title,
+                    clean_macro,
+                    kind.strip() or "custom",
+                    workbook_sheet.strip(),
+                    valid_from_year,
+                    valid_to_year,
+                    1 if is_active else 0,
+                    display_order,
+                    description.strip(),
+                    now,
+                    now,
+                ),
+            )
+        return self.get_program_by_code(clean_code) or {}
+
+    def toggle_program_active(self, program_code: str, is_active: bool) -> dict[str, Any]:
+        """Soft-deprecate or re-activate an operational program code without corrupting historical data."""
+        clean_code = program_code.strip()
+        now = _utc_now()
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE reporting_program_catalog SET is_active = ?, updated_at = ? WHERE program_code = ?",
+                (1 if is_active else 0, now, clean_code),
+            )
+            if cur.rowcount == 0:
+                raise KeyError(f"برنامه‌ای با کد {clean_code} یافت نشد.")
+        return self.get_program_by_code(clean_code) or {}
+
+    def list_macro_indicators(self, *, year: int | None = None) -> list[str]:
+        """List active canonical macro indicators dynamically sourced from the program catalog."""
+        try:
+            programs = self.list_program_catalog(year=year, include_inactive=False)
+            if programs:
+                seen = set()
+                result = []
+                for p in programs:
+                    macro = (p.get("canonical_macro") or p.get("title") or "").strip()
+                    if macro and macro not in seen:
+                        seen.add(macro)
+                        result.append(macro)
+                if result:
+                    return result
+        except Exception:
+            pass
         return list(MACRO_INDICATORS)
 
     def list_micro_indicators(self) -> list[dict[str, Any]]:

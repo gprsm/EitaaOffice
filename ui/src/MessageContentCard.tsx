@@ -35,7 +35,7 @@ import { playableMediaKind } from './lib/messageMedia'
 import { stableMessageKey } from './lib/scrollMath'
 import type { DialogItem, IndexPrediction, MessageItem } from './lib/types'
 import { loadDialogAvatar, peekDialogAvatar } from './lib/avatarLoader'
-import type { MessageIndicatorData } from './lib/indicators'
+import { MACRO_INDICATORS, type MessageIndicatorData } from './lib/indicators'
 
 const MESSAGE_DATE_FORMATTER = new Intl.DateTimeFormat('fa-IR', {
   hour: '2-digit',
@@ -323,16 +323,53 @@ export function MessageContentCard({
     )
   )
   const imageKeys = images.map(item => stableMessageKey(dialog.peer_key, item.id)).join('|')
-  const indexPredictions = useMemo(() => {
-    const indexedByLabel = new Map<number, IndexPrediction>()
+  const autoSuggestedMacro = useMemo(() => {
+    if (currentMacro) return ''
     for (const item of members) {
-      for (const prediction of item.index_predictions || []) {
-        const current = indexedByLabel.get(prediction.label_id)
-        if (!current || prediction.score > current.score) indexedByLabel.set(prediction.label_id, prediction)
+      for (const pred of item.index_predictions || []) {
+        if (pred.label_name.includes('سال') || pred.label_name.includes('ماه') || pred.label_name.includes('مهر')) continue
+        for (const m of MACRO_INDICATORS) {
+          const cleanName = pred.label_name.replace(/ - کد \d+/, '').trim()
+          if (m.includes(cleanName) || cleanName.includes(m)) {
+            return m
+          }
+        }
       }
     }
-    return [...indexedByLabel.values()].sort((a, b) => b.score - a.score).slice(0, 5)
-  }, [members])
+    const combinedText = members.map(m => m.text || '').join(' ')
+    if (combinedText.includes('نماز') || combinedText.includes('بین الصلاتین') || combinedText.includes('نمازخانه')) {
+      return 'ترویج و توسعه فرهنگ اقامه نماز'
+    }
+    if (combinedText.includes('مراسم') || combinedText.includes('شهادت') || combinedText.includes('ولادت') || combinedText.includes('زیارت عاشورا') || combinedText.includes('موکب')) {
+      return 'برگزاری مراسم در مناسبت‌های ملی، مذهبی و انقلابی'
+    }
+    if (combinedText.includes('مسابقه') || combinedText.includes('قرآن') || combinedText.includes('ورزشی')) {
+      return 'برگزاری مسابقات استانی فرهنگی، قرآنی و ورزشی'
+    }
+    if (combinedText.includes('اردو') || combinedText.includes('سفر زیارتی')) {
+      return 'برگزاری اردوهای فرهنگی زیارتی برای کارکنان و خانواده'
+    }
+    if (combinedText.includes('تجلیل') || combinedText.includes('تکریم') || combinedText.includes('بازنشسته')) {
+      return 'تکریم و تجلیل از همکاران و خانواده'
+    }
+    if (combinedText.includes('ارباب رجوع') || combinedText.includes('میز خدمت')) {
+      return 'تشویق کارمندان و تکریم ارباب رجوع'
+    }
+    return ''
+  }, [members, currentMacro])
+
+  const autoSuggestedMicros = useMemo(() => {
+    if (currentMicros.length > 0) return []
+    const tags = new Set<string>()
+    for (const item of members) {
+      const text = item.text || ''
+      const matches = text.match(/#([\p{L}\p{N}_]{3,25})/gu) || []
+      for (const m of matches) {
+        tags.add(m.replace('#', '').replace(/_/g, ' ').trim())
+      }
+    }
+    return Array.from(tags).slice(0, 3)
+  }, [members, currentMicros])
 
   useEffect(() => {
     for (const item of images) {
@@ -479,33 +516,6 @@ export function MessageContentCard({
       </Box>
     })}
 
-    {indexPredictions.length > 0 && <CardContent sx={{ px: { xs: 1.25, sm: 1.75 }, py: 1, '&:last-child': { pb: 1 } }}>
-      <Stack direction="row" flexWrap="wrap" gap={0.5} aria-label="پیشنهادهای ایندکس محلی" alignItems="center">
-        {indexPredictions.map(prediction => (
-          <Stack key={prediction.label_id} direction="row" spacing={0.5} alignItems="center">
-            <Chip
-              size="small"
-              color={prediction.manual ? 'success' : 'secondary'}
-              variant="outlined"
-              title={`${Math.round(prediction.score * 100)}٪${prediction.evidence?.length ? ` — نشانه‌ها: ${prediction.evidence.join('، ')}` : ''}`}
-              label={`${prediction.label_name} · ${prediction.manual ? 'دستی' : `${Math.round(prediction.score * 100)}٪`}`}
-            />
-            {prediction.operator_name && (
-              <Tooltip title={`ثبت/اصلاح شده توسط: ${prediction.operator_name} (${prediction.operator_role === 'admin' ? 'مدیر' : 'کارمند'})${prediction.review_status === 'approved' ? ' (تایید مدیر)' : ''}`}>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  sx={{ height: 20, fontSize: '0.65rem', bgcolor: 'action.hover', borderStyle: 'dashed' }}
-                  label={`${prediction.operator_name}${prediction.review_status === 'approved' ? ' ✓' : ''}`}
-                />
-              </Tooltip>
-            )}
-          </Stack>
-        ))}
-        <IconButton aria-label="اصلاح ایندکس پیام" size="small" sx={{ ml: 0.5 }} onClick={event => { event.stopPropagation(); editIndex() }}><EditRounded fontSize="small" /></IconButton>
-      </Stack>
-    </CardContent>}
-
     {/* نوار شاخصه‌های کلی و جزئی و دکمه تفکیک پیام */}
     <Box
       sx={{
@@ -544,17 +554,22 @@ export function MessageContentCard({
           component="span"
           sx={{
             fontWeight: 700, // بولد مطابق خواسته کاربر
-            color: currentMacro ? 'primary.main' : 'text.secondary',
+            color: currentMacro ? 'primary.main' : autoSuggestedMacro ? 'primary.light' : 'text.secondary',
             fontSize: '0.78rem',
             cursor: 'pointer',
+            fontStyle: !currentMacro && autoSuggestedMacro ? 'italic' : 'normal',
           }}
           onClick={event => {
             event.stopPropagation()
-            onOpenMacroSelect?.(members.map(m => m.id), currentMacro)
+            onOpenMacroSelect?.(members.map(m => m.id), currentMacro || autoSuggestedMacro)
           }}
           title="شاخصه کلی (سرفصل برنامه‌ای)"
         >
-          {currentMacro ? `شاخصه کلی: ${currentMacro}` : 'شاخصه کلی (تعیین‌نشده)'}
+          {currentMacro
+            ? `شاخصه کلی: ${currentMacro}`
+            : autoSuggestedMacro
+            ? `شاخصه کلی (پیشنهادی): ${autoSuggestedMacro}`
+            : 'شاخصه کلی (تعیین‌نشده)'}
         </Typography>
         <Tooltip title="اصلاح شاخصه کلی">
           <IconButton
@@ -562,7 +577,7 @@ export function MessageContentCard({
             aria-label="اصلاح شاخصه کلی"
             onClick={event => {
               event.stopPropagation()
-              onOpenMacroSelect?.(members.map(m => m.id), currentMacro)
+              onOpenMacroSelect?.(members.map(m => m.id), currentMacro || autoSuggestedMacro)
             }}
             sx={{ p: 0.25 }}
           >
@@ -595,22 +610,46 @@ export function MessageContentCard({
         </Typography>
 
         {currentMicros.length === 0 ? (
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: 400,
-              color: 'text.disabled',
-              fontSize: '0.75rem',
-              fontStyle: 'italic',
-              cursor: 'pointer',
-            }}
-            onClick={event => {
-              event.stopPropagation()
-              onOpenMicroEdit?.(members.map(m => m.id), currentMicros)
-            }}
-          >
-            (تعیین‌نشده)
-          </Typography>
+          autoSuggestedMicros.length > 0 ? (
+            autoSuggestedMicros.map(micro => (
+              <Chip
+                key={micro}
+                label={`${micro} (پیشنهادی)`}
+                size="small"
+                variant="outlined"
+                color="secondary"
+                onClick={event => {
+                  event.stopPropagation()
+                  onOpenMicroEdit?.(members.map(m => m.id), autoSuggestedMicros)
+                }}
+                sx={{
+                  height: 22,
+                  fontSize: '0.68rem',
+                  fontWeight: 400,
+                  borderStyle: 'dashed',
+                  my: 0.25,
+                  cursor: 'pointer',
+                }}
+              />
+            ))
+          ) : (
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 400,
+                color: 'text.disabled',
+                fontSize: '0.75rem',
+                fontStyle: 'italic',
+                cursor: 'pointer',
+              }}
+              onClick={event => {
+                event.stopPropagation()
+                onOpenMicroEdit?.(members.map(m => m.id), currentMicros)
+              }}
+            >
+              (تعیین‌نشده)
+            </Typography>
+          )
         ) : (
           currentMicros.map(micro => (
             <Chip
@@ -641,7 +680,7 @@ export function MessageContentCard({
             aria-label="اصلاح شاخصه‌های جزئی"
             onClick={event => {
               event.stopPropagation()
-              onOpenMicroEdit?.(members.map(m => m.id), currentMicros)
+              onOpenMicroEdit?.(members.map(m => m.id), currentMicros.length > 0 ? currentMicros : autoSuggestedMicros)
             }}
             sx={{ p: 0.25 }}
           >
@@ -681,7 +720,7 @@ export function MessageContentCard({
         onClick={event => { event.stopPropagation(); openReportEvent(reportUsage.events[0].event_id) }}
         sx={{ minHeight: 28 }}
       />}
-      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, currentMacro, currentMicros) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
+      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, currentMacro || autoSuggestedMacro, currentMicros.length > 0 ? currentMicros : autoSuggestedMicros) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
       {anyUsed && <Button size="small" color={anyStale ? 'warning' : 'error'} variant="outlined" onClick={event => { event.stopPropagation(); openUsage() }} sx={{ minHeight: 28, py: 0 }}>{anyStale ? 'تغییرکرده' : allUsed ? 'وردپرس' : 'بخشی در وردپرس'}</Button>}
       {collapsible && <IconButton
         aria-label={expanded ? 'بستن ادامه پیام' : 'نمایش ادامه پیام'}

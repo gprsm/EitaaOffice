@@ -12,6 +12,21 @@ export const MACRO_INDICATORS: string[] = [
   'غیر برنامه‌ای',
 ]
 
+export type ProgramCatalogItem = {
+  program_code: string
+  title: string
+  canonical_macro: string
+  kind: string
+  workbook_sheet: string
+  valid_from_year: number
+  valid_to_year: number | null
+  is_active: number | boolean
+  display_order: number
+  description: string
+  created_at?: string
+  updated_at?: string
+}
+
 export type MicroIndicatorItem = {
   indicator_id: string
   title: string
@@ -39,6 +54,48 @@ export async function fetchMacroIndicators(): Promise<string[]> {
   } catch {
     return MACRO_INDICATORS
   }
+}
+
+export async function fetchProgramCatalog(params?: {
+  year?: number
+  include_inactive?: boolean
+}): Promise<ProgramCatalogItem[]> {
+  try {
+    const qs = new URLSearchParams()
+    if (params?.year) qs.set('year', String(params.year))
+    if (params?.include_inactive) qs.set('include_inactive', '1')
+    const queryStr = qs.toString() ? `?${qs.toString()}` : ''
+    const data = await api<{ ok: boolean; programs: ProgramCatalogItem[] }>(
+      'GET',
+      `/api/v3/reporting/catalog/programs${queryStr}`,
+    )
+    return Array.isArray(data.programs) ? data.programs : []
+  } catch {
+    return []
+  }
+}
+
+export async function saveProgramCatalogItem(
+  payload: Partial<ProgramCatalogItem>,
+): Promise<ProgramCatalogItem> {
+  const data = await api<{ ok: boolean; program: ProgramCatalogItem }>(
+    'POST',
+    '/api/v3/reporting/catalog/programs',
+    payload,
+  )
+  return data.program
+}
+
+export async function toggleProgramActive(
+  program_code: string,
+  is_active: boolean,
+): Promise<ProgramCatalogItem> {
+  const data = await api<{ ok: boolean; program: ProgramCatalogItem }>(
+    'POST',
+    '/api/v3/reporting/catalog/programs/toggle-active',
+    { program_code, is_active },
+  )
+  return data.program
 }
 
 export async function fetchMicroIndicators(): Promise<MicroIndicatorItem[]> {

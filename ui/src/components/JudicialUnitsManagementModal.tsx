@@ -29,6 +29,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Switch,
+  FormControlLabel,
 } from '@mui/material'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
@@ -40,7 +42,14 @@ import PersonRounded from '@mui/icons-material/PersonRounded'
 import RefreshRounded from '@mui/icons-material/RefreshRounded'
 import BarChartRounded from '@mui/icons-material/BarChartRounded'
 import ContactPhoneRounded from '@mui/icons-material/ContactPhoneRounded'
+import MenuBookRounded from '@mui/icons-material/MenuBookRounded'
 import { api } from '../lib/api'
+import {
+  type ProgramCatalogItem,
+  fetchProgramCatalog,
+  saveProgramCatalogItem,
+  toggleProgramActive,
+} from '../lib/indicators'
 import { LiaisonAuthorDialog } from './LiaisonAuthorDialog'
 
 export interface JudicialUnitItem {
@@ -96,11 +105,14 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
   const [units, setUnits] = useState<JudicialUnitItem[]>([])
   const [counties, setCounties] = useState<string[]>([])
   const [liaisons, setLiaisons] = useState<LiaisonItem[]>([])
+  const [programs, setPrograms] = useState<ProgramCatalogItem[]>([])
 
   // Filters
   const [unitSearch, setUnitSearch] = useState('')
   const [unitCountyFilter, setUnitCountyFilter] = useState('')
   const [liaisonSearch, setLiaisonSearch] = useState('')
+  const [programSearch, setProgramSearch] = useState('')
+  const [programActiveFilter, setProgramActiveFilter] = useState<'all' | 'active' | 'inactive'>('all')
 
   // Edit / Add Unit Dialog
   const [unitModalOpen, setUnitModalOpen] = useState(false)
@@ -110,6 +122,11 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
   const [liaisonModalOpen, setLiaisonModalOpen] = useState(false)
   const [editingLiaison, setEditingLiaison] = useState<Partial<LiaisonItem> | null>(null)
   const [selectedLiaisonForProfile, setSelectedLiaisonForProfile] = useState<LiaisonItem | null>(null)
+
+  // Edit / Add Program Catalog Item Dialog
+  const [programModalOpen, setProgramModalOpen] = useState(false)
+  const [editingProgram, setEditingProgram] = useState<Partial<ProgramCatalogItem> | null>(null)
+  const [savingProgram, setSavingProgram] = useState(false)
 
   // Contact sync states
   const [syncingAll, setSyncingAll] = useState(false)
@@ -180,6 +197,9 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
 
       const liaisonsRes = await api<{ liaisons: LiaisonItem[] }>('GET', '/api/v3/reporting/liaisons')
       setLiaisons(liaisonsRes.liaisons || [])
+
+      const catalogRes = await fetchProgramCatalog({ include_inactive: true })
+      setPrograms(catalogRes)
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'خطا در بارگذاری اطلاعات')
     } finally {
@@ -210,6 +230,75 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
       return !liaisonSearch || text.includes(liaisonSearch.trim().toLowerCase())
     })
   }, [liaisons, liaisonSearch])
+
+  // Filtered Programs
+  const filteredPrograms = useMemo(() => {
+    return programs.filter(p => {
+      if (programActiveFilter === 'active' && !p.is_active) return false
+      if (programActiveFilter === 'inactive' && p.is_active) return false
+      if (!programSearch.trim()) return true
+      const term = programSearch.trim().toLowerCase()
+      return (
+        p.program_code.toLowerCase().includes(term) ||
+        p.title.toLowerCase().includes(term) ||
+        (p.canonical_macro && p.canonical_macro.toLowerCase().includes(term)) ||
+        (p.workbook_sheet && p.workbook_sheet.toLowerCase().includes(term))
+      )
+    })
+  }, [programs, programActiveFilter, programSearch])
+
+  // Handle Toggle Program Active (Soft-Deprecation)
+  const handleToggleProgramActive = async (p: ProgramCatalogItem) => {
+    try {
+      const newActive = !p.is_active
+      await toggleProgramActive(p.program_code, newActive)
+      setSuccessText(
+        newActive
+          ? `سرفصل برنامه «${p.title} (${p.program_code})» مجدداً فعال شد.`
+          : `سرفصل برنامه «${p.title} (${p.program_code})» بدون حذف سوابق گذشته، از چرخه عملیاتی جاری خارج و بایگانی شد.`
+      )
+      await loadData()
+      onDataChanged?.()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در تغییر وضعیت برنامه')
+    }
+  }
+
+  // Handle Save Program Catalog Item
+  const handleSaveProgram = async () => {
+    if (!editingProgram) return
+    const code = (editingProgram.program_code || '').trim()
+    const title = (editingProgram.title || '').trim()
+    if (!code || !title) {
+      setErrorText('کد برنامه و عنوان برنامه الزامی هستند.')
+      return
+    }
+    setSavingProgram(true)
+    setErrorText('')
+    try {
+      await saveProgramCatalogItem({
+        program_code: code,
+        title,
+        canonical_macro: (editingProgram.canonical_macro || title).trim(),
+        kind: editingProgram.kind || 'operational',
+        workbook_sheet: (editingProgram.workbook_sheet || '').trim(),
+        valid_from_year: Number(editingProgram.valid_from_year) || 1404,
+        valid_to_year: editingProgram.valid_to_year ? Number(editingProgram.valid_to_year) : undefined,
+        is_active: editingProgram.is_active !== false,
+        display_order: Number(editingProgram.display_order) || 100,
+        description: (editingProgram.description || '').trim(),
+      })
+      setSuccessText(`برنامه عملیاتی «${title} (${code})» با موفقیت ذخیره شد.`)
+      setProgramModalOpen(false)
+      setEditingProgram(null)
+      await loadData()
+      onDataChanged?.()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ذخیره برنامه در کاتالوگ')
+    } finally {
+      setSavingProgram(false)
+    }
+  }
 
   // Handle Save Unit
   const handleSaveUnit = async () => {
@@ -319,7 +408,7 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
           <Stack direction="row" spacing={1.5} alignItems="center">
             <AccountBalanceRounded color="primary" />
             <Typography variant="h6" fontWeight={800}>
-              مدیریت حوزه‌های قضایی، شهرستان‌ها و رابطین فرهنگی
+              مدیریت حوزه‌های قضایی، رابطین و سرفصل‌های برنامه‌ها
             </Typography>
           </Stack>
           <IconButton onClick={onClose} aria-label="بستن"><CloseRounded /></IconButton>
@@ -338,6 +427,11 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
               icon={<PersonRounded sx={{ mr: 1, verticalAlign: 'middle' }} />}
               iconPosition="start"
               label={`رابطین فرهنگی (${liaisons.length})`}
+            />
+            <Tab
+              icon={<MenuBookRounded sx={{ mr: 1, verticalAlign: 'middle' }} />}
+              iconPosition="start"
+              label={`کاتالوگ و سرفصل‌های برنامه‌ها (${programs.length})`}
             />
           </Tabs>
         </Box>
@@ -622,6 +716,167 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
               )}
             </Stack>
           )}
+
+          {/* TAB 2: PROGRAM CATALOG */}
+          {tab === 2 && (
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+                <Stack direction="row" spacing={2} sx={{ flex: 1, width: { xs: '100%', sm: 'auto' } }}>
+                  <TextField
+                    size="small"
+                    placeholder="جستجو در کد، عنوان، شاخصه کلی یا برگه اکسل..."
+                    value={programSearch}
+                    onChange={e => setProgramSearch(e.target.value)}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment>,
+                    }}
+                    sx={{ flex: 1 }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <Select
+                      value={programActiveFilter}
+                      onChange={e => setProgramActiveFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                    >
+                      <MenuItem value="all">همه برنامه‌ها</MenuItem>
+                      <MenuItem value="active">فقط برنامه‌های فعال</MenuItem>
+                      <MenuItem value="inactive">بایگانی شده / غیرفعال</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<RefreshRounded />}
+                    onClick={loadData}
+                    disabled={loading}
+                  >
+                    تازه‌سازی
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddRounded />}
+                    onClick={() => {
+                      setEditingProgram({
+                        program_code: '',
+                        title: '',
+                        canonical_macro: '',
+                        kind: 'operational',
+                        workbook_sheet: '',
+                        valid_from_year: 1404,
+                        is_active: true,
+                        display_order: (programs.length + 1) * 10,
+                        description: '',
+                      })
+                      setProgramModalOpen(true)
+                    }}
+                  >
+                    تعریف برنامه جدید
+                  </Button>
+                </Stack>
+              </Stack>
+
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+              ) : (
+                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 440 }}>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 800 }}>کد برنامه</TableCell>
+                        <TableCell sx={{ fontWeight: 800 }}>عنوان سرفصل برنامه</TableCell>
+                        <TableCell sx={{ fontWeight: 800 }}>شاخصه کلی متناظر</TableCell>
+                        <TableCell sx={{ fontWeight: 800 }}>برگه کارنامه اکسل</TableCell>
+                        <TableCell sx={{ fontWeight: 800 }}>دوره اعتبار</TableCell>
+                        <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>وضعیت عملیاتی</TableCell>
+                        <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>عملیات</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredPrograms.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                            برنامه‌ای با این مشخصات یافت نشد.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredPrograms.map(p => (
+                          <TableRow key={p.program_code} hover sx={{ opacity: p.is_active ? 1 : 0.65 }}>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                label={p.program_code}
+                                color={p.program_code === '00000' ? 'default' : 'primary'}
+                                variant={p.is_active ? 'filled' : 'outlined'}
+                                sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                              />
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: 700 }}>
+                              {p.title}
+                              {p.description && (
+                                <Typography variant="caption" display="block" color="text.secondary">
+                                  {p.description}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                              {p.canonical_macro || '—'}
+                            </TableCell>
+                            <TableCell>
+                              {p.workbook_sheet ? (
+                                <Chip size="small" label={p.workbook_sheet} variant="outlined" />
+                              ) : (
+                                '—'
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.85rem' }}>
+                              {p.valid_to_year
+                                ? `${p.valid_from_year} تا ${p.valid_to_year}`
+                                : `از ${p.valid_from_year} (جاری)`}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Tooltip
+                                title={
+                                  p.is_active
+                                    ? 'برنامه فعال است (جهت خروج از رده و بایگانی بدون حذف کلیک کنید)'
+                                    : 'برنامه غیرفعال / بایگانی شده (جهت فعال‌سازی مجدد کلیک کنید)'
+                                }
+                              >
+                                <FormControlLabel
+                                  control={
+                                    <Switch
+                                      checked={Boolean(p.is_active)}
+                                      onChange={() => handleToggleProgramActive(p)}
+                                      color="success"
+                                      size="small"
+                                    />
+                                  }
+                                  label={Boolean(p.is_active) ? 'فعال' : 'بایگانی'}
+                                  sx={{ m: 0 }}
+                                />
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="ویرایش اطلاعات برنامه">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => {
+                                    setEditingProgram({ ...p })
+                                    setProgramModalOpen(true)
+                                  }}
+                                >
+                                  <EditRounded fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Stack>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
@@ -852,6 +1107,104 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
           onLiaisonUpdated={loadData}
         />
       )}
+
+      {/* MODAL: ADD / EDIT PROGRAM CATALOG ITEM */}
+      <Dialog open={programModalOpen} onClose={() => setProgramModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {editingProgram?.program_code && programs.some(p => p.program_code === editingProgram.program_code)
+            ? `ویرایش برنامه عملیاتی: ${editingProgram.program_code}`
+            : 'تعریف سرفصل برنامه عملیاتی جدید'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2.5} sx={{ pt: 1 }}>
+            <TextField
+              label="کد رسمی برنامه (۵ رقمی)"
+              value={editingProgram?.program_code || ''}
+              onChange={e => setEditingProgram(prev => ({ ...prev, program_code: e.target.value.trim() }))}
+              placeholder="مثال: 80501 یا 80701"
+              required
+              fullWidth
+              dir="ltr"
+              disabled={Boolean(
+                editingProgram?.program_code &&
+                programs.some(p => p.program_code === editingProgram?.program_code)
+              )}
+              helperText="کد برنامه شناسه یکتای آماری است و پس از ثبت نباید تغییر کند؛ در صورت تغییر کد در سال جدید، کد جدید تعریف شده و کد قدیم بایگانی می‌شود."
+            />
+
+            <TextField
+              label="عنوان رسمی برنامه"
+              value={editingProgram?.title || ''}
+              onChange={e => setEditingProgram(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="مثال: ترویج و توسعه فرهنگ اقامه نماز"
+              required
+              fullWidth
+            />
+
+            <TextField
+              label="شاخصه کلی متناظر"
+              value={editingProgram?.canonical_macro || ''}
+              onChange={e => setEditingProgram(prev => ({ ...prev, canonical_macro: e.target.value }))}
+              placeholder="شاخصه‌ای که در پیام‌ها و فرم‌ها نمایش داده می‌شود"
+              helperText="در صورتی که خالی باشد، عنوان برنامه به عنوان شاخصه کلی در نظر گرفته می‌شود"
+              fullWidth
+            />
+
+            <TextField
+              label="نام برگه اکسل در کارنامه فرهنگی (اختیاری)"
+              value={editingProgram?.workbook_sheet || ''}
+              onChange={e => setEditingProgram(prev => ({ ...prev, workbook_sheet: e.target.value }))}
+              placeholder="مثال: نماز، مراسمات، مسابقات..."
+              fullWidth
+            />
+
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="شروع اعتبار از سال"
+                type="number"
+                value={editingProgram?.valid_from_year || 1404}
+                onChange={e => setEditingProgram(prev => ({ ...prev, valid_from_year: parseInt(e.target.value, 10) || 1404 }))}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="پایان اعتبار تا سال (اختیاری)"
+                type="number"
+                value={editingProgram?.valid_to_year || ''}
+                onChange={e => setEditingProgram(prev => ({ ...prev, valid_to_year: e.target.value ? parseInt(e.target.value, 10) : undefined }))}
+                placeholder="خالی = تا اطلاع ثانوی"
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editingProgram?.is_active !== false}
+                  onChange={e => setEditingProgram(prev => ({ ...prev, is_active: e.target.checked }))}
+                  color="success"
+                />
+              }
+              label={editingProgram?.is_active !== false ? 'برنامه فعال است و در فرم‌های ثبت گزارش نمایش داده می‌شود' : 'برنامه غیرفعال / بایگانی شده است (فقط برای سوابق تاریخی حفظ می‌شود)'}
+            />
+
+            <TextField
+              label="توضیحات و مصادیق اجرایی"
+              value={editingProgram?.description || ''}
+              onChange={e => setEditingProgram(prev => ({ ...prev, description: e.target.value }))}
+              multiline
+              rows={2}
+              fullWidth
+              placeholder="توضیحات اختیاری درباره دامنه فعالیت‌های مشمول این برنامه"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setProgramModalOpen(false)}>انصراف</Button>
+          <Button onClick={handleSaveProgram} variant="contained" color="primary" disabled={savingProgram}>
+            {savingProgram ? <CircularProgress size={20} color="inherit" /> : 'ذخیره برنامه'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

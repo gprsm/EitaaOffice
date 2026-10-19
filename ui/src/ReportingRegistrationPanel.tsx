@@ -28,9 +28,15 @@ import { jalaliDayKey, jalaliDayLabel, parseJalaliDate } from './utils/helpers'
 import { JalaliDateTimePicker } from './components/JalaliDateTimePicker'
 import { JudicialUnitsManagementModal, JudicialUnitItem, LiaisonItem } from './components/JudicialUnitsManagementModal'
 import { useAppUser } from './AppUserGate'
-import { authorLabel } from './MessageContentCard'
 import type { DialogItem, MessageItem } from './lib/types'
-import { MACRO_INDICATORS, type MicroIndicatorItem, fetchMicroIndicators } from './lib/indicators'
+import { authorLabel } from './MessageContentCard'
+import {
+  MACRO_INDICATORS,
+  type MicroIndicatorItem,
+  type ProgramCatalogItem,
+  fetchMicroIndicators,
+  fetchProgramCatalog,
+} from './lib/indicators'
 
 const PROGRAM_KINDS = [
   { value: 'trip', label: 'بازدید و سفر' },
@@ -295,6 +301,7 @@ export function ReportingRegistrationPanel(props: {
   const [confirmClose, setConfirmClose] = useState(false)
   const [errorText, setErrorText] = useState('')
   const [judicialUnits, setJudicialUnits] = useState<JudicialUnitItem[]>([])
+  const [programCatalog, setProgramCatalog] = useState<ProgramCatalogItem[]>([])
   const [unitsModalOpen, setUnitsModalOpen] = useState(false)
   const dirtyRef = useRef(false)
 
@@ -311,6 +318,11 @@ export function ReportingRegistrationPanel(props: {
 
   useEffect(() => {
     loadJudicialUnits()
+    void fetchProgramCatalog({ include_inactive: false }).then(progs => {
+      if (progs && progs.length > 0) {
+        setProgramCatalog(progs)
+      }
+    })
   }, [loadJudicialUnits])
 
   // Resolve liaison and unit from backend registry automatically
@@ -557,14 +569,21 @@ export function ReportingRegistrationPanel(props: {
               select
               label="شاخصه کلی (سرفصل برنامه فرهنگی)"
               value={draft.macroIndicator || ''}
-              onChange={event => update({ macroIndicator: event.target.value })}
+              onChange={event => {
+                const val = event.target.value
+                const matchedProg = programCatalog.find(p => (p.canonical_macro || p.title) === val)
+                update({
+                  macroIndicator: val,
+                  programKinds: matchedProg ? [matchedProg.kind] : draft.programKinds,
+                })
+              }}
               fullWidth
               helperText="انتخاب از بین ۸ برنامه مصوب یا عنوان «غیر برنامه‌ای»"
             >
               <MenuItem value="">
                 <em>(تعیین‌نشده)</em>
               </MenuItem>
-              {MACRO_INDICATORS.map(ind => (
+              {(programCatalog.length > 0 ? Array.from(new Set(programCatalog.map(p => p.canonical_macro || p.title))) : MACRO_INDICATORS).map(ind => (
                 <MenuItem key={ind} value={ind} sx={{ fontWeight: 600 }}>
                   {ind}
                 </MenuItem>
@@ -685,12 +704,44 @@ export function ReportingRegistrationPanel(props: {
 
       {step === 1 && <Stack spacing={2} sx={{ maxWidth: 720, mx: 'auto' }}>
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>برنامههای مرتبط (حداقل یکی)</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>برنامه‌های مصوب مرتبط (حداقل یکی)</Typography>
           <Stack direction="row" flexWrap="wrap" gap={0.75}>
-            {PROGRAM_KINDS.map(kind => {
-              const selected = draft.programKinds.includes(kind.value)
-              return <Chip key={kind.value} label={kind.label} color={selected ? 'primary' : 'default'} variant={selected ? 'filled' : 'outlined'} onClick={() => update({ programKinds: selected ? draft.programKinds.filter(v => v !== kind.value) : [...draft.programKinds, kind.value] })} />
-            })}
+            {programCatalog.length > 0 ? (
+              programCatalog.map(prog => {
+                const selected = draft.programKinds.includes(prog.kind) || draft.programKinds.includes(prog.program_code)
+                return (
+                  <Chip
+                    key={prog.program_code}
+                    label={`${prog.program_code} · ${prog.title}`}
+                    color={selected ? 'primary' : 'default'}
+                    variant={selected ? 'filled' : 'outlined'}
+                    onClick={() => {
+                      const newKinds = selected
+                        ? draft.programKinds.filter(v => v !== prog.kind && v !== prog.program_code)
+                        : [...draft.programKinds, prog.kind]
+                      update({
+                        programKinds: newKinds,
+                        macroIndicator: !selected && !draft.macroIndicator ? (prog.canonical_macro || prog.title) : draft.macroIndicator,
+                      })
+                    }}
+                    sx={{ fontWeight: selected ? 700 : 400 }}
+                  />
+                )
+              })
+            ) : (
+              PROGRAM_KINDS.map(kind => {
+                const selected = draft.programKinds.includes(kind.value)
+                return (
+                  <Chip
+                    key={kind.value}
+                    label={kind.label}
+                    color={selected ? 'primary' : 'default'}
+                    variant={selected ? 'filled' : 'outlined'}
+                    onClick={() => update({ programKinds: selected ? draft.programKinds.filter(v => v !== kind.value) : [...draft.programKinds, kind.value] })}
+                  />
+                )
+              })
+            )}
           </Stack>
         </Box>
         <Divider />
