@@ -13,8 +13,6 @@ import {
   InputAdornment,
   List,
   ListItem,
-  ListItemSecondaryAction,
-  ListItemText,
   Stack,
   TextField,
   Tooltip,
@@ -249,85 +247,117 @@ export function MicroIndicatorsManagementModal({
               return (
                 <ListItem
                   key={item.indicator_id}
+                  disableGutters
                   sx={{
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: 1.5,
                     mb: 1,
-                    p: 1.5,
+                    px: 2,
+                    py: 1.25,
                     bgcolor: isEditing ? 'action.selected' : 'background.paper',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    boxSizing: 'border-box',
                   }}
                 >
                   {isEditing ? (
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%', pr: 10 }}>
-                      <TextField
-                        size="small"
-                        value={editTitle}
-                        onChange={e => setEditTitle(e.target.value)}
-                        disabled={updating}
-                        sx={{ flex: 2 }}
-                      />
-                      <TextField
-                        size="small"
-                        placeholder="دسته‌بندی"
-                        value={editCategory}
-                        onChange={e => setEditCategory(e.target.value)}
-                        disabled={updating}
-                        sx={{ flex: 1 }}
-                      />
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleSaveEdit(item.indicator_id)}
-                        disabled={updating || !editTitle.trim()}
-                      >
-                        <CheckRounded fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => setEditingId(null)} disabled={updating}>
-                        <CloseRounded fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  ) : (
-                    <>
-                      <ListItemText
-                        primary={
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <Typography variant="body2" fontWeight={600}>
-                              {item.title}
-                            </Typography>
-                            {item.category && (
-                              <Chip
-                                size="small"
-                                label={item.category}
-                                variant="outlined"
-                                sx={{ height: 20, fontSize: '0.65rem' }}
-                              />
-                            )}
-                            <Typography variant="caption" color="text.secondary">
-                              (کاربرد: {item.usage_count || 0})
-                            </Typography>
-                          </Stack>
-                        }
-                      />
-                      <ListItemSecondaryAction sx={{ left: 16, right: 'auto' }}>
-                        <Stack direction="row" spacing={0.5}>
-                          <Tooltip title="ویرایش">
-                            <IconButton size="small" onClick={() => handleStartEdit(item)}>
-                              <EditRounded fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="حذف">
+                    <Stack
+                      direction="row"
+                      spacing={1.5}
+                      alignItems="center"
+                      justifyContent="space-between"
+                      sx={{ width: '100%' }}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                        <TextField
+                          size="small"
+                          value={editTitle}
+                          onChange={e => setEditTitle(e.target.value)}
+                          disabled={updating}
+                          placeholder="عنوان شاخصه"
+                          sx={{ flex: 2 }}
+                        />
+                        <TextField
+                          size="small"
+                          placeholder="دسته‌بندی اختیاری"
+                          value={editCategory}
+                          onChange={e => setEditCategory(e.target.value)}
+                          disabled={updating}
+                          sx={{ flex: 1 }}
+                        />
+                      </Stack>
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+                        <Tooltip title="ذخیره">
+                          <span>
                             <IconButton
                               size="small"
-                              color="error"
-                              onClick={() => handleDelete(item.indicator_id)}
+                              color="primary"
+                              onClick={() => handleSaveEdit(item.indicator_id)}
+                              disabled={updating || !editTitle.trim()}
                             >
-                              <DeleteRounded fontSize="small" />
+                              <CheckRounded fontSize="small" />
                             </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </ListItemSecondaryAction>
-                    </>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="انصراف">
+                          <IconButton size="small" onClick={() => setEditingId(null)} disabled={updating}>
+                            <CloseRounded fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Stack>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                      }}
+                    >
+                      {/* Right side in RTL: Title, Category, Usage */}
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0, mr: 2 }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+                          {item.title}
+                        </Typography>
+                        {item.category && (
+                          <Chip
+                            size="small"
+                            label={item.category}
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: '0.7rem', flexShrink: 0 }}
+                          />
+                        )}
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                          (کاربرد: {item.usage_count || 0})
+                        </Typography>
+                      </Stack>
+
+                      {/* Left side in RTL: Action buttons (Edit & Delete) */}
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+                        <Tooltip title="ویرایش">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleStartEdit(item)}
+                            sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                          >
+                            <EditRounded fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="حذف">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(item.indicator_id)}
+                          >
+                            <DeleteRounded fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Box>
                   )}
                 </ListItem>
               )

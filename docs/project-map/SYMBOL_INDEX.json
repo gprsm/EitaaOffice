@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "4ab84bf1dda52afc",
+  "source_fingerprint": "cc594c70fccbe36b",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -297,6 +297,18 @@
           "name": "run_visual_audit",
           "kind": "async function",
           "line": 132
+        }
+      ]
+    },
+    {
+      "path": "scripts/check_cdp.py",
+      "role": "Operations/tooling",
+      "summary": "",
+      "symbols": [
+        {
+          "name": "check",
+          "kind": "async function",
+          "line": 14
         }
       ]
     },
@@ -28009,262 +28021,262 @@
         {
           "name": "handleSaveMicros",
           "kind": "script symbol",
-          "line": 530
+          "line": 531
         },
         {
           "name": "update",
           "kind": "script symbol",
-          "line": 697
+          "line": 698
         },
         {
           "name": "closeTransientPanels",
           "kind": "script symbol",
-          "line": 706
+          "line": 707
         },
         {
           "name": "preload",
           "kind": "script symbol",
-          "line": 716
+          "line": 717
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 1066
+          "line": 1067
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 1295
+          "line": 1296
         },
         {
           "name": "applyUsage",
           "kind": "script symbol",
-          "line": 1437
+          "line": 1438
         },
         {
           "name": "toggleFavorite",
           "kind": "script symbol",
-          "line": 2198
+          "line": 2199
         },
         {
           "name": "setDisplayKind",
           "kind": "script symbol",
-          "line": 2211
+          "line": 2212
         },
         {
           "name": "toggleMessage",
           "kind": "script symbol",
-          "line": 2218
+          "line": 2219
         },
         {
           "name": "clearSelection",
           "kind": "script symbol",
-          "line": 2234
+          "line": 2235
         },
         {
           "name": "logout",
           "kind": "script symbol",
-          "line": 2243
+          "line": 2244
         },
         {
           "name": "logoutSoftware",
           "kind": "script symbol",
-          "line": 2248
+          "line": 2249
         },
         {
           "name": "VirtualMessageList",
           "kind": "script symbol",
-          "line": 2607
+          "line": 2608
         },
         {
           "name": "markInteraction",
           "kind": "script symbol",
-          "line": 2758
+          "line": 2759
         },
         {
           "name": "processScroll",
           "kind": "script symbol",
-          "line": 2759
+          "line": 2760
         },
         {
           "name": "onScroll",
           "kind": "script symbol",
-          "line": 2792
+          "line": 2793
         },
         {
           "name": "Composer",
           "kind": "script symbol",
-          "line": 2994
+          "line": 2995
         },
         {
           "name": "reset",
           "kind": "script symbol",
-          "line": 3025
+          "line": 3026
         },
         {
           "name": "buildSources",
           "kind": "script symbol",
-          "line": 3030
+          "line": 3031
         },
         {
           "name": "composition",
           "kind": "script symbol",
-          "line": 3042
+          "line": 3043
         },
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 3044
+          "line": 3045
         },
         {
           "name": "move",
           "kind": "script symbol",
-          "line": 3073
+          "line": 3074
         },
         {
           "name": "appendSelectedToEdit",
           "kind": "script symbol",
-          "line": 3078
+          "line": 3079
         },
         {
           "name": "loadHistory",
           "kind": "script symbol",
-          "line": 3091
+          "line": 3092
         },
         {
           "name": "chooseTag",
           "kind": "script symbol",
-          "line": 3107
+          "line": 3108
         },
         {
           "name": "createTag",
           "kind": "script symbol",
-          "line": 3112
+          "line": 3113
         },
         {
           "name": "ManualDialogModal",
           "kind": "script symbol",
-          "line": 3206
+          "line": 3207
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 3218
+          "line": 3219
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 3221
+          "line": 3222
         },
         {
           "name": "CommunityMembersModal",
           "kind": "script symbol",
-          "line": 3271
+          "line": 3272
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 3312
+          "line": 3313
         },
         {
           "name": "mergeMembers",
           "kind": "script symbol",
-          "line": 3350
+          "line": 3351
         },
         {
           "name": "loadAllMembers",
           "kind": "script symbol",
-          "line": 3386
+          "line": 3387
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 3425
+          "line": 3426
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 3453
+          "line": 3454
         },
         {
           "name": "syncRemote",
           "kind": "script symbol",
-          "line": 3457
+          "line": 3458
         },
         {
           "name": "toggleAll",
           "kind": "script symbol",
-          "line": 3490
+          "line": 3491
         },
         {
           "name": "startContactImport",
           "kind": "script symbol",
-          "line": 3538
+          "line": 3539
         },
         {
           "name": "runMemberMutation",
           "kind": "script symbol",
-          "line": 3554
+          "line": 3555
         },
         {
           "name": "BulkOperationsModal",
           "kind": "script symbol",
-          "line": 3628
+          "line": 3629
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 3654
+          "line": 3655
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 3657
+          "line": 3658
         },
         {
           "name": "chooseMedia",
           "kind": "script symbol",
-          "line": 3671
+          "line": 3672
         },
         {
           "name": "choosePhoneFile",
           "kind": "script symbol",
-          "line": 3676
+          "line": 3677
         },
         {
           "name": "messagePayload",
           "kind": "script symbol",
-          "line": 3680
+          "line": 3681
         },
         {
           "name": "ensurePhoneList",
           "kind": "script symbol",
-          "line": 3693
+          "line": 3694
         },
         {
           "name": "prepare",
           "kind": "script symbol",
-          "line": 3710
+          "line": 3711
         },
         {
           "name": "loadJobReport",
           "kind": "script symbol",
-          "line": 3749
+          "line": 3750
         },
         {
           "name": "loadFailures",
           "kind": "script symbol",
-          "line": 3755
+          "line": 3756
         },
         {
           "name": "controlJob",
           "kind": "script symbol",
-          "line": 3761
+          "line": 3762
         },
         {
           "name": "execute",
           "kind": "script symbol",
-          "line": 3779
+          "line": 3780
         }
       ]
     },
@@ -28838,32 +28850,32 @@
         {
           "name": "MicroIndicatorsManagementModal",
           "kind": "script symbol",
-          "line": 43
+          "line": 41
         },
         {
           "name": "loadData",
           "kind": "script symbol",
-          "line": 64
+          "line": 62
         },
         {
           "name": "handleAdd",
           "kind": "script symbol",
-          "line": 85
+          "line": 83
         },
         {
           "name": "handleStartEdit",
           "kind": "script symbol",
-          "line": 106
+          "line": 104
         },
         {
           "name": "handleSaveEdit",
           "kind": "script symbol",
-          "line": 112
+          "line": 110
         },
         {
           "name": "handleDelete",
           "kind": "script symbol",
-          "line": 132
+          "line": 130
         }
       ]
     },
@@ -29699,7 +29711,7 @@
         {
           "name": "handleCardClick",
           "kind": "script symbol",
-          "line": 379
+          "line": 381
         }
       ]
     },

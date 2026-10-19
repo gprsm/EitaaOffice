@@ -500,6 +500,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
 
   const handleSaveMacro = async (macro: string) => {
     if (!dialog?.peer_key || !macroSelectState.messageIds.length) return
+    const targetMacro = (macro === 'none' || !macro) ? 'none' : macro
     try {
       const existingMicros = macroSelectState.messageIds.flatMap(
         mid => messageIndicatorsMap[String(mid)]?.micro_indicators || []
@@ -508,21 +509,21 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       await assignMessageIndicators({
         peer_key: dialog.peer_key,
         message_ids: macroSelectState.messageIds,
-        macro_indicator: macro,
+        macro_indicator: targetMacro,
         micro_indicators: uniqueMicros,
       })
       setMessageIndicatorsMap(prev => {
         const next = { ...prev }
         for (const mid of macroSelectState.messageIds) {
           next[String(mid)] = {
-            macro_indicator: macro,
+            macro_indicator: targetMacro,
             micro_indicators: uniqueMicros,
             updated_at: new Date().toISOString(),
           }
         }
         return next
       })
-      toast.success('شاخصه کلی با موفقیت ثبت شد.')
+      toast.success(targetMacro === 'none' ? 'شاخصه کلی لغو شد (فاقد شاخصه).' : 'شاخصه کلی با موفقیت ثبت شد.')
     } catch (err: any) {
       toast.error(err.message || 'خطا در ثبت شاخصه کلی')
     }

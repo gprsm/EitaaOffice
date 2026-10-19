@@ -282,6 +282,8 @@ export function MessageContentCard({
   const messageIndicator = indicatorsMap?.[String(message.id)] || indicatorsMap?.[String(members[0].id)]
   const currentMacro = messageIndicator?.macro_indicator || ''
   const currentMicros = messageIndicator?.micro_indicators || []
+  const isExplicitlyNoneMacro = currentMacro === 'none'
+  const isAssignedMacro = Boolean(currentMacro && currentMacro !== 'none')
   const contentBlocks = buildContentBlocks(members)
   const images = members.filter(item => item.media?.is_image)
   const memberKeys = members.map(item => stableMessageKey(dialog.peer_key, item.id))
@@ -324,7 +326,7 @@ export function MessageContentCard({
   )
   const imageKeys = images.map(item => stableMessageKey(dialog.peer_key, item.id)).join('|')
   const autoSuggestedMacro = useMemo(() => {
-    if (currentMacro) return ''
+    if (isAssignedMacro || isExplicitlyNoneMacro) return ''
     for (const item of members) {
       for (const pred of item.index_predictions || []) {
         if (pred.label_name.includes('سال') || pred.label_name.includes('ماه') || pred.label_name.includes('مهر')) continue
@@ -356,7 +358,7 @@ export function MessageContentCard({
       return 'تشویق کارمندان و تکریم ارباب رجوع'
     }
     return ''
-  }, [members, currentMacro])
+  }, [members, isAssignedMacro, isExplicitlyNoneMacro])
 
   const autoSuggestedMicros = useMemo(() => {
     if (currentMicros.length > 0) return []
@@ -553,20 +555,28 @@ export function MessageContentCard({
           variant="caption"
           component="span"
           sx={{
-            fontWeight: 700, // بولد مطابق خواسته کاربر
-            color: currentMacro ? 'primary.main' : autoSuggestedMacro ? 'primary.light' : 'text.secondary',
+            fontWeight: isAssignedMacro ? 700 : 600, // بولد مطابق خواسته کاربر
+            color: isAssignedMacro
+              ? 'primary.main'
+              : isExplicitlyNoneMacro
+              ? 'text.secondary'
+              : autoSuggestedMacro
+              ? 'primary.light'
+              : 'text.secondary',
             fontSize: '0.78rem',
             cursor: 'pointer',
-            fontStyle: !currentMacro && autoSuggestedMacro ? 'italic' : 'normal',
+            fontStyle: !isAssignedMacro && autoSuggestedMacro ? 'italic' : 'normal',
           }}
           onClick={event => {
             event.stopPropagation()
-            onOpenMacroSelect?.(members.map(m => m.id), currentMacro || autoSuggestedMacro)
+            onOpenMacroSelect?.(members.map(m => m.id), isExplicitlyNoneMacro ? 'none' : (currentMacro || autoSuggestedMacro))
           }}
           title="شاخصه کلی (سرفصل برنامه‌ای)"
         >
-          {currentMacro
+          {isAssignedMacro
             ? `شاخصه کلی: ${currentMacro}`
+            : isExplicitlyNoneMacro
+            ? 'شاخصه کلی: فاقد شاخصه (آزاد / اطلاعیه)'
             : autoSuggestedMacro
             ? `شاخصه کلی (پیشنهادی): ${autoSuggestedMacro}`
             : 'شاخصه کلی (تعیین‌نشده)'}
@@ -577,7 +587,7 @@ export function MessageContentCard({
             aria-label="اصلاح شاخصه کلی"
             onClick={event => {
               event.stopPropagation()
-              onOpenMacroSelect?.(members.map(m => m.id), currentMacro || autoSuggestedMacro)
+              onOpenMacroSelect?.(members.map(m => m.id), isExplicitlyNoneMacro ? 'none' : (currentMacro || autoSuggestedMacro))
             }}
             sx={{ p: 0.25 }}
           >
@@ -720,7 +730,7 @@ export function MessageContentCard({
         onClick={event => { event.stopPropagation(); openReportEvent(reportUsage.events[0].event_id) }}
         sx={{ minHeight: 28 }}
       />}
-      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, currentMacro || autoSuggestedMacro, currentMicros.length > 0 ? currentMicros : autoSuggestedMicros) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
+      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, isExplicitlyNoneMacro ? '' : (currentMacro || autoSuggestedMacro), currentMicros.length > 0 ? currentMicros : autoSuggestedMicros) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
       {anyUsed && <Button size="small" color={anyStale ? 'warning' : 'error'} variant="outlined" onClick={event => { event.stopPropagation(); openUsage() }} sx={{ minHeight: 28, py: 0 }}>{anyStale ? 'تغییرکرده' : allUsed ? 'وردپرس' : 'بخشی در وردپرس'}</Button>}
       {collapsible && <IconButton
         aria-label={expanded ? 'بستن ادامه پیام' : 'نمایش ادامه پیام'}

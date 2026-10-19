@@ -297,7 +297,30 @@ async def run_visual_audit():
                 return 'not_found';
             })()""")
             print(f"Management modal clicked: {mgmt_clicked}")
-            await asyncio.sleep(2.0)
+            # Wait for list to finish loading (CircularProgress gone and ListItems present)
+            for i in range(25):
+                diag = await cdp.eval("""(() => {
+                    const listItems = document.querySelectorAll('.MuiListItem-root').length;
+                    const spinner = Boolean(document.querySelector('.MuiDialogContent-root .MuiCircularProgress-root'));
+                    const errorBox = document.querySelector('.MuiAlert-message, [role="alert"]')?.textContent || null;
+                    const text = document.querySelector('.MuiDialog-root')?.innerText?.slice(0, 100) || '';
+                    return { listItems, spinner, errorBox, text };
+                })()""")
+                print(f"Modal check iter {i}: {diag}")
+                if diag and diag.get("listItems", 0) > 0 and not diag.get("spinner"):
+                    break
+                await asyncio.sleep(0.4)
+            await asyncio.sleep(0.5)
+
+            # Capture screenshot showing items list with titles on right and buttons on the left
+            await cdp.capture_screenshot("11_desktop_micro_indicators_management_modal")
+
+            # Copy to brain artifact directory if exists
+            brain_dir = Path(r"C:\Users\mohse\.gemini\antigravity\brain\4f838800-0d66-4edd-9a19-e3ff8d4c9497")
+            if brain_dir.exists():
+                src_shot = OUTPUT_DIR / "11_desktop_micro_indicators_management_modal.png"
+                if src_shot.exists():
+                    shutil.copy2(src_shot, brain_dir / "11_desktop_micro_indicators_management_modal.png")
 
             # In the Management Modal, type a new micro indicator title and click "افزودن"
             test_title = f"پویش استانی نماز {datetime.now().strftime('%H%M%S')}"
@@ -316,7 +339,7 @@ async def run_visual_audit():
             }})()""")
             print(f"Added new micro indicator: {add_result}")
             # Wait for addition to complete and list to refresh
-            await asyncio.sleep(3.5)
+            await asyncio.sleep(4.0)
 
             # Verify no security error ("درخواست امنیتی معتبر نیست") and title appears in list
             verification = await cdp.eval(f"""(() => {{
@@ -331,7 +354,6 @@ async def run_visual_audit():
                 }};
             }})()""")
             print(f"Micro indicator save verification: {verification}")
-            await cdp.capture_screenshot("11_desktop_micro_indicators_management_modal")
 
             if verification.get("hasError"):
                 raise RuntimeError("CSRF / Security Error detected when saving micro indicator!")

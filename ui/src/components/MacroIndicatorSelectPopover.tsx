@@ -42,7 +42,7 @@ export function MacroIndicatorSelectPopover({
   const handleConfirm = async () => {
     setSaving(true)
     try {
-      await onSelect(selected)
+      await onSelect(selected === 'none' || !selected ? 'none' : selected)
       onClose()
     } finally {
       setSaving(false)
@@ -52,7 +52,7 @@ export function MacroIndicatorSelectPopover({
   const handleClear = async () => {
     setSaving(true)
     try {
-      await onSelect('')
+      await onSelect('none')
       onClose()
     } finally {
       setSaving(false)
@@ -88,6 +88,42 @@ export function MacroIndicatorSelectPopover({
 
       <DialogContent dividers sx={{ p: 1 }}>
         <List disablePadding>
+          {/* گزینه اول: عدم انتساب / بدون شاخصه کلی */}
+          <ListItemButton
+            key="__none__"
+            onClick={() => setSelected('none')}
+            selected={selected === 'none' || selected === ''}
+            sx={{
+              borderRadius: 1.5,
+              mb: 1,
+              py: 1,
+              px: 1.5,
+              border: 1,
+              borderColor: (selected === 'none' || selected === '') ? 'primary.main' : 'divider',
+              bgcolor: (selected === 'none' || selected === '') ? 'action.selected' : 'background.paper',
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <Radio
+                checked={selected === 'none' || selected === ''}
+                onChange={() => setSelected('none')}
+                size="small"
+                sx={{ p: 0.5 }}
+              />
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  variant="body2"
+                  fontWeight={(selected === 'none' || selected === '') ? 700 : 500}
+                  color="text.secondary"
+                >
+                  بدون شاخصه کلی (اطلاعیه فرهنگی، تبلیغاتی، آزاد یا عدم انتساب)
+                </Typography>
+              }
+            />
+          </ListItemButton>
+
           {MACRO_INDICATORS.map(macro => {
             const isSelected = selected === macro
             const isNonProgram = macro === 'غیر برنامه‌ای'
@@ -130,8 +166,8 @@ export function MacroIndicatorSelectPopover({
       </DialogContent>
 
       <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-        <Button onClick={handleClear} disabled={saving || !currentValue} color="inherit" size="small">
-          حذف شاخصه
+        <Button onClick={handleClear} disabled={saving} color="inherit" size="small">
+          حذف شاخصه (عدم انتخاب)
         </Button>
         <Stack direction="row" spacing={1}>
           <Button onClick={onClose} disabled={saving} color="inherit">

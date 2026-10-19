@@ -200,6 +200,8 @@ def run_supervision() -> int:
         "message_split_and_control_bar": False,
         "liaison_eitaa_contact_sync": False,
         "program_catalog_and_two_tier_indicators": False,
+        "micro_indicator_actions_alignment": False,
+        "macro_indicator_unselect_capability": False,
         "code_quality_and_tests": False,
     }
 
@@ -273,6 +275,22 @@ def run_supervision() -> int:
         has_clean_message_card = "autoSuggestedMacro" in card_tsx and "indexPredictions" not in card_tsx
         checklist["program_catalog_and_two_tier_indicators"] = (
             has_catalog_table and has_soft_deprecation and has_tab2_ui and has_clean_message_card
+        )
+
+        # 15. Micro Indicator Actions Alignment (flexbox layout with buttons on left, no ListItemSecondaryAction overlap)
+        micro_text = micro_modal.read_text(encoding="utf-8")
+        checklist["micro_indicator_actions_alignment"] = (
+            "disableGutters" in micro_text
+            and "ListItemSecondaryAction" not in micro_text
+            and "justifyContent: 'space-between'" in micro_text
+        )
+
+        # 16. Macro Indicator Unselect Capability (ability to clear / unset macro indicator)
+        popover_tsx = (WORKSPACE_ROOT / "ui" / "src" / "components" / "MacroIndicatorSelectPopover.tsx").read_text(encoding="utf-8")
+        checklist["macro_indicator_unselect_capability"] = (
+            "بدون شاخصه کلی" in popover_tsx
+            and "isExplicitlyNoneMacro" in card_tsx
+            and "فاقد شاخصه" in card_tsx
         )
 
         # 7. Code Quality & Pytest

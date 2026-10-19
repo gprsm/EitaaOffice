@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 470
-- اثرانگشت منبع: `4ab84bf1dda52afc`
+- تعداد فایل‌های نقشه: 471
+- اثرانگشت منبع: `cc594c70fccbe36b`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -19,6 +19,7 @@
 | `scripts/build_wheel_stdlib.py` | Operations/tooling | 9 | Build the pure-Python bridge wheel without network or build backends. |
 | `scripts/build_windows_icon.ps1` | Operations/tooling | 0 | — |
 | `scripts/capture_indicators_visual_audit.py` | Operations/tooling | 9 | Visual Acceptance Runner for Macro & Micro Indicators and Message Splitting Control Bar |
+| `scripts/check_cdp.py` | Operations/tooling | 1 | — |
 | `scripts/check_gmi4_invariants.py` | Operations/tooling | 1 | Compare frozen assets directly against the signed clean GMI3 base ZIP. |
 | `scripts/check_office_payload_privacy.py` | Operations/tooling | 2 | — |
 | `scripts/check_project_memory_integrity.py` | Operations/tooling | 8 | — |
