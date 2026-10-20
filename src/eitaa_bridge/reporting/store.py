@@ -1547,6 +1547,7 @@ class ReportingStore:
         "duration_minutes", "official_present", "prior_announcement",
         "had_reception", "is_ashura_pilgrimage", "contains_inner_contest",
         "macro_category", "custom_topic", "macro_indicator", "micro_indicators_json",
+        "occurred_on", "unit", "program_kinds_json",
     })
 
     def _run_in_transaction(self, operation):
@@ -1617,6 +1618,11 @@ class ReportingStore:
 
     def update_event_fields(self, event_id: str, *, actor: str, expected_etag: str,
                             fields: dict) -> str:
+        fields = dict(fields)
+        if "micro_indicators" in fields and "micro_indicators_json" not in fields:
+            fields["micro_indicators_json"] = json.dumps(fields.pop("micro_indicators"), ensure_ascii=False)
+        if "program_kinds" in fields and "program_kinds_json" not in fields:
+            fields["program_kinds_json"] = json.dumps(fields.pop("program_kinds"), ensure_ascii=False)
         unknown = set(fields) - self._EDITABLE_EVENT_FIELDS
         if unknown:
             raise ValueError(f"fields not editable: {sorted(unknown)}")
@@ -2007,9 +2013,46 @@ class ReportingStore:
                 """,
                 (event_id,),
             ).fetchall()
+            fact_rows = conn.execute(
+                "SELECT * FROM event_facts WHERE event_id = ? ORDER BY created_at ASC", (event_id,)
+            ).fetchall()
+            file["facts"] = [
+                {
+                    "metric": fr["metric"],
+                    "value": float(fr["value"]),
+                    "value_kind": fr["value_kind"],
+                    "unit_of_measure": fr["unit_of_measure"],
+                    "source": fr["source"],
+                    "note": fr["note"] or "",
+                }
+                for fr in fact_rows
+            ]
         file["etag"] = self._compute_etag(event_id, version)
         file["witnesses"] = [dict(w) for w in witnesses]
         file["documents"] = [dict(d) for d in documents]
+        if file.get("micro_indicators_json"):
+            try:
+                file["micro_indicators"] = json.loads(file["micro_indicators_json"])
+            except Exception:
+                file["micro_indicators"] = []
+        else:
+            file["micro_indicators"] = []
+
+        if file.get("program_kinds_json"):
+            try:
+                file["program_kinds"] = json.loads(file["program_kinds_json"])
+            except Exception:
+                file["program_kinds"] = []
+        else:
+            file["program_kinds"] = []
+
+        if file.get("defects_json"):
+            try:
+                file["defects"] = json.loads(file["defects_json"])
+            except Exception:
+                file["defects"] = []
+        else:
+            file["defects"] = []
         return file
 
     def attach_document(
@@ -2502,15 +2545,20 @@ class ReportingStore:
     def list_events(
         self,
         *,
-        limit: int = 100,
+        limit: int = 200,
         review_status: str | None = None,
         registered_by_id: str | None = None,
         macro_category: str | None = None,
+        micro_indicator: str | None = None,
+        macro_indicator: str | None = None,
+        unit_name: str | None = None,
+        program_code: str | None = None,
+        search_query: str | None = None,
     ) -> list[ReportedEvent]:
         with self._connect() as conn:
             clauses: list[str] = []
             params: list[Any] = []
-            if review_status:
+            if review_status and review_status != "all":
                 clauses.append("review_status = ?")
                 params.append(review_status)
             if registered_by_id:
@@ -2519,6 +2567,22 @@ class ReportingStore:
             if macro_category:
                 clauses.append("macro_category = ?")
                 params.append(macro_category)
+            if micro_indicator:
+                clauses.append("micro_indicators_json LIKE ?")
+                params.append(f"%{micro_indicator.strip()}%")
+            if macro_indicator:
+                clauses.append("macro_indicator = ?")
+                params.append(macro_indicator.strip())
+            if unit_name:
+                clauses.append("unit_name LIKE ?")
+                params.append(f"%{unit_name.strip()}%")
+            if program_code:
+                clauses.append("(program_kinds_json LIKE ? OR macro_indicator LIKE ?)")
+                params.extend([f"%{program_code.strip()}%", f"%{program_code.strip()}%"])
+            if search_query:
+                q = f"%{search_query.strip()}%"
+                clauses.append("(occasion LIKE ? OR notes LIKE ? OR unit_name LIKE ? OR custom_topic LIKE ? OR macro_indicator LIKE ?)")
+                params.extend([q, q, q, q, q])
             where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
             sql = f"SELECT * FROM reported_events {where} ORDER BY occurred_on DESC, created_at DESC LIMIT ?"
             params.append(limit)

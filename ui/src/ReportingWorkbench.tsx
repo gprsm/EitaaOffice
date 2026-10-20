@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
+  Autocomplete,
   Badge,
   Box,
   Button,
@@ -43,6 +44,7 @@ import {
   Typography,
 } from '@mui/material'
 import AddCircleOutlineRounded from '@mui/icons-material/AddCircleOutlineRounded'
+import AssignmentTurnedInRounded from '@mui/icons-material/AssignmentTurnedInRounded'
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
@@ -63,6 +65,14 @@ import { api, ApiError } from './lib/api'
 import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
+import { ReportEventDetailModal } from './components/ReportEventDetailModal'
+import {
+  fetchMacroIndicators,
+  fetchMicroIndicators,
+  fetchProgramCatalog,
+  type MicroIndicatorItem,
+  type ProgramCatalogItem,
+} from './lib/indicators'
 
 export interface CandidateItem {
   candidate_id: string
@@ -167,6 +177,9 @@ export interface ReportedEventItem {
     field_name: string
   }>
   facts: EventFact[]
+  notes?: string
+  macro_indicator?: string
+  micro_indicators?: string[]
 }
 
 export interface DialogTargetConfig {
@@ -658,6 +671,122 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [currentTab, setCurrentTab] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
 
+  // Catalog state
+  const [programsCatalog, setProgramsCatalog] = useState<ProgramCatalogItem[]>([])
+  const [macroOptions, setMacroOptions] = useState<string[]>([])
+  const [microOptions, setMicroOptions] = useState<MicroIndicatorItem[]>([])
+  const [judicialUnits, setJudicialUnits] = useState<Array<{ display_name: string; name: string }>>([])
+
+  // Dynamic lookup for program name
+  const getProgramTitle = useCallback(
+    (codeOrKind: string) => {
+      const clean = String(codeOrKind || '').trim().toLowerCase()
+      const found = programsCatalog.find(
+        p => p.program_code === codeOrKind || p.kind.toLowerCase() === clean,
+      )
+      if (found) {
+        return `${found.program_code} - ${found.title}`
+      }
+      return PROGRAM_NAMES[codeOrKind] || codeOrKind
+    },
+    [programsCatalog],
+  )
+
+  // Cartable and archive state (Tab 1)
+  const [cartableEvents, setCartableEvents] = useState<ReportedEventItem[]>([])
+  const [loadingCartable, setLoadingCartable] = useState<boolean>(false)
+  const [filterSearch, setFilterSearch] = useState<string>('')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterProgram, setFilterProgram] = useState<string>('all')
+  const [filterMacro, setFilterMacro] = useState<string>('all')
+  const [filterMicro, setFilterMicro] = useState<string>('all')
+  const [filterUnit, setFilterUnit] = useState<string>('all')
+  const [exportingFiltered, setExportingFiltered] = useState<boolean>(false)
+  const [detailModalEventId, setDetailModalEventId] = useState<string | null>(null)
+
+  // Single worksheet vs entire province export state
+  const [exportScope, setExportScope] = useState<'all' | 'single'>('all')
+  const [selectedSingleProgram, setSelectedSingleProgram] = useState<string>('trip')
+
+  // Load catalogs on mount
+  useEffect(() => {
+    let active = true
+    async function loadAllCatalogs() {
+      try {
+        const [progs, macros, micros, unitsRes] = await Promise.all([
+          fetchProgramCatalog({ include_inactive: true }),
+          fetchMacroIndicators(),
+          fetchMicroIndicators(),
+          api<{ units: Array<{ display_name: string; name: string }> }>('GET', '/api/v3/reporting/units').catch(
+            () => ({ units: [] }),
+          ),
+        ])
+        if (active) {
+          setProgramsCatalog(progs)
+          setMacroOptions(macros)
+          setMicroOptions(micros)
+          setJudicialUnits(unitsRes.units || [])
+        }
+      } catch (err) {
+        console.error('Error loading catalogs in workbench:', err)
+      }
+    }
+    void loadAllCatalogs()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Load cartable events from /api/v3/reporting/events
+  const loadEventsCartable = useCallback(async () => {
+    try {
+      setLoadingCartable(true)
+      const params = new URLSearchParams()
+      params.set('limit', '300')
+      if (filterStatus && filterStatus !== 'all') params.set('review_status', filterStatus)
+      if (filterProgram && filterProgram !== 'all') params.set('program_code', filterProgram)
+      if (filterMacro && filterMacro !== 'all') params.set('macro_indicator', filterMacro)
+      if (filterMicro && filterMicro !== 'all') params.set('micro_indicator', filterMicro)
+      if (filterUnit && filterUnit !== 'all') params.set('unit_name', filterUnit)
+      if (filterSearch.trim()) params.set('search', filterSearch.trim())
+
+      const res = await api<{ ok: boolean; events: ReportedEventItem[] }>(
+        'GET',
+        `/api/v3/reporting/events?${params.toString()}`,
+      )
+      setCartableEvents(res.events || [])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در بارگذاری کارتابل گزارش‌ها')
+    } finally {
+      setLoadingCartable(false)
+    }
+  }, [filterStatus, filterProgram, filterMacro, filterMicro, filterUnit, filterSearch])
+
+  // Export filtered events
+  const handleExportFilteredEvents = async () => {
+    try {
+      setExportingFiltered(true)
+      const payload: Record<string, any> = {}
+      if (filterStatus && filterStatus !== 'all') payload.review_status = filterStatus
+      if (filterProgram && filterProgram !== 'all') payload.program_code = filterProgram
+      if (filterMacro && filterMacro !== 'all') payload.macro_indicator = filterMacro
+      if (filterMicro && filterMicro !== 'all') payload.micro_indicator = filterMicro
+      if (filterUnit && filterUnit !== 'all') payload.unit_name = filterUnit
+      if (filterSearch.trim()) payload.search = filterSearch.trim()
+
+      const res = await api<{ ok: boolean; file_name: string; path: string; count: number }>(
+        'POST',
+        '/api/v3/reporting/events/export-excel',
+        payload,
+      )
+      toast.success(`خروجی اکسل گزارش‌ها با موفقیت ایجاد شد: ${res.file_name} (${res.count || 0} رکورد)`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در صدور خروجی اکسل گزارش‌ها')
+    } finally {
+      setExportingFiltered(false)
+    }
+  }
+
   // Candidate review state
   const [candidates, setCandidates] = useState<CandidateItem[]>([])
   const [candidateFilter, setCandidateFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
@@ -930,12 +1059,13 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (currentTab === 0) void loadCandidates()
-    else if (currentTab === 1) void loadForms()
-    else if (currentTab === 2) {
+    else if (currentTab === 1) void loadEventsCartable()
+    else if (currentTab === 2) void loadForms()
+    else if (currentTab === 3) {
       void loadForms()
       void loadEventsAndExports()
-    } else if (currentTab === 3) void loadWatchConfig()
-  }, [currentTab, candidateFilter])
+    } else if (currentTab === 4) void loadWatchConfig()
+  }, [currentTab, candidateFilter, loadEventsCartable])
 
   // Sync selected form answers when tab or selectedFormIndex changes
   useEffect(() => {
@@ -1231,11 +1361,12 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
             <IconButton
               onClick={() => {
                 if (currentTab === 0) void loadCandidates()
-                else if (currentTab === 1) void loadForms()
-                else if (currentTab === 2) {
+                else if (currentTab === 1) void loadEventsCartable()
+                else if (currentTab === 2) void loadForms()
+                else if (currentTab === 3) {
                   void loadForms()
                   void loadEventsAndExports()
-                } else if (currentTab === 3) void loadWatchConfig()
+                } else if (currentTab === 4) void loadWatchConfig()
               }}
               disabled={loading}
             >
@@ -1264,6 +1395,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <AutoAwesomeRounded fontSize="small" />
                   <span>صف بازبینی هوشمند</span>
+                </Stack>
+              </Badge>
+            }
+          />
+          <Tab
+            label={
+              <Badge badgeContent={cartableEvents.filter(e => e.review_status === 'needs_review').length} color="warning" sx={{ pr: 1.5 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <AssignmentTurnedInRounded fontSize="small" />
+                  <span>کارتابل و آرشیو گزارش‌ها</span>
                 </Stack>
               </Badge>
             }
@@ -1491,7 +1632,370 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         )}
 
         {/* ================= TAB 1: کاربرگ‌ها و فرم‌های هفت‌گانه ================= */}
+                {/* ================= TAB 1: کارتابل و آرشیو گزارش‌ها ================= */}
         {currentTab === 1 && (
+          <Stack spacing={2.5}>
+            {/* Filter Bar */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems="center" justifyContent="space-between">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <AssignmentTurnedInRounded color="primary" />
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={800}>
+                        کارتابل و آرشیو سوابق گزارش‌های ثبت‌شده
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        بازبینی، فیلتر پیشرفته، رفع نقص و صدور خروجی اکسل رویدادهای ثبت‌شده استان
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={exportingFiltered ? <CircularProgress size={16} color="inherit" /> : <FileDownloadRounded />}
+                      onClick={handleExportFilteredEvents}
+                      disabled={exportingFiltered || loadingCartable}
+                    >
+                      خروجی اکسل گزارش‌های فیلترشده
+                    </Button>
+                    <IconButton size="small" onClick={() => void loadEventsCartable()} disabled={loadingCartable}>
+                      <RefreshRounded />
+                    </IconButton>
+                  </Stack>
+                </Stack>
+
+                <Divider />
+
+                {/* Filters Grid */}
+                <Grid container spacing={1.5} alignItems="center">
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      label="جستجو در سوابق"
+                      placeholder="عنوان، شرح، واحد، مناسبت..."
+                      value={filterSearch}
+                      onChange={e => setFilterSearch(e.target.value)}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>وضعیت پرونده</InputLabel>
+                      <Select
+                        label="وضعیت پرونده"
+                        value={filterStatus}
+                        onChange={e => setFilterStatus(e.target.value)}
+                      >
+                        <MenuItem value="all">همه وضعیت‌ها</MenuItem>
+                        <MenuItem value="approved">تأیید نهایی مدیر</MenuItem>
+                        <MenuItem value="needs_review">نیازمند بازبینی / اصلاح</MenuItem>
+                        <MenuItem value="conflict">تعارض / رد شده</MenuItem>
+                        <MenuItem value="draft">پیش‌نویس اولیه</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>سرفصل / برنامه</InputLabel>
+                      <Select
+                        label="سرفصل / برنامه"
+                        value={filterProgram}
+                        onChange={e => setFilterProgram(e.target.value)}
+                      >
+                        <MenuItem value="all">همه برنامه‌ها</MenuItem>
+                        {programsCatalog.map(p => (
+                          <MenuItem key={p.program_code} value={p.program_code}>
+                            {p.program_code} - {p.title}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6, md: 2.5 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>شاخصه کلان</InputLabel>
+                      <Select
+                        label="شاخصه کلان"
+                        value={filterMacro}
+                        onChange={e => setFilterMacro(e.target.value)}
+                      >
+                        <MenuItem value="all">همه شاخصه‌ها</MenuItem>
+                        {macroOptions.map(m => (
+                          <MenuItem key={m} value={m}>
+                            {m}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                    <Autocomplete
+                      freeSolo
+                      size="small"
+                      options={microOptions.map(m => m.title)}
+                      value={filterMicro === 'all' ? '' : filterMicro}
+                      onChange={(_e: unknown, val: string | null) => setFilterMicro(val || 'all')}
+                      onInputChange={(_e: unknown, val: string) => {
+                        if (!val) setFilterMicro('all')
+                      }}
+                      renderInput={(params: any) => (
+                        <TextField {...params} label="شاخصه جزئی" placeholder="فیلتر شاخصه جزئی..." />
+                      )}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Autocomplete
+                      freeSolo
+                      size="small"
+                      options={judicialUnits.map(u => u.display_name || u.name)}
+                      value={filterUnit === 'all' ? '' : filterUnit}
+                      onChange={(_e: unknown, val: string | null) => setFilterUnit(val || 'all')}
+                      onInputChange={(_e: unknown, val: string) => {
+                        if (!val) setFilterUnit('all')
+                      }}
+                      renderInput={(params: any) => (
+                        <TextField {...params} label="حوزه قضایی / شهرستان" placeholder="فیلتر شهرستان..." />
+                      )}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      fullWidth
+                      onClick={() => {
+                        setFilterSearch('')
+                        setFilterStatus('all')
+                        setFilterProgram('all')
+                        setFilterMacro('all')
+                        setFilterMicro('all')
+                        setFilterUnit('all')
+                      }}
+                    >
+                      حذف تمام فیلترها
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Stack>
+            </Paper>
+
+            {/* Events Cartable Table */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={800}>
+                  فهرست گزارش‌های ثبت‌شده ({cartableEvents.length} رویداد)
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  برای بازبینی کامل، اصلاح نقایص، بررسی شواهد ایتا و ویرایش، روی هر ردیف یا دکمه مشاهده کلیک کنید.
+                </Typography>
+              </Stack>
+
+              <TableContainer sx={{ maxHeight: 520 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, width: 45 }}>#</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>شناسه</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>سرفصل / برنامه</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>عنوان و مناسبت رویداد</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>شاخصه کلی و جزئی</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>تاریخ وقوع</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>حوزه قضایی</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>ثبت‌کننده</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">وضعیت پرونده</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">کیفیت / نقایص</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">عملیات</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loadingCartable ? (
+                      <TableRow>
+                        <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                          <CircularProgress size={28} />
+                          <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                            در حال دریافت پرونده‌های گزارش...
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : cartableEvents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            هیچ رویدادی مطابق با فیلترهای جاری یافت نشد.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      cartableEvents.map((ev, idx) => {
+                        const statusLabel =
+                          ev.review_status === 'approved'
+                            ? 'تأیید مدیر'
+                            : ev.review_status === 'conflict'
+                            ? 'تعارض / رد'
+                            : ev.review_status === 'needs_review'
+                            ? (ev.revision_count && ev.revision_count > 0 ? `اصلاحیه (${ev.revision_count})` : 'در انتظار بررسی')
+                            : 'پیش‌نویس'
+                        const statusColor =
+                          ev.review_status === 'approved'
+                            ? 'success'
+                            : ev.review_status === 'conflict'
+                            ? 'error'
+                            : ev.review_status === 'needs_review'
+                            ? 'warning'
+                            : 'default'
+
+                        const creator = ev.registered_by_name || ev.registered_by_id || ev.created_by || 'نامشخص'
+                        const defects = Array.isArray(ev.defects) ? ev.defects : []
+                        const hasBlockers = defects.some((d: any) => d.severity === 'blocker')
+                        const defectCount = defects.length
+
+                        return (
+                          <TableRow
+                            key={ev.event_id}
+                            hover
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => setDetailModalEventId(ev.event_id)}
+                          >
+                            <TableCell>{idx + 1}</TableCell>
+                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}>
+                              {ev.event_id}
+                            </TableCell>
+                            <TableCell>
+                              {ev.macro_category === 'other_cultural' ? (
+                                <Chip
+                                  size="small"
+                                  color="secondary"
+                                  variant="outlined"
+                                  label={ev.custom_topic ? `سایر: ${ev.custom_topic}` : 'سایر فرهنگی'}
+                                  sx={{ mr: 0.5, mb: 0.5, fontWeight: 700 }}
+                                />
+                              ) : (
+                                ev.program_kinds.map((p: string) => (
+                                  <Chip
+                                    key={p}
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                    label={getProgramTitle(p)}
+                                    sx={{ mr: 0.5, mb: 0.5, fontSize: '0.75rem' }}
+                                  />
+                                ))
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 220 }}>
+                              <Typography variant="body2" fontWeight={700} noWrap title={ev.occasion || ''}>
+                                {ev.occasion || '—'}
+                              </Typography>
+                              {ev.notes && (
+                                <Typography variant="caption" color="text.secondary" noWrap display="block" title={ev.notes}>
+                                  {ev.notes}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 200 }}>
+                              {ev.macro_indicator && (
+                                <Chip
+                                  size="small"
+                                  label={ev.macro_indicator}
+                                  sx={{ mr: 0.5, mb: 0.5, bgcolor: 'primary.50', fontWeight: 600, fontSize: '0.7rem' }}
+                                />
+                              )}
+                              {Array.isArray(ev.micro_indicators) &&
+                                ev.micro_indicators.map((m: string) => (
+                                  <Chip
+                                    key={m}
+                                    size="small"
+                                    label={m}
+                                    variant="outlined"
+                                    sx={{ mr: 0.5, mb: 0.5, fontSize: '0.65rem' }}
+                                  />
+                                ))}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                              {ev.occurred_on}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: '0.8rem' }}>
+                              {ev.unit_name || ev.unit}
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="caption" fontWeight={600} display="block">
+                                {creator}
+                              </Typography>
+                              {ev.reviewed_by_name && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  تأیید: {ev.reviewed_by_name}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                size="small"
+                                label={statusLabel}
+                                color={statusColor}
+                                variant={ev.review_status === 'approved' ? 'filled' : 'outlined'}
+                                sx={{ fontWeight: 700 }}
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              {defectCount > 0 ? (
+                                <Chip
+                                  size="small"
+                                  color={hasBlockers ? 'error' : 'warning'}
+                                  label={`${defectCount} نقص/هشدار`}
+                                  sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+                                />
+                              ) : (
+                                <Chip size="small" color="success" variant="outlined" label="بدون نقص" sx={{ fontSize: '0.7rem' }} />
+                              )}
+                            </TableCell>
+                            <TableCell align="center" onClick={e => e.stopPropagation()}>
+                              <Stack direction="row" spacing={0.5} justifyContent="center">
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() => setDetailModalEventId(ev.event_id)}
+                                  sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
+                                >
+                                  مشاهده و ویرایش
+                                </Button>
+                                {ev.review_status !== 'approved' && (
+                                  <Tooltip title="تأیید سریع رویداد">
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="success"
+                                      disabled={workflowActionLoading}
+                                      onClick={() => void handleApproveEvent(ev.event_id)}
+                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
+                                    >
+                                      تأیید
+                                    </Button>
+                                  </Tooltip>
+                                )}
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Stack>
+        )}
+
+        {currentTab === 2 && (
           <Grid container spacing={3}>
             {/* Sidebar list of 8 forms */}
             <Grid size={{ xs: 12, md: 3.5 }}>
@@ -1847,7 +2351,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         )}
 
         {/* ================= TAB 2: پیش‌نمایش تجمیع و صدور اکسل ================= */}
-        {currentTab === 2 && (
+        {currentTab === 3 && (
           <Stack spacing={3}>
             {/* Export Readiness Card */}
             <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
@@ -1882,6 +2386,51 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
               )}
 
               <Grid container spacing={2} alignItems="center">
+                <Grid size={{ xs: 12 }}>
+                  <FormControl component="fieldset">
+                    <FormLabel component="legend" sx={{ fontWeight: 700, fontSize: '0.85rem', mb: 0.5 }}>
+                      دامنه و نحوه صدور اکسل:
+                    </FormLabel>
+                    <RadioGroup
+                      row
+                      value={exportScope}
+                      onChange={e => setExportScope(e.target.value as 'all' | 'single')}
+                    >
+                      <FormControlLabel
+                        value="all"
+                        control={<Radio size="small" />}
+                        label={<Typography variant="body2" fontWeight={700}>صدور جامع استانی (فایل تجمیعی کامل سال ۱۴۰۵)</Typography>}
+                      />
+                      <FormControlLabel
+                        value="single"
+                        control={<Radio size="small" />}
+                        label={<Typography variant="body2" fontWeight={700}>صدور تک‌کاربرگ تفکیکی (Single Worksheet)</Typography>}
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                </Grid>
+
+                {exportScope === 'single' && (
+                  <Grid size={{ xs: 12 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>انتخاب کاربرگ جهت صدور شیت مستقل</InputLabel>
+                      <Select
+                        label="انتخاب کاربرگ جهت صدور شیت مستقل"
+                        value={selectedSingleProgram}
+                        onChange={e => setSelectedSingleProgram(e.target.value)}
+                      >
+                        {programsCatalog
+                          .filter(p => p.workbook_sheet)
+                          .map(p => (
+                            <MenuItem key={p.program_code} value={p.kind || p.program_code}>
+                              {p.program_code} - {p.title} (شیت الگوی: {p.workbook_sheet})
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     label="نام استان"
@@ -2161,9 +2710,9 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         )}
 
         {/* ================= TAB 4: داشبورد دفتر ================= */}
-        {currentTab === 4 && <OfficeDashboard />}
+        {currentTab === 5 && <OfficeDashboard />}
         {/* ================= TAB 3: تنظیمات رصد گفتگوها ================= */}
-        {currentTab === 3 && (
+        {currentTab === 4 && (
           <Stack spacing={3}>
             {/* Targets Table */}
             <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
@@ -2444,6 +2993,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
             {approveDialog ? 'تأیید نهایی و درج در آمار' : 'ثبت رویداد جدید'}
           </Button>
         </DialogActions>
+      {/* Report Event Detail & Defect Editing Modal */}
+      <ReportEventDetailModal
+        open={Boolean(detailModalEventId)}
+        eventId={detailModalEventId}
+        onClose={() => setDetailModalEventId(null)}
+        onSaved={() => {
+          void loadEventsCartable()
+          void loadEventsAndExports()
+        }}
+      />
       </Dialog>
 
       {/* Reject Candidate Dialog */}
@@ -2472,6 +3031,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
             رد گزارش
           </Button>
         </DialogActions>
+      {/* Report Event Detail & Defect Editing Modal */}
+      <ReportEventDetailModal
+        open={Boolean(detailModalEventId)}
+        eventId={detailModalEventId}
+        onClose={() => setDetailModalEventId(null)}
+        onSaved={() => {
+          void loadEventsCartable()
+          void loadEventsAndExports()
+        }}
+      />
       </Dialog>
 
       {/* Dialog for Adding New Mandate */}
@@ -2578,6 +3147,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
             {savingMandate ? 'در حال ثبت…' : 'ثبت و ذخیره مستند'}
           </Button>
         </DialogActions>
+      {/* Report Event Detail & Defect Editing Modal */}
+      <ReportEventDetailModal
+        open={Boolean(detailModalEventId)}
+        eventId={detailModalEventId}
+        onClose={() => setDetailModalEventId(null)}
+        onSaved={() => {
+          void loadEventsCartable()
+          void loadEventsAndExports()
+        }}
+      />
       </Dialog>
 
       {/* Dialog for Consolidated View of All Mandates */}
@@ -2704,6 +3283,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
             بستن
           </Button>
         </DialogActions>
+      {/* Report Event Detail & Defect Editing Modal */}
+      <ReportEventDetailModal
+        open={Boolean(detailModalEventId)}
+        eventId={detailModalEventId}
+        onClose={() => setDetailModalEventId(null)}
+        onSaved={() => {
+          void loadEventsCartable()
+          void loadEventsAndExports()
+        }}
+      />
       </Dialog>
 
       {/* Revision Request Dialog */}
@@ -2758,7 +3347,17 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
               ثبت و ارجاع وظیفه به کارمند
             </Button>
           </DialogActions>
-        </Dialog>
+        {/* Report Event Detail & Defect Editing Modal */}
+      <ReportEventDetailModal
+        open={Boolean(detailModalEventId)}
+        eventId={detailModalEventId}
+        onClose={() => setDetailModalEventId(null)}
+        onSaved={() => {
+          void loadEventsCartable()
+          void loadEventsAndExports()
+        }}
+      />
+      </Dialog>
       )}
 
       {/* Defect Audit Detail Dialog */}
@@ -2793,7 +3392,17 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           <DialogActions sx={{ px: 2.5, py: 1.5 }}>
             <Button onClick={() => setDefectDialogEvent(null)}>بستن</Button>
           </DialogActions>
-        </Dialog>
+        {/* Report Event Detail & Defect Editing Modal */}
+      <ReportEventDetailModal
+        open={Boolean(detailModalEventId)}
+        eventId={detailModalEventId}
+        onClose={() => setDetailModalEventId(null)}
+        onSaved={() => {
+          void loadEventsCartable()
+          void loadEventsAndExports()
+        }}
+      />
+      </Dialog>
       )}
     </Paper>
   )

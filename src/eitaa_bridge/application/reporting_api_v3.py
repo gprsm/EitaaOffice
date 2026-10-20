@@ -29,6 +29,7 @@ from eitaa_bridge.reporting.store import (
     WitnessConflictError,
 )
 
+_EVENTS_EXPORT_ROUTE = re.compile(r"^/api/v3/reporting/events/export-excel$")
 _EVENTS_ROUTE = re.compile(r"^/api/v3/reporting/events$")
 _EVENT_ID_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)$")
 _EVENT_SUBMIT_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/submit-review$")
@@ -229,12 +230,19 @@ def create_event(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
 def update_event(store: ReportingStore, actor: str, event_id: str,
                  payload: Mapping[str, Any], if_match: str | None = None):
     expected_etag = (if_match or str(payload.get("if_match", ""))).strip('"')
+    if not expected_etag:
+        expected_etag = store.get_event_etag(event_id) or ""
     fields = payload.get("fields")
     if not isinstance(fields, Mapping) or not fields:
         return _error(400, "fields mapping is required")
+    fields_dict = dict(fields)
+    if "micro_indicators" in fields_dict and "micro_indicators_json" not in fields_dict:
+        fields_dict["micro_indicators_json"] = json.dumps(fields_dict.pop("micro_indicators"), ensure_ascii=False)
+    if "program_kinds" in fields_dict and "program_kinds_json" not in fields_dict:
+        fields_dict["program_kinds_json"] = json.dumps(fields_dict.pop("program_kinds"), ensure_ascii=False)
     try:
         etag = store.update_event_fields(
-            event_id, actor=actor, expected_etag=expected_etag, fields=dict(fields)
+            event_id, actor=actor, expected_etag=expected_etag, fields=fields_dict
         )
     except (ReportingStoreError, ValueError) as exc:
         mapped = _mapped_error(exc)
@@ -579,12 +587,29 @@ def list_aliases(store: ReportingStore, query: Mapping[str, Any] | None):
 def list_events_v3(store: ReportingStore, query: Mapping[str, Any] | None):
     q = query or {}
     try:
-        limit = int(q.get("limit", 100))
+        limit = int(q.get("limit", 200))
     except (ValueError, TypeError):
-        limit = 100
+        limit = 200
     review_status = str(q.get("review_status", "")).strip() or None
     registered_by_id = str(q.get("registered_by_id", "")).strip() or None
-    events = store.list_events(limit=limit, review_status=review_status, registered_by_id=registered_by_id)
+    macro_category = str(q.get("macro_category", "")).strip() or None
+    micro_indicator = str(q.get("micro_indicator", "")).strip() or None
+    macro_indicator = str(q.get("macro_indicator", "")).strip() or None
+    unit_name = str(q.get("unit_name", "")).strip() or None
+    program_code = str(q.get("program_code", "")).strip() or None
+    search = str(q.get("search", "")).strip() or None
+
+    events = store.list_events(
+        limit=limit,
+        review_status=review_status,
+        registered_by_id=registered_by_id,
+        macro_category=macro_category,
+        micro_indicator=micro_indicator,
+        macro_indicator=macro_indicator,
+        unit_name=unit_name,
+        program_code=program_code,
+        search_query=search,
+    )
     return _ok({
         "events": [
             {
@@ -594,16 +619,68 @@ def list_events_v3(store: ReportingStore, query: Mapping[str, Any] | None):
                 "unit": ev.unit.value,
                 "unit_name": ev.unit_name,
                 "occasion": ev.occasion,
+                "macro_category": ev.macro_category,
+                "custom_topic": ev.custom_topic,
+                "macro_indicator": ev.macro_indicator,
+                "micro_indicators": ev.micro_indicators,
+                "notes": ev.notes,
                 "review_status": ev.review_status,
                 "registered_by_id": ev.registered_by_id,
                 "registered_by_name": ev.registered_by_name,
                 "reviewed_by_id": ev.reviewed_by_id,
                 "reviewed_by_name": ev.reviewed_by_name,
+                "reviewed_at": ev.reviewed_at.isoformat() if ev.reviewed_at else None,
+                "review_notes": ev.review_notes,
+                "revision_count": ev.revision_count,
                 "defects_json": ev.defects_json,
+                "defects": json.loads(ev.defects_json) if ev.defects_json else [],
                 "facts_count": len(ev.facts),
+                "facts": [
+                    {
+                        "metric": f.metric,
+                        "value": f.value,
+                        "unit_of_measure": f.unit_of_measure,
+                        "value_kind": f.value_kind.value,
+                    }
+                    for f in ev.facts
+                ],
+                "created_at": ev.created_at.isoformat() if ev.created_at else None,
             }
             for ev in events
         ]
+    })
+
+
+def export_filtered_events(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    from ..reporting.excel_export import export_events_list_to_excel
+    import uuid
+    from datetime import datetime
+
+    review_status = str(payload.get("review_status", "")).strip() or None
+    micro_indicator = str(payload.get("micro_indicator", "")).strip() or None
+    macro_indicator = str(payload.get("macro_indicator", "")).strip() or None
+    unit_name = str(payload.get("unit_name", "")).strip() or None
+    program_code = str(payload.get("program_code", "")).strip() or None
+    search = str(payload.get("search", "")).strip() or None
+
+    events = store.list_events(
+        limit=5000,
+        review_status=review_status,
+        micro_indicator=micro_indicator,
+        macro_indicator=macro_indicator,
+        unit_name=unit_name,
+        program_code=program_code,
+        search_query=search,
+    )
+    dest_dir = store.db_path.parent / "reporting"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"events_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.xlsx"
+    dest_file = dest_dir / filename
+    export_events_list_to_excel(events, dest_file, province_name="مازندران", title="گزارش رویدادها و فعالیت‌های فرهنگی")
+    return _ok({
+        "file_name": filename,
+        "path": str(dest_file),
+        "count": len(events),
     })
 
 
@@ -1016,6 +1093,8 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
     if method == "POST" and _EVENTS_ROUTE.match(path):
         denied = _forbidden(roles, "editor")
         return denied if denied else create_event(store, actor, payload)
+    if method == "POST" and _EVENTS_EXPORT_ROUTE.match(path):
+        return export_filtered_events(store, actor, payload)
     doc_match = _EVENT_DOCUMENTS_ROUTE.match(path)
     if doc_match and method in {"POST", "PUT"}:
         return attach_document(store, actor, roles, doc_match.group("event_id"), payload)

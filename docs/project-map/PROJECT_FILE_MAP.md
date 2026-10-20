@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 471
-- اثرانگشت منبع: `cc594c70fccbe36b`
+- تعداد فایل‌های نقشه: 473
+- اثرانگشت منبع: `b59c617fecce8368`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -156,7 +156,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 51 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 52 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -249,7 +249,7 @@
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
 | `src/eitaa_bridge/reporting/defect_scanner.py` | Project | 3 | Automated defect scanning & quality gate engine for reporting workflow. |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
-| `src/eitaa_bridge/reporting/excel_export.py` | Project | 9 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
+| `src/eitaa_bridge/reporting/excel_export.py` | Project | 10 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
 | `src/eitaa_bridge/reporting/forms.py` | Project | 17 | Versioned questionnaire definitions for the seven workbook programs. |
 | `src/eitaa_bridge/reporting/indexer.py` | Project | 12 | Multi-criteria Eitaa message indexer for the 1405 reporting core. |
 | `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-088). |
@@ -362,6 +362,7 @@
 | `tests/test_receipt_attempt_fence.py` | Python test | 4 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
 | `tests/test_reporting_api.py` | Python test | 16 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
+| `tests/test_reporting_cartable_and_export.py` | Python test | 6 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
@@ -435,6 +436,7 @@
 | `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
 | `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
 | `ui/src/components/MicroIndicatorsManagementModal.tsx` | React UI | 6 | — |
+| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 8 | — |
 | `ui/src/components/SplitMessageDialog.tsx` | React UI | 6 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
 | `ui/src/ContactDirectoryModal.tsx` | React UI | 20 | — |
@@ -462,7 +464,7 @@
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
 | `ui/src/ReportingRegistrationPanel.tsx` | React UI | 7 | — |
-| `ui/src/ReportingWorkbench.tsx` | React UI | 26 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 28 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |

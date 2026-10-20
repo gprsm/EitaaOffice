@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import openpyxl
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from .aggregate import ProgramReport
 from .forms import QuestionnaireDefinition
@@ -72,6 +73,7 @@ def export_unified_report(
     allow_unresolved_star: bool = False,
     ashura_events: Sequence[ReportedEvent] = (),
     traceability: Mapping[str, Any] | None = None,
+    single_program: str | None = None,
 ) -> Path:
     """Write one aggregate row per program sheet onto a copy of the template.
 
@@ -234,6 +236,43 @@ def export_unified_report(
         trace_sheet.cell(row=row_cursor, column=4, value=item.get("event_id", ""))
         row_cursor += 1
 
+
+    # Single program sheet filter if requested
+    if single_program:
+        prog_sheets = {
+            "trip": "اردو",
+            "80401": "اردو",
+            "contest": "مسابقات",
+            "80402": "مسابقات",
+            "ceremonies": "مراسم  مذهبی",
+            "ceremony": "مراسم  مذهبی",
+            "80403": "مراسم  مذهبی",
+            "prayer": "ترویج و توسعه فرهنگ اقامه نماز",
+            "80501": "ترویج و توسعه فرهنگ اقامه نماز",
+            "honor": "تکریم و تجلیل",
+            "80406": "تکریم و تجلیل",
+            "customer_care": "تشویق ارباب رجوع",
+            "80601": "تشویق ارباب رجوع",
+            "charter": "منشور",
+            "80202": "منشور",
+        }
+        target_s = prog_sheets.get(str(single_program).strip().lower(), str(single_program).strip())
+        target_clean = target_s.replace(" ", "")
+        matched_sheet = None
+        for sname in workbook.sheetnames:
+            if sname == target_s or sname.replace(" ", "") == target_clean:
+                matched_sheet = sname
+                break
+        if matched_sheet:
+            keep = {matched_sheet}
+            if ("مراسم" in matched_sheet or "ceremon" in str(single_program).lower()) and ASHURA_ANNEX_SHEET_NAME in workbook.sheetnames:
+                keep.add(ASHURA_ANNEX_SHEET_NAME)
+            if "ردیابی" in workbook.sheetnames:
+                keep.add("ردیابی")
+            for sname in list(workbook.sheetnames):
+                if sname not in keep:
+                    del workbook[sname]
+
     workbook.save(destination)
     return destination
 
@@ -254,3 +293,103 @@ def star_cell_report(
         if missing:
             unresolved[definition.program_id.value] = list(missing)
     return unresolved
+
+
+def export_events_list_to_excel(
+    events: Sequence[ReportedEvent],
+    destination: Path,
+    *,
+    province_name: str = "مازندران",
+    title: str = "گزارش رویدادها و فعالیت‌های فرهنگی",
+) -> Path:
+    destination = destination.expanduser().resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "رویدادهای فرهنگی"
+    ws.sheet_view.rightToLeft = True
+
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+    header_font = Font(name="Tahoma", size=10, bold=True, color="FFFFFF")
+    title_font = Font(name="Tahoma", size=13, bold=True, color="1F4E79")
+    data_font = Font(name="Tahoma", size=9)
+    bold_data_font = Font(name="Tahoma", size=9, bold=True)
+    center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    right_align = Alignment(horizontal="right", vertical="center", wrap_text=True)
+    border_side = Side(border_style="thin", color="D9D9D9")
+    cell_border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
+
+    ws.merge_cells("A1:K1")
+    title_cell = ws["A1"]
+    title_cell.value = f"{title} — استان {province_name}"
+    title_cell.font = title_font
+    title_cell.alignment = center_align
+    ws.row_dimensions[1].height = 32
+
+    headers = [
+        ("ردیف", 6),
+        ("شناسه رویداد", 16),
+        ("سرفصل / برنامه", 28),
+        ("شاخصه کلی", 28),
+        ("شاخصه‌های جزئی", 30),
+        ("تاریخ وقوع", 14),
+        ("واحد سازمانی / حوزه قضایی", 26),
+        ("ثبت‌کننده", 22),
+        ("وضعیت بررسی", 16),
+        ("سنجه‌ها و آمار", 30),
+        ("توضیحات و خلاصه گزارش", 40),
+    ]
+
+    for col_idx, (h_title, width) in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_idx, value=h_title)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_align
+        cell.border = cell_border
+        col_letter = openpyxl.utils.get_column_letter(col_idx)
+        ws.column_dimensions[col_letter].width = width
+
+    ws.row_dimensions[2].height = 26
+
+    status_map = {
+        "approved": "تأیید مدیر",
+        "needs_review": "در انتظار بررسی",
+        "conflict": "تعارض / رد شده",
+        "draft": "پیش‌نویس",
+    }
+
+    for row_idx, ev in enumerate(events, 3):
+        facts_summary = "، ".join(
+            f"{f.metric}: {int(f.value) if f.value.is_integer() else f.value} {f.unit_of_measure or ''}".strip()
+            for f in ev.facts
+        )
+        micros_summary = "، ".join(ev.micro_indicators) if ev.micro_indicators else "—"
+        program_summary = ev.custom_topic if ev.macro_category == "other_cultural" and ev.custom_topic else (
+            "، ".join(k.value for k in ev.program_kinds) or "—"
+        )
+        status_label = status_map.get(ev.review_status, ev.review_status)
+
+        row_data = [
+            (row_idx - 2, center_align, data_font),
+            (ev.event_id, center_align, data_font),
+            (program_summary, right_align, bold_data_font),
+            (ev.macro_indicator or "—", right_align, data_font),
+            (micros_summary, right_align, data_font),
+            (ev.occurred_on.isoformat() if hasattr(ev.occurred_on, "isoformat") else str(ev.occurred_on or "—"), center_align, data_font),
+            (ev.unit_name or ev.unit.value, right_align, data_font),
+            (ev.registered_by_name or ev.created_by or "—", right_align, data_font),
+            (status_label, center_align, bold_data_font),
+            (facts_summary or "—", right_align, data_font),
+            (ev.occasion or ev.notes or "—", right_align, data_font),
+        ]
+
+        ws.row_dimensions[row_idx].height = 24
+        for col_idx, (val, align, font) in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.alignment = align
+            cell.font = font
+            cell.border = cell_border
+
+    wb.save(destination)
+    return destination

@@ -202,6 +202,9 @@ def run_supervision() -> int:
         "program_catalog_and_two_tier_indicators": False,
         "micro_indicator_actions_alignment": False,
         "macro_indicator_unselect_capability": False,
+        "reporting_cartable_archive_tab": False,
+        "report_event_detail_modal": False,
+        "single_worksheet_and_filtered_export": False,
         "code_quality_and_tests": False,
     }
 
@@ -293,9 +296,42 @@ def run_supervision() -> int:
             and "فاقد شاخصه" in card_tsx
         )
 
+        # 17. Reporting Cartable & Archive Tab
+        workbench_tsx = (WORKSPACE_ROOT / "ui" / "src" / "ReportingWorkbench.tsx").read_text(encoding="utf-8")
+        checklist["reporting_cartable_archive_tab"] = (
+            "کارتابل و آرشیو گزارش‌ها" in workbench_tsx
+            and "handleExportFilteredEvents" in workbench_tsx
+            and "loadEventsCartable" in workbench_tsx
+        )
+
+        # 18. Report Event Detail Modal
+        detail_modal_tsx = (WORKSPACE_ROOT / "ui" / "src" / "components" / "ReportEventDetailModal.tsx").read_text(encoding="utf-8")
+        checklist["report_event_detail_modal"] = (
+            "ReportEventDetailModal" in detail_modal_tsx
+            and "rawEvent.witnesses" in detail_modal_tsx
+            and "/api/v3/reporting/events/" in detail_modal_tsx
+        )
+
+        # 19. Single Worksheet & Filtered Events Excel Export
+        excel_py = (WORKSPACE_ROOT / "src" / "eitaa_bridge" / "reporting" / "excel_export.py").read_text(encoding="utf-8")
+        api_v3_py = (WORKSPACE_ROOT / "src" / "eitaa_bridge" / "application" / "reporting_api_v3.py").read_text(encoding="utf-8")
+        checklist["single_worksheet_and_filtered_export"] = (
+            "export_events_list_to_excel" in excel_py
+            and "single_program" in excel_py
+            and "_EVENTS_EXPORT_ROUTE" in api_v3_py
+        )
+
         # 7. Code Quality & Pytest
         pt = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests/test_judicial_units_and_liaisons.py", "tests/test_program_catalog_and_indexing.py", "-q"],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/test_judicial_units_and_liaisons.py",
+                "tests/test_program_catalog_and_indexing.py",
+                "tests/test_reporting_cartable_and_export.py",
+                "-q",
+            ],
             cwd=str(WORKSPACE_ROOT),
             capture_output=True,
             text=True
@@ -311,7 +347,7 @@ def run_supervision() -> int:
         "reviewer_model": "opencode-contract-auditor-v1",
         "checklist": checklist,
         "findings": [],
-        "summary": "All 13 architectural, schema, HTTP method, cascade deletion, author dialog, macro/micro indicators, message splitting, and Eitaa contact sync requirements verified and fully validated against test suite and live endpoints." if all_passed else "One or more checklist items failed contract verification."
+        "summary": "All 19 architectural, schema, HTTP method, cascade deletion, author dialog, macro/micro indicators, message splitting, program catalog, cartable archive, event details modal, single-worksheet export, and Eitaa contact sync requirements verified and fully validated against test suite and live endpoints." if all_passed else "One or more checklist items failed contract verification."
     }
 
     with open(VERDICT_PATH, "w", encoding="utf-8") as vf:

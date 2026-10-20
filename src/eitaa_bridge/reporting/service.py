@@ -19,7 +19,7 @@ from .defect_scanner import scan_event_defects
 
 from .aggregate import ProvincialAggregator, aggregate_program_report, build_traceability_manifest, ProgramReport
 from .eitaa_extraction import EitaaCandidateExtractor, EventCandidate
-from .excel_export import ASHURA_ANNEX_SHEET_NAME, export_unified_report, star_cell_report, TEMPLATE_VERSION
+from .excel_export import ASHURA_ANNEX_SHEET_NAME, export_unified_report, star_cell_report, TEMPLATE_VERSION, export_events_list_to_excel
 from .rules import RULES_VERSION
 from .forms import (
     ALL_FORMS,
@@ -432,6 +432,7 @@ class ReportingService:
         template_root: Path | None = None,
         allow_unresolved_star: bool = False,
         traceability: Mapping[str, Any] | None = None,
+        single_program: str | None = None,
     ) -> Path:
         unified = self.aggregate(events)
         ashura_events = [event for event in events if event.is_ashura_pilgrimage]
@@ -445,6 +446,7 @@ class ReportingService:
             allow_unresolved_star=allow_unresolved_star,
             ashura_events=ashura_events,
             traceability=traceability,
+            single_program=single_program,
         )
 
     def pre_export_blockers(self, filled_forms: Mapping[str, FilledForm]) -> dict[str, list[str]]:
@@ -496,6 +498,7 @@ class ReportingService:
         exported_by: str = "",
         date_from: str | None = None,
         date_to: str | None = None,
+        single_program: str | None = None,
     ) -> Path:
         """Export unified report and record audit trail with SHA-256 hash.
 
@@ -529,6 +532,7 @@ class ReportingService:
             template_root=template_root,
             allow_unresolved_star=allow_unresolved_star,
             traceability=manifest,
+            single_program=single_program,
         )
         if self.store is not None and out_path.exists():
             file_sha = hashlib.sha256(out_path.read_bytes()).hexdigest()

@@ -5061,6 +5061,7 @@ class BridgeApplicationApi:
         province = str(payload.get("province_name", "مازندران"))
         period = str(payload.get("report_period", "۱۴۰۵"))
         allow_unresolved = bool(payload.get("allow_unresolved_star", False))
+        single_program = payload.get("single_program")
         dest_str = payload.get("destination")
         dest = (
             Path(dest_str)
@@ -5078,6 +5079,7 @@ class BridgeApplicationApi:
                 report_period=period,
                 allow_unresolved_star=allow_unresolved,
                 exported_by=operator,
+                single_program=single_program,
             )
         except UnresolvedStarCellsError as exc:
             return ApiResponse(

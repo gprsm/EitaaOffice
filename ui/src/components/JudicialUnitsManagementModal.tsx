@@ -85,6 +85,7 @@ interface Props {
   open: boolean
   onClose: () => void
   onDataChanged?: () => void
+  initialTab?: number
 }
 
 const COMMON_UNIT_TYPES = [
@@ -96,8 +97,8 @@ const COMMON_UNIT_TYPES = [
   'دادگاه عمومی بخش',
 ]
 
-export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: Props) {
-  const [tab, setTab] = useState(0)
+export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, initialTab = 0 }: Props) {
+  const [tab, setTab] = useState(initialTab)
   const [loading, setLoading] = useState(false)
   const [errorText, setErrorText] = useState('')
   const [successText, setSuccessText] = useState('')
@@ -209,9 +210,10 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged }: P
 
   useEffect(() => {
     if (open) {
+      setTab(initialTab)
       loadData()
     }
-  }, [open])
+  }, [open, initialTab])
 
   // Filtered Units
   const filteredUnits = useMemo(() => {
