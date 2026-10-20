@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 473
-- اثرانگشت منبع: `b59c617fecce8368`
+- اثرانگشت منبع: `7d7d6f539cb41721`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -362,7 +362,7 @@
 | `tests/test_receipt_attempt_fence.py` | Python test | 4 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
 | `tests/test_reporting_api.py` | Python test | 16 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
-| `tests/test_reporting_cartable_and_export.py` | Python test | 6 | — |
+| `tests/test_reporting_cartable_and_export.py` | Python test | 8 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |

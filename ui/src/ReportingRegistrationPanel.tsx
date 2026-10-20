@@ -23,6 +23,7 @@ import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import AccountBalanceRounded from '@mui/icons-material/AccountBalanceRounded'
+import AssignmentTurnedInRounded from '@mui/icons-material/AssignmentTurnedInRounded'
 import { api } from './lib/api'
 import { jalaliDayKey, jalaliDayLabel, parseJalaliDate } from './utils/helpers'
 import { JalaliDateTimePicker } from './components/JalaliDateTimePicker'
@@ -269,6 +270,7 @@ export function ReportingRegistrationPanel(props: {
   sourceMessages?: MessageItem[] | null
   initialMacroIndicator?: string
   initialMicroIndicators?: string[]
+  onOpenCartable?: () => void
   onClose: () => void
 }) {
   const { principal } = useAppUser()
@@ -819,6 +821,19 @@ export function ReportingRegistrationPanel(props: {
           {!result.ok && !result.existing_event_id && <Typography variant="caption" color="text.secondary">{result.error}</Typography>}
         </Stack>)}
         <Alert severity="info">وضعیت کارت پیام پس از بستن پنل بهروز میشود.</Alert>
+        {props.onOpenCartable && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AssignmentTurnedInRounded />}
+            onClick={() => {
+              props.onOpenCartable?.()
+            }}
+            sx={{ mt: 1 }}
+          >
+            مشاهده در کارتابل و آرشیو گزارش‌ها
+          </Button>
+        )}
       </Stack>}
     </DialogContent>
     <DialogActions sx={{ justifyContent: 'space-between', px: 2 }}>

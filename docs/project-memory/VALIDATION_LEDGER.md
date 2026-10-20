@@ -3376,7 +3376,7 @@ otes, program_kinds_json, occurred_on در update_event_fields؛ لود و دی�
 - شواهد و آزمون‌های کیفیت:
   - آزمون‌های متمرکز بک‌اند: pytest tests/test_reporting_cartable_and_export.py؛ هر ۴ تست پاس کامل (Exit code 0).
   - مجموعه کامل آزمون‌های گزارش‌گیری: ۲۱۳ تست ماژول‌های reporting در 	ests/test_reporting_*.py با موفقیت ۱۰۰٪ پاس شدند.
-  - آزمون Parity پکیجینگ و Wheel: بازسازی wheel رسمی به eitaa_bridge-0.7.0.dev31-py3-none-any.whl (SHA-256=c13688c2e5b6cedad3a7daeebfa7bd508104253edb04579ccfa488203d883451) و پاس‌شدن کامل ۱۵ تست 	ests/test_g07_release_packaging.py.
+  - آزمون Parity پکیجینگ و Wheel: بازسازی wheel رسمی به eitaa_bridge-0.7.0.dev31-py3-none-any.whl (SHA-256=63066973d8b896ea947c41789809cf61cb425457e2b65814185729ec8bdaf9d4) و پاس‌شدن کامل ۱۵ تست 	ests/test_g07_release_packaging.py.
   - ممیزی و تایپ‌چک فرانت‌اند:
 pm.cmd --prefix ui run check بدون خطا (0 TypeScript errors)؛
 pm.cmd --prefix ui run test:observability پاس کامل.

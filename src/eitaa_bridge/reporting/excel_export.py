@@ -204,6 +204,40 @@ def export_unified_report(
         _put("منشور", "D5", answers.get("boards_installed"), star=True, label="تابلو نصب‌شده")
         _put("منشور", "E5", answers.get("republish"), star=True, label="بازنشر")
 
+    # Single program sheet filter if requested
+    target_sheet_name: str | None = None
+    keep_sheets: set[str] | None = None
+    if single_program:
+        prog_sheets = {
+            "trip": "اردو",
+            "80401": "اردو",
+            "contest": "مسابقات",
+            "80402": "مسابقات",
+            "ceremonies": "مراسم  مذهبی",
+            "ceremony": "مراسم  مذهبی",
+            "80403": "مراسم  مذهبی",
+            "prayer": "ترویج و توسعه فرهنگ اقامه نماز",
+            "80501": "ترویج و توسعه فرهنگ اقامه نماز",
+            "honor": "تکریم و تجلیل",
+            "80406": "تکریم و تجلیل",
+            "customer_care": "تشویق ارباب رجوع",
+            "80601": "تشویق ارباب رجوع",
+            "charter": "منشور",
+            "80202": "منشور",
+        }
+        target_s = prog_sheets.get(str(single_program).strip().lower(), str(single_program).strip())
+        target_clean = target_s.replace(" ", "")
+        for sname in workbook.sheetnames:
+            if sname == target_s or sname.replace(" ", "") == target_clean:
+                target_sheet_name = sname
+                break
+        if target_sheet_name:
+            keep_sheets = {target_sheet_name}
+            if ("مراسم" in target_sheet_name or "ceremon" in str(single_program).lower()) and ASHURA_ANNEX_SHEET_NAME in workbook.sheetnames:
+                keep_sheets.add(ASHURA_ANNEX_SHEET_NAME)
+            # Only star cells in the retained target sheet should block single-sheet export
+            blockers = {s: b for s, b in blockers.items() if s in keep_sheets}
+
     if blockers and not allow_unresolved_star:
         raise UnresolvedStarCellsError(blockers)
 
@@ -236,42 +270,14 @@ def export_unified_report(
         trace_sheet.cell(row=row_cursor, column=4, value=item.get("event_id", ""))
         row_cursor += 1
 
-
-    # Single program sheet filter if requested
-    if single_program:
-        prog_sheets = {
-            "trip": "اردو",
-            "80401": "اردو",
-            "contest": "مسابقات",
-            "80402": "مسابقات",
-            "ceremonies": "مراسم  مذهبی",
-            "ceremony": "مراسم  مذهبی",
-            "80403": "مراسم  مذهبی",
-            "prayer": "ترویج و توسعه فرهنگ اقامه نماز",
-            "80501": "ترویج و توسعه فرهنگ اقامه نماز",
-            "honor": "تکریم و تجلیل",
-            "80406": "تکریم و تجلیل",
-            "customer_care": "تشویق ارباب رجوع",
-            "80601": "تشویق ارباب رجوع",
-            "charter": "منشور",
-            "80202": "منشور",
-        }
-        target_s = prog_sheets.get(str(single_program).strip().lower(), str(single_program).strip())
-        target_clean = target_s.replace(" ", "")
-        matched_sheet = None
-        for sname in workbook.sheetnames:
-            if sname == target_s or sname.replace(" ", "") == target_clean:
-                matched_sheet = sname
-                break
-        if matched_sheet:
-            keep = {matched_sheet}
-            if ("مراسم" in matched_sheet or "ceremon" in str(single_program).lower()) and ASHURA_ANNEX_SHEET_NAME in workbook.sheetnames:
-                keep.add(ASHURA_ANNEX_SHEET_NAME)
-            if "ردیابی" in workbook.sheetnames:
-                keep.add("ردیابی")
-            for sname in list(workbook.sheetnames):
-                if sname not in keep:
-                    del workbook[sname]
+    # Remove non-target sheets if single_program was requested
+    if keep_sheets:
+        keep = set(keep_sheets)
+        if "ردیابی" in workbook.sheetnames:
+            keep.add("ردیابی")
+        for sname in list(workbook.sheetnames):
+            if sname not in keep:
+                del workbook[sname]
 
     workbook.save(destination)
     return destination
@@ -360,13 +366,20 @@ def export_events_list_to_excel(
     }
 
     for row_idx, ev in enumerate(events, 3):
+        def _fmt_val(v: Any) -> str:
+            try:
+                fv = float(v)
+                return str(int(fv) if fv.is_integer() else fv)
+            except (TypeError, ValueError):
+                return str(v or "")
+
         facts_summary = "، ".join(
-            f"{f.metric}: {int(f.value) if f.value.is_integer() else f.value} {f.unit_of_measure or ''}".strip()
+            f"{f.metric}: {_fmt_val(f.value)} {f.unit_of_measure or ''}".strip()
             for f in ev.facts
         )
         micros_summary = "، ".join(ev.micro_indicators) if ev.micro_indicators else "—"
         program_summary = ev.custom_topic if ev.macro_category == "other_cultural" and ev.custom_topic else (
-            "، ".join(k.value for k in ev.program_kinds) or "—"
+            "، ".join(k.value if hasattr(k, "value") else str(k) for k in ev.program_kinds) or "—"
         )
         status_label = status_map.get(ev.review_status, ev.review_status)
 

@@ -2616,7 +2616,22 @@ class ReportingStore:
                     else row["occurred_on"]
                 )
 
-                kinds = tuple(ProgramKind(k) for k in json.loads(row["program_kinds_json"]))
+                def _to_program_kind(k: Any) -> ProgramKind:
+                    try:
+                        return ProgramKind(k)
+                    except ValueError:
+                        code_map = {
+                            "80401": ProgramKind.TRIP,
+                            "80402": ProgramKind.CONTEST,
+                            "80403": ProgramKind.CEREMONY,
+                            "80501": ProgramKind.PRAYER,
+                            "80406": ProgramKind.HONOR,
+                            "80601": ProgramKind.CUSTOMER_CARE,
+                            "80202": ProgramKind.CHARTER,
+                        }
+                        return code_map.get(str(k), ProgramKind.CEREMONY)
+
+                kinds = tuple(_to_program_kind(k) for k in json.loads(row["program_kinds_json"]))
                 unit = UnitScope(row["unit"]) if row["unit"] in {u.value for u in UnitScope} else UnitScope.PROVINCIAL_HQ
                 occasion_class = OccasionClass(row["occasion_class"]) if row["occasion_class"] else None
                 official_present = (

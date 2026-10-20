@@ -2400,7 +2400,21 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       </DialogContent>
     </Dialog>
     {registrationPanel.open && <Suspense fallback={null}>
-      <ReportingRegistrationPanel siteKey={siteKey} dialog={dialog} dialogPeerKey={dialog?.peer_key || ''} messageIds={registrationPanel.messageIds} sourceMessage={registrationPanel.sourceMessage} sourceMessages={registrationPanel.sourceMembers} initialMacroIndicator={registrationPanel.initialMacroIndicator} initialMicroIndicators={registrationPanel.initialMicroIndicators} onClose={() => { setRegistrationPanel({ open: false, messageIds: [] }); setReportUsageRefresh(value => value + 1) }} />
+      <ReportingRegistrationPanel
+        siteKey={siteKey}
+        dialog={dialog}
+        dialogPeerKey={dialog?.peer_key || ''}
+        messageIds={registrationPanel.messageIds}
+        sourceMessage={registrationPanel.sourceMessage}
+        sourceMessages={registrationPanel.sourceMembers}
+        initialMacroIndicator={registrationPanel.initialMacroIndicator}
+        initialMicroIndicators={registrationPanel.initialMicroIndicators}
+        onOpenCartable={() => {
+          setRegistrationPanel({ open: false, messageIds: [] })
+          setReportingOpen(true)
+        }}
+        onClose={() => { setRegistrationPanel({ open: false, messageIds: [] }); setReportUsageRefresh(value => value + 1) }}
+      />
     </Suspense>}
     {splitDialogState.open && (
       <SplitMessageDialog

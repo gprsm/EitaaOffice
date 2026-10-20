@@ -196,3 +196,57 @@ def test_single_program_export_unified_report(store: ReportingStore, tmp_path: P
     assert "مسابقات" not in wb.sheetnames
     assert "منشور" not in wb.sheetnames
     wb.close()
+
+
+def test_single_program_export_ignores_unresolved_stars_in_other_sheets(store: ReportingStore, tmp_path: Path) -> None:
+    template_candidates = list(Path(".").glob("*.xlsx"))
+    template_file = next((f for f in template_candidates if "1405" in f.name and not f.name.startswith("~")), None)
+    if not template_file:
+        pytest.skip("Template 1405.xlsx not found in root")
+
+    dest_file = tmp_path / "single_export_star_test.xlsx"
+    ev = _sample_event("evt_charter_02", program="charter")
+
+    from eitaa_bridge.reporting import FilledForm
+    charter_form = FilledForm(ProgramId.CHARTER)
+    charter_form.set("correspondence", 1)
+    charter_form.set("boards_installed", 1)
+    charter_form.set("republish", 1)
+    store.save_filled_form(charter_form)
+
+    service = ReportingService(store=store)
+    # allow_unresolved_star is False; since charter ("منشور") is filled, missing stars in other unexported sheets should not block!
+    service.export_with_audit(
+        events=[ev],
+        destination=dest_file,
+        report_period="۱۴۰۵",
+        province_name="مازندران",
+        allow_unresolved_star=False,
+        template_root=template_file.parent,
+        single_program="charter",
+    )
+    assert dest_file.exists()
+
+
+def test_list_events_safe_against_numeric_catalog_codes(store: ReportingStore) -> None:
+    # Directly insert an event with numeric catalog code in program_kinds_json
+    with store._connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO reported_events (
+                event_id, occurred_on, unit, unit_name, occasion,
+                macro_category, custom_topic, macro_indicator,
+                micro_indicators_json, program_kinds_json, created_at, created_by,
+                review_status, registered_by_id, registered_by_name, version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt_num_01", "2026-07-10", "provincial_hq", "ستاد", "مناسبت تستی",
+                "workbook_approved", "", "شاخص کلی",
+                json.dumps(["شاخص جزئی"]), json.dumps(["80401", "custom_code_99"]),
+                "2026-07-10T10:00:00Z", "op", "needs_review", "user", "کارشناس", 1
+            )
+        )
+    # list_events must not crash
+    events = store.list_events()
+    assert any(e.event_id == "evt_num_01" for e in events)

@@ -702,6 +702,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [filterMicro, setFilterMicro] = useState<string>('all')
   const [filterUnit, setFilterUnit] = useState<string>('all')
   const [exportingFiltered, setExportingFiltered] = useState<boolean>(false)
+  const [lastFilteredExportResult, setLastFilteredExportResult] = useState<{ path: string; fileName: string; count: number } | null>(null)
   const [detailModalEventId, setDetailModalEventId] = useState<string | null>(null)
 
   // Single worksheet vs entire province export state
@@ -779,6 +780,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
         '/api/v3/reporting/events/export-excel',
         payload,
       )
+      setLastFilteredExportResult({ path: res.path, fileName: res.file_name, count: res.count || 0 })
       toast.success(`خروجی اکسل گزارش‌ها با موفقیت ایجاد شد: ${res.file_name} (${res.count || 0} رکورد)`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در صدور خروجی اکسل گزارش‌ها')
@@ -1271,6 +1273,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           province_name: exportProvince,
           report_period: exportPeriod,
           allow_unresolved_star: exportForceUnresolved,
+          single_program: exportScope === 'single' ? selectedSingleProgram : undefined,
         },
       )
       setLastExportResult({ path: res.export_path, fileName: res.file_name })
@@ -1787,6 +1790,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                 </Grid>
               </Stack>
             </Paper>
+
+            {lastFilteredExportResult && (
+              <Alert severity="success" onClose={() => setLastFilteredExportResult(null)} sx={{ borderRadius: 2 }}>
+                فایل اکسل گزارش‌های فیلترشده با موفقیت ایجاد شد: <strong>{lastFilteredExportResult.fileName}</strong> ({lastFilteredExportResult.count} رکورد)
+                <br />
+                <Typography variant="caption" color="text.secondary">
+                  مسیر ذخیره محلی: {lastFilteredExportResult.path}
+                </Typography>
+              </Alert>
+            )}
 
             {/* Events Cartable Table */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
