@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "dea851a605110484",
+  "source_fingerprint": "e8811b418f67e02e",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -30346,37 +30346,37 @@
         {
           "name": "inferRegistrationDefaults",
           "kind": "script symbol",
-          "line": 87
+          "line": 90
         },
         {
           "name": "witnessRow",
           "kind": "script symbol",
-          "line": 260
+          "line": 271
         },
         {
           "name": "ReportingRegistrationPanel",
           "kind": "script symbol",
-          "line": 264
+          "line": 275
         },
         {
           "name": "resolveSenderAndUnit",
           "kind": "script symbol",
-          "line": 334
+          "line": 345
         },
         {
           "name": "update",
           "kind": "script symbol",
-          "line": 392
+          "line": 403
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 410
+          "line": 421
         },
         {
           "name": "requestClose",
           "kind": "script symbol",
-          "line": 486
+          "line": 497
         }
       ]
     },

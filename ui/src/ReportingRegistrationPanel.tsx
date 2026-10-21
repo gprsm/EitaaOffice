@@ -16,6 +16,7 @@ import {
   Step,
   StepLabel,
   Stepper,
+  Paper,
   TextField,
   Typography,
 } from '@mui/material'
@@ -25,6 +26,8 @@ import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import AccountBalanceRounded from '@mui/icons-material/AccountBalanceRounded'
 import AssignmentTurnedInRounded from '@mui/icons-material/AssignmentTurnedInRounded'
 import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
+import AssessmentRounded from '@mui/icons-material/AssessmentRounded'
 import { api } from './lib/api'
 import { jalaliDayKey, jalaliDayLabel, parseJalaliDate } from './utils/helpers'
 import { JalaliDateTimePicker } from './components/JalaliDateTimePicker'
@@ -228,7 +231,15 @@ const EMPTY: RegistrationDraft = {
   programKinds: ['ceremony'], witnesses: [], facts: [],
 }
 
-const STEPS = ['موضوع رویداد', 'برنامه و فکتها', 'شاهدان', 'بازبینی و ثبت']
+const STEPS = ['موضوع و شناسنامه', 'سرفصل برنامه و آمار عددی', 'شاهدان ایتا', 'بازبینی و ثبت']
+
+const COMMON_METRICS = [
+  { metric: 'attendees', label: 'تعداد کل شرکت‌کنندگان', unit: 'نفر', type: 'integer' },
+  { metric: 'trip_type_staff', label: 'تعداد همکاران (پرسنل)', unit: 'نفر', type: 'integer' },
+  { metric: 'trip_type_family', label: 'تعداد اعضای خانواده', unit: 'نفر', type: 'integer' },
+  { metric: 'survey', label: 'نمره نظرسنجی اثربخشی', unit: 'نمره', type: 'decimal' },
+  { metric: 'honored_count', label: 'تعداد افراد تقدیرشده', unit: 'نفر', type: 'integer' },
+]
 
 type WitnessDraft = {
   peer_id: string
@@ -706,16 +717,34 @@ export function ReportingRegistrationPanel(props: {
         <TextField label="توضیحات تکمیلی (متن گزارش)" value={draft.notes} onChange={event => update({ notes: event.target.value })} multiline minRows={3} fullWidth />
       </Stack>}
 
-      {step === 1 && <Stack spacing={2} sx={{ maxWidth: 720, mx: 'auto' }}>
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>برنامه‌های مصوب مرتبط (حداقل یکی)</Typography>
-          <Stack direction="row" flexWrap="wrap" gap={0.75}>
+      {step === 1 && <Stack spacing={2.5} sx={{ maxWidth: 720, mx: 'auto' }}>
+        {/* ۱. سرفصل برنامه‌های مصوب مرتبط */}
+        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+            <AssessmentRounded color="primary" fontSize="small" />
+            <Typography variant="subtitle2" fontWeight={800}>
+              سرفصل‌های مصوب مرتبط با گزارش
+            </Typography>
+          </Stack>
+
+          {draft.macroIndicator ? (
+            <Alert severity="info" sx={{ mb: 2, py: 0.5, '& .MuiAlert-message': { fontSize: '0.82rem' } }}>
+              سرفصل متناظر با شاخصهٔ کلی انتخابی شما در مرحلهٔ اول (<strong>{draft.macroIndicator}</strong>) به صورت پیش‌فرض فعال و تأیید شده است. در صورتی که این گزارش مشترکاً به چند برنامه مربوط است، می‌توانید سرفصل‌های مکمل دیگر را نیز انتخاب یا لغو نمایید:
+            </Alert>
+          ) : (
+            <Alert severity="warning" sx={{ mb: 2, py: 0.5, '& .MuiAlert-message': { fontSize: '0.82rem' } }}>
+              لطفاً حداقل یک سرفصل برنامهٔ مصوب مرتبط با این رویداد را انتخاب نمایید:
+            </Alert>
+          )}
+
+          <Stack direction="row" flexWrap="wrap" gap={1}>
             {programCatalog.length > 0 ? (
               programCatalog.map(prog => {
                 const selected = draft.programKinds.includes(prog.kind) || draft.programKinds.includes(prog.program_code)
                 return (
                   <Chip
                     key={prog.program_code}
+                    icon={selected ? <CheckCircleRounded sx={{ fontSize: '18px !important', color: 'primary.contrastText !important' }} /> : undefined}
                     label={`${prog.program_code} · ${prog.title}`}
                     color={selected ? 'primary' : 'default'}
                     variant={selected ? 'filled' : 'outlined'}
@@ -728,7 +757,23 @@ export function ReportingRegistrationPanel(props: {
                         macroIndicator: !selected && !draft.macroIndicator ? (prog.canonical_macro || prog.title) : draft.macroIndicator,
                       })
                     }}
-                    sx={{ fontWeight: selected ? 700 : 400 }}
+                    sx={{
+                      fontWeight: selected ? 800 : 500,
+                      px: 0.75,
+                      py: 2.2,
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      bgcolor: selected ? 'primary.main' : 'action.hover',
+                      color: selected ? 'primary.contrastText' : 'text.primary',
+                      border: '1.5px solid',
+                      borderColor: selected ? 'primary.main' : 'divider',
+                      boxShadow: selected ? '0 2px 8px rgba(37, 99, 235, 0.35)' : 'none',
+                      '&:hover': {
+                        bgcolor: selected ? 'primary.dark' : 'action.selected',
+                        borderColor: 'primary.main',
+                      },
+                    }}
                   />
                 )
               })
@@ -738,28 +783,158 @@ export function ReportingRegistrationPanel(props: {
                 return (
                   <Chip
                     key={kind.value}
+                    icon={selected ? <CheckCircleRounded sx={{ fontSize: '18px !important', color: 'primary.contrastText !important' }} /> : undefined}
                     label={kind.label}
                     color={selected ? 'primary' : 'default'}
                     variant={selected ? 'filled' : 'outlined'}
                     onClick={() => update({ programKinds: selected ? draft.programKinds.filter(v => v !== kind.value) : [...draft.programKinds, kind.value] })}
+                    sx={{
+                      fontWeight: selected ? 800 : 500,
+                      px: 0.75,
+                      py: 2.2,
+                      borderRadius: 2,
+                      bgcolor: selected ? 'primary.main' : 'action.hover',
+                      color: selected ? 'primary.contrastText' : 'text.primary',
+                      border: '1.5px solid',
+                      borderColor: selected ? 'primary.main' : 'divider',
+                    }}
                   />
                 )
               })
             )}
           </Stack>
         </Box>
-        <Divider />
-        <Typography variant="subtitle2">فکتهای شمارشی (اختیاری)</Typography>
-        {draft.facts.map((fact, index) => <Stack key={index} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-          <TextField size="small" label="سنجه" value={fact.metric} onChange={event => update({ facts: draft.facts.map((f, i) => i === index ? { ...f, metric: event.target.value } : f) })} sx={{ flex: 2 }} />
-          <TextField size="small" label="مقدار" value={fact.value} onChange={event => update({ facts: draft.facts.map((f, i) => i === index ? { ...f, value: event.target.value } : f) })} sx={{ flex: 1 }} dir="ltr" />
-          <TextField size="small" select label="نوع" value={fact.value_type} onChange={event => update({ facts: draft.facts.map((f, i) => i === index ? { ...f, value_type: event.target.value } : f) })} sx={{ flex: 1 }}>
-            {VALUE_TYPES.map(item => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
-          </TextField>
-          <TextField size="small" label="واحد" value={fact.unit_of_measure} onChange={event => update({ facts: draft.facts.map((f, i) => i === index ? { ...f, unit_of_measure: event.target.value } : f) })} sx={{ flex: 1 }} />
-          <IconButton aria-label="حذف فکت" onClick={() => update({ facts: draft.facts.filter((_, i) => i !== index) })}><DeleteOutlineRounded /></IconButton>
-        </Stack>)}
-        <Button variant="text" startIcon={<AddRounded />} onClick={() => update({ facts: [...draft.facts, { metric: '', value: '', unit_of_measure: 'count', value_type: 'integer' }] })}>افزودن فکت</Button>
+
+        {/* ۲. آمار، سنجه‌ها و ارقام عددی رویداد */}
+        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" fontWeight={800}>
+              آمار و سنجه‌های عددی رویداد (اختیاری)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              جهت محاسبه خودکار در کاربرگ‌ها و داشبوردها
+            </Typography>
+          </Stack>
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+            با کلیک روی گزینه‌های زیر، سنجه‌های پرکاربرد فوراً افزوده می‌شوند (یا می‌توانید با دکمه انتهای بخش سنجهٔ دستی اضافه کنید):
+          </Typography>
+
+          {/* Quick presets */}
+          <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 2 }}>
+            {COMMON_METRICS.map(m => {
+              const alreadyAdded = draft.facts.some(f => f.metric === m.metric)
+              return (
+                <Chip
+                  key={m.metric}
+                  label={alreadyAdded ? `✓ ${m.label}` : `+ ${m.label}`}
+                  size="small"
+                  color={alreadyAdded ? 'success' : 'default'}
+                  variant={alreadyAdded ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    if (!alreadyAdded) {
+                      update({
+                        facts: [
+                          ...draft.facts,
+                          { metric: m.metric, value: '', unit_of_measure: m.unit, value_type: m.type },
+                        ],
+                      })
+                    }
+                  }}
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    cursor: alreadyAdded ? 'default' : 'pointer',
+                  }}
+                />
+              )
+            })}
+          </Stack>
+
+          <Stack spacing={1.5}>
+            {draft.facts.map((fact, index) => {
+              const preset = COMMON_METRICS.find(m => m.metric === fact.metric)
+              return (
+                <Paper
+                  key={index}
+                  variant="outlined"
+                  sx={{ p: 1.5, borderRadius: 1.5, bgcolor: 'action.hover' }}
+                >
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
+                    <TextField
+                      size="small"
+                      label="عنوان سنجه / شاخص"
+                      value={fact.metric}
+                      helperText={preset ? preset.label : undefined}
+                      onChange={event =>
+                        update({
+                          facts: draft.facts.map((f, i) =>
+                            i === index ? { ...f, metric: event.target.value } : f,
+                          ),
+                        })
+                      }
+                      sx={{ flex: 2 }}
+                    />
+                    <TextField
+                      size="small"
+                      label="مقدار عددی"
+                      type="number"
+                      value={fact.value}
+                      placeholder="مثال: ۵۰"
+                      onChange={event =>
+                        update({
+                          facts: draft.facts.map((f, i) =>
+                            i === index ? { ...f, value: event.target.value } : f,
+                          ),
+                        })
+                      }
+                      sx={{ flex: 1.2 }}
+                      dir="ltr"
+                    />
+                    <TextField
+                      size="small"
+                      label="واحد سنجش"
+                      value={fact.unit_of_measure}
+                      placeholder="نفر / عدد / نمره"
+                      onChange={event =>
+                        update({
+                          facts: draft.facts.map((f, i) =>
+                            i === index ? { ...f, unit_of_measure: event.target.value } : f,
+                          ),
+                        })
+                      }
+                      sx={{ flex: 1 }}
+                    />
+                    <IconButton
+                      aria-label="حذف سنجه"
+                      color="error"
+                      size="small"
+                      onClick={() => update({ facts: draft.facts.filter((_, i) => i !== index) })}
+                    >
+                      <DeleteOutlineRounded />
+                    </IconButton>
+                  </Stack>
+                </Paper>
+              )
+            })}
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<AddRounded />}
+              onClick={() =>
+                update({
+                  facts: [
+                    ...draft.facts,
+                    { metric: '', value: '', unit_of_measure: 'نفر', value_type: 'integer' },
+                  ],
+                })
+              }
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              افزودن سنجهٔ سفارشی دیگر
+            </Button>
+          </Stack>
+        </Box>
       </Stack>}
 
       {step === 2 && <Stack spacing={1.5} sx={{ maxWidth: 760, mx: 'auto' }}>
@@ -791,7 +966,7 @@ export function ReportingRegistrationPanel(props: {
         <Typography variant="body2">تاریخ وقوع: <strong>{draft.occurredOn || '—'}</strong> (جلالی)</Typography>
         <Typography variant="body2">حوزه و واحد: <strong>{draft.unit === 'provincial_hq' ? 'ستاد استانی' : 'حوزهٔ قضایی'}{draft.unit_name ? ` (${draft.unit_name})` : ''}</strong></Typography>
         <Typography variant="body2">برنامه‌ها: {draft.programKinds.join('، ') || '—'}</Typography>
-        <Typography variant="body2">تعداد فکت‌ها: {draft.facts.length}</Typography>
+        <Typography variant="body2">آمار و سنجه‌های ثبت‌شده: <strong>{draft.facts.length > 0 ? `${draft.facts.length} شاخص عددی (${draft.facts.map(f => `${f.metric}: ${f.value} ${f.unit_of_measure}`).join('، ')})` : 'ثبت نشده (اختیاری)'}</strong></Typography>
         <Typography variant="body2">شاهدان: {draft.witnesses.filter(w => w.message_id.trim()).length} مورد ({draft.witnesses.filter(w => w.role === 'primary').length} اصلی، {draft.witnesses.filter(w => w.role === 'supporting').length} پشتیبان)</Typography>
 
         {draft.witnesses.filter(w => w.message_id.trim()).length === 0 && (
@@ -802,7 +977,7 @@ export function ReportingRegistrationPanel(props: {
         {draft.programKinds.some(k => ['ceremony', 'contest', 'quran_contest', 'trip'].includes(k)) &&
           !draft.facts.some(f => f.metric === 'attendees' && Number(f.value) > 0) && (
           <Alert severity="warning">
-            توجه کیفی: برای این برنامهٔ جمعی، فکت تعداد مخاطبان ثبت نشده است.
+            توجه کیفی: برای این برنامهٔ جمعی، سنجهٔ تعداد مخاطبان / شرکت‌کنندگان ثبت نشده است.
           </Alert>
         )}
         {!draft.unit_name.trim() && draft.unit !== 'provincial_hq' && (
