@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 475
-- اثرانگشت منبع: `4b17ab084a0aa474`
+- اثرانگشت منبع: `9333c5b17ef4f0c5`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -438,7 +438,7 @@
 | `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
 | `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
 | `ui/src/components/MicroIndicatorsManagementModal.tsx` | React UI | 6 | — |
-| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 19 | — |
+| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 21 | — |
 | `ui/src/components/SplitMessageDialog.tsx` | React UI | 6 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
 | `ui/src/ContactDirectoryModal.tsx` | React UI | 20 | — |

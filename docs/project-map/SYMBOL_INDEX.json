@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "4b17ab084a0aa474",
+  "source_fingerprint": "9333c5b17ef4f0c5",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -29248,87 +29248,97 @@
         {
           "name": "loadCatalogs",
           "kind": "script symbol",
-          "line": 166
+          "line": 169
         },
         {
           "name": "fetchEventData",
           "kind": "script symbol",
-          "line": 195
+          "line": 198
         },
         {
           "name": "loadMergeCandidates",
           "kind": "script symbol",
-          "line": 266
+          "line": 269
         },
         {
           "name": "setFactValue",
           "kind": "script symbol",
-          "line": 293
+          "line": 296
         },
         {
           "name": "handleAddMicroTag",
           "kind": "script symbol",
-          "line": 308
+          "line": 311
         },
         {
           "name": "handleRemoveMicroTag",
           "kind": "script symbol",
-          "line": 314
+          "line": 317
         },
         {
           "name": "handleSave",
           "kind": "script symbol",
-          "line": 320
+          "line": 323
         },
         {
           "name": "handleDeleteEvent",
           "kind": "script symbol",
-          "line": 358
+          "line": 361
         },
         {
           "name": "handleFileInputChange",
           "kind": "script symbol",
-          "line": 375
+          "line": 378
         },
         {
           "name": "handleDeleteDocument",
           "kind": "script symbol",
-          "line": 409
+          "line": 412
         },
         {
           "name": "handleSetCover",
           "kind": "script symbol",
-          "line": 420
+          "line": 423
         },
         {
           "name": "handleDownloadDoc",
           "kind": "script symbol",
-          "line": 433
+          "line": 436
+        },
+        {
+          "name": "handlePreviewDoc",
+          "kind": "script symbol",
+          "line": 460
+        },
+        {
+          "name": "handleDetachWitness",
+          "kind": "script symbol",
+          "line": 485
         },
         {
           "name": "handleMergeCandidate",
           "kind": "script symbol",
-          "line": 459
+          "line": 508
         },
         {
           "name": "handleApprove",
           "kind": "script symbol",
-          "line": 480
+          "line": 529
         },
         {
           "name": "handleRequestRevision",
           "kind": "script symbol",
-          "line": 494
+          "line": 543
         },
         {
           "name": "handleMarkConflict",
           "kind": "script symbol",
-          "line": 515
+          "line": 564
         },
         {
           "name": "handleSubmitReview",
           "kind": "script symbol",
-          "line": 536
+          "line": 585
         }
       ]
     },

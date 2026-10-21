@@ -160,6 +160,9 @@ export function ReportEventDetailModal({
   // Delete event confirmation modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false)
 
+  // Image Lightbox Preview
+  const [previewImageDoc, setPreviewImageDoc] = useState<{ url: string; title: string } | null>(null)
+
   // Load catalogs once
   useEffect(() => {
     let active = true
@@ -452,6 +455,52 @@ export function ReportEventDetailModal({
       }
     } catch (err) {
       toast.error('خطا در دریافت و دانلود فایل سند')
+    }
+  }
+
+  const handlePreviewDoc = async (doc: any) => {
+    const isImage = doc.kind === 'image' || doc.media_id?.match(/\.(jpg|jpeg|png|webp|gif)$/i)
+    if (isImage) {
+      if (doc.media_url) {
+        setPreviewImageDoc({ url: doc.media_url, title: doc.media_id || 'تصویر سند' })
+        return
+      }
+      try {
+        const res = await api<{ ok: boolean; content_base64: string; mime_type: string; filename: string }>(
+          'GET',
+          `/api/v3/reporting/events/${encodeURIComponent(eventId!)}/documents/${encodeURIComponent(doc.document_id)}/view`,
+        )
+        if (res.content_base64) {
+          const blob = b64toBlob(res.content_base64, res.mime_type || 'image/jpeg')
+          const url = URL.createObjectURL(blob)
+          setPreviewImageDoc({ url, title: res.filename || doc.media_id || 'تصویر سند' })
+        }
+      } catch (err) {
+        toast.error('خطا در دریافت و نمایش تصویر')
+      }
+    } else {
+      void handleDownloadDoc(doc)
+    }
+  }
+
+  const handleDetachWitness = async (linkId: string) => {
+    if (!eventId) return
+    const reason = window.prompt('علت آزادسازی و جداسازی شاهد پیام ایتا را وارد نمایید:', 'جداسازی و آزادسازی شاهد توسط کاربر')
+    if (reason === null) return
+    if (!reason.trim()) {
+      toast.error('ثبت علت جداسازی شاهد الزامی است.')
+      return
+    }
+    try {
+      setActionLoading(true)
+      await api('POST', `/api/v3/reporting/witness-links/${encodeURIComponent(linkId)}/detach`, { reason: reason.trim() })
+      toast.success('شاهد پیام ایتا با موفقیت از پرونده جدا شد.')
+      onSaved?.()
+      await fetchEventData(eventId)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در جداسازی شاهد')
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -1220,7 +1269,21 @@ export function ReportEventDetailModal({
                               />
                             ) : null}
 
-                            <Box sx={{ height: 160, bgcolor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                            <Box
+                              onClick={() => handlePreviewDoc(doc)}
+                              sx={{
+                                height: 160,
+                                bgcolor: '#f0f0f0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s',
+                                '&:hover': { opacity: 0.9 },
+                              }}
+                              title="کلیک جهت مشاهده تمام‌صفحه تصویر"
+                            >
                               {doc.media_url ? (
                                 <img
                                   src={doc.media_url}
@@ -1240,7 +1303,7 @@ export function ReportEventDetailModal({
                                 حجم: {doc.size_bytes ? `${Math.round(doc.size_bytes / 1024)} KB` : 'نامشخص'}
                               </Typography>
 
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }} justifyContent="space-between">
+                              <Stack direction="row" spacing={1} sx={{ mt: 1 }} justifyContent="space-between" alignItems="center">
                                 {!doc.is_cover ? (
                                   <Button
                                     size="small"
@@ -1257,8 +1320,11 @@ export function ReportEventDetailModal({
                                 )}
 
                                 <Stack direction="row" spacing={0.5}>
-                                  <IconButton size="small" color="primary" onClick={() => handleDownloadDoc(doc)} title="مشاهده / دریافت">
+                                  <IconButton size="small" color="primary" onClick={() => handlePreviewDoc(doc)} title="مشاهده تمام‌صفحه تصویر">
                                     <VisibilityRounded fontSize="small" />
+                                  </IconButton>
+                                  <IconButton size="small" color="secondary" onClick={() => handleDownloadDoc(doc)} title="دانلود فایل اصلی تصویر">
+                                    <DownloadRounded fontSize="small" />
                                   </IconButton>
                                   <IconButton
                                     size="small"
@@ -1375,7 +1441,22 @@ export function ReportEventDetailModal({
                                 شناسه گفتگو: {w.peer_id} | شماره پیام: #{w.message_id}
                               </Typography>
                             </Stack>
-                            <Chip size="small" variant="outlined" label={w.role === 'primary' ? 'شاهد اصلی' : 'شاهد پشتیبان'} />
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Chip size="small" variant="outlined" label={w.role === 'primary' ? 'شاهد اصلی' : 'شاهد پشتیبان'} />
+                              {w.link_id && (
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  variant="outlined"
+                                  startIcon={<DeleteOutlineRounded fontSize="small" />}
+                                  onClick={() => handleDetachWitness(w.link_id)}
+                                  disabled={actionLoading}
+                                  sx={{ fontSize: '0.7rem', py: 0.2, px: 1 }}
+                                >
+                                  جداسازی شاهد
+                                </Button>
+                              )}
+                            </Stack>
                           </Stack>
                           {w.note && (
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
@@ -1648,6 +1729,56 @@ export function ReportEventDetailModal({
           >
             بله، پرونده را حذف کن
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Image Lightbox Preview Dialog */}
+      <Dialog
+        open={Boolean(previewImageDoc)}
+        onClose={() => setPreviewImageDoc(null)}
+        maxWidth="md"
+        fullWidth
+        dir="rtl"
+      >
+        <DialogTitle sx={{ p: 1.5, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle2" fontWeight={800} noWrap>
+              {previewImageDoc?.title || 'پیش‌نمایش تصویر رویداد'}
+            </Typography>
+            <IconButton size="small" onClick={() => setPreviewImageDoc(null)}>
+              <CloseRounded fontSize="small" />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent sx={{ p: 2, textAlign: 'center', bgcolor: '#111827', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          {previewImageDoc?.url && (
+            <img
+              src={previewImageDoc.url}
+              alt={previewImageDoc.title}
+              style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: 4 }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 1.5, bgcolor: 'background.paper', justifyContent: 'space-between' }}>
+          <Button size="small" color="inherit" onClick={() => setPreviewImageDoc(null)}>
+            بستن
+          </Button>
+          {previewImageDoc?.url && (
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<DownloadRounded />}
+              onClick={() => {
+                const a = document.createElement('a')
+                a.href = previewImageDoc.url
+                a.download = previewImageDoc.title || 'event-photo.jpg'
+                a.click()
+              }}
+            >
+              دانلود تصویر
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Dialog>
