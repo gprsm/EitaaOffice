@@ -834,13 +834,16 @@ export function ReportingWorkbench({
       if (filterUnit && filterUnit !== 'all') payload.unit_name = filterUnit
       if (filterSearch.trim()) payload.search = filterSearch.trim()
 
-      const res = await api<{ ok: boolean; file_name: string; path: string; count: number }>(
+      const res = await api<{ ok: boolean; file_name: string; path: string; count: number; media_url?: string }>(
         'POST',
         '/api/v3/reporting/events/export-excel',
         payload,
       )
       setLastFilteredExportResult({ path: res.path, fileName: res.file_name, count: res.count || 0 })
       toast.success(`خروجی اکسل گزارش‌ها با موفقیت ایجاد شد: ${res.file_name} (${res.count || 0} رکورد)`)
+      if (res.media_url) {
+        window.open(res.media_url, '_blank')
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در صدور خروجی اکسل گزارش‌ها')
     } finally {

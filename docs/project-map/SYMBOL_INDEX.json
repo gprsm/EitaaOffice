@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "7b41bcd8a4b73854",
+  "source_fingerprint": "4b17ab084a0aa474",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -1361,12 +1361,6 @@
           "line": 1088
         }
       ]
-    },
-    {
-      "path": "scripts/patch_units_modal.py",
-      "role": "Operations/tooling",
-      "summary": "",
-      "symbols": []
     },
     {
       "path": "scripts/phase10_auth_failure_verify.py",
@@ -8492,137 +8486,137 @@
         {
           "name": "export_dossier_bundle_api",
           "kind": "function",
-          "line": 964
+          "line": 972
         },
         {
           "name": "list_units",
           "kind": "function",
-          "line": 1018
+          "line": 1026
         },
         {
           "name": "save_unit",
           "kind": "function",
-          "line": 1028
+          "line": 1036
         },
         {
           "name": "delete_unit",
           "kind": "function",
-          "line": 1061
+          "line": 1069
         },
         {
           "name": "list_liaisons",
           "kind": "function",
-          "line": 1068
+          "line": 1076
         },
         {
           "name": "save_liaison",
           "kind": "function",
-          "line": 1082
+          "line": 1090
         },
         {
           "name": "delete_liaison",
           "kind": "function",
-          "line": 1116
+          "line": 1124
         },
         {
           "name": "resolve_liaison",
           "kind": "function",
-          "line": 1123
+          "line": 1131
         },
         {
           "name": "assign_author_liaison",
           "kind": "function",
-          "line": 1142
+          "line": 1150
         },
         {
           "name": "unlink_author_liaison",
           "kind": "function",
-          "line": 1176
+          "line": 1184
         },
         {
           "name": "lookup_liaison",
           "kind": "function",
-          "line": 1185
+          "line": 1193
         },
         {
           "name": "get_liaison_profile",
           "kind": "function",
-          "line": 1208
+          "line": 1216
         },
         {
           "name": "sync_liaison_eitaa_contact",
           "kind": "function",
-          "line": 1232
+          "line": 1240
         },
         {
           "name": "sync_all_liaisons_eitaa_contacts",
           "kind": "function",
-          "line": 1243
+          "line": 1251
         },
         {
           "name": "list_program_catalog",
           "kind": "function",
-          "line": 1251
+          "line": 1259
         },
         {
           "name": "save_program_catalog_item",
           "kind": "function",
-          "line": 1264
+          "line": 1272
         },
         {
           "name": "toggle_program_active",
           "kind": "function",
-          "line": 1303
+          "line": 1311
         },
         {
           "name": "list_macro_indicators",
           "kind": "function",
-          "line": 1315
+          "line": 1323
         },
         {
           "name": "list_micro_indicators",
           "kind": "function",
-          "line": 1319
+          "line": 1327
         },
         {
           "name": "save_micro_indicator",
           "kind": "function",
-          "line": 1323
+          "line": 1331
         },
         {
           "name": "update_micro_indicator",
           "kind": "function",
-          "line": 1336
+          "line": 1344
         },
         {
           "name": "delete_micro_indicator",
           "kind": "function",
-          "line": 1347
+          "line": 1355
         },
         {
           "name": "get_message_indicators",
           "kind": "function",
-          "line": 1352
+          "line": 1360
         },
         {
           "name": "assign_message_indicators",
           "kind": "function",
-          "line": 1371
+          "line": 1379
         },
         {
           "name": "get_message_splits",
           "kind": "function",
-          "line": 1396
+          "line": 1404
         },
         {
           "name": "set_message_splits",
           "kind": "function",
-          "line": 1404
+          "line": 1412
         },
         {
           "name": "dispatch",
           "kind": "function",
-          "line": 1416
+          "line": 1424
         }
       ]
     },
@@ -30399,117 +30393,117 @@
         {
           "name": "handleExportDossierBundle",
           "kind": "script symbol",
-          "line": 854
+          "line": 857
         },
         {
           "name": "handleApproveEvent",
           "kind": "script symbol",
-          "line": 946
+          "line": 949
         },
         {
           "name": "handleRequestRevision",
           "kind": "script symbol",
-          "line": 959
+          "line": 962
         },
         {
           "name": "handleMarkConflict",
           "kind": "script symbol",
-          "line": 978
+          "line": 981
         },
         {
           "name": "loadCandidates",
           "kind": "script symbol",
-          "line": 997
+          "line": 1000
         },
         {
           "name": "loadMandatesForForm",
           "kind": "script symbol",
-          "line": 1013
+          "line": 1016
         },
         {
           "name": "loadAllMandates",
           "kind": "script symbol",
-          "line": 1033
+          "line": 1036
         },
         {
           "name": "handleSaveMandate",
           "kind": "script symbol",
-          "line": 1049
+          "line": 1052
         },
         {
           "name": "handleDeleteMandate",
           "kind": "script symbol",
-          "line": 1086
+          "line": 1089
         },
         {
           "name": "loadForms",
           "kind": "script symbol",
-          "line": 1103
+          "line": 1106
         },
         {
           "name": "loadEventsAndExports",
           "kind": "script symbol",
-          "line": 1125
+          "line": 1128
         },
         {
           "name": "loadWatchConfig",
           "kind": "script symbol",
-          "line": 1139
+          "line": 1142
         },
         {
           "name": "handleScan",
           "kind": "script symbol",
-          "line": 1187
+          "line": 1190
         },
         {
           "name": "openApprove",
           "kind": "script symbol",
-          "line": 1205
+          "line": 1208
         },
         {
           "name": "openManualEvent",
           "kind": "script symbol",
-          "line": 1222
+          "line": 1225
         },
         {
           "name": "fetchSuggestion",
           "kind": "script symbol",
-          "line": 1237
+          "line": 1240
         },
         {
           "name": "submitEventForm",
           "kind": "script symbol",
-          "line": 1270
+          "line": 1273
         },
         {
           "name": "openReject",
           "kind": "script symbol",
-          "line": 1309
+          "line": 1312
         },
         {
           "name": "submitReject",
           "kind": "script symbol",
-          "line": 1315
+          "line": 1318
         },
         {
           "name": "handleSaveForm",
           "kind": "script symbol",
-          "line": 1331
+          "line": 1334
         },
         {
           "name": "handleExport",
           "kind": "script symbol",
-          "line": 1354
+          "line": 1357
         },
         {
           "name": "handleSaveWatchSettings",
           "kind": "script symbol",
-          "line": 1385
+          "line": 1388
         },
         {
           "name": "handleAddWatchTarget",
           "kind": "script symbol",
-          "line": 1400
+          "line": 1403
         }
       ]
     },

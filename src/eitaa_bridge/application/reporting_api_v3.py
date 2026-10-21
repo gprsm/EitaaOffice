@@ -928,7 +928,7 @@ def list_events_v3(store: ReportingStore, query: Mapping[str, Any] | None):
     })
 
 
-def export_filtered_events(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+def export_filtered_events(store: ReportingStore, actor: str, payload: Mapping[str, Any], bridge_api: Any = None):
     from ..reporting.excel_export import export_events_list_to_excel
     import uuid
     from datetime import datetime
@@ -954,10 +954,18 @@ def export_filtered_events(store: ReportingStore, actor: str, payload: Mapping[s
     filename = f"events_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.xlsx"
     dest_file = dest_dir / filename
     export_events_list_to_excel(events, dest_file, province_name="مازندران", title="گزارش رویدادها و فعالیت‌های فرهنگی")
+    media_url = ""
+    if bridge_api and hasattr(bridge_api, "register_media_cache_file"):
+        try:
+            token = bridge_api.register_media_cache_file(dest_file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            media_url = f"/api/v1/media-cache/{token}"
+        except Exception:
+            pass
     return _ok({
         "file_name": filename,
         "path": str(dest_file),
         "count": len(events),
+        "media_url": media_url,
     })
 
 
@@ -1425,7 +1433,7 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         denied = _forbidden(roles, "editor")
         return denied if denied else create_event(store, actor, payload)
     if method == "POST" and _EVENTS_EXPORT_ROUTE.match(path):
-        return export_filtered_events(store, actor, payload)
+        return export_filtered_events(store, actor, payload, bridge_api=bridge_api)
     if method == "POST" and _EVENTS_DOSSIER_BUNDLE_ROUTE.match(path):
         return export_dossier_bundle_api(store, actor, payload, bridge_api=bridge_api)
     doc_match = _EVENT_DOCUMENTS_ROUTE.match(path)

@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 476
-- اثرانگشت منبع: `7b41bcd8a4b73854`
+- تعداد فایل‌های نقشه: 475
+- اثرانگشت منبع: `4b17ab084a0aa474`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -80,7 +80,6 @@
 | `scripts/mobile_visual_runner.py` | Operations/tooling | 1 | Dedicated mobile visual acceptance runner (Edge Headless via CDP). |
 | `scripts/new_internal_code_signing_certificate.ps1` | Operations/tooling | 0 | — |
 | `scripts/office_runtime.py` | Operations/tooling | 55 | — |
-| `scripts/patch_units_modal.py` | Operations/tooling | 0 | — |
 | `scripts/phase10_auth_failure_verify.py` | Operations/tooling | 1 | Print only safe recent authentication failure metadata from the live coordinator. |
 | `scripts/phase10_contacts_migrate.py` | Operations/tooling | 5 | Controlled live Contacts schema 1-to-2 migration for Phase 10. |
 | `scripts/phase10_copy_rehearsal.py` | Operations/tooling | 7 | Read-only Phase 10 rehearsal using disposable copies of runtime state. |
