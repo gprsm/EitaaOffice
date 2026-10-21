@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 475
-- اثرانگشت منبع: `9333c5b17ef4f0c5`
+- اثرانگشت منبع: `5d59ac58982ae2ba`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -466,7 +466,7 @@
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
 | `ui/src/ReportingRegistrationPanel.tsx` | React UI | 7 | — |
-| `ui/src/ReportingWorkbench.tsx` | React UI | 29 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 31 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |

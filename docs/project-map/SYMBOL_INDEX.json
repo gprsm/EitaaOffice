@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "9333c5b17ef4f0c5",
+  "source_fingerprint": "5d59ac58982ae2ba",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -30371,149 +30371,159 @@
       "summary": "",
       "symbols": [
         {
+          "name": "getProgramBadgeStyle",
+          "kind": "script symbol",
+          "line": 255
+        },
+        {
+          "name": "formatDisplayJalaliDate",
+          "kind": "script symbol",
+          "line": 264
+        },
+        {
           "name": "SheetSpecificDimensions",
           "kind": "script symbol",
-          "line": 222
+          "line": 285
         },
         {
           "name": "setFact",
           "kind": "script symbol",
-          "line": 232
+          "line": 295
         },
         {
           "name": "toggleFact",
           "kind": "script symbol",
-          "line": 233
+          "line": 296
         },
         {
           "name": "ReportingWorkbench",
           "kind": "script symbol",
-          "line": 672
+          "line": 735
         },
         {
           "name": "loadAllCatalogs",
           "kind": "script symbol",
-          "line": 774
+          "line": 837
         },
         {
           "name": "handleExportFilteredEvents",
           "kind": "script symbol",
-          "line": 826
+          "line": 889
         },
         {
           "name": "handleExportDossierBundle",
           "kind": "script symbol",
-          "line": 857
+          "line": 920
         },
         {
           "name": "handleApproveEvent",
           "kind": "script symbol",
-          "line": 949
+          "line": 1012
         },
         {
           "name": "handleRequestRevision",
           "kind": "script symbol",
-          "line": 962
+          "line": 1025
         },
         {
           "name": "handleMarkConflict",
           "kind": "script symbol",
-          "line": 981
+          "line": 1044
         },
         {
           "name": "loadCandidates",
           "kind": "script symbol",
-          "line": 1000
+          "line": 1063
         },
         {
           "name": "loadMandatesForForm",
           "kind": "script symbol",
-          "line": 1016
+          "line": 1079
         },
         {
           "name": "loadAllMandates",
           "kind": "script symbol",
-          "line": 1036
+          "line": 1099
         },
         {
           "name": "handleSaveMandate",
           "kind": "script symbol",
-          "line": 1052
+          "line": 1115
         },
         {
           "name": "handleDeleteMandate",
           "kind": "script symbol",
-          "line": 1089
+          "line": 1152
         },
         {
           "name": "loadForms",
           "kind": "script symbol",
-          "line": 1106
+          "line": 1169
         },
         {
           "name": "loadEventsAndExports",
           "kind": "script symbol",
-          "line": 1128
+          "line": 1191
         },
         {
           "name": "loadWatchConfig",
           "kind": "script symbol",
-          "line": 1142
+          "line": 1205
         },
         {
           "name": "handleScan",
           "kind": "script symbol",
-          "line": 1190
+          "line": 1253
         },
         {
           "name": "openApprove",
           "kind": "script symbol",
-          "line": 1208
+          "line": 1271
         },
         {
           "name": "openManualEvent",
           "kind": "script symbol",
-          "line": 1225
+          "line": 1288
         },
         {
           "name": "fetchSuggestion",
           "kind": "script symbol",
-          "line": 1240
+          "line": 1303
         },
         {
           "name": "submitEventForm",
           "kind": "script symbol",
-          "line": 1273
+          "line": 1336
         },
         {
           "name": "openReject",
           "kind": "script symbol",
-          "line": 1312
+          "line": 1375
         },
         {
           "name": "submitReject",
           "kind": "script symbol",
-          "line": 1318
+          "line": 1381
         },
         {
           "name": "handleSaveForm",
           "kind": "script symbol",
-          "line": 1334
+          "line": 1397
         },
         {
           "name": "handleExport",
           "kind": "script symbol",
-          "line": 1357
+          "line": 1420
         },
         {
           "name": "handleSaveWatchSettings",
           "kind": "script symbol",
-          "line": 1388
+          "line": 1451
         },
         {
           "name": "handleAddWatchTarget",
           "kind": "script symbol",
-          "line": 1403
+          "line": 1466
         }
       ]
     },

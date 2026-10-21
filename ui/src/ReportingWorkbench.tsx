@@ -67,6 +67,7 @@ import { api, ApiError } from './lib/api'
 import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
+import { formatJalaliDate } from './utils/jalaliDateTime'
 import { ReportEventDetailModal } from './components/ReportEventDetailModal'
 import { JudicialUnitsManagementModal } from './components/JudicialUnitsManagementModal'
 import {
@@ -212,6 +213,68 @@ export const PROGRAM_NAMES: Record<string, string> = {
   charter: '80202 - منشور اخلاقی',
   narrative: '80000 - قالب گزارش عملکرد (روایی-مالی)',
 }
+
+export interface ProgramBadgeStyle {
+  bg: string
+  color: string
+  border: string
+  dot: string
+}
+
+export const PROGRAM_STYLES: Record<string, ProgramBadgeStyle> = {
+  prayer: { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' },
+  '80501': { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0', dot: '#10b981' },
+  contest: { bg: '#ecfeff', color: '#155e75', border: '#a5f3fc', dot: '#06b6d4' },
+  '80402': { bg: '#ecfeff', color: '#155e75', border: '#a5f3fc', dot: '#06b6d4' },
+  quran_competitions: { bg: '#ecfeff', color: '#155e75', border: '#a5f3fc', dot: '#06b6d4' },
+  trip: { bg: '#fffbeb', color: '#92400e', border: '#fde68a', dot: '#f59e0b' },
+  '80401': { bg: '#fffbeb', color: '#92400e', border: '#fde68a', dot: '#f59e0b' },
+  ceremonies: { bg: '#f5f3ff', color: '#5b21b6', border: '#ddd6fe', dot: '#8b5cf6' },
+  '80403': { bg: '#f5f3ff', color: '#5b21b6', border: '#ddd6fe', dot: '#8b5cf6' },
+  honor: { bg: '#fff1f2', color: '#9f1239', border: '#fecdd3', dot: '#f43f5e' },
+  '80406': { bg: '#fff1f2', color: '#9f1239', border: '#fecdd3', dot: '#f43f5e' },
+  appreciation: { bg: '#fff1f2', color: '#9f1239', border: '#fecdd3', dot: '#f43f5e' },
+  customer_care: { bg: '#fef2f2', color: '#b91c1c', border: '#fca5a5', dot: '#ef4444' },
+  '80601': { bg: '#fef2f2', color: '#b91c1c', border: '#fca5a5', dot: '#ef4444' },
+  charter: { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
+  '80202': { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe', dot: '#3b82f6' },
+  marriage: { bg: '#fdf4ff', color: '#86198f', border: '#f5d0fe', dot: '#d946ef' },
+  narrative: { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0', dot: '#22c55e' },
+  '80000': { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0', dot: '#22c55e' },
+  other_cultural: { bg: '#f8fafc', color: '#334155', border: '#cbd5e1', dot: '#64748b' },
+}
+
+const FALLBACK_STYLES: ProgramBadgeStyle[] = [
+  { bg: '#fef3c7', color: '#78350f', border: '#fde68a', dot: '#d97706' },
+  { bg: '#e0e7ff', color: '#312e81', border: '#c7d2fe', dot: '#4f46e5' },
+  { bg: '#fce7f3', color: '#831843', border: '#fbcfe8', dot: '#db2777' },
+  { bg: '#dcfce7', color: '#14532d', border: '#bbf7d0', dot: '#16a34a' },
+  { bg: '#ffedd5', color: '#7c2d12', border: '#fed7aa', dot: '#ea580c' },
+  { bg: '#e0f2fe', color: '#0c4a6e', border: '#bae6fd', dot: '#0284c7' },
+]
+
+export function getProgramBadgeStyle(code: string): ProgramBadgeStyle {
+  if (!code) return PROGRAM_STYLES.other_cultural
+  if (PROGRAM_STYLES[code]) return PROGRAM_STYLES[code]
+  let hash = 0
+  for (let i = 0; i < code.length; i++) hash = (hash << 5) - hash + code.charCodeAt(i)
+  const idx = Math.abs(hash) % FALLBACK_STYLES.length
+  return FALLBACK_STYLES[idx]
+}
+
+export function formatDisplayJalaliDate(dateStr?: string): string {
+  if (!dateStr) return '—'
+  const trimmed = String(dateStr).trim()
+  if (trimmed.startsWith('14') || trimmed.startsWith('13')) {
+    return trimmed.replace(/-/g, '/')
+  }
+  try {
+    return formatJalaliDate(trimmed)
+  } catch {
+    return trimmed
+  }
+}
+
 
 const UNIT_SCOPES: Array<{ value: string; label: string }> = [
   { value: 'provincial_hq', label: 'ستاد دادگستری کل استان' },
@@ -1594,9 +1657,43 @@ export function ReportingWorkbench({
             {/* Candidates List */}
             {loading && <LinearProgress />}
             {candidates.length === 0 && !loading ? (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                موردی در این دسته یافت نشد. می‌توانید با کلیک بر روی «پویش هوشمند گفتگوها»، پیام‌های جدید را واکشی کنید.
-              </Alert>
+              <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 2, bgcolor: '#fafafa', mt: 2 }}>
+                <AutoAwesomeRounded sx={{ fontSize: 48, color: 'text.secondary', mb: 1.5 }} />
+                <Typography variant="subtitle1" fontWeight={800} gutterBottom>
+                  صف بازبینی هوشمند در حال حاضر خالی است
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 640, mx: 'auto', mb: 2.5 }}>
+                  این سربرگ مخصوص «پیش‌نویس‌ها و پیام‌های شناسایی‌شده خودکار از گفتگوهای ایتا» است. برای کشف و بارگذاری خودکار پیام‌ها، ابتدا کانال‌ها و گروه‌های هدف را در تب «تنظیمات رصد گفتگوها» ثبت کنید و سپس روی دکمه «پویش هوشمند گفتگوها» کلیک نمایید.
+                  <br />
+                  <Typography component="span" variant="caption" sx={{ color: 'primary.main', fontWeight: 700, mt: 1, display: 'block' }}>
+                    نکته: رویدادهایی که از روی پیام‌ها یا فرم دستی ثبت قطعی شده‌اند، مستقیماً در سربرگ <strong>«کارتابل و آرشیو گزارش‌ها»</strong> فهرست شده‌اند.
+                  </Typography>
+                </Typography>
+                <Stack direction="row" spacing={1.5} justifyContent="center" flexWrap="wrap">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={scanning ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeRounded />}
+                    onClick={handleScan}
+                    disabled={scanning}
+                  >
+                    {scanning ? 'در حال پویش خودکار گفتگوها…' : 'پویش هوشمند گفتگوها'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setCurrentTab(4)}
+                  >
+                    تنظیم کانال‌های رصد (تب ۴)
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    onClick={() => setCurrentTab(1)}
+                  >
+                    مشاهده کارتابل گزارش‌های ثبت‌شده (تب ۱)
+                  </Button>
+                </Stack>
+              </Paper>
             ) : (
               <Grid container spacing={2}>
                 {candidates.map(candidate => (
@@ -1979,14 +2076,14 @@ export function ReportingWorkbench({
               <TableContainer sx={{ maxHeight: 520 }}>
                 <Table stickyHeader size="small">
                   <TableHead>
-                    <TableRow>
+                    <TableRow sx={{ bgcolor: 'action.hover' }}>
                       <TableCell sx={{ fontWeight: 700, width: 45 }}>#</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>شناسه</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>عنوان و مناسبت رویداد</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>سرفصل / برنامه</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>عنوان و مناسبت رویداد</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>شاخصه کلی و جزئی</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>تاریخ وقوع</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>حوزه قضایی</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>تاریخ وقوع (شمسی)</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>حوزه قضایی / شهرستان</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>شناسه پرونده</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>ثبت‌کننده</TableCell>
                       <TableCell sx={{ fontWeight: 700 }} align="center">وضعیت پرونده</TableCell>
                       <TableCell sx={{ fontWeight: 700 }} align="center">کیفیت / نقایص</TableCell>
@@ -2039,37 +2136,18 @@ export function ReportingWorkbench({
                           <TableRow
                             key={ev.event_id}
                             hover
-                            sx={{ cursor: 'pointer' }}
+                            sx={{
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s',
+                              '&:hover': { bgcolor: 'action.hover' },
+                            }}
                             onClick={() => setDetailModalEventId(ev.event_id)}
                           >
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}>
-                              {ev.event_id}
-                            </TableCell>
-                            <TableCell>
-                              {ev.macro_category === 'other_cultural' ? (
-                                <Chip
-                                  size="small"
-                                  color="secondary"
-                                  variant="outlined"
-                                  label={ev.custom_topic ? `سایر: ${ev.custom_topic}` : 'سایر فرهنگی'}
-                                  sx={{ mr: 0.5, mb: 0.5, fontWeight: 700 }}
-                                />
-                              ) : (
-                                ev.program_kinds.map((p: string) => (
-                                  <Chip
-                                    key={p}
-                                    size="small"
-                                    color="primary"
-                                    variant="outlined"
-                                    label={getProgramTitle(p)}
-                                    sx={{ mr: 0.5, mb: 0.5, fontSize: '0.75rem' }}
-                                  />
-                                ))
-                              )}
-                            </TableCell>
-                            <TableCell sx={{ maxWidth: 220 }}>
-                              <Typography variant="body2" fontWeight={700} noWrap title={ev.occasion || ''}>
+                            <TableCell sx={{ fontWeight: 600 }}>{idx + 1}</TableCell>
+
+                            {/* 1. Title / Occasion as First Primary Column */}
+                            <TableCell sx={{ maxWidth: 260 }}>
+                              <Typography variant="body2" fontWeight={800} color="primary.main" noWrap title={ev.occasion || ''}>
                                 {ev.occasion || '—'}
                               </Typography>
                               {ev.notes && (
@@ -2078,6 +2156,47 @@ export function ReportingWorkbench({
                                 </Typography>
                               )}
                             </TableCell>
+
+                            {/* 2. Program with Custom Color Coding */}
+                            <TableCell sx={{ minWidth: 150 }}>
+                              {ev.macro_category === 'other_cultural' ? (
+                                <Chip
+                                  size="small"
+                                  label={ev.custom_topic ? `سایر: ${ev.custom_topic}` : 'سایر فعالیت‌های فرهنگی'}
+                                  sx={{
+                                    mr: 0.5,
+                                    mb: 0.5,
+                                    fontWeight: 700,
+                                    fontSize: '0.75rem',
+                                    bgcolor: PROGRAM_STYLES.other_cultural.bg,
+                                    color: PROGRAM_STYLES.other_cultural.color,
+                                    border: `1px solid ${PROGRAM_STYLES.other_cultural.border}`,
+                                  }}
+                                />
+                              ) : (
+                                ev.program_kinds.map((p: string) => {
+                                  const pStyle = getProgramBadgeStyle(p)
+                                  return (
+                                    <Chip
+                                      key={p}
+                                      size="small"
+                                      label={getProgramTitle(p)}
+                                      sx={{
+                                        mr: 0.5,
+                                        mb: 0.5,
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        bgcolor: pStyle.bg,
+                                        color: pStyle.color,
+                                        border: `1px solid ${pStyle.border}`,
+                                      }}
+                                    />
+                                  )
+                                })
+                              )}
+                            </TableCell>
+
+                            {/* 3. Indicators */}
                             <TableCell sx={{ maxWidth: 200 }}>
                               {ev.macro_indicator && (
                                 <Chip
@@ -2097,11 +2216,20 @@ export function ReportingWorkbench({
                                   />
                                 ))}
                             </TableCell>
-                            <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                              {ev.occurred_on}
+
+                            {/* 4. Solar Date */}
+                            <TableCell sx={{ fontSize: '0.85rem', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                              {formatDisplayJalaliDate(ev.occurred_on)}
                             </TableCell>
+
+                            {/* 5. Judicial Unit */}
                             <TableCell sx={{ fontSize: '0.8rem' }}>
                               {ev.unit_name || ev.unit}
+                            </TableCell>
+
+                            {/* 6. Event ID */}
+                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.75rem' }}>
+                              {ev.event_id}
                             </TableCell>
                             <TableCell>
                               <Typography variant="caption" fontWeight={600} display="block">
@@ -3190,27 +3318,9 @@ export function ReportingWorkbench({
             {approveDialog ? 'تأیید نهایی و درج در آمار' : 'ثبت رویداد جدید'}
           </Button>
         </DialogActions>
-      {/* Report Event Detail & Defect Editing Modal */}
-      <ReportEventDetailModal
-        open={Boolean(detailModalEventId)}
-        eventId={detailModalEventId}
-        onClose={() => setDetailModalEventId(null)}
-        onSaved={() => {
-          void loadEventsCartable()
-          void loadEventsAndExports()
-        }}
-      />
 
-      {unitsModalOpen && (
-        <JudicialUnitsManagementModal
-          open={unitsModalOpen}
-          onClose={() => setUnitsModalOpen(false)}
-          initialTab={unitsModalTab}
-          onDataChanged={() => {
-            void loadEventsCartable()
-          }}
-        />
-      )}
+
+
       </Dialog>
 
       {/* Reject Candidate Dialog */}
@@ -3239,16 +3349,7 @@ export function ReportingWorkbench({
             رد گزارش
           </Button>
         </DialogActions>
-      {/* Report Event Detail & Defect Editing Modal */}
-      <ReportEventDetailModal
-        open={Boolean(detailModalEventId)}
-        eventId={detailModalEventId}
-        onClose={() => setDetailModalEventId(null)}
-        onSaved={() => {
-          void loadEventsCartable()
-          void loadEventsAndExports()
-        }}
-      />
+
       </Dialog>
 
       {/* Dialog for Adding New Mandate */}
@@ -3355,16 +3456,7 @@ export function ReportingWorkbench({
             {savingMandate ? 'در حال ثبت…' : 'ثبت و ذخیره مستند'}
           </Button>
         </DialogActions>
-      {/* Report Event Detail & Defect Editing Modal */}
-      <ReportEventDetailModal
-        open={Boolean(detailModalEventId)}
-        eventId={detailModalEventId}
-        onClose={() => setDetailModalEventId(null)}
-        onSaved={() => {
-          void loadEventsCartable()
-          void loadEventsAndExports()
-        }}
-      />
+
       </Dialog>
 
       {/* Dialog for Consolidated View of All Mandates */}
@@ -3491,16 +3583,7 @@ export function ReportingWorkbench({
             بستن
           </Button>
         </DialogActions>
-      {/* Report Event Detail & Defect Editing Modal */}
-      <ReportEventDetailModal
-        open={Boolean(detailModalEventId)}
-        eventId={detailModalEventId}
-        onClose={() => setDetailModalEventId(null)}
-        onSaved={() => {
-          void loadEventsCartable()
-          void loadEventsAndExports()
-        }}
-      />
+
       </Dialog>
 
       {/* Revision Request Dialog */}
@@ -3555,16 +3638,7 @@ export function ReportingWorkbench({
               ثبت و ارجاع وظیفه به کارمند
             </Button>
           </DialogActions>
-        {/* Report Event Detail & Defect Editing Modal */}
-      <ReportEventDetailModal
-        open={Boolean(detailModalEventId)}
-        eventId={detailModalEventId}
-        onClose={() => setDetailModalEventId(null)}
-        onSaved={() => {
-          void loadEventsCartable()
-          void loadEventsAndExports()
-        }}
-      />
+  
       </Dialog>
       )}
 
@@ -3600,7 +3674,11 @@ export function ReportingWorkbench({
           <DialogActions sx={{ px: 2.5, py: 1.5 }}>
             <Button onClick={() => setDefectDialogEvent(null)}>بستن</Button>
           </DialogActions>
-        {/* Report Event Detail & Defect Editing Modal */}
+  
+      </Dialog>
+      )}
+    
+      {/* Report Event Detail & Defect Editing Modal */}
       <ReportEventDetailModal
         open={Boolean(detailModalEventId)}
         eventId={detailModalEventId}
@@ -3610,8 +3688,19 @@ export function ReportingWorkbench({
           void loadEventsAndExports()
         }}
       />
-      </Dialog>
+
+      {/* Judicial Units & Master Baseline Management Modal */}
+      {unitsModalOpen && (
+        <JudicialUnitsManagementModal
+          open={unitsModalOpen}
+          onClose={() => setUnitsModalOpen(false)}
+          initialTab={unitsModalTab}
+          onDataChanged={() => {
+            void loadEventsCartable()
+          }}
+        />
       )}
     </Paper>
+
   )
 }
