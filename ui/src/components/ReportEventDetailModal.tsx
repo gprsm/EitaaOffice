@@ -612,7 +612,7 @@ export function ReportEventDetailModal({
   const activeProgramKind = selectedPrograms[0] || 'trip'
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth dir="rtl">
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth dir="rtl" PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary', backgroundImage: 'none' } }}>
       {/* Header Bar */}
       <DialogTitle sx={{ p: 2, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -675,7 +675,7 @@ export function ReportEventDetailModal({
         </Tabs>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ p: 2.5, bgcolor: '#fafafa' }}>
+      <DialogContent dividers sx={{ p: 2.5, bgcolor: 'background.default', color: 'text.primary' }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
@@ -724,7 +724,7 @@ export function ReportEventDetailModal({
                 )}
 
                 {/* Basic Information */}
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <EventNoteRounded fontSize="small" />
                     اطلاعات شناسنامه‌ای و سرفصل رویداد
@@ -863,66 +863,113 @@ export function ReportEventDetailModal({
                       </FormControl>
                     </Grid>
 
-                    {/* Micro-indicators management */}
+                    {/* Compact 2-Column Micro-indicators Management (Single Row Layout) */}
                     <Grid size={{ xs: 12 }}>
-                      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: '#fbfbfb' }}>
-                        <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                          شاخصه‌های جزئی و ایندکس‌های موضوعی رویداد ({microIndicators.length} شاخصه برگزیده):
-                        </Typography>
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
-                          {microIndicators.map(m => (
-                            <Chip
-                              key={m}
-                              label={m}
-                              size="small"
-                              color="secondary"
-                              variant="outlined"
-                              onDelete={() => handleRemoveMicroTag(m)}
-                              sx={{ fontWeight: 600 }}
-                            />
-                          ))}
-                          {microIndicators.length === 0 && (
-                            <Typography variant="caption" color="text.disabled">
-                              هنوز شاخصه جزئی منتسب نشده است.
-                            </Typography>
-                          )}
-                        </Stack>
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: 'action.hover',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }}
+                      >
+                        <Grid container spacing={1.5} alignItems="center">
+                          {/* Right Column: Selected Micro-Indicators as Button-like Tags */}
+                          <Grid size={{ xs: 12, md: 7 }}>
+                            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                              <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <LabelOutlined sx={{ fontSize: 16 }} />
+                                شاخصه‌های جزئی ({microIndicators.length}):
+                              </Typography>
+                              {microIndicators.length === 0 ? (
+                                <Typography variant="caption" color="text.disabled">
+                                  هنوز شاخصه‌ای افزوده نشده است.
+                                </Typography>
+                              ) : (
+                                microIndicators.map(m => (
+                                  <Chip
+                                    key={m}
+                                    label={m}
+                                    size="small"
+                                    color="secondary"
+                                    variant="outlined"
+                                    onDelete={() => handleRemoveMicroTag(m)}
+                                    deleteIcon={<CloseRounded sx={{ fontSize: '14px !important' }} />}
+                                    sx={{
+                                      fontWeight: 700,
+                                      fontSize: '0.72rem',
+                                      height: 26,
+                                      bgcolor: 'rgba(77, 208, 184, 0.08)',
+                                      borderColor: 'rgba(77, 208, 184, 0.35)',
+                                      '& .MuiChip-deleteIcon': {
+                                        color: 'error.light',
+                                        '&:hover': { color: 'error.main' },
+                                      },
+                                    }}
+                                  />
+                                ))
+                              )}
+                            </Stack>
+                          </Grid>
 
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Autocomplete
-                            freeSolo
-                            size="small"
-                            sx={{ flex: 1 }}
-                            options={microOptions.map(o => o.title).filter(t => !microIndicators.includes(t))}
-                            value={newMicroTag}
-                            onInputChange={(_, val) => setNewMicroTag(val)}
-                            renderInput={params => (
-                              <TextField {...params} placeholder="انتخاب یا تایپ شاخصه جزئی جدید..." size="small" />
-                            )}
-                          />
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<AddRounded />}
-                            onClick={() => handleAddMicroTag(newMicroTag)}
-                            disabled={!newMicroTag.trim()}
-                          >
-                            افزودن شاخصه
-                          </Button>
-                        </Stack>
-                      </Paper>
+                          {/* Left Column: Searchable Autocomplete & Quick Add Button */}
+                          <Grid size={{ xs: 12, md: 5 }}>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <Autocomplete
+                                freeSolo
+                                size="small"
+                                fullWidth
+                                options={microOptions.map(o => o.title).filter(t => !microIndicators.includes(t))}
+                                value={newMicroTag}
+                                onInputChange={(_, val) => setNewMicroTag(val)}
+                                onChange={(_, val) => {
+                                  if (val) handleAddMicroTag(val)
+                                }}
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    placeholder="جستجو یا تایپ شاخصه جزئی..."
+                                    size="small"
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' && newMicroTag.trim()) {
+                                        e.preventDefault()
+                                        handleAddMicroTag(newMicroTag)
+                                      }
+                                    }}
+                                  />
+                                )}
+                              />
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                size="small"
+                                onClick={() => handleAddMicroTag(newMicroTag)}
+                                disabled={!newMicroTag.trim()}
+                                sx={{ minWidth: 36, px: 1.25, height: 40 }}
+                                title="افزودن به شاخصه‌ها"
+                              >
+                                <AddRounded fontSize="small" />
+                              </Button>
+                            </Stack>
+                          </Grid>
+                        </Grid>
+                      </Box>
                     </Grid>
 
+                    {/* Extended Summary & Detailed Event Notes (Minimum 5 lines) */}
                     <Grid size={{ xs: 12 }}>
                       <TextField
-                        label="شرح کامل، خلاصه رویداد و یادداشت‌ها"
+                        label="شرح کامل، خلاصه رویداد و یادداشت‌های تفصیلی"
                         size="small"
                         fullWidth
                         multiline
-                        rows={3}
+                        minRows={5}
+                        rows={5}
                         value={notes}
                         onChange={e => setNotes(e.target.value)}
-                        placeholder="توضیحات تفصیلی، اهداف، بازخوردها و نکات تکمیلی..."
+                        placeholder="توضیحات تفصیلی، اهداف، آمار تفکیکی، بازخوردها و نکات تکمیلی برگزاری رویداد..."
+                        helperText="حداقل ۵ خط فضا جهت مشاهده، مطالعه و ویرایش راحت شرح رویداد بدون تنگی کادر"
                       />
                     </Grid>
 
@@ -1025,7 +1072,7 @@ export function ReportEventDetailModal({
                 )}
 
                 {/* Worksheet Criteria Inputs */}
-                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <AssessmentRounded fontSize="small" />
                     سنجه‌ها و اقلام تفکیکی کاربرگ مربوطه ({activeProgramKind})
@@ -1143,7 +1190,7 @@ export function ReportEventDetailModal({
                 </Paper>
 
                 {/* All Event Facts Table */}
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="text.secondary" sx={{ mb: 1 }}>
                     جدول کلیه فکت‌ها و سنجه‌های ثبت‌شده در پایگاه داده ({facts.length} ردیف):
                   </Typography>
@@ -1184,7 +1231,7 @@ export function ReportEventDetailModal({
             {activeTab === 2 && (
               <Stack spacing={2.5}>
                 {/* Upload Action Box */}
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CloudUploadRounded fontSize="small" />
                     بارگذاری سریع عکس‌ها، فاکتورها، اسکن نظرسنجی و اسناد
@@ -1244,14 +1291,14 @@ export function ReportEventDetailModal({
                 </Paper>
 
                 {/* Photo Gallery Grid */}
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <PhotoLibraryRounded fontSize="small" />
                     نگارخانه تصاویر شاخص رویداد ({photosList.length} عکس)
                   </Typography>
 
                   {photosList.length === 0 ? (
-                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', bgcolor: '#fbfbfb', borderRadius: 2 }}>
+                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', bgcolor: 'action.hover', borderRadius: 2 }}>
                       <Typography variant="body2">هیچ تصویری برای این پرونده بارگذاری نشده است.</Typography>
                     </Box>
                   ) : (
@@ -1273,7 +1320,7 @@ export function ReportEventDetailModal({
                               onClick={() => handlePreviewDoc(doc)}
                               sx={{
                                 height: 160,
-                                bgcolor: '#f0f0f0',
+                                bgcolor: 'action.hover',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -1345,14 +1392,14 @@ export function ReportEventDetailModal({
                 </Paper>
 
                 {/* Documents & Attached Files List */}
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <InsertDriveFileRounded fontSize="small" />
                     اسناد اداری، فاکتورها، اسکن‌های نظرسنجی و فایل‌های اکسل/ورد ({filesList.length} سند)
                   </Typography>
 
                   {filesList.length === 0 ? (
-                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', bgcolor: '#fbfbfb', borderRadius: 2 }}>
+                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', bgcolor: 'action.hover', borderRadius: 2 }}>
                       <Typography variant="body2">هیچ سند یا فایلی (PDF, Excel, Word, فاکتور) بارگذاری نشده است.</Typography>
                     </Box>
                   ) : (
@@ -1420,20 +1467,20 @@ export function ReportEventDetailModal({
             {activeTab === 3 && (
               <Stack spacing={2.5}>
                 {/* Source Eitaa Witnesses */}
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="info.main" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <LayersRounded fontSize="small" />
                     پیام‌ها و شواهد منبع پیام‌رسان ایتا ({rawEvent?.witnesses?.length || 0} پیام استخراج‌شده)
                   </Typography>
 
                   {(!rawEvent?.witnesses || rawEvent.witnesses.length === 0) ? (
-                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', bgcolor: '#fbfbfb', borderRadius: 2 }}>
+                    <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary', bgcolor: 'action.hover', borderRadius: 2 }}>
                       <Typography variant="body2">هیچ شاهد پیام ایتایی به این گزارش قفل نشده است (ثبت مستقیم / تجمیعی).</Typography>
                     </Box>
                   ) : (
                     <Stack spacing={1}>
                       {rawEvent.witnesses.map((w: any, idx: number) => (
-                        <Box key={w.link_id || idx} sx={{ p: 1.5, bgcolor: '#f8f9fa', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+                        <Box key={w.link_id || idx} sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
                           <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
                             <Stack direction="row" spacing={1} alignItems="center">
                               <Chip size="small" color="info" label={w.provider === 'eitaa' ? 'پیام ایتا' : (w.provider || 'ایتا')} />
@@ -1473,7 +1520,7 @@ export function ReportEventDetailModal({
                 </Paper>
 
                 {/* Audit Trail & History */}
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <AssignmentTurnedInRounded fontSize="small" />
                     تاریخچه تغییرات، ویراستاری و حسابرسی ({auditRecords.length} رکورد)
@@ -1518,7 +1565,7 @@ export function ReportEventDetailModal({
             {/* TAB 4: Smart Merge & Deduplication */}
             {activeTab === 4 && (
               <Stack spacing={2.5}>
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#ffffff' }}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
                     <Box>
                       <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1545,7 +1592,7 @@ export function ReportEventDetailModal({
                       <CircularProgress size={32} />
                     </Box>
                   ) : mergeCandidates.length === 0 ? (
-                    <Box sx={{ p: 4, textAlign: 'center', bgcolor: '#fbfbfb', borderRadius: 2 }}>
+                    <Box sx={{ p: 4, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
                       <CheckCircleOutlineRounded color="success" sx={{ fontSize: 40, mb: 1 }} />
                       <Typography variant="body2" fontWeight={700}>
                         هیچ گزارش مشابه یا تکراری برای این پرونده یافت نشد.
@@ -1565,7 +1612,7 @@ export function ReportEventDetailModal({
                             borderRadius: 2,
                             border: '1px solid',
                             borderColor: cand.score >= 50 ? 'primary.light' : 'divider',
-                            bgcolor: cand.score >= 50 ? '#f6f9fc' : '#ffffff',
+                            bgcolor: cand.score >= 50 ? 'rgba(100, 181, 246, 0.08)' : 'background.paper',
                           }}
                         >
                           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
