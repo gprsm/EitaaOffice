@@ -44,6 +44,7 @@ import {
   Typography,
 } from '@mui/material'
 import AddCircleOutlineRounded from '@mui/icons-material/AddCircleOutlineRounded'
+import BarChartRounded from '@mui/icons-material/BarChartRounded'
 import AssignmentTurnedInRounded from '@mui/icons-material/AssignmentTurnedInRounded'
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded'
@@ -67,6 +68,7 @@ import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
 import { ReportEventDetailModal } from './components/ReportEventDetailModal'
+import { JudicialUnitsManagementModal } from './components/JudicialUnitsManagementModal'
 import {
   fetchMacroIndicators,
   fetchMicroIndicators,
@@ -668,8 +670,16 @@ function SheetSpecificDimensions({
   )
 }
 
-export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
-  const [currentTab, setCurrentTab] = useState<number>(0)
+export function ReportingWorkbench({
+  onClose,
+  initialTab = 0,
+  initialEventId = null,
+}: {
+  onClose: () => void
+  initialTab?: number
+  initialEventId?: string | null
+}) {
+  const [currentTab, setCurrentTab] = useState<number>(initialEventId ? 1 : initialTab)
   const [loading, setLoading] = useState<boolean>(false)
 
   // Catalog state
@@ -704,7 +714,55 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
   const [filterUnit, setFilterUnit] = useState<string>('all')
   const [exportingFiltered, setExportingFiltered] = useState<boolean>(false)
   const [lastFilteredExportResult, setLastFilteredExportResult] = useState<{ path: string; fileName: string; count: number } | null>(null)
-  const [detailModalEventId, setDetailModalEventId] = useState<string | null>(null)
+  const [detailModalEventId, setDetailModalEventId] = useState<string | null>(initialEventId)
+  const [unitsModalOpen, setUnitsModalOpen] = useState(false)
+  const [unitsModalTab, setUnitsModalTab] = useState(0)
+
+  const cartableSummary = useMemo(() => {
+    let totalParticipants = 0
+    let colleaguesCount = 0
+    let familyCount = 0
+    let surveySum = 0
+    let surveyCount = 0
+    const uniqueUnits = new Set<string>()
+
+    for (const ev of cartableEvents) {
+      if (ev.unit_name) uniqueUnits.add(ev.unit_name)
+      else if (ev.unit) uniqueUnits.add(ev.unit)
+
+      if (Array.isArray(ev.facts)) {
+        for (const f of ev.facts) {
+          const m = f.metric
+          const val = Number(f.value) || 0
+          if (m === 'attendees' || m === 'participant_count' || m === 'trip_attendees' || m === 'audience_count' || m === 'total_participants') {
+            totalParticipants += val
+          } else if (m === 'honoree_count' || m === 'encouraged_count') {
+            totalParticipants += val
+          } else if (m === 'colleagues_count') {
+            colleaguesCount += val
+          } else if (m === 'family_count') {
+            familyCount += val
+          } else if (m === 'survey_rating' || m === 'survey_score' || m === 'satisfaction_score' || m === 'survey_score_pct') {
+            if (val > 0) {
+              surveySum += val
+              surveyCount += 1
+            }
+          }
+        }
+      }
+    }
+
+    const avgSurvey = surveyCount > 0 ? (surveySum / surveyCount) : 0
+    return {
+      totalEvents: cartableEvents.length,
+      totalParticipants,
+      colleaguesCount,
+      familyCount,
+      uniqueUnitsCount: uniqueUnits.size,
+      surveyCount,
+      avgSurvey: Math.round(avgSurvey * 10) / 10,
+    }
+  }, [cartableEvents])
 
   // Single worksheet vs entire province export state
   const [exportScope, setExportScope] = useState<'all' | 'single'>('all')
@@ -1687,6 +1745,18 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                   <Stack direction="row" spacing={1}>
                     <Button
                       variant="outlined"
+                      color="info"
+                      size="small"
+                      startIcon={<BarChartRounded />}
+                      onClick={() => {
+                        setUnitsModalTab(3)
+                        setUnitsModalOpen(true)
+                      }}
+                    >
+                      بانک اطلاعات پایه و ظرفیت‌سنجی
+                    </Button>
+                    <Button
+                      variant="outlined"
                       color="secondary"
                       size="small"
                       startIcon={exportingBundle ? <CircularProgress size={16} color="inherit" /> : <FolderZipRounded />}
@@ -1841,6 +1911,56 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                 </Typography>
               </Alert>
             )}
+
+            {/* Live Aggregation Summary KPI Cards */}
+            <Grid container spacing={1.5}>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'primary.light' }}>
+                  <Typography variant="caption" color="text.secondary">تعداد رویدادهای فیلترشده</Typography>
+                  <Typography variant="h6" fontWeight={800} color="primary.main">
+                    {cartableSummary.totalEvents.toLocaleString('fa-IR')} <Typography component="span" variant="caption">رویداد</Typography>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {filterProgram !== 'all' ? `سرفصل: ${filterProgram}` : 'تمامی سرفصل‌ها'}
+                  </Typography>
+                </Card>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'success.light' }}>
+                  <Typography variant="caption" color="text.secondary">مجموع مخاطبان / شرکت‌کنندگان</Typography>
+                  <Typography variant="h6" fontWeight={800} color="success.main">
+                    {cartableSummary.totalParticipants.toLocaleString('fa-IR')} <Typography component="span" variant="caption">نفر</Typography>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {cartableSummary.colleaguesCount > 0
+                      ? `${cartableSummary.colleaguesCount.toLocaleString('fa-IR')} همکار + ${cartableSummary.familyCount.toLocaleString('fa-IR')} خانواده`
+                      : 'محاسبه از فکت‌های ثبت‌شده'}
+                  </Typography>
+                </Card>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'warning.light' }}>
+                  <Typography variant="caption" color="text.secondary">میانگین رضایت‌مندی / نظرسنجی</Typography>
+                  <Typography variant="h6" fontWeight={800} color="warning.main">
+                    {cartableSummary.surveyCount > 0 ? `${cartableSummary.avgSurvey}٪` : 'فاقد ارزیابی'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {cartableSummary.surveyCount > 0 ? `سنجش بر مبنای ${cartableSummary.surveyCount} ارزیابی` : 'نظرسنجی ثبت‌نشده'}
+                  </Typography>
+                </Card>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'info.light' }}>
+                  <Typography variant="caption" color="text.secondary">حوزه‌های قضایی درگیر</Typography>
+                  <Typography variant="h6" fontWeight={800} color="info.main">
+                    {cartableSummary.uniqueUnitsCount.toLocaleString('fa-IR')} <Typography component="span" variant="caption">حوزه</Typography>
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    از کل حوزه‌های فعال استان
+                  </Typography>
+                </Card>
+              </Grid>
+            </Grid>
 
             {/* Events Cartable Table */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -3077,6 +3197,17 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
           void loadEventsAndExports()
         }}
       />
+
+      {unitsModalOpen && (
+        <JudicialUnitsManagementModal
+          open={unitsModalOpen}
+          onClose={() => setUnitsModalOpen(false)}
+          initialTab={unitsModalTab}
+          onDataChanged={() => {
+            void loadEventsCartable()
+          }}
+        />
+      )}
       </Dialog>
 
       {/* Reject Candidate Dialog */}

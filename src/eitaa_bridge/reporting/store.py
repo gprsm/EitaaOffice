@@ -3244,6 +3244,12 @@ class ReportingStore:
             "updated_at": now,
         }
 
+    def list_unit_baselines(self) -> list[dict[str, Any]]:
+        """Fetch all registered unit baseline statistical profiles."""
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM reporting_unit_baselines ORDER BY unit_id").fetchall()
+            return [dict(r) for r in rows]
+
     def normalize_event_statistics(self, event_id: str) -> dict[str, Any]:
         """Calculate participation ratio, expected family turnout, and anomaly flags based on unit baselines."""
         file = self.get_event_file(event_id)
@@ -4531,6 +4537,12 @@ class ReportingStore:
                 for row in rows
             ]
 
+    def delete_imam(self, imam_id: str) -> bool:
+        """Delete a congregation imam from registry."""
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM registry_imams WHERE imam_id = ?", (imam_id,))
+            return cur.rowcount > 0
+
     def save_venue(self, venue: VenueRecord) -> None:
         venue.validate()
         now = _utc_now()
@@ -4582,6 +4594,12 @@ class ReportingStore:
                 )
                 for row in rows
             ]
+
+    def delete_venue(self, venue_id: str) -> bool:
+        """Delete a prayer venue from registry."""
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM registry_venues WHERE venue_id = ?", (venue_id,))
+            return cur.rowcount > 0
 
     def save_nomokalaf(self, record: NomokalafRecord) -> None:
         record.validate()
@@ -5283,6 +5301,12 @@ class ReportingStore:
     def person_family(self, personnel_no: str) -> list[PersonRecord]:
         """Family members related to one employee's personnel number."""
         return self.list_persons(kind="family", personnel_no=personnel_no)
+
+    def delete_person(self, person_id: str) -> bool:
+        """Delete a person (employee or family member) from registry."""
+        with self._connect() as conn:
+            cur = conn.execute("DELETE FROM registry_persons WHERE person_id = ?", (person_id,))
+            return cur.rowcount > 0
 
     # ----------------------------------------------------------------------
     # WordPress post links (post to event, F-088 section 2)

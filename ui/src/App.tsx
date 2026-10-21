@@ -641,6 +641,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
   const [showWordPressPanel, setShowWordPressPanel] = useState(() => readStored<boolean>(STORAGE.showWordPressPanel, false))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [reportingOpen, setReportingOpen] = useState(false)
+  const [reportingInitialEventId, setReportingInitialEventId] = useState<string | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkMode, setBulkMode] = useState<BulkMode>('members')
   const [bulkMemberIds, setBulkMemberIds] = useState<number[]>([])
@@ -2395,7 +2396,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     <Dialog open={reportingOpen} fullScreen onClose={() => setReportingOpen(false)}>
       <DialogContent sx={{ p: 0, bgcolor: 'background.default' }}>
         <Suspense fallback={<Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: '100dvh' }}><CircularProgress /><Typography>در حال آماده‌سازی سامانه گزارش‌ها…</Typography></Stack>}>
-          <ReportingWorkbench onClose={() => setReportingOpen(false)} />
+          <ReportingWorkbench onClose={() => { setReportingOpen(false); setReportingInitialEventId(null); }} initialEventId={reportingInitialEventId} />
         </Suspense>
       </DialogContent>
     </Dialog>
@@ -2409,6 +2410,11 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         sourceMessages={registrationPanel.sourceMembers}
         initialMacroIndicator={registrationPanel.initialMacroIndicator}
         initialMicroIndicators={registrationPanel.initialMicroIndicators}
+        onOpenEventDossier={(eventId: string) => {
+          setRegistrationPanel({ open: false, messageIds: [] })
+          setReportingInitialEventId(eventId)
+          setReportingOpen(true)
+        }}
         onOpenCartable={() => {
           setRegistrationPanel({ open: false, messageIds: [] })
           setReportingOpen(true)

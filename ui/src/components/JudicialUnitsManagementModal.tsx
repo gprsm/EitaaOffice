@@ -14,6 +14,7 @@ import {
   FormControl,
   IconButton,
   InputAdornment,
+  InputLabel,
   MenuItem,
   Paper,
   Select,
@@ -81,6 +82,53 @@ export interface LiaisonItem {
   updated_at?: string
 }
 
+export interface UnitBaselineItem {
+  unit_id: string
+  staff_count: number
+  family_multiplier: number
+  imams_count: number
+  prayer_rooms_count: number
+  honored_count: number
+  notes?: string
+  updated_at?: string
+}
+
+export interface ImamItem {
+  imam_id: string
+  unit_id: string
+  full_name: string
+  position?: string
+  source_kind?: string
+  status?: string
+  personnel_no?: string
+  notes?: string
+  created_at?: string
+}
+
+export interface VenueItem {
+  venue_id: string
+  unit_id: string
+  name: string
+  notes?: string
+  created_at?: string
+}
+
+export interface PersonItem {
+  person_id: string
+  kind: 'employee' | 'family' | string
+  full_name: string
+  personnel_no?: string
+  national_id?: string
+  phone?: string
+  relation?: string
+  related_personnel_no?: string
+  unit_id?: string
+  gender?: string
+  birth_year?: string
+  notes?: string
+  created_at?: string
+}
+
 interface Props {
   open: boolean
   onClose: () => void
@@ -107,6 +155,32 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, ini
   const [counties, setCounties] = useState<string[]>([])
   const [liaisons, setLiaisons] = useState<LiaisonItem[]>([])
   const [programs, setPrograms] = useState<ProgramCatalogItem[]>([])
+  const [baselines, setBaselines] = useState<UnitBaselineItem[]>([])
+  const [imams, setImams] = useState<ImamItem[]>([])
+  const [venues, setVenues] = useState<VenueItem[]>([])
+  const [persons, setPersons] = useState<PersonItem[]>([])
+  const [baselineSubTab, setBaselineSubTab] = useState<'capacity' | 'imams' | 'venues' | 'persons'>('capacity')
+  const [baselineSearch, setBaselineSearch] = useState('')
+
+  // Baseline Edit Dialog
+  const [baselineModalOpen, setBaselineModalOpen] = useState(false)
+  const [editingBaseline, setEditingBaseline] = useState<Partial<UnitBaselineItem> | null>(null)
+  const [savingBaseline, setSavingBaseline] = useState(false)
+
+  // Imam Modal
+  const [imamModalOpen, setImamModalOpen] = useState(false)
+  const [editingImam, setEditingImam] = useState<Partial<ImamItem> | null>(null)
+  const [savingImam, setSavingImam] = useState(false)
+
+  // Venue Modal
+  const [venueModalOpen, setVenueModalOpen] = useState(false)
+  const [editingVenue, setEditingVenue] = useState<Partial<VenueItem> | null>(null)
+  const [savingVenue, setSavingVenue] = useState(false)
+
+  // Person Modal
+  const [personModalOpen, setPersonModalOpen] = useState(false)
+  const [editingPerson, setEditingPerson] = useState<Partial<PersonItem> | null>(null)
+  const [savingPerson, setSavingPerson] = useState(false)
 
   // Filters
   const [unitSearch, setUnitSearch] = useState('')
@@ -201,6 +275,26 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, ini
 
       const catalogRes = await fetchProgramCatalog({ include_inactive: true })
       setPrograms(catalogRes)
+
+      try {
+        const baseRes = await api<{ baselines: UnitBaselineItem[] }>('GET', '/api/v3/reporting/units/baselines')
+        setBaselines(baseRes.baselines || [])
+      } catch {}
+
+      try {
+        const imamRes = await api<{ imams: ImamItem[] }>('GET', '/api/v3/reporting/imams')
+        setImams(imamRes.imams || [])
+      } catch {}
+
+      try {
+        const venueRes = await api<{ venues: VenueItem[] }>('GET', '/api/v3/reporting/venues')
+        setVenues(venueRes.venues || [])
+      } catch {}
+
+      try {
+        const personRes = await api<{ persons: PersonItem[] }>('GET', '/api/v3/reporting/persons')
+        setPersons(personRes.persons || [])
+      } catch {}
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'خطا در بارگذاری اطلاعات')
     } finally {
@@ -263,6 +357,125 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, ini
       onDataChanged?.()
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'خطا در تغییر وضعیت برنامه')
+    }
+  }
+
+  // Handlers for Baseline Banks
+  const handleSaveBaseline = async () => {
+    if (!editingBaseline || !editingBaseline.unit_id) return
+    setSavingBaseline(true)
+    setErrorText('')
+    try {
+      await api('POST', `/api/v3/reporting/units/${encodeURIComponent(editingBaseline.unit_id)}/baseline`, {
+        staff_count: Number(editingBaseline.staff_count) || 0,
+        family_multiplier: Number(editingBaseline.family_multiplier) || 2.5,
+        imams_count: Number(editingBaseline.imams_count) || 0,
+        prayer_rooms_count: Number(editingBaseline.prayer_rooms_count) || 0,
+        honored_count: Number(editingBaseline.honored_count) || 0,
+        notes: (editingBaseline.notes || '').trim(),
+      })
+      setSuccessText(`مشخصات ظرفیت و اطلاعات پایه حوزه «${editingBaseline.unit_id}» با موفقیت ذخیره شد.`)
+      setBaselineModalOpen(false)
+      setEditingBaseline(null)
+      await loadData()
+      onDataChanged?.()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ذخیره اطلاعات پایه')
+    } finally {
+      setSavingBaseline(false)
+    }
+  }
+
+  const handleSaveImam = async () => {
+    if (!editingImam || !editingImam.full_name || !editingImam.unit_id) {
+      setErrorText('نام امام جماعت و حوزه قضایی الزامی است.')
+      return
+    }
+    setSavingImam(true)
+    setErrorText('')
+    try {
+      await api('POST', '/api/v3/reporting/imams', editingImam)
+      setSuccessText(`امام جماعت «${editingImam.full_name}» ذخیره شد.`)
+      setImamModalOpen(false)
+      setEditingImam(null)
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ذخیره امام جماعت')
+    } finally {
+      setSavingImam(false)
+    }
+  }
+
+  const handleDeleteImam = async (imamId: string) => {
+    if (!window.confirm('آیا از حذف این امام جماعت اطمینان دارید؟')) return
+    try {
+      await api('DELETE', `/api/v3/reporting/imams/${imamId}`)
+      setSuccessText('امام جماعت حذف شد.')
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در حذف امام جماعت')
+    }
+  }
+
+  const handleSaveVenue = async () => {
+    if (!editingVenue || !editingVenue.name || !editingVenue.unit_id) {
+      setErrorText('نام نمازخانه و حوزه قضایی الزامی است.')
+      return
+    }
+    setSavingVenue(true)
+    setErrorText('')
+    try {
+      await api('POST', '/api/v3/reporting/venues', editingVenue)
+      setSuccessText(`نمازخانه «${editingVenue.name}» ذخیره شد.`)
+      setVenueModalOpen(false)
+      setEditingVenue(null)
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ذخیره نمازخانه')
+    } finally {
+      setSavingVenue(false)
+    }
+  }
+
+  const handleDeleteVenue = async (venueId: string) => {
+    if (!window.confirm('آیا از حذف این نمازخانه اطمینان دارید؟')) return
+    try {
+      await api('DELETE', `/api/v3/reporting/venues/${venueId}`)
+      setSuccessText('نمازخانه حذف شد.')
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در حذف نمازخانه')
+    }
+  }
+
+  const handleSavePerson = async () => {
+    if (!editingPerson || !editingPerson.full_name) {
+      setErrorText('نام و نام خانوادگی الزامی است.')
+      return
+    }
+    setSavingPerson(true)
+    setErrorText('')
+    try {
+      await api('POST', '/api/v3/reporting/persons', editingPerson)
+      setSuccessText(`شخص «${editingPerson.full_name}» در بانک پرسنلی ذخیره شد.`)
+      setPersonModalOpen(false)
+      setEditingPerson(null)
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در ذخیره شخص')
+    } finally {
+      setSavingPerson(false)
+    }
+  }
+
+  const handleDeletePerson = async (personId: string) => {
+    if (!window.confirm('آیا از حذف این شخص از بانک اطلاعات اطمینان دارید؟')) return
+    try {
+      await api('DELETE', `/api/v3/reporting/persons/${personId}`)
+      setSuccessText('شخص از بانک اطلاعات حذف شد.')
+      await loadData()
+    } catch (err) {
+      setErrorText(err instanceof Error ? err.message : 'خطا در حذف شخص')
     }
   }
 
@@ -434,6 +647,11 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, ini
               icon={<MenuBookRounded sx={{ mr: 1, verticalAlign: 'middle' }} />}
               iconPosition="start"
               label={`کاتالوگ و سرفصل‌های برنامه‌ها (${programs.length})`}
+            />
+            <Tab
+              icon={<BarChartRounded sx={{ mr: 1, verticalAlign: 'middle' }} />}
+              iconPosition="start"
+              label="بانک اطلاعات پایه و ظرفیت‌سنجی حوزه‌ها"
             />
           </Tabs>
         </Box>
@@ -879,6 +1097,352 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, ini
               )}
             </Stack>
           )}
+
+          {/* TAB 3: MASTER BASELINE BANKS & CAPACITY */}
+          {tab === 3 && (
+            <Stack spacing={2.5}>
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between" alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                    <Button
+                      variant={baselineSubTab === 'capacity' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setBaselineSubTab('capacity')}
+                    >
+                      ظرفیت و داده‌های پایه حوزه‌ها ({units.length})
+                    </Button>
+                    <Button
+                      variant={baselineSubTab === 'imams' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setBaselineSubTab('imams')}
+                    >
+                      بانک ائمه جماعات ({imams.length})
+                    </Button>
+                    <Button
+                      variant={baselineSubTab === 'venues' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setBaselineSubTab('venues')}
+                    >
+                      بانک نمازخانه‌ها ({venues.length})
+                    </Button>
+                    <Button
+                      variant={baselineSubTab === 'persons' ? 'contained' : 'outlined'}
+                      size="small"
+                      onClick={() => setBaselineSubTab('persons')}
+                    >
+                      بانک کارکنان و افراد ({persons.length})
+                    </Button>
+                  </Stack>
+                  <TextField
+                    size="small"
+                    placeholder="جستجو در اطلاعات پایه..."
+                    value={baselineSearch}
+                    onChange={e => setBaselineSearch(e.target.value)}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment>,
+                    }}
+                    sx={{ width: { xs: '100%', sm: 240 } }}
+                  />
+                </Stack>
+              </Paper>
+
+              {/* SubTab: CAPACITY */}
+              {baselineSubTab === 'capacity' && (
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'grey.50' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700 }}>نام واحد / حوزه قضایی</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>شهرستان</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>تعداد کارکنان</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>ضریب عائله</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>ظرفیت تخمینی جامعه</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>ائمه جماعات</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>نمازخانه‌ها</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700 }}>عملیات</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {units
+                        .filter(u => !baselineSearch || u.display_name.includes(baselineSearch) || u.county.includes(baselineSearch))
+                        .map(u => {
+                          const base = baselines.find(b => b.unit_id === u.display_name || b.unit_id === u.name || b.unit_id === u.unit_id) || {
+                            unit_id: u.display_name,
+                            staff_count: 0,
+                            family_multiplier: 2.5,
+                            imams_count: 0,
+                            prayer_rooms_count: 0,
+                            honored_count: 0,
+                          }
+                          const staff = Number(base.staff_count) || 0
+                          const mul = Number(base.family_multiplier) || 2.5
+                          const totalCap = Math.round(staff * mul)
+                          return (
+                            <TableRow key={u.unit_id} hover>
+                              <TableCell sx={{ fontWeight: 600 }}>{u.display_name}</TableCell>
+                              <TableCell>{u.county}</TableCell>
+                              <TableCell>{staff > 0 ? `${staff} نفر` : <Typography variant="caption" color="text.secondary">ثبت‌نشده</Typography>}</TableCell>
+                              <TableCell>{mul}x</TableCell>
+                              <TableCell>{totalCap > 0 ? `${totalCap} نفر` : '-'}</TableCell>
+                              <TableCell>{base.imams_count || '-'}</TableCell>
+                              <TableCell>{base.prayer_rooms_count || '-'}</TableCell>
+                              <TableCell align="center">
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<EditRounded />}
+                                  onClick={() => {
+                                    setEditingBaseline({
+                                      unit_id: u.display_name,
+                                      staff_count: staff,
+                                      family_multiplier: mul,
+                                      imams_count: base.imams_count || 0,
+                                      prayer_rooms_count: base.prayer_rooms_count || 0,
+                                      honored_count: base.honored_count || 0,
+                                      notes: base.notes || '',
+                                    })
+                                    setBaselineModalOpen(true)
+                                  }}
+                                >
+                                  ویرایش ظرفیت
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+
+              {/* SubTab: IMAMS */}
+              {baselineSubTab === 'imams' && (
+                <Stack spacing={1.5}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle2" fontWeight={700}>فهرست ائمه جماعات استان ({imams.length} نفر)</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<AddRounded />}
+                      onClick={() => {
+                        setEditingImam({
+                          full_name: '',
+                          unit_id: units[0]?.unit_id || '',
+                          position: 'امام جماعت ظهر و عصر',
+                          source_kind: 'staff_cleric',
+                          status: 'employed',
+                        })
+                        setImamModalOpen(true)
+                      }}
+                    >
+                      ثبت امام جماعت جدید
+                    </Button>
+                  </Stack>
+                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: 'grey.50' }}>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700 }}>نام امام جماعت</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>حوزه قضایی</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>سمت / وعده</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>نوع منشأ</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>وضعیت</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>شماره پرسنلی</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>توضیحات</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700 }}>عملیات</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {imams.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                              هنوز امام جماعتی در سیستم ثبت نشده است.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          imams
+                            .filter(i => !baselineSearch || i.full_name.includes(baselineSearch) || (i.position && i.position.includes(baselineSearch)))
+                            .map(i => {
+                              const u = units.find(unit => unit.unit_id === i.unit_id)
+                              return (
+                                <TableRow key={i.imam_id} hover>
+                                  <TableCell sx={{ fontWeight: 600 }}>{i.full_name}</TableCell>
+                                  <TableCell>{u ? u.display_name : i.unit_id}</TableCell>
+                                  <TableCell>{i.position || '-'}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={i.source_kind === 'staff_cleric' ? 'روحانی پرسنل' : i.source_kind === 'invited_external' ? 'مدعو بیرونی' : 'نامشخص'}
+                                      color={i.source_kind === 'staff_cleric' ? 'primary' : 'default'}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={i.status === 'employed' ? 'شاغل' : 'غیرشاغل / آزاد'}
+                                      color={i.status === 'employed' ? 'success' : 'default'}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{i.personnel_no || '-'}</TableCell>
+                                  <TableCell>{i.notes || '-'}</TableCell>
+                                  <TableCell align="center">
+                                    <IconButton size="small" color="error" onClick={() => handleDeleteImam(i.imam_id)}>
+                                      <DeleteOutlineRounded fontSize="small" />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Stack>
+              )}
+
+              {/* SubTab: VENUES */}
+              {baselineSubTab === 'venues' && (
+                <Stack spacing={1.5}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle2" fontWeight={700}>فهرست نمازخانه‌ها و امکانات اقامه نماز ({venues.length} مکان)</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<AddRounded />}
+                      onClick={() => {
+                        setEditingVenue({
+                          name: '',
+                          unit_id: units[0]?.unit_id || '',
+                          notes: '',
+                        })
+                        setVenueModalOpen(true)
+                      }}
+                    >
+                      ثبت نمازخانه جدید
+                    </Button>
+                  </Stack>
+                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: 'grey.50' }}>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700 }}>نام نمازخانه / مکان</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>حوزه قضایی میزبان</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>توضیحات و مشخصات ظرفیت</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700 }}>عملیات</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {venues.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                              هنوز نمازخانه‌ای در سیستم ثبت نشده است.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          venues
+                            .filter(v => !baselineSearch || v.name.includes(baselineSearch))
+                            .map(v => {
+                              const u = units.find(unit => unit.unit_id === v.unit_id)
+                              return (
+                                <TableRow key={v.venue_id} hover>
+                                  <TableCell sx={{ fontWeight: 600 }}>{v.name}</TableCell>
+                                  <TableCell>{u ? u.display_name : v.unit_id}</TableCell>
+                                  <TableCell>{v.notes || '-'}</TableCell>
+                                  <TableCell align="center">
+                                    <IconButton size="small" color="error" onClick={() => handleDeleteVenue(v.venue_id)}>
+                                      <DeleteOutlineRounded fontSize="small" />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Stack>
+              )}
+
+              {/* SubTab: PERSONS */}
+              {baselineSubTab === 'persons' && (
+                <Stack spacing={1.5}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle2" fontWeight={700}>بانک جامع پرسنل، تقدیرشدگان و خانواده ({persons.length} نفر)</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<AddRounded />}
+                      onClick={() => {
+                        setEditingPerson({
+                          full_name: '',
+                          kind: 'employee',
+                          unit_id: units[0]?.unit_id || '',
+                        })
+                        setPersonModalOpen(true)
+                      }}
+                    >
+                      ثبت شخص جدید
+                    </Button>
+                  </Stack>
+                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: 'grey.50' }}>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700 }}>نام و نام خانوادگی</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>نوع عضویت</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>نسبت</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>شماره پرسنلی</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>کد ملی</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>شماره تماس</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>حوزه قضایی</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>یادداشت / سوابق تشویق</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700 }}>عملیات</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {persons.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={9} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                              هنوز اطلاعات پرسنلی در این بانک ثبت نشده است.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          persons
+                            .filter(p => !baselineSearch || p.full_name.includes(baselineSearch) || (p.personnel_no && p.personnel_no.includes(baselineSearch)))
+                            .map(p => {
+                              const u = units.find(unit => unit.unit_id === p.unit_id)
+                              return (
+                                <TableRow key={p.person_id} hover>
+                                  <TableCell sx={{ fontWeight: 600 }}>{p.full_name}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={p.kind === 'employee' ? 'همکار شاغل' : 'عضو خانواده'}
+                                      color={p.kind === 'employee' ? 'primary' : 'secondary'}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{p.relation || 'خود همکار'}</TableCell>
+                                  <TableCell>{p.personnel_no || '-'}</TableCell>
+                                  <TableCell>{p.national_id || '-'}</TableCell>
+                                  <TableCell>{p.phone || '-'}</TableCell>
+                                  <TableCell>{u ? u.display_name : p.unit_id || '-'}</TableCell>
+                                  <TableCell>{p.notes || '-'}</TableCell>
+                                  <TableCell align="center">
+                                    <IconButton size="small" color="error" onClick={() => handleDeletePerson(p.person_id)}>
+                                      <DeleteOutlineRounded fontSize="small" />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Stack>
+              )}
+            </Stack>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
@@ -1204,6 +1768,290 @@ export function JudicialUnitsManagementModal({ open, onClose, onDataChanged, ini
           <Button onClick={() => setProgramModalOpen(false)}>انصراف</Button>
           <Button onClick={handleSaveProgram} variant="contained" color="primary" disabled={savingProgram}>
             {savingProgram ? <CircularProgress size={20} color="inherit" /> : 'ذخیره برنامه'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Baseline Capacity Edit Dialog */}
+      <Dialog open={baselineModalOpen} onClose={() => setBaselineModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>ویرایش ظرفیت و اطلاعات پایه: {editingBaseline?.unit_id}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="تعداد کل پرسنل و کارکنان حوزه"
+                type="number"
+                value={editingBaseline?.staff_count || ''}
+                onChange={e => setEditingBaseline(prev => ({ ...prev, staff_count: Number(e.target.value) || 0 }))}
+                fullWidth
+              />
+              <TextField
+                label="ضریب عائله و خانواده"
+                type="number"
+                inputProps={{ step: '0.1' }}
+                value={editingBaseline?.family_multiplier || 2.5}
+                onChange={e => setEditingBaseline(prev => ({ ...prev, family_multiplier: Number(e.target.value) || 2.5 }))}
+                fullWidth
+              />
+            </Stack>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="تعداد ائمه جماعات فعال"
+                type="number"
+                value={editingBaseline?.imams_count || ''}
+                onChange={e => setEditingBaseline(prev => ({ ...prev, imams_count: Number(e.target.value) || 0 }))}
+                fullWidth
+              />
+              <TextField
+                label="تعداد نمازخانه‌ها و اماکن مذهبی"
+                type="number"
+                value={editingBaseline?.prayer_rooms_count || ''}
+                onChange={e => setEditingBaseline(prev => ({ ...prev, prayer_rooms_count: Number(e.target.value) || 0 }))}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="تعداد افراد تقدیرشده سال جاری"
+              type="number"
+              value={editingBaseline?.honored_count || ''}
+              onChange={e => setEditingBaseline(prev => ({ ...prev, honored_count: Number(e.target.value) || 0 }))}
+              fullWidth
+            />
+            <TextField
+              label="یادداشت‌های ارزیابی و ظرفیت‌سنجی"
+              multiline
+              rows={2}
+              value={editingBaseline?.notes || ''}
+              onChange={e => setEditingBaseline(prev => ({ ...prev, notes: e.target.value }))}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setBaselineModalOpen(false)}>انصراف</Button>
+          <Button onClick={handleSaveBaseline} variant="contained" disabled={savingBaseline}>
+            {savingBaseline ? <CircularProgress size={20} color="inherit" /> : 'ذخیره ظرفیت'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Imam Add/Edit Dialog */}
+      <Dialog open={imamModalOpen} onClose={() => setImamModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>ثبت امام جماعت</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="نام و نام خانوادگی امام جماعت"
+              value={editingImam?.full_name || ''}
+              onChange={e => setEditingImam(prev => ({ ...prev, full_name: e.target.value }))}
+              fullWidth
+              required
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel>حوزه قضایی</InputLabel>
+              <Select
+                value={editingImam?.unit_id || ''}
+                label="حوزه قضایی"
+                onChange={e => setEditingImam(prev => ({ ...prev, unit_id: e.target.value }))}
+              >
+                {units.map(u => (
+                  <MenuItem key={u.unit_id} value={u.unit_id}>{u.display_name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="سمت / وعده اقامه نماز"
+              value={editingImam?.position || ''}
+              onChange={e => setEditingImam(prev => ({ ...prev, position: e.target.value }))}
+              fullWidth
+            />
+            <Stack direction="row" spacing={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>نوع منشأ</InputLabel>
+                <Select
+                  value={editingImam?.source_kind || 'staff_cleric'}
+                  label="نوع منشأ"
+                  onChange={e => setEditingImam(prev => ({ ...prev, source_kind: e.target.value }))}
+                >
+                  <MenuItem value="staff_cleric">روحانی پرسنل</MenuItem>
+                  <MenuItem value="invited_external">مدعو بیرونی</MenuItem>
+                  <MenuItem value="none">سایر / نامشخص</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>وضعیت اشتغال</InputLabel>
+                <Select
+                  value={editingImam?.status || 'employed'}
+                  label="وضعیت اشتغال"
+                  onChange={e => setEditingImam(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <MenuItem value="employed">شاغل</MenuItem>
+                  <MenuItem value="idle">آزاد / غیرشاغل</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              label="شماره پرسنلی (اختیاری)"
+              value={editingImam?.personnel_no || ''}
+              onChange={e => setEditingImam(prev => ({ ...prev, personnel_no: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="توضیحات تکمیلی"
+              multiline
+              rows={2}
+              value={editingImam?.notes || ''}
+              onChange={e => setEditingImam(prev => ({ ...prev, notes: e.target.value }))}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setImamModalOpen(false)}>انصراف</Button>
+          <Button onClick={handleSaveImam} variant="contained" disabled={savingImam}>
+            {savingImam ? <CircularProgress size={20} color="inherit" /> : 'ذخیره امام جماعت'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Venue Add/Edit Dialog */}
+      <Dialog open={venueModalOpen} onClose={() => setVenueModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>ثبت نمازخانه یا مکان مذهبی</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="نام نمازخانه / مکان"
+              value={editingVenue?.name || ''}
+              onChange={e => setEditingVenue(prev => ({ ...prev, name: e.target.value }))}
+              fullWidth
+              required
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel>حوزه قضایی میزبان</InputLabel>
+              <Select
+                value={editingVenue?.unit_id || ''}
+                label="حوزه قضایی میزبان"
+                onChange={e => setEditingVenue(prev => ({ ...prev, unit_id: e.target.value }))}
+              >
+                {units.map(u => (
+                  <MenuItem key={u.unit_id} value={u.unit_id}>{u.display_name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="توضیحات و مشخصات ظرفیت و مساحت"
+              multiline
+              rows={3}
+              value={editingVenue?.notes || ''}
+              onChange={e => setEditingVenue(prev => ({ ...prev, notes: e.target.value }))}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setVenueModalOpen(false)}>انصراف</Button>
+          <Button onClick={handleSaveVenue} variant="contained" disabled={savingVenue}>
+            {savingVenue ? <CircularProgress size={20} color="inherit" /> : 'ذخیره نمازخانه'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Person Add/Edit Dialog */}
+      <Dialog open={personModalOpen} onClose={() => setPersonModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>ثبت شخص در بانک پرسنلی</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="نام و نام خانوادگی"
+              value={editingPerson?.full_name || ''}
+              onChange={e => setEditingPerson(prev => ({ ...prev, full_name: e.target.value }))}
+              fullWidth
+              required
+            />
+            <Stack direction="row" spacing={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>نوع عضویت</InputLabel>
+                <Select
+                  value={editingPerson?.kind || 'employee'}
+                  label="نوع عضویت"
+                  onChange={e => setEditingPerson(prev => ({ ...prev, kind: e.target.value }))}
+                >
+                  <MenuItem value="employee">همکار شاغل</MenuItem>
+                  <MenuItem value="family">عضو خانواده</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>نسبت</InputLabel>
+                <Select
+                  value={editingPerson?.relation || ''}
+                  label="نسبت"
+                  onChange={e => setEditingPerson(prev => ({ ...prev, relation: e.target.value }))}
+                >
+                  <MenuItem value="">خود همکار</MenuItem>
+                  <MenuItem value="spouse">همسر</MenuItem>
+                  <MenuItem value="child">فرزند</MenuItem>
+                  <MenuItem value="parent">والدین</MenuItem>
+                  <MenuItem value="sibling">خواهر / برادر</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            {editingPerson?.kind === 'family' && (
+              <TextField
+                label="شماره پرسنلی همکار مربوطه"
+                value={editingPerson?.related_personnel_no || ''}
+                onChange={e => setEditingPerson(prev => ({ ...prev, related_personnel_no: e.target.value }))}
+                fullWidth
+                required
+              />
+            )}
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="شماره پرسنلی"
+                value={editingPerson?.personnel_no || ''}
+                onChange={e => setEditingPerson(prev => ({ ...prev, personnel_no: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="کد ملی"
+                value={editingPerson?.national_id || ''}
+                onChange={e => setEditingPerson(prev => ({ ...prev, national_id: e.target.value }))}
+                fullWidth
+              />
+            </Stack>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="تلفن همراه"
+                value={editingPerson?.phone || ''}
+                onChange={e => setEditingPerson(prev => ({ ...prev, phone: e.target.value }))}
+                fullWidth
+              />
+              <FormControl fullWidth size="small">
+                <InputLabel>حوزه قضایی</InputLabel>
+                <Select
+                  value={editingPerson?.unit_id || ''}
+                  label="حوزه قضایی"
+                  onChange={e => setEditingPerson(prev => ({ ...prev, unit_id: e.target.value }))}
+                >
+                  {units.map(u => (
+                    <MenuItem key={u.unit_id} value={u.unit_id}>{u.display_name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              label="یادداشت‌ها و سوابق تشویق / تقدیر"
+              multiline
+              rows={2}
+              value={editingPerson?.notes || ''}
+              onChange={e => setEditingPerson(prev => ({ ...prev, notes: e.target.value }))}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setPersonModalOpen(false)}>انصراف</Button>
+          <Button onClick={handleSavePerson} variant="contained" disabled={savingPerson}>
+            {savingPerson ? <CircularProgress size={20} color="inherit" /> : 'ذخیره شخص'}
           </Button>
         </DialogActions>
       </Dialog>

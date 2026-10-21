@@ -24,6 +24,7 @@ import AddRounded from '@mui/icons-material/AddRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import AccountBalanceRounded from '@mui/icons-material/AccountBalanceRounded'
 import AssignmentTurnedInRounded from '@mui/icons-material/AssignmentTurnedInRounded'
+import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
 import { api } from './lib/api'
 import { jalaliDayKey, jalaliDayLabel, parseJalaliDate } from './utils/helpers'
 import { JalaliDateTimePicker } from './components/JalaliDateTimePicker'
@@ -270,6 +271,7 @@ export function ReportingRegistrationPanel(props: {
   sourceMessages?: MessageItem[] | null
   initialMacroIndicator?: string
   initialMicroIndicators?: string[]
+  onOpenEventDossier?: (eventId: string) => void
   onOpenCartable?: () => void
   onClose: () => void
 }) {
@@ -821,19 +823,34 @@ export function ReportingRegistrationPanel(props: {
           {!result.ok && !result.existing_event_id && <Typography variant="caption" color="text.secondary">{result.error}</Typography>}
         </Stack>)}
         <Alert severity="info">وضعیت کارت پیام پس از بستن پنل بهروز میشود.</Alert>
-        {props.onOpenCartable && (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AssignmentTurnedInRounded />}
-            onClick={() => {
-              props.onOpenCartable?.()
-            }}
-            sx={{ mt: 1 }}
-          >
-            مشاهده در کارتابل و آرشیو گزارش‌ها
-          </Button>
-        )}
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1 }}>
+          {props.onOpenEventDossier && (
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<VisibilityRounded />}
+              onClick={() => {
+                props.onOpenEventDossier?.(results.eventId)
+              }}
+              sx={{ flex: 1 }}
+            >
+              مشاهده و تکمیل پوشه پرونده رویداد
+            </Button>
+          )}
+          {props.onOpenCartable && (
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<AssignmentTurnedInRounded />}
+              onClick={() => {
+                props.onOpenCartable?.()
+              }}
+              sx={{ flex: 1 }}
+            >
+              مشاهده در کارتابل و آرشیو گزارش‌ها
+            </Button>
+          )}
+        </Stack>
       </Stack>}
     </DialogContent>
     <DialogActions sx={{ justifyContent: 'space-between', px: 2 }}>

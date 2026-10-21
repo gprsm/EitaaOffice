@@ -23,7 +23,7 @@ from eitaa_bridge.reporting.model import (
     UnitScope,
     ValueSource,
 )
-from eitaa_bridge.reporting.registry import LiaisonRecord, UnitRecord
+from eitaa_bridge.reporting.registry import ImamRecord, LiaisonRecord, PersonRecord, UnitRecord, VenueRecord
 from eitaa_bridge.reporting.store import (
     EtagConflictError,
     EventNotFoundError,
@@ -55,6 +55,16 @@ _EVENT_MERGE_CANDIDATES_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event
 _EVENT_MERGE_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/merge$")
 _EVENT_NORMALIZATION_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/normalization$")
 _UNIT_BASELINE_ROUTE = re.compile(r"^/api/v3/reporting/units/(?P<unit_id>[^/]+)/baseline$")
+_UNIT_BASELINES_LIST_ROUTE = re.compile(r"^/api/v3/reporting/units/baselines$")
+_IMAMS_ROUTE = re.compile(r"^/api/v3/reporting/imams$")
+_IMAM_ID_ROUTE = re.compile(r"^/api/v3/reporting/imams/(?P<imam_id>[A-Za-z0-9_-]+)$")
+_IMAM_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/imams/(?P<imam_id>[A-Za-z0-9_-]+)/delete$")
+_VENUES_ROUTE = re.compile(r"^/api/v3/reporting/venues$")
+_VENUE_ID_ROUTE = re.compile(r"^/api/v3/reporting/venues/(?P<venue_id>[A-Za-z0-9_-]+)$")
+_VENUE_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/venues/(?P<venue_id>[A-Za-z0-9_-]+)/delete$")
+_PERSONS_ROUTE = re.compile(r"^/api/v3/reporting/persons$")
+_PERSON_ID_ROUTE = re.compile(r"^/api/v3/reporting/persons/(?P<person_id>[A-Za-z0-9_-]+)$")
+_PERSON_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/persons/(?P<person_id>[A-Za-z0-9_-]+)/delete$")
 _LINK_DETACH_ROUTE = re.compile(r"^/api/v3/reporting/witness-links/(?P<link_id>[A-Za-z0-9_-]+)/detach$")
 _UNITS_ROUTE = re.compile(r"^/api/v3/reporting/units$")
 _UNIT_ID_ROUTE = re.compile(r"^/api/v3/reporting/units/(?P<unit_id>[A-Za-z0-9_-]+)$")
@@ -410,6 +420,112 @@ def save_unit_baseline(store: ReportingStore, actor: str, roles, unit_id: str, p
         notes=str(payload.get("notes") or ""),
     )
     return _ok({"baseline": b})
+
+
+def list_unit_baselines(store: ReportingStore):
+    return _ok({"baselines": store.list_unit_baselines()})
+
+
+def list_imams(store: ReportingStore, query: Mapping[str, Any]):
+    unit_id = query.get("unit_id") or None
+    imams = store.list_imams(unit_id=unit_id)
+    return _ok({"imams": [i.to_dict() for i in imams]})
+
+
+def save_imam(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    imam_id = str(payload.get("imam_id") or "").strip() or f"imam_{uuid.uuid4().hex[:8]}"
+    unit_id = str(payload.get("unit_id") or "").strip()
+    if not unit_id:
+        return _error(400, "unit_id is required")
+    units = store.list_units()
+    matched = next((u for u in units if u.unit_id == unit_id or u.display_name == unit_id or u.name == unit_id), None)
+    if matched:
+        unit_id = matched.unit_id
+    record = ImamRecord(
+        imam_id=imam_id,
+        unit_id=unit_id,
+        full_name=str(payload.get("full_name") or ""),
+        position=str(payload.get("position") or ""),
+        source_kind=str(payload.get("source_kind") or "none"),
+        status=str(payload.get("status") or "employed"),
+        personnel_no=str(payload.get("personnel_no") or ""),
+        notes=str(payload.get("notes") or ""),
+    )
+    store.save_imam(record)
+    return _ok({"imam": record.to_dict()})
+
+
+def delete_imam(store: ReportingStore, imam_id: str):
+    success = store.delete_imam(imam_id)
+    if not success:
+        return _error(404, "imam not found")
+    return _ok({"deleted": True, "imam_id": imam_id})
+
+
+def list_venues(store: ReportingStore, query: Mapping[str, Any]):
+    unit_id = query.get("unit_id") or None
+    venues = store.list_venues(unit_id=unit_id)
+    return _ok({"venues": [v.to_dict() for v in venues]})
+
+
+def save_venue(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    venue_id = str(payload.get("venue_id") or "").strip() or f"venue_{uuid.uuid4().hex[:8]}"
+    unit_id = str(payload.get("unit_id") or "").strip()
+    if not unit_id:
+        return _error(400, "unit_id is required")
+    units = store.list_units()
+    matched = next((u for u in units if u.unit_id == unit_id or u.display_name == unit_id or u.name == unit_id), None)
+    if matched:
+        unit_id = matched.unit_id
+    record = VenueRecord(
+        venue_id=venue_id,
+        unit_id=unit_id,
+        name=str(payload.get("name") or ""),
+        notes=str(payload.get("notes") or ""),
+    )
+    store.save_venue(record)
+    return _ok({"venue": record.to_dict()})
+
+
+def delete_venue(store: ReportingStore, venue_id: str):
+    success = store.delete_venue(venue_id)
+    if not success:
+        return _error(404, "venue not found")
+    return _ok({"deleted": True, "venue_id": venue_id})
+
+
+def list_persons(store: ReportingStore, query: Mapping[str, Any]):
+    kind = query.get("kind") or None
+    unit_id = query.get("unit_id") or None
+    persons = store.list_persons(kind=kind, unit_id=unit_id)
+    return _ok({"persons": [p.to_dict() for p in persons]})
+
+
+def save_person(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
+    person_id = str(payload.get("person_id") or "").strip() or f"person_{uuid.uuid4().hex[:8]}"
+    record = PersonRecord(
+        person_id=person_id,
+        kind=str(payload.get("kind") or "employee"),
+        full_name=str(payload.get("full_name") or ""),
+        personnel_no=str(payload.get("personnel_no") or ""),
+        national_id=str(payload.get("national_id") or ""),
+        phone=str(payload.get("phone") or ""),
+        relation=str(payload.get("relation") or ""),
+        related_personnel_no=str(payload.get("related_personnel_no") or ""),
+        unit_id=str(payload.get("unit_id") or ""),
+        gender=str(payload.get("gender") or ""),
+        birth_year=str(payload.get("birth_year") or ""),
+        notes=str(payload.get("notes") or ""),
+    )
+    store.save_person(record)
+    return _ok({"person": record.to_dict()})
+
+
+def delete_person(store: ReportingStore, person_id: str):
+    success = store.delete_person(person_id)
+    if not success:
+        return _error(404, "person not found")
+    return _ok({"deleted": True, "person_id": person_id})
 
 
 def get_event_normalization(store: ReportingStore, event_id: str):
@@ -1350,6 +1466,21 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         base_match = _UNIT_BASELINE_ROUTE.match(path)
         if base_match:
             return save_unit_baseline(store, actor, roles, base_match.group("unit_id"), payload)
+        if _IMAMS_ROUTE.match(path):
+            return save_imam(store, actor, payload)
+        imam_post_del = _IMAM_DELETE_POST_ROUTE.match(path)
+        if imam_post_del:
+            return delete_imam(store, imam_post_del.group("imam_id"))
+        if _VENUES_ROUTE.match(path):
+            return save_venue(store, actor, payload)
+        venue_post_del = _VENUE_DELETE_POST_ROUTE.match(path)
+        if venue_post_del:
+            return delete_venue(store, venue_post_del.group("venue_id"))
+        if _PERSONS_ROUTE.match(path):
+            return save_person(store, actor, payload)
+        person_post_del = _PERSON_DELETE_POST_ROUTE.match(path)
+        if person_post_del:
+            return delete_person(store, person_post_del.group("person_id"))
         micro_post_del = _INDICATORS_MICRO_DELETE_POST_ROUTE.match(path)
         if micro_post_del:
             return delete_micro_indicator(store, actor, micro_post_del.group("indicator_id"))
@@ -1476,9 +1607,17 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         norm_match = _EVENT_NORMALIZATION_ROUTE.match(path)
         if norm_match:
             return get_event_normalization(store, norm_match.group("event_id"))
+        if _UNIT_BASELINES_LIST_ROUTE.match(path):
+            return list_unit_baselines(store)
         base_match = _UNIT_BASELINE_ROUTE.match(path)
         if base_match:
             return get_unit_baseline(store, base_match.group("unit_id"))
+        if _IMAMS_ROUTE.match(path):
+            return list_imams(store, query)
+        if _VENUES_ROUTE.match(path):
+            return list_venues(store, query)
+        if _PERSONS_ROUTE.match(path):
+            return list_persons(store, query)
         audit = _EVENT_AUDIT_ROUTE.match(path)
         if audit:
             return get_event_audit(store, actor, roles, audit.group("event_id"))
@@ -1495,6 +1634,15 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         liaison_del = _LIAISON_ID_ROUTE.match(path)
         if liaison_del:
             return delete_liaison(store, actor, liaison_del.group("liaison_id"))
+        imam_del = _IMAM_ID_ROUTE.match(path)
+        if imam_del:
+            return delete_imam(store, imam_del.group("imam_id"))
+        venue_del = _VENUE_ID_ROUTE.match(path)
+        if venue_del:
+            return delete_venue(store, venue_del.group("venue_id"))
+        person_del = _PERSON_ID_ROUTE.match(path)
+        if person_del:
+            return delete_person(store, person_del.group("person_id"))
     return None
 
 

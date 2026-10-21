@@ -146,6 +146,24 @@ class ImamRecord:
         if self.status not in IMAM_STATUS:
             raise ValueError(f"Unknown imam status: {self.status!r}")
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "imam_id": self.imam_id,
+            "unit_id": self.unit_id,
+            "full_name": self.full_name,
+            "position": self.position,
+            "source_kind": self.source_kind,
+            "status": self.status,
+            "since": self.since.isoformat() if self.since else None,
+            "personnel_no": self.personnel_no,
+            "evidence_refs": list(self.evidence_refs),
+            "version": self.version,
+            "source": self.source.value if hasattr(self.source, "value") else str(self.source),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if hasattr(self.created_at, "isoformat") else str(self.created_at),
+            "updated_at": self.updated_at.isoformat() if hasattr(self.updated_at, "isoformat") else str(self.updated_at),
+        }
+
 
 @dataclass(slots=True)
 class VenueRecord:
@@ -164,6 +182,19 @@ class VenueRecord:
     def validate(self) -> None:
         if not self.venue_id.strip() or not self.unit_id.strip():
             raise ValueError("Venue id and unit id cannot be empty.")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "venue_id": self.venue_id,
+            "unit_id": self.unit_id,
+            "name": self.name,
+            "evidence_refs": list(self.evidence_refs),
+            "version": self.version,
+            "source": self.source.value if hasattr(self.source, "value") else str(self.source),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if hasattr(self.created_at, "isoformat") else str(self.created_at),
+            "updated_at": self.updated_at.isoformat() if hasattr(self.updated_at, "isoformat") else str(self.updated_at),
+        }
 
 
 @dataclass(slots=True)
@@ -359,3 +390,24 @@ class PersonRecord:
             raise ValueError("A family member cannot relate to themselves.")
         if self.kind == "family" and not self.related_personnel_no.strip():
             raise ValueError("Family members need the related employee's personnel number.")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "person_id": self.person_id,
+            "kind": self.kind,
+            "full_name": self.full_name,
+            "personnel_no": self.personnel_no,
+            "national_id": self.national_id,
+            "phone": self.phone,
+            "relation": self.relation,
+            "related_personnel_no": self.related_personnel_no,
+            "unit_id": self.unit_id,
+            "gender": self.gender,
+            "birth_year": self.birth_year,
+            "evidence_refs": list(self.evidence_refs),
+            "version": self.version,
+            "source": self.source.value if hasattr(self.source, "value") else str(self.source),
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if hasattr(self.created_at, "isoformat") else str(self.created_at),
+            "updated_at": self.updated_at.isoformat() if hasattr(self.updated_at, "isoformat") else str(self.updated_at),
+        }

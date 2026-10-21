@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 474
-- اثرانگشت منبع: `9e480542c86246c6`
+- تعداد فایل‌های نقشه: 476
+- اثرانگشت منبع: `7b41bcd8a4b73854`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -80,6 +80,7 @@
 | `scripts/mobile_visual_runner.py` | Operations/tooling | 1 | Dedicated mobile visual acceptance runner (Edge Headless via CDP). |
 | `scripts/new_internal_code_signing_certificate.ps1` | Operations/tooling | 0 | — |
 | `scripts/office_runtime.py` | Operations/tooling | 55 | — |
+| `scripts/patch_units_modal.py` | Operations/tooling | 0 | — |
 | `scripts/phase10_auth_failure_verify.py` | Operations/tooling | 1 | Print only safe recent authentication failure metadata from the live coordinator. |
 | `scripts/phase10_contacts_migrate.py` | Operations/tooling | 5 | Controlled live Contacts schema 1-to-2 migration for Phase 10. |
 | `scripts/phase10_copy_rehearsal.py` | Operations/tooling | 7 | Read-only Phase 10 rehearsal using disposable copies of runtime state. |
@@ -156,7 +157,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 63 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 73 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -260,11 +261,11 @@
 | `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-088 / design doc §3, §10). |
 | `src/eitaa_bridge/reporting/projections.py` | Project | 10 | Projection layer: official documents rendered from the shell (F-088). |
 | `src/eitaa_bridge/reporting/reconcile.py` | Project | 3 | Reconciliation and audit tools for WordPress legacy archive and native store. |
-| `src/eitaa_bridge/reporting/registry.py` | Project | 21 | Registry layer of the reporting section shell (F-088 / ADR-61). |
+| `src/eitaa_bridge/reporting/registry.py` | Project | 24 | Registry layer of the reporting section shell (F-088 / ADR-61). |
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 131 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 135 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -363,6 +364,7 @@
 | `tests/test_receipt_attempt_fence.py` | Python test | 4 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
 | `tests/test_reporting_api.py` | Python test | 16 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
+| `tests/test_reporting_baseline_banks.py` | Python test | 5 | Tests for Master Baseline Banks and Registry APIs in reporting phase 2. |
 | `tests/test_reporting_cartable_and_export.py` | Python test | 8 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
@@ -432,7 +434,7 @@
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
 | `ui/src/components/JalaliDateTimePicker.tsx` | React UI | 7 | — |
-| `ui/src/components/JudicialUnitsManagementModal.tsx` | React UI | 10 | — |
+| `ui/src/components/JudicialUnitsManagementModal.tsx` | React UI | 17 | — |
 | `ui/src/components/LiaisonAuthorDialog.tsx` | React UI | 5 | — |
 | `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
 | `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
