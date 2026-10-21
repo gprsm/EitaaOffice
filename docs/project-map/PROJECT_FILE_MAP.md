@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 475
-- اثرانگشت منبع: `25467fced62d3e05`
+- اثرانگشت منبع: `034c963c8f72e94b`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -310,7 +310,7 @@
 | `tests/test_dialog_catalog.py` | Python test | 7 | — |
 | `tests/test_dialog_permissions.py` | Python test | 3 | — |
 | `tests/test_env_and_credentials.py` | Python test | 6 | — |
-| `tests/test_event_dossier_crud_and_merge.py` | Python test | 7 | — |
+| `tests/test_event_dossier_crud_and_merge.py` | Python test | 8 | — |
 | `tests/test_facade_and_cli.py` | Python test | 11 | — |
 | `tests/test_first_account_start_regression.py` | Python test | 9 | Regression F-068: first onboarding must survive restart and allow Start. |
 | `tests/test_g04_identity_privacy_stabilization.py` | Python test | 4 | — |

@@ -403,3 +403,76 @@ def test_multi_event_dossier_bundle_export(store: ReportingStore):
         assert "خلاصه_آماری_رویدادها.xlsx" in namelist
         assert any("mashhad_group_photo" in n for n in namelist)
         assert any("qom_survey_results" in n for n in namelist)
+
+
+def test_update_event_all_dossier_fields(store: ReportingStore):
+    ev = _make_event("ev-patch-all-1", title="عنوان اولیه رویداد", unit="ساری - دادگستری")
+    store.save_event(ev)
+
+    file_before = store.get_event_file("ev-patch-all-1")
+    assert file_before is not None
+    etag_before = file_before["etag"]
+
+    # Call PUT /api/v3/reporting/events/ev-patch-all-1 matching what ReportEventDetailModal sends
+    res = dispatch(
+        store,
+        "editor_user",
+        {"editor"},
+        "PUT",
+        "/api/v3/reporting/events/ev-patch-all-1",
+        payload={
+            "if_match": etag_before,
+            "fields": {
+                "occasion": "عنوان اصلاح شده رویداد فرهنگی",
+                "macro_category": "workbook_approved",
+                "custom_topic": "موضوع خاص سفارشی",
+                "macro_indicator": "شاخص کلان اصلاح شده",
+                "micro_indicators": ["شاخصه جزئی جدید ۱", "شاخصه جزئی جدید ۲"],
+                "program_kinds": ["trip", "cultural"],
+                "unit": "central_hq",
+                "unit_name": "ستاد مرکزی استان",
+                "occurred_on": "2026-07-15",
+                "official_present": 1,
+                "is_ashura_pilgrimage": 1,
+                "notes": "یادداشت‌های به‌روزرسانی شده و تکمیلی رویداد",
+                "facts": [
+                    {
+                        "metric": "attendees",
+                        "value": 120,
+                        "value_kind": "observed",
+                        "unit_of_measure": "count",
+                        "scope": "province",
+                        "note": "حضور واقعی ثبت شده",
+                    },
+                    {
+                        "metric": "family_members",
+                        "value": 85,
+                        "value_kind": "exact",  # should safely normalize to observed
+                        "unit_of_measure": "count",
+                        "scope": "province",
+                    },
+                ],
+            },
+        },
+    )
+    assert res is not None
+    status, payload, _ = res
+    assert status == 200
+    assert payload["event_id"] == "ev-patch-all-1"
+    new_etag = payload["etag"]
+    assert new_etag != etag_before
+
+    # Verify event file contents after update
+    file_after = store.get_event_file("ev-patch-all-1")
+    assert file_after is not None
+    assert file_after["occasion"] == "عنوان اصلاح شده رویداد فرهنگی"
+    assert file_after["macro_indicator"] == "شاخص کلان اصلاح شده"
+    assert file_after["custom_topic"] == "موضوع خاص سفارشی"
+    assert file_after["unit"] == "central_hq"
+    assert file_after["unit_name"] == "ستاد مرکزی استان"
+    assert file_after["occurred_on"] == "2026-07-15"
+    assert file_after["notes"] == "یادداشت‌های به‌روزرسانی شده و تکمیلی رویداد"
+    assert "شاخصه جزئی جدید ۱" in file_after["micro_indicators"]
+    assert "trip" in file_after["program_kinds"]
+    assert len(file_after["facts"]) == 2
+

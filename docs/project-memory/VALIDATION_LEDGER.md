@@ -3484,6 +3484,29 @@ otes, program_kinds_json, occurred_on در update_event_fields؛ لود و دی�
 - نتیجه: اصلاحات تم تیره، بهینه‌سازی کادر شاخصه‌های جزئی و تکست‌باکس ۵ خطی با موفقیت کامل اعمال و ذخیره‌سازی آن‌ها اعتبارسنجی شد.
 - مرجع: F-135.
 
+### V-302 — اعتبارسنجی جامع گسترش فیلدهای قابل ویرایش پرونده رویداد، به‌روزرسانی اتمیک سنجه‌ها و تاب‌آوری چرخه حیات سرویس پس‌زمینه
+
+- تاریخ: 2026-10-21؛ Trigger: بروز خطای `fields not editable: ['facts', 'micro_indicators', 'occurred_on', 'program_kinds', 'unit']` در حین ذخیره تغییرات عنوان در پوشه پرونده جامع رویداد.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/store.py`:
+    - گسترش `_EDITABLE_EVENT_FIELDS` با فیلدهای `occurred_on`، `unit`، `unit_name`، `facts`، `micro_indicators` و `program_kinds`.
+    - بازنویسی `update_event_fields` جهت مدیریت اتمیک سنجه‌های `facts`، تبدیل ایمن Enumها و تاریخ‌ها به فرمت SQLite، و نگاشت خودکار آرایه‌ها به ستون‌های JSON.
+    - افزودن فال‌بک ایمن برای `FactValueKind` و `ValueSource`.
+  - `scripts/background_server.py`:
+    - پاکسازی قفل‌های استور متعلق به فرآیندهای خاتمه‌یافته در `action_stop` جهت ممانعت از خطای تداخل مالکیت در بازراه‌اندازی سرویس.
+  - `tests/test_event_dossier_crud_and_merge.py`:
+    - اضافه کردن آزمون `test_update_event_all_dossier_fields` جهت راستی‌آزمایی جامع تغییر کلیه فیلدهای پرونده و سنجه‌ها.
+- شواهد و آزمون‌های کیفیت:
+  - آزمون‌های هدفمند رویداد: `pytest tests/test_event_dossier_crud_and_merge.py -v` (۶ تست از ۶ تست با موفقیت پاس شدند).
+  - سوئیت کامل تست پایتون: اجرای کامل `python -m pytest -q` با قبولی ۱۰۰٪ کلیه آزمون‌ها.
+  - تایپ‌چک فرانت‌اند: `npm.cmd --prefix ui run check` با خروجی 0 خطا.
+  - تست‌های Observability فرانت‌اند: `npm.cmd --prefix ui run test:observability` با موفقیت کامل.
+  - ساخت باندل فرانت‌اند: `npm.cmd --prefix ui run build` کامپایل کامل ۱۱۰۷ ماژول.
+  - بیلد بسته چرخ پایتون: `scripts/build_wheel_stdlib.py --force` و نصب مجدد در محیط مجازی.
+  - راه‌اندازی زنده و ممیزی سلامت: تست `scripts/background_server.py restart` و دریافت خروجی `running: true` و `health.ok: true` روی پورت ۸۷۶۵.
+- نتیجه: خطای ویرایش فیلدها و سنجه‌های پرونده رویداد برطرف شد، چرخه بازراه‌اندازی سرور پایدار گردید و ذخیره‌سازی داده‌های اصلاح‌شده رویداد با موفقیت تأیید شد.
+- مرجع: F-136.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.

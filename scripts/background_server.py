@@ -264,6 +264,16 @@ def action_stop(paths: dict[str, Path]) -> int:
         except OSError:
             pass
 
+    # Clean up stale reporting_store locks owned by dead processes
+    for lock in paths["runtime"].glob("reporting_store_*.lock"):
+        try:
+            content = json.loads(lock.read_text(encoding="utf-8"))
+            lock_pid = content.get("pid")
+            if lock_pid and not is_process_alive(lock_pid):
+                lock.unlink(missing_ok=True)
+        except Exception:
+            pass
+
     if query_health(timeout=0.5) is None:
         print("Eitaa Bridge background server stopped successfully.")
         return 0

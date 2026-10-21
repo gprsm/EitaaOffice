@@ -1569,7 +1569,7 @@ class ReportingStore:
         "duration_minutes", "official_present", "prior_announcement",
         "had_reception", "is_ashura_pilgrimage", "contains_inner_contest",
         "macro_category", "custom_topic", "macro_indicator", "micro_indicators_json",
-        "occurred_on", "unit", "program_kinds_json",
+        "occurred_on", "unit", "program_kinds_json", "micro_indicators", "program_kinds", "facts",
     })
 
     def _run_in_transaction(self, operation):
@@ -1642,10 +1642,14 @@ class ReportingStore:
                             fields: dict) -> str:
         fields = dict(fields)
         facts_to_update = fields.pop("facts", None)
-        if "micro_indicators" in fields and "micro_indicators_json" not in fields:
-            fields["micro_indicators_json"] = json.dumps(fields.pop("micro_indicators"), ensure_ascii=False)
-        if "program_kinds" in fields and "program_kinds_json" not in fields:
-            fields["program_kinds_json"] = json.dumps(fields.pop("program_kinds"), ensure_ascii=False)
+        if "micro_indicators" in fields:
+            micros = fields.pop("micro_indicators")
+            if "micro_indicators_json" not in fields:
+                fields["micro_indicators_json"] = json.dumps(micros, ensure_ascii=False)
+        if "program_kinds" in fields:
+            progs = fields.pop("program_kinds")
+            if "program_kinds_json" not in fields:
+                fields["program_kinds_json"] = json.dumps(progs, ensure_ascii=False)
         unknown = set(fields) - self._EDITABLE_EVENT_FIELDS
         if unknown:
             raise ValueError(f"fields not editable: {sorted(unknown)}")
@@ -1663,7 +1667,13 @@ class ReportingStore:
                 raise EtagConflictError(event_id, current_etag)
             if fields:
                 assignments = [f"{key} = ?" for key in fields]
-                values = [int(v) if isinstance(v, bool) else v for v in fields.values()]
+                values = [
+                    v.value if hasattr(v, "value")
+                    else (int(v) if isinstance(v, bool)
+                    else (str(v) if isinstance(v, (date, datetime))
+                    else v))
+                    for v in fields.values()
+                ]
                 assignments.append("version = ?")
                 values.append(version + 1)
                 values.append(event_id)
@@ -1693,11 +1703,11 @@ class ReportingStore:
                             event_id,
                             str(f.get("metric", "metric")),
                             float(f.get("value", 0)),
-                            str(f.get("value_kind", "exact")),
+                            "observed" if str(f.get("value_kind", "observed")) not in FactValueKind._value2member_map_ else str(f.get("value_kind")),
                             str(f.get("unit_of_measure", "count")),
                             str(f.get("scope", "province")),
                             json.dumps(list(f.get("evidence_refs") or []), ensure_ascii=False),
-                            str(f.get("source", "manual")),
+                            "manual" if str(f.get("source", "manual")) not in ValueSource._value2member_map_ else str(f.get("source")),
                             _utc_now(),
                             actor,
                             str(f.get("note") or ""),
@@ -2857,11 +2867,11 @@ class ReportingStore:
                 Fact(
                     metric=fr["metric"],
                     value=float(fr["value"]),
-                    value_kind=FactValueKind(fr["value_kind"]),
+                    value_kind=FactValueKind(fr["value_kind"]) if fr["value_kind"] in FactValueKind._value2member_map_ else FactValueKind.OBSERVED,
                     unit_of_measure=fr["unit_of_measure"],
                     scope=fr["scope"],
                     evidence_refs=tuple(json.loads(fr["evidence_refs_json"])),
-                    source=ValueSource(fr["source"]),
+                    source=ValueSource(fr["source"]) if fr["source"] in ValueSource._value2member_map_ else ValueSource.MANUAL,
                     created_at=datetime.fromisoformat(fr["created_at"]),
                     created_by=fr["created_by"] or "",
                     note=fr["note"] or "",
