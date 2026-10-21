@@ -12,6 +12,7 @@ from dataclasses import asdict
 from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sqlite3
@@ -1254,6 +1255,27 @@ class ReportingStore:
             # Migrate and seed judicial units and liaisons
             self._migrate_and_seed_judicial_units_and_liaisons(conn)
 
+            # Ensure storage_ref exists on event_documents
+            _doc_cols = {row[1] for row in conn.execute("PRAGMA table_info(event_documents)")}
+            if _doc_cols and "storage_ref" not in _doc_cols:
+                conn.execute("ALTER TABLE event_documents ADD COLUMN storage_ref TEXT NOT NULL DEFAULT ''")
+
+            # Ensure reporting_unit_baselines table exists
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS reporting_unit_baselines (
+                    unit_id TEXT PRIMARY KEY,
+                    staff_count INTEGER NOT NULL DEFAULT 0,
+                    family_multiplier REAL NOT NULL DEFAULT 2.5,
+                    imams_count INTEGER NOT NULL DEFAULT 0,
+                    prayer_rooms_count INTEGER NOT NULL DEFAULT 0,
+                    honored_count INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL
+                );
+                """
+            )
+
     # ----------------------------------------------------------------------
     # Watch Targets
     # ----------------------------------------------------------------------
@@ -1619,6 +1641,7 @@ class ReportingStore:
     def update_event_fields(self, event_id: str, *, actor: str, expected_etag: str,
                             fields: dict) -> str:
         fields = dict(fields)
+        facts_to_update = fields.pop("facts", None)
         if "micro_indicators" in fields and "micro_indicators_json" not in fields:
             fields["micro_indicators_json"] = json.dumps(fields.pop("micro_indicators"), ensure_ascii=False)
         if "program_kinds" in fields and "program_kinds_json" not in fields:
@@ -1638,20 +1661,57 @@ class ReportingStore:
             current_etag = self._compute_etag(event_id, version)
             if current_etag != expected_etag:
                 raise EtagConflictError(event_id, current_etag)
-            assignments = [f"{key} = ?" for key in fields]
-            values = [int(v) if isinstance(v, bool) else v for v in fields.values()]
-            assignments.append("version = ?")
-            values.append(version + 1)
-            values.append(event_id)
-            conn.execute(
-                f"UPDATE reported_events SET {', '.join(assignments)} WHERE event_id = ?",
-                tuple(values),
-            )
+            if fields:
+                assignments = [f"{key} = ?" for key in fields]
+                values = [int(v) if isinstance(v, bool) else v for v in fields.values()]
+                assignments.append("version = ?")
+                values.append(version + 1)
+                values.append(event_id)
+                conn.execute(
+                    f"UPDATE reported_events SET {', '.join(assignments)} WHERE event_id = ?",
+                    tuple(values),
+                )
+            else:
+                conn.execute(
+                    "UPDATE reported_events SET version = ? WHERE event_id = ?",
+                    (version + 1, event_id),
+                )
+
+            if facts_to_update is not None and isinstance(facts_to_update, list):
+                conn.execute("DELETE FROM event_facts WHERE event_id = ?", (event_id,))
+                for f in facts_to_update:
+                    fact_id = f"fact-{uuid.uuid4().hex[:10]}"
+                    conn.execute(
+                        """
+                        INSERT INTO event_facts (
+                            fact_id, event_id, metric, value, value_kind, unit_of_measure,
+                            scope, evidence_refs_json, source, created_at, created_by, note
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            fact_id,
+                            event_id,
+                            str(f.get("metric", "metric")),
+                            float(f.get("value", 0)),
+                            str(f.get("value_kind", "exact")),
+                            str(f.get("unit_of_measure", "count")),
+                            str(f.get("scope", "province")),
+                            json.dumps(list(f.get("evidence_refs") or []), ensure_ascii=False),
+                            str(f.get("source", "manual")),
+                            _utc_now(),
+                            actor,
+                            str(f.get("note") or ""),
+                        ),
+                    )
+
             new_etag = self._compute_etag(event_id, version + 1)
+            changed_keys = sorted(fields)
+            if facts_to_update is not None:
+                changed_keys.append("facts")
             self._append_audit(
                 conn, actor=actor, action="event.update",
                 entity_type="reported_events", entity_id=event_id,
-                diff={"changed": sorted(fields)},
+                diff={"changed": changed_keys},
                 etag_before=current_etag, etag_after=new_etag,
             )
             return new_etag
@@ -2006,8 +2066,8 @@ class ReportingStore:
             ).fetchall()
             documents = conn.execute(
                 """
-                SELECT document_id, media_id, sha256, kind, size_bytes, display_order,
-                       is_cover, added_by, added_at
+                SELECT document_id, event_id, media_id, sha256, kind, size_bytes, display_order,
+                       is_cover, added_by, added_at, storage_ref
                 FROM event_documents WHERE event_id = ?
                 ORDER BY display_order, added_at
                 """,
@@ -2066,6 +2126,7 @@ class ReportingStore:
         display_order: int = 0,
         is_cover: bool = False,
         added_by: str = "",
+        storage_ref: str = "",
         document_id: str | None = None,
     ) -> dict[str, Any]:
         """Attach document metadata to an event in event_documents."""
@@ -2079,8 +2140,8 @@ class ReportingStore:
                 """
                 INSERT INTO event_documents (
                     document_id, event_id, media_id, sha256, kind,
-                    size_bytes, display_order, is_cover, added_by, added_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    size_bytes, display_order, is_cover, added_by, added_at, storage_ref
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     doc_id,
@@ -2093,6 +2154,7 @@ class ReportingStore:
                     1 if is_cover else 0,
                     added_by,
                     now,
+                    storage_ref,
                 ),
             )
             self._append_audit(
@@ -2101,7 +2163,7 @@ class ReportingStore:
                 action="document.attach",
                 entity_type="event",
                 entity_id=event_id,
-                diff={"document_id": doc_id, "media_id": media_id, "sha256": sha256},
+                diff={"document_id": doc_id, "media_id": media_id, "sha256": sha256, "kind": kind},
             )
         self._run_in_transaction(_op)
         return {
@@ -2115,7 +2177,116 @@ class ReportingStore:
             "is_cover": is_cover,
             "added_by": added_by,
             "added_at": now,
+            "storage_ref": storage_ref,
         }
+
+    def delete_document(self, event_id: str, document_id: str, actor: str = "system") -> bool:
+        """Delete document from event_documents and cleanup physical file if stored on disk."""
+        def _op(conn):
+            row = conn.execute(
+                "SELECT storage_ref FROM event_documents WHERE event_id = ? AND document_id = ?",
+                (event_id, document_id),
+            ).fetchone()
+            if not row:
+                return False
+            storage_ref = row["storage_ref"] if "storage_ref" in row.keys() else ""
+            if storage_ref and os.path.exists(storage_ref):
+                try:
+                    os.remove(storage_ref)
+                except Exception:
+                    pass
+
+            conn.execute(
+                "DELETE FROM event_documents WHERE event_id = ? AND document_id = ?",
+                (event_id, document_id),
+            )
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="document.delete",
+                entity_type="event",
+                entity_id=event_id,
+                diff={"document_id": document_id},
+            )
+            return True
+
+        return self._run_in_transaction(_op)
+
+    def set_document_cover(self, event_id: str, document_id: str, is_cover: bool = True, actor: str = "system") -> bool:
+        """Set or toggle a document as cover photo for an event."""
+        def _op(conn):
+            if is_cover:
+                conn.execute("UPDATE event_documents SET is_cover = 0 WHERE event_id = ?", (event_id,))
+            conn.execute(
+                "UPDATE event_documents SET is_cover = ? WHERE event_id = ? AND document_id = ?",
+                (1 if is_cover else 0, event_id, document_id),
+            )
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="document.set_cover",
+                entity_type="event",
+                entity_id=event_id,
+                diff={"document_id": document_id, "is_cover": is_cover},
+            )
+            return True
+
+        return self._run_in_transaction(_op)
+
+    def upload_and_attach_document(
+        self,
+        event_id: str,
+        *,
+        filename: str,
+        content_bytes: bytes,
+        kind: str = "",
+        display_order: int = 0,
+        is_cover: bool = False,
+        added_by: str = "",
+    ) -> dict[str, Any]:
+        """Save raw file bytes to disk under reporting_documents/{event_id} and record in event_documents."""
+        doc_id = f"doc-{uuid.uuid4().hex[:12]}"
+        sha256 = hashlib.sha256(content_bytes).hexdigest()
+        size_bytes = len(content_bytes)
+
+        # Sanitize filename
+        raw_name = Path(filename).name
+        safe_name = re.sub(r"[^\w.\-\u0600-\u06FF]", "_", raw_name)
+        if not safe_name:
+            safe_name = "file.bin"
+
+        ext = Path(safe_name).suffix.lower()
+        if not kind:
+            if ext in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}:
+                kind = "image"
+            elif ext == ".pdf":
+                kind = "pdf"
+            elif ext in {".doc", ".docx"}:
+                kind = "word"
+            elif ext in {".xls", ".xlsx"}:
+                kind = "excel"
+            else:
+                kind = "document"
+
+        doc_dir = self.db_path.parent / "reporting_documents" / event_id
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        file_path = doc_dir / f"{doc_id}_{safe_name}"
+        file_path.write_bytes(content_bytes)
+
+        storage_ref = str(file_path.resolve())
+
+        return self.attach_document(
+            event_id,
+            media_id=safe_name,
+            sha256=sha256,
+            kind=kind,
+            size_bytes=size_bytes,
+            display_order=display_order,
+            is_cover=is_cover,
+            added_by=added_by,
+            storage_ref=storage_ref,
+            document_id=doc_id,
+        )
 
     def list_user_role_entries(self) -> list[dict]:
         with self._connect() as conn:
@@ -2745,10 +2916,383 @@ class ReportingStore:
                 version=int(row["version"]) if "version" in row.keys() and row["version"] is not None else 1,
             )
 
-    def delete_event(self, event_id: str) -> bool:
-        with self._connect() as conn:
+    def delete_event(self, event_id: str, actor: str = "system") -> bool:
+        """Safely and completely delete an event with cascade cleanup of witness links, facts, documents, queue items, and disk files."""
+        # Clean up files from disk
+        doc_dir = self.db_path.parent / "reporting_documents" / event_id
+        if doc_dir.exists() and doc_dir.is_dir():
+            try:
+                import shutil
+                shutil.rmtree(doc_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+        def _op(conn):
+            cur = conn.execute("SELECT event_id FROM reported_events WHERE event_id = ?", (event_id,))
+            if not cur.fetchone():
+                return False
+
+            # Delete witness links (frees up witnesses)
+            conn.execute("DELETE FROM reporting_event_witness_links WHERE event_id = ?", (event_id,))
+            # Delete facts
+            conn.execute("DELETE FROM event_facts WHERE event_id = ?", (event_id,))
+            # Delete documents
+            conn.execute("DELETE FROM event_documents WHERE event_id = ?", (event_id,))
+            # Delete review queue items
+            conn.execute("DELETE FROM reporting_review_queue WHERE ref_id = ? AND ref_table = 'reported_events'", (event_id,))
+            # Audit log
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="event.delete",
+                entity_type="event",
+                entity_id=event_id,
+                diff={"deleted": True},
+            )
+            # Delete event row
             res = conn.execute("DELETE FROM reported_events WHERE event_id = ?", (event_id,))
             return res.rowcount > 0
+
+        return self._run_in_transaction(_op)
+
+    def find_merge_candidates(self, event_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Rank and return candidate events that can be merged with event_id based on micro-indicators, program, unit, and date."""
+        with self._connect() as conn:
+            target_row = conn.execute("SELECT * FROM reported_events WHERE event_id = ?", (event_id,)).fetchone()
+            if not target_row:
+                return []
+
+            target = dict(target_row)
+            target_programs = set()
+            try:
+                target_programs = set(json.loads(target.get("program_kinds_json") or "[]"))
+            except Exception:
+                pass
+            target_macro_indicator = target.get("macro_indicator") or ""
+            target_micros = set()
+            try:
+                target_micros = set(json.loads(target.get("micro_indicators_json") or "[]"))
+            except Exception:
+                pass
+            target_unit = target.get("unit") or target.get("unit_name") or ""
+            target_date_str = str(target.get("occurred_on") or "")
+            target_title = (target.get("occasion") or target.get("custom_topic") or target.get("notes") or "").lower()
+            target_tokens = set(re.findall(r"\w+", target_title))
+
+            # Fetch candidates (exclude self)
+            candidates_rows = conn.execute(
+                "SELECT * FROM reported_events WHERE event_id != ? ORDER BY occurred_on DESC LIMIT 200",
+                (event_id,)
+            ).fetchall()
+
+            scored: list[dict[str, Any]] = []
+            for row in candidates_rows:
+                cand = dict(row)
+                score = 0
+                reasons: list[str] = []
+
+                # 1. Micro-indicators match (weight 35 per match)
+                cand_micros = set()
+                try:
+                    cand_micros = set(json.loads(cand.get("micro_indicators_json") or "[]"))
+                except Exception:
+                    pass
+                common_micros = target_micros.intersection(cand_micros)
+                if common_micros:
+                    score += len(common_micros) * 35
+                    reasons.append(f"{len(common_micros)} شاخصه جزئی مشترک ({', '.join(common_micros)})")
+
+                # 2. Program match
+                cand_programs = set()
+                try:
+                    cand_programs = set(json.loads(cand.get("program_kinds_json") or "[]"))
+                except Exception:
+                    pass
+                if (target_programs and target_programs.intersection(cand_programs)) or (target_macro_indicator and target_macro_indicator == cand.get("macro_indicator")):
+                    score += 25
+                    reasons.append("همسانی عنوان/سرفصل برنامه")
+
+                # 3. Unit match
+                cand_unit = cand.get("unit") or cand.get("unit_name") or ""
+                if target_unit and cand_unit and target_unit == cand_unit:
+                    score += 20
+                    reasons.append(f"همسانی واحد قضایی ({cand_unit})")
+
+                # 4. Date proximity
+                cand_date_str = str(cand.get("occurred_on") or "")
+                if target_date_str and cand_date_str:
+                    if target_date_str == cand_date_str:
+                        score += 15
+                        reasons.append("تاریخ وقوع دقیقاً یکسان")
+                    else:
+                        try:
+                            d1 = date.fromisoformat(target_date_str[:10])
+                            d2 = date.fromisoformat(cand_date_str[:10])
+                            days = abs((d1 - d2).days)
+                            if days <= 7:
+                                score += 10
+                                reasons.append(f"فاصله زمانی کمتر از {days} روز")
+                            elif days <= 30:
+                                score += 5
+                                reasons.append(f"فاصله زمانی کمتر از {days} روز")
+                        except Exception:
+                            pass
+
+                # 5. Text token overlap
+                cand_title = (cand.get("occasion") or cand.get("custom_topic") or cand.get("notes") or "").lower()
+                cand_tokens = set(re.findall(r"\w+", cand_title))
+                common_tokens = {t for t in target_tokens.intersection(cand_tokens) if len(t) > 2}
+                if common_tokens:
+                    score += min(len(common_tokens) * 3, 15)
+                    reasons.append(f"هم‌پوشانی واژگان ({len(common_tokens)} کلمه)")
+
+                if score > 0:
+                    scored.append({
+                        "event_id": cand["event_id"],
+                        "title": cand.get("occasion") or cand.get("custom_topic") or cand.get("notes") or "بدون عنوان",
+                        "unit_name": cand.get("unit_name") or cand.get("unit") or "",
+                        "occurred_on": cand.get("occurred_on") or "",
+                        "review_status": cand.get("review_status") or "needs_review",
+                        "macro_indicator": cand.get("macro_indicator") or "",
+                        "micro_indicators": list(cand_micros),
+                        "score": score,
+                        "reasons": reasons,
+                    })
+
+            scored.sort(key=lambda x: (x["score"], x["occurred_on"]), reverse=True)
+            return scored[:limit]
+
+    def merge_events(self, target_event_id: str, source_event_id: str, actor: str = "system") -> dict[str, Any]:
+        """Merge source_event_id into target_event_id.
+        Re-links witnesses, transfers documents and facts, unions micro-indicators,
+        and cleanly removes source event with full audit logging.
+        """
+        if target_event_id == source_event_id:
+            raise ValueError("نمی‌توان یک رویداد را در خودش ادغام کرد.")
+
+        def _op(conn):
+            target = conn.execute("SELECT * FROM reported_events WHERE event_id = ?", (target_event_id,)).fetchone()
+            if not target:
+                raise EventNotFoundError(f"گزارش مقصد {target_event_id} یافت نشد.")
+            source = conn.execute("SELECT * FROM reported_events WHERE event_id = ?", (source_event_id,)).fetchone()
+            if not source:
+                raise EventNotFoundError(f"گزارش مبدأ {source_event_id} یافت نشد.")
+
+            # 1. Transfer witness links
+            target_witnesses = {row["witness_id"] for row in conn.execute(
+                "SELECT witness_id FROM reporting_event_witness_links WHERE event_id = ?", (target_event_id,)
+            ).fetchall()}
+            source_links = conn.execute(
+                "SELECT * FROM reporting_event_witness_links WHERE event_id = ?", (source_event_id,)
+            ).fetchall()
+            for sl in source_links:
+                w_id = sl["witness_id"]
+                if w_id not in target_witnesses:
+                    conn.execute(
+                        "UPDATE reporting_event_witness_links SET event_id = ?, note = ? WHERE link_id = ?",
+                        (target_event_id, f"Merged from {source_event_id}: {sl['note'] or ''}", sl["link_id"])
+                    )
+                else:
+                    # Redundant witness link, remove
+                    conn.execute("DELETE FROM reporting_event_witness_links WHERE link_id = ?", (sl["link_id"],))
+
+            # 2. Transfer documents
+            conn.execute(
+                "UPDATE event_documents SET event_id = ? WHERE event_id = ?",
+                (target_event_id, source_event_id)
+            )
+            # Move physical files if stored in source directory
+            src_doc_dir = self.db_path.parent / "reporting_documents" / source_event_id
+            tgt_doc_dir = self.db_path.parent / "reporting_documents" / target_event_id
+            if src_doc_dir.exists() and src_doc_dir.is_dir():
+                tgt_doc_dir.mkdir(parents=True, exist_ok=True)
+                for f in src_doc_dir.iterdir():
+                    if f.is_file():
+                        tgt_file = tgt_doc_dir / f.name
+                        try:
+                            f.rename(tgt_file)
+                            conn.execute(
+                                "UPDATE event_documents SET storage_ref = ? WHERE storage_ref = ?",
+                                (str(tgt_file.resolve()), str(f.resolve()))
+                            )
+                        except Exception:
+                            pass
+                try:
+                    src_doc_dir.rmdir()
+                except Exception:
+                    pass
+
+            # 3. Transfer facts
+            conn.execute(
+                "UPDATE event_facts SET event_id = ? WHERE event_id = ?",
+                (target_event_id, source_event_id)
+            )
+
+            # 4. Merge micro-indicators
+            tgt_micros = set()
+            try:
+                tgt_micros = set(json.loads(target["micro_indicators_json"] or "[]"))
+            except Exception:
+                pass
+            src_micros = set()
+            try:
+                src_micros = set(json.loads(source["micro_indicators_json"] or "[]"))
+            except Exception:
+                pass
+            merged_micros = list(tgt_micros.union(src_micros))
+
+            # Merge notes
+            tgt_notes = target["notes"] or ""
+            src_notes = source["notes"] or ""
+            combined_notes = tgt_notes
+            if src_notes and src_notes not in tgt_notes:
+                combined_notes = f"{tgt_notes}\n[ادغام‌شده از {source_event_id}]: {src_notes}".strip()
+
+            new_version = int(target["version"] or 1) + 1
+            conn.execute(
+                """
+                UPDATE reported_events
+                SET micro_indicators_json = ?, notes = ?, version = ?
+                WHERE event_id = ?
+                """,
+                (json.dumps(merged_micros, ensure_ascii=False), combined_notes, new_version, target_event_id)
+            )
+
+            # 5. Audit log
+            self._append_audit(
+                conn,
+                actor=actor,
+                action="event.merge",
+                entity_type="event",
+                entity_id=target_event_id,
+                diff={"merged_source_event_id": source_event_id},
+            )
+
+            # 6. Delete source event
+            conn.execute("DELETE FROM reporting_review_queue WHERE ref_id = ? AND ref_table = 'reported_events'", (source_event_id,))
+            conn.execute("DELETE FROM reported_events WHERE event_id = ?", (source_event_id,))
+
+            return {
+                "target_event_id": target_event_id,
+                "source_event_id": source_event_id,
+                "merged_micro_indicators": merged_micros,
+                "new_version": new_version,
+            }
+
+        return self._run_in_transaction(_op)
+
+    def get_unit_baseline(self, unit_id: str) -> dict[str, Any]:
+        """Fetch baseline statistical profile of a judicial unit."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM reporting_unit_baselines WHERE unit_id = ?",
+                (unit_id,)
+            ).fetchone()
+            if row:
+                return dict(row)
+            return {
+                "unit_id": unit_id,
+                "staff_count": 0,
+                "family_multiplier": 2.5,
+                "imams_count": 0,
+                "prayer_rooms_count": 0,
+                "honored_count": 0,
+                "notes": "",
+                "updated_at": "",
+            }
+
+    def save_unit_baseline(
+        self,
+        unit_id: str,
+        *,
+        staff_count: int,
+        family_multiplier: float = 2.5,
+        imams_count: int = 0,
+        prayer_rooms_count: int = 0,
+        honored_count: int = 0,
+        notes: str = "",
+    ) -> dict[str, Any]:
+        """Upsert baseline statistical profile of a judicial unit."""
+        now = _utc_now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO reporting_unit_baselines (
+                    unit_id, staff_count, family_multiplier, imams_count,
+                    prayer_rooms_count, honored_count, notes, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(unit_id) DO UPDATE SET
+                    staff_count = excluded.staff_count,
+                    family_multiplier = excluded.family_multiplier,
+                    imams_count = excluded.imams_count,
+                    prayer_rooms_count = excluded.prayer_rooms_count,
+                    honored_count = excluded.honored_count,
+                    notes = excluded.notes,
+                    updated_at = excluded.updated_at
+                """,
+                (unit_id, int(staff_count), float(family_multiplier), int(imams_count),
+                 int(prayer_rooms_count), int(honored_count), notes, now)
+            )
+        return {
+            "unit_id": unit_id,
+            "staff_count": staff_count,
+            "family_multiplier": family_multiplier,
+            "imams_count": imams_count,
+            "prayer_rooms_count": prayer_rooms_count,
+            "honored_count": honored_count,
+            "notes": notes,
+            "updated_at": now,
+        }
+
+    def normalize_event_statistics(self, event_id: str) -> dict[str, Any]:
+        """Calculate participation ratio, expected family turnout, and anomaly flags based on unit baselines."""
+        file = self.get_event_file(event_id)
+        if not file:
+            raise EventNotFoundError(f"event {event_id} not found")
+
+        unit_name = file.get("unit_name") or ""
+        unit_scope = file.get("unit") or ""
+        unit_id = unit_name or unit_scope
+        baseline = self.get_unit_baseline(unit_name) if unit_name else {}
+        if not baseline or not baseline.get("staff_count"):
+            if unit_scope:
+                baseline = self.get_unit_baseline(unit_scope)
+
+        staff_base = int(baseline.get("staff_count") or 0)
+        family_mul = float(baseline.get("family_multiplier") or 2.5)
+
+        # Extract attendees from facts
+        attendees = 0
+        for f in file.get("facts", []):
+            if f.get("metric") in {"attendees", "participant_count", "trip_attendees"}:
+                try:
+                    attendees = int(float(f.get("value", 0)))
+                except Exception:
+                    pass
+                break
+
+        estimated_family_pool = int(staff_base * family_mul) if staff_base > 0 else 0
+        total_pool = staff_base + estimated_family_pool
+
+        attendance_rate_staff = round((attendees / staff_base * 100), 1) if staff_base > 0 else None
+        attendance_rate_total = round((attendees / total_pool * 100), 1) if total_pool > 0 else None
+
+        anomalies: list[str] = []
+        if staff_base > 0 and attendees > (staff_base * 4):
+            anomalies.append(f"تعداد شرکت‌کنندگان ({attendees}) بیش از ۴ برابر کل کادر پرسنلی ({staff_base}) است؛ نیازمند بازبینی.")
+
+        return {
+            "event_id": event_id,
+            "unit_id": unit_id,
+            "baseline_staff_count": staff_base,
+            "estimated_family_pool": estimated_family_pool,
+            "total_pool": total_pool,
+            "reported_attendees": attendees,
+            "attendance_rate_staff_pct": attendance_rate_staff,
+            "attendance_rate_total_pct": attendance_rate_total,
+            "anomalies": anomalies,
+            "has_anomalies": len(anomalies) > 0,
+        }
 
     def get_staff_reporting_stats(
         self,

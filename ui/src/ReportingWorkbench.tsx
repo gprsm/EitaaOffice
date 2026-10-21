@@ -52,6 +52,7 @@ import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded'
 import FileDownloadRounded from '@mui/icons-material/FileDownloadRounded'
+import FolderZipRounded from '@mui/icons-material/FolderZipRounded'
 import LayersRounded from '@mui/icons-material/LayersRounded'
 import MenuBookRounded from '@mui/icons-material/MenuBookRounded'
 import PolicyRounded from '@mui/icons-material/PolicyRounded'
@@ -786,6 +787,36 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
       toast.error(err instanceof Error ? err.message : 'خطا در صدور خروجی اکسل گزارش‌ها')
     } finally {
       setExportingFiltered(false)
+    }
+  }
+
+  const [exportingBundle, setExportingBundle] = useState<boolean>(false)
+
+  // Export full dossier bundle (ZIP of Excel + photos + documents)
+  const handleExportDossierBundle = async () => {
+    try {
+      setExportingBundle(true)
+      const payload: Record<string, any> = {}
+      if (filterStatus && filterStatus !== 'all') payload.review_status = filterStatus
+      if (filterProgram && filterProgram !== 'all') payload.program_code = filterProgram
+      if (filterMacro && filterMacro !== 'all') payload.macro_indicator = filterMacro
+      if (filterMicro && filterMicro !== 'all') payload.micro_indicator = filterMicro
+      if (filterUnit && filterUnit !== 'all') payload.unit_name = filterUnit
+      if (filterSearch.trim()) payload.search = filterSearch.trim()
+
+      const res = await api<{ ok: boolean; file_name: string; path: string; total_events: number; total_documents: number; media_url?: string }>(
+        'POST',
+        '/api/v3/reporting/events/export-dossier-bundle',
+        payload,
+      )
+      toast.success(`بسته جامع اسناد و پوشه رویدادها صادر شد: ${res.file_name} (${res.total_events} رویداد، ${res.total_documents} سند پیوست)`)
+      if (res.media_url) {
+        window.open(res.media_url, '_blank')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در صدور بسته اسناد و رویدادها')
+    } finally {
+      setExportingBundle(false)
     }
   }
 
@@ -1655,6 +1686,16 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                   </Stack>
                   <Stack direction="row" spacing={1}>
                     <Button
+                      variant="outlined"
+                      color="secondary"
+                      size="small"
+                      startIcon={exportingBundle ? <CircularProgress size={16} color="inherit" /> : <FolderZipRounded />}
+                      onClick={handleExportDossierBundle}
+                      disabled={exportingBundle || loadingCartable}
+                    >
+                      صدور بسته اسناد و تصاویر (ZIP)
+                    </Button>
+                    <Button
                       variant="contained"
                       color="primary"
                       size="small"
@@ -1662,7 +1703,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                       onClick={handleExportFilteredEvents}
                       disabled={exportingFiltered || loadingCartable}
                     >
-                      خروجی اکسل گزارش‌های فیلترشده
+                      خروجی اکسل گزارش‌ها
                     </Button>
                     <IconButton size="small" onClick={() => void loadEventsCartable()} disabled={loadingCartable}>
                       <RefreshRounded />
@@ -1971,7 +2012,7 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                               )}
                             </TableCell>
                             <TableCell align="center" onClick={e => e.stopPropagation()}>
-                              <Stack direction="row" spacing={0.5} justifyContent="center">
+                              <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
                                 <Button
                                   size="small"
                                   variant="outlined"
@@ -1995,6 +2036,26 @@ export function ReportingWorkbench({ onClose }: { onClose: () => void }) {
                                     </Button>
                                   </Tooltip>
                                 )}
+                                <Tooltip title="حذف کامل این پرونده">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={async () => {
+                                      if (window.confirm(`آیا از حذف کامل پرونده "${ev.occasion || ev.event_id}" اطمینان دارید؟`)) {
+                                        try {
+                                          await api('DELETE', `/api/v3/reporting/events/${encodeURIComponent(ev.event_id)}`)
+                                          toast.success('پرونده رویداد با موفقیت حذف گردید.')
+                                          void loadEventsCartable()
+                                          void loadEventsAndExports()
+                                        } catch (err) {
+                                          toast.error(err instanceof Error ? err.message : 'خطا در حذف رویداد')
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <DeleteOutlineRounded fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               </Stack>
                             </TableCell>
                           </TableRow>

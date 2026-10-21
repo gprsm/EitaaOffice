@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 473
-- اثرانگشت منبع: `7d7d6f539cb41721`
+- تعداد فایل‌های نقشه: 474
+- اثرانگشت منبع: `9e480542c86246c6`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -156,7 +156,7 @@
 | `src/eitaa_bridge/application/provider_adapter.py` | Application | 1 | Compatibility facade for the versioned provider extension SDK. |
 | `src/eitaa_bridge/application/provider_capabilities.py` | Application | 10 | Account-scoped capability decisions for every registered provider. |
 | `src/eitaa_bridge/application/provider_orchestration.py` | Application | 39 | Provider-neutral application orchestration for bounded messaging operations. |
-| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 52 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
+| `src/eitaa_bridge/application/reporting_api_v3.py` | Application | 63 | HTTP handlers for /api/v3/reporting/* — phase 2 transactional core. |
 | `src/eitaa_bridge/application/scheduler.py` | Application | 12 | Single-session priority scheduler for Eitaa operations. |
 | `src/eitaa_bridge/application/services/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/services/wordpress_service.py` | Application | 15 | — |
@@ -249,7 +249,7 @@
 | `src/eitaa_bridge/reporting/bale_messaging.py` | Project | 15 | Bale messaging integration for the reporting office (send/receive focus). |
 | `src/eitaa_bridge/reporting/defect_scanner.py` | Project | 3 | Automated defect scanning & quality gate engine for reporting workflow. |
 | `src/eitaa_bridge/reporting/eitaa_extraction.py` | Project | 7 | Level-1 bridge: turn Eitaa message texts into reporting candidates. |
-| `src/eitaa_bridge/reporting/excel_export.py` | Project | 10 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
+| `src/eitaa_bridge/reporting/excel_export.py` | Project | 11 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
 | `src/eitaa_bridge/reporting/forms.py` | Project | 17 | Versioned questionnaire definitions for the seven workbook programs. |
 | `src/eitaa_bridge/reporting/indexer.py` | Project | 12 | Multi-criteria Eitaa message indexer for the 1405 reporting core. |
 | `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-088). |
@@ -264,7 +264,7 @@
 | `src/eitaa_bridge/reporting/rules.py` | Project | 10 | Counting rules transcribed from the 1405 workbook footnotes. |
 | `src/eitaa_bridge/reporting/sections.py` | Project | 4 | Section registry for the office reporting product (F-088/F-090/ADR-61). |
 | `src/eitaa_bridge/reporting/service.py` | Project | 32 | Orchestrates the full reporting pipeline: Eitaa → events → forms → export. |
-| `src/eitaa_bridge/reporting/store.py` | Project | 123 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
+| `src/eitaa_bridge/reporting/store.py` | Project | 131 | SQLite persistent storage for the 1405 reporting core and indexing queue. |
 | `src/eitaa_bridge/reporting/suggester.py` | Project | 5 | Privacy-safe intelligent suggester agent for 1405 Cultural Reporting. |
 | `src/eitaa_bridge/reporting/synthetic.py` | Project | 6 | Believable synthetic survey data generation (F-090 follow-up). |
 | `src/eitaa_bridge/reporting/workbook_metrics.py` | Project | 2 | Workbook column metrics: the numeric vocabulary of the 1405 workbook |
@@ -310,6 +310,7 @@
 | `tests/test_dialog_catalog.py` | Python test | 7 | — |
 | `tests/test_dialog_permissions.py` | Python test | 3 | — |
 | `tests/test_env_and_credentials.py` | Python test | 6 | — |
+| `tests/test_event_dossier_crud_and_merge.py` | Python test | 7 | — |
 | `tests/test_facade_and_cli.py` | Python test | 11 | — |
 | `tests/test_first_account_start_regression.py` | Python test | 9 | Regression F-068: first onboarding must survive restart and allow Start. |
 | `tests/test_g04_identity_privacy_stabilization.py` | Python test | 4 | — |
@@ -436,7 +437,7 @@
 | `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
 | `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
 | `ui/src/components/MicroIndicatorsManagementModal.tsx` | React UI | 6 | — |
-| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 8 | — |
+| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 19 | — |
 | `ui/src/components/SplitMessageDialog.tsx` | React UI | 6 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
 | `ui/src/ContactDirectoryModal.tsx` | React UI | 20 | — |
@@ -464,7 +465,7 @@
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
 | `ui/src/ReportingRegistrationPanel.tsx` | React UI | 7 | — |
-| `ui/src/ReportingWorkbench.tsx` | React UI | 28 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 29 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |

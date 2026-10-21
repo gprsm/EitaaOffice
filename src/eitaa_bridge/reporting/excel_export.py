@@ -8,7 +8,9 @@ must receive a value; anything missing is reported as a blocker, not guessed.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import re
 from typing import Any, Mapping, Sequence
 
 import openpyxl
@@ -406,3 +408,51 @@ def export_events_list_to_excel(
 
     wb.save(destination)
     return destination
+
+
+def create_dossier_bundle(
+    store: Any,
+    events: Sequence[ReportedEvent],
+    destination_zip: Path,
+    *,
+    province_name: str = "مازندران",
+    title: str = "بسته جامع اسناد و رویدادهای فرهنگی",
+) -> dict[str, Any]:
+    """Create a complete ZIP archive bundle containing the Excel summary and all event documents/photos."""
+    import tempfile
+    import zipfile
+    destination_zip = destination_zip.expanduser().resolve()
+    destination_zip.parent.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        excel_path = tmp_path / "خلاصه_آماری_رویدادها.xlsx"
+        export_events_list_to_excel(events, excel_path, province_name=province_name, title=title)
+
+        with zipfile.ZipFile(destination_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(excel_path, arcname="خلاصه_آماری_رویدادها.xlsx")
+
+            total_docs = 0
+            for idx, ev in enumerate(events, 1):
+                safe_title = re.sub(r"[^\w\u0600-\u06FF]", "_", ev.occasion or ev.custom_topic or f"رویداد_{idx}")
+                folder_name = f"{idx:02d}_{safe_title[:30]}"
+                ev_file = store.get_event_file(ev.event_id)
+                if ev_file and ev_file.get("documents"):
+                    for doc in ev_file["documents"]:
+                        storage_ref = doc.get("storage_ref")
+                        if storage_ref and os.path.exists(storage_ref):
+                            doc_path = Path(storage_ref)
+                            doc_name = doc.get("media_id") or doc_path.name
+                            if doc.get("is_cover"):
+                                arc_name = f"{folder_name}/عکس_شاخص_{doc_name}"
+                            else:
+                                arc_name = f"{folder_name}/{doc_name}"
+                            zf.write(doc_path, arcname=arc_name)
+                            total_docs += 1
+
+    return {
+        "zip_path": str(destination_zip),
+        "total_events": len(events),
+        "total_documents": total_docs,
+        "size_bytes": destination_zip.stat().st_size,
+    }

@@ -4,7 +4,11 @@ Pure handler functions returning (status, payload, headers) tuples; api.py
 adapts them into ApiResponse. Deliberately no imports from the application
 package to keep this module free of circular dependencies.
 """
+import base64
 import json
+import mimetypes
+import os
+from pathlib import Path
 import re
 import uuid
 from datetime import date
@@ -30,8 +34,10 @@ from eitaa_bridge.reporting.store import (
 )
 
 _EVENTS_EXPORT_ROUTE = re.compile(r"^/api/v3/reporting/events/export-excel$")
+_EVENTS_DOSSIER_BUNDLE_ROUTE = re.compile(r"^/api/v3/reporting/events/export-dossier-bundle$")
 _EVENTS_ROUTE = re.compile(r"^/api/v3/reporting/events$")
 _EVENT_ID_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)$")
+_EVENT_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/delete$")
 _EVENT_SUBMIT_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/submit-review$")
 _EVENT_APPROVE_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/approve$")
 _EVENT_REVISION_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/request-revision$")
@@ -40,6 +46,15 @@ _EVENT_CONFLICT_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Z
 _EVENT_REOPEN_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/reopen$")
 _EVENT_WITNESSES_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/witnesses$")
 _EVENT_DOCUMENTS_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents$")
+_EVENT_DOCUMENTS_UPLOAD_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents/upload$")
+_EVENT_DOCUMENT_ID_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents/(?P<doc_id>[A-Za-z0-9_-]+)$")
+_EVENT_DOCUMENT_DELETE_POST_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents/(?P<doc_id>[A-Za-z0-9_-]+)/delete$")
+_EVENT_DOCUMENT_COVER_POST_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents/(?P<doc_id>[A-Za-z0-9_-]+)/cover$")
+_EVENT_DOCUMENT_VIEW_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/documents/(?P<doc_id>[A-Za-z0-9_-]+)/view$")
+_EVENT_MERGE_CANDIDATES_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/merge-candidates$")
+_EVENT_MERGE_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/merge$")
+_EVENT_NORMALIZATION_ROUTE = re.compile(r"^/api/v3/reporting/events/(?P<event_id>[A-Za-z0-9_-]+)/normalization$")
+_UNIT_BASELINE_ROUTE = re.compile(r"^/api/v3/reporting/units/(?P<unit_id>[^/]+)/baseline$")
 _LINK_DETACH_ROUTE = re.compile(r"^/api/v3/reporting/witness-links/(?P<link_id>[A-Za-z0-9_-]+)/detach$")
 _UNITS_ROUTE = re.compile(r"^/api/v3/reporting/units$")
 _UNIT_ID_ROUTE = re.compile(r"^/api/v3/reporting/units/(?P<unit_id>[A-Za-z0-9_-]+)$")
@@ -250,13 +265,159 @@ def update_event(store: ReportingStore, actor: str, event_id: str,
     return _ok({"event_id": event_id, "etag": etag}, headers={"ETag": f'"{etag}"'})
 
 
-def get_event_file(store: ReportingStore, event_id: str):
+def delete_event(store: ReportingStore, actor: str, roles, event_id: str):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    deleted = store.delete_event(event_id, actor=actor)
+    if not deleted:
+        return _error(404, f"event {event_id} not found", error_code="event_not_found")
+    return _ok({"deleted": True, "event_id": event_id})
+
+
+def get_event_file(store: ReportingStore, event_id: str, bridge_api: Any = None):
     file = store.get_event_file(event_id)
     if file is None:
         return _error(404, "event not found")
     etag = file.get("etag", "")
     headers = {"ETag": f'"{etag}"'} if etag else {}
+    for doc in file.get("documents", []):
+        storage_ref = doc.get("storage_ref")
+        if storage_ref and os.path.exists(storage_ref) and bridge_api and hasattr(bridge_api, "register_media_cache_file"):
+            try:
+                path = Path(storage_ref)
+                mime = mimetypes.guess_type(path.name)[0] or ("image/jpeg" if doc.get("kind") == "image" else "application/octet-stream")
+                token = bridge_api.register_media_cache_file(path, mime)
+                doc["media_url"] = f"/api/v1/media-cache/{token}"
+            except Exception:
+                pass
     return _ok({"event": file}, headers=headers)
+
+
+def upload_document(store: ReportingStore, actor: str, roles, event_id: str, payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    filename = str(payload.get("filename") or "document.bin").strip()
+    data_b64 = str(payload.get("content_base64") or "")
+    if not data_b64:
+        return _error(400, "content_base64 is required", error_code="missing_file_content")
+    try:
+        content_bytes = base64.b64decode(data_b64)
+    except Exception as exc:
+        return _error(400, f"invalid base64 content: {exc}", error_code="invalid_base64")
+
+    kind = str(payload.get("kind") or "")
+    is_cover = bool(payload.get("is_cover", False))
+    doc = store.upload_and_attach_document(
+        event_id,
+        filename=filename,
+        content_bytes=content_bytes,
+        kind=kind,
+        is_cover=is_cover,
+        added_by=actor,
+    )
+    return _ok({"document": doc}, status=201)
+
+
+def delete_document(store: ReportingStore, actor: str, roles, event_id: str, doc_id: str):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    deleted = store.delete_document(event_id, doc_id, actor=actor)
+    if not deleted:
+        return _error(404, f"document {doc_id} not found", error_code="document_not_found")
+    return _ok({"deleted": True, "event_id": event_id, "document_id": doc_id})
+
+
+def set_document_cover(store: ReportingStore, actor: str, roles, event_id: str, doc_id: str, payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    is_cover = bool(payload.get("is_cover", True))
+    ok = store.set_document_cover(event_id, doc_id, is_cover=is_cover, actor=actor)
+    return _ok({"ok": ok, "document_id": doc_id, "is_cover": is_cover})
+
+
+def view_document(store: ReportingStore, event_id: str, doc_id: str, bridge_api: Any = None):
+    file = store.get_event_file(event_id)
+    if not file:
+        return _error(404, f"event {event_id} not found", error_code="event_not_found")
+    doc = next((d for d in file.get("documents", []) if d.get("document_id") == doc_id), None)
+    if not doc:
+        return _error(404, f"document {doc_id} not found", error_code="document_not_found")
+    storage_ref = doc.get("storage_ref")
+    if storage_ref and os.path.exists(storage_ref):
+        path = Path(storage_ref)
+        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        media_url = ""
+        if bridge_api and hasattr(bridge_api, "register_media_cache_file"):
+            try:
+                token = bridge_api.register_media_cache_file(path, mime)
+                media_url = f"/api/v1/media-cache/{token}"
+            except Exception:
+                pass
+        data_bytes = path.read_bytes()
+        data_b64 = base64.b64encode(data_bytes).decode("ascii")
+        return _ok({
+            "document_id": doc_id,
+            "filename": doc.get("media_id") or path.name,
+            "mime_type": mime,
+            "size_bytes": len(data_bytes),
+            "media_url": media_url,
+            "content_base64": data_b64,
+        })
+    return _error(404, "physical file not found on disk", error_code="file_missing")
+
+
+def list_merge_candidates(store: ReportingStore, event_id: str):
+    candidates = store.find_merge_candidates(event_id)
+    return _ok({"candidates": candidates, "count": len(candidates)})
+
+
+def execute_merge(store: ReportingStore, actor: str, roles, target_event_id: str, payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    source_event_id = str(payload.get("source_event_id") or "").strip()
+    if not source_event_id:
+        return _error(400, "source_event_id is required", error_code="missing_source_event_id")
+    try:
+        res = store.merge_events(target_event_id, source_event_id, actor=actor)
+        return _ok(res)
+    except Exception as exc:
+        return _error(400, str(exc), error_code="merge_failed")
+
+
+def get_unit_baseline(store: ReportingStore, unit_id: str):
+    from urllib.parse import unquote
+    b = store.get_unit_baseline(unquote(unit_id))
+    return _ok({"baseline": b})
+
+
+def save_unit_baseline(store: ReportingStore, actor: str, roles, unit_id: str, payload: Mapping[str, Any]):
+    denied = _forbidden(roles, "editor")
+    if denied:
+        return denied
+    from urllib.parse import unquote
+    b = store.save_unit_baseline(
+        unquote(unit_id),
+        staff_count=int(payload.get("staff_count", 0)),
+        family_multiplier=float(payload.get("family_multiplier", 2.5)),
+        imams_count=int(payload.get("imams_count", 0)),
+        prayer_rooms_count=int(payload.get("prayer_rooms_count", 0)),
+        honored_count=int(payload.get("honored_count", 0)),
+        notes=str(payload.get("notes") or ""),
+    )
+    return _ok({"baseline": b})
+
+
+def get_event_normalization(store: ReportingStore, event_id: str):
+    try:
+        res = store.normalize_event_statistics(event_id)
+        return _ok(res)
+    except Exception as exc:
+        return _error(404, str(exc), error_code="normalization_failed")
 
 
 def attach_document(store: ReportingStore, actor: str, roles, event_id: str,
@@ -684,6 +845,60 @@ def export_filtered_events(store: ReportingStore, actor: str, payload: Mapping[s
     })
 
 
+def export_dossier_bundle_api(store: ReportingStore, actor: str, payload: Mapping[str, Any], bridge_api: Any = None):
+    from eitaa_bridge.reporting.excel_export import create_dossier_bundle
+    review_status = payload.get("review_status") or None
+    registered_by_id = payload.get("registered_by_id") or None
+    macro_category = payload.get("macro_category") or None
+    micro_indicator = payload.get("micro_indicator") or None
+    macro_indicator = payload.get("macro_indicator") or None
+    unit_name = payload.get("unit_name") or None
+    program_code = payload.get("program_code") or None
+    search = payload.get("search") or None
+
+    events = store.list_events(
+        limit=int(payload.get("limit", 500)),
+        review_status=review_status,
+        registered_by_id=registered_by_id,
+        macro_category=macro_category,
+        micro_indicator=micro_indicator,
+        macro_indicator=macro_indicator,
+        unit_name=unit_name,
+        program_code=program_code,
+        search_query=search,
+    )
+    if not events:
+        return _error(400, "هیچ رویدادی با فیلترهای انتخابی یافت نشد.", error_code="no_events_found")
+
+    dest_dir = store.db_path.parent / "reporting"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"dossier_bundle_{date.today().isoformat()}_{uuid.uuid4().hex[:6]}.zip"
+    dest_file = dest_dir / filename
+
+    bundle_info = create_dossier_bundle(
+        store,
+        events,
+        dest_file,
+        province_name="مازندران",
+        title="بسته جامع اسناد و رویدادهای فرهنگی",
+    )
+
+    media_url = ""
+    if bridge_api and hasattr(bridge_api, "register_media_cache_file"):
+        try:
+            token = bridge_api.register_media_cache_file(dest_file, "application/zip")
+            media_url = f"/api/v1/media-cache/{token}"
+        except Exception:
+            pass
+
+    return _ok({
+        **bundle_info,
+        "file_name": filename,
+        "path": str(dest_file),
+        "media_url": media_url,
+    })
+
+
 def list_units(store: ReportingStore, query: Mapping[str, Any]):
     county = str(query.get("county") or "").strip() if query else None
     units = store.list_units(county=county or None)
@@ -1095,6 +1310,8 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
         return denied if denied else create_event(store, actor, payload)
     if method == "POST" and _EVENTS_EXPORT_ROUTE.match(path):
         return export_filtered_events(store, actor, payload)
+    if method == "POST" and _EVENTS_DOSSIER_BUNDLE_ROUTE.match(path):
+        return export_dossier_bundle_api(store, actor, payload, bridge_api=bridge_api)
     doc_match = _EVENT_DOCUMENTS_ROUTE.match(path)
     if doc_match and method in {"POST", "PUT"}:
         return attach_document(store, actor, roles, doc_match.group("event_id"), payload)
@@ -1102,17 +1319,37 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
     if match:
         event_id = match.group("event_id")
         if method == "GET":
-            return get_event_file(store, event_id)
+            return get_event_file(store, event_id, bridge_api=bridge_api)
         if method == "PUT":
             denied = _forbidden(roles, "editor")
             if denied:
                 return denied
             return update_event(store, actor, event_id, payload, if_match=if_match)
+        if method == "DELETE":
+            return delete_event(store, actor, roles, event_id)
     if method == "PUT":
         micro_put = _INDICATORS_MICRO_ID_ROUTE.match(path)
         if micro_put:
             return update_micro_indicator(store, actor, micro_put.group("indicator_id"), payload)
     if method == "POST":
+        event_del_match = _EVENT_DELETE_POST_ROUTE.match(path)
+        if event_del_match:
+            return delete_event(store, actor, roles, event_del_match.group("event_id"))
+        upload_match = _EVENT_DOCUMENTS_UPLOAD_ROUTE.match(path)
+        if upload_match:
+            return upload_document(store, actor, roles, upload_match.group("event_id"), payload)
+        doc_del_match = _EVENT_DOCUMENT_DELETE_POST_ROUTE.match(path)
+        if doc_del_match:
+            return delete_document(store, actor, roles, doc_del_match.group("event_id"), doc_del_match.group("doc_id"))
+        doc_cover_match = _EVENT_DOCUMENT_COVER_POST_ROUTE.match(path)
+        if doc_cover_match:
+            return set_document_cover(store, actor, roles, doc_cover_match.group("event_id"), doc_cover_match.group("doc_id"), payload)
+        merge_match = _EVENT_MERGE_ROUTE.match(path)
+        if merge_match:
+            return execute_merge(store, actor, roles, merge_match.group("event_id"), payload)
+        base_match = _UNIT_BASELINE_ROUTE.match(path)
+        if base_match:
+            return save_unit_baseline(store, actor, roles, base_match.group("unit_id"), payload)
         micro_post_del = _INDICATORS_MICRO_DELETE_POST_ROUTE.match(path)
         if micro_post_del:
             return delete_micro_indicator(store, actor, micro_post_del.group("indicator_id"))
@@ -1230,10 +1467,25 @@ def dispatch(store: ReportingStore, actor: str, roles, method: str, path: str,
             return witness_status(store, query)
         if _QUEUE_ROUTE.match(path):
             return list_queue(store, query)
+        merge_cand_match = _EVENT_MERGE_CANDIDATES_ROUTE.match(path)
+        if merge_cand_match:
+            return list_merge_candidates(store, merge_cand_match.group("event_id"))
+        doc_view_match = _EVENT_DOCUMENT_VIEW_ROUTE.match(path)
+        if doc_view_match:
+            return view_document(store, doc_view_match.group("event_id"), doc_view_match.group("doc_id"), bridge_api=bridge_api)
+        norm_match = _EVENT_NORMALIZATION_ROUTE.match(path)
+        if norm_match:
+            return get_event_normalization(store, norm_match.group("event_id"))
+        base_match = _UNIT_BASELINE_ROUTE.match(path)
+        if base_match:
+            return get_unit_baseline(store, base_match.group("unit_id"))
         audit = _EVENT_AUDIT_ROUTE.match(path)
         if audit:
             return get_event_audit(store, actor, roles, audit.group("event_id"))
     if method == "DELETE":
+        doc_del_match = _EVENT_DOCUMENT_ID_ROUTE.match(path)
+        if doc_del_match:
+            return delete_document(store, actor, roles, doc_del_match.group("event_id"), doc_del_match.group("doc_id"))
         micro_del = _INDICATORS_MICRO_ID_ROUTE.match(path)
         if micro_del:
             return delete_micro_indicator(store, actor, micro_del.group("indicator_id"))

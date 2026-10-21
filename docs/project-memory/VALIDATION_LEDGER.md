@@ -3377,14 +3377,42 @@ otes, program_kinds_json, occurred_on در update_event_fields؛ لود و دی�
   - آزمون‌های متمرکز بک‌اند: pytest tests/test_reporting_cartable_and_export.py؛ هر ۴ تست پاس کامل (Exit code 0).
   - مجموعه کامل آزمون‌های گزارش‌گیری: ۲۱۳ تست ماژول‌های reporting در 	ests/test_reporting_*.py با موفقیت ۱۰۰٪ پاس شدند.
   - آزمون Parity پکیجینگ و Wheel: بازسازی wheel رسمی به eitaa_bridge-0.7.0.dev31-py3-none-any.whl (SHA-256=63066973d8b896ea947c41789809cf61cb425457e2b65814185729ec8bdaf9d4) و پاس‌شدن کامل ۱۵ تست 	ests/test_g07_release_packaging.py.
-  - ممیزی و تایپ‌چک فرانت‌اند:
-pm.cmd --prefix ui run check بدون خطا (0 TypeScript errors)؛
-pm.cmd --prefix ui run test:observability پاس کامل.
-  - یکپارچگی حافظه و اسناد: check_project_memory_integrity.py و
-efresh_project_docs.py پاس کامل.
+  - ممیزی و تایپ‌چک فرانت‌اند: npm.cmd --prefix ui run check بدون خطا (0 TypeScript errors)؛ npm.cmd --prefix ui run test:observability پاس کامل.
+  - یکپارچگی حافظه و اسناد: check_project_memory_integrity.py و refresh_project_docs.py پاس کامل.
   - داوری دوایجنتی OpenCode (OSP-1.0): انطباق کامل ۱۹ معیار ساختاریافته و صدور تاییدیه APPROVED در diagnostics/opencode_supervision_verdict.json.
 - نتیجه: چهار نقص پیرامونی سناریو به طور کامل رفع شدند؛ سیستم اکنون مجهز به کارتابل و آرشیو جامع گزارش‌ها، امکان مشاهده و اصلاح پرونده‌ها، صدور اکسل تک‌کاربرگ و اتصال فراگیر به کاتالوگ پویا است.
 - مرجع: F-130.
+
+### V-297 — اعتبارسنجی جامع پرونده رویداد (Dossier)، چرخه CRUD و حذف آبشاری، موتور ادغام هوشمند، بسته چندرسانه‌ای زیپ و پایگاه اطلاعات پایه و نرمال‌سازی آماری
+
+- تاریخ: 2026-10-21؛ Trigger: تکمیل و تحویل جامع سناریوی کاربر پیرامون پوشه/پرونده رویداد (Dossier Profile Folder)، نگارخانه و حذف/افزودن اسناد و عکس‌ها، ادغام هوشمند رویدادها، صدور بسته چندرسانه‌ای زیپ، و اتصال به بانک اطلاعات پایه و نرمال‌سازی آماری.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/store.py`:
+    - پیاده‌سازی `delete_event` با حذف آبشاری کامل: پاکسازی اسناد فیزیکی دیسک زیر پوشه `reporting_documents/{event_id}`، حذف ارتباطات `reporting_event_witness_links` (آزادسازی شواهد ایتا برای انتساب مجدد)، حذف از `event_facts`، حذف از `event_documents`، حذف از `reporting_review_queue` و درج لاگ ممیزی `event.delete`.
+    - مدیریت پیشرفته اسناد: پیاده‌سازی `upload_and_attach_document` (ذخیره‌سازی فایل، محاسبه هش SHA-256 و استخراج نوع MIME)، `delete_document` با حذف فیزیکی فایل از دیسک، و `set_document_cover` با منطق انحصاری تک‌تصویر شاخص در سطح رویداد.
+    - موتور ادغام هوشمند: الگوریتم امتیازدهی شباهت در `find_merge_candidates` با وزن‌دهی به هم‌پوشانی شاخصه‌های جزئی (۳۵ نمره)، تطابق کد برنامه (۲۵ نمره)، انطباق حوزه قضایی (۲۰ نمره)، تقارب تاریخی (۱۵ نمره) و شباهت توکن‌های عنوان/متن (۱۵ نمره). متد `merge_events` با جابجایی فیزیکی فایل‌ها، بازنشانی شناسه‌های مالکیت اسناد، ادغام بدون تکرار شواهد ایتا و فکت‌ها، اجتماع شاخصه‌های جزئی و ثبت ممیزی `event.merge` همراه با حذف امن رویداد مبدأ.
+    - پایگاه اطلاعات پایه و نرمال‌سازی: تعریف جدول `reporting_unit_baselines` و توابع `get_unit_baseline`، `save_unit_baseline`، و `normalize_event_statistics` برای محاسبه نرخ مشارکت، ارزیابی ناهمخوانی ظرفیت (Anomaly Detection) و تخمین سهم همکار/خانواده.
+    - همگام‌سازی فکت‌ها در `update_event_fields` در همان تراکنش و ارزیابی ETag با حفظ ساختار استاندارد کلیدهای Diff در ممیزی.
+  - `src/eitaa_bridge/application/reporting_api_v3.py`:
+    - ثبت و هدایت مسیرهای: `DELETE /api/v3/reporting/events/:id` (همراه با مسیر سازگار POST delete)، `POST /api/v3/reporting/events/:id/documents/upload`، `DELETE /api/v3/reporting/events/:id/documents/:doc_id`، `POST /api/v3/reporting/events/:id/documents/:doc_id/cover`، `GET /api/v3/reporting/events/:id/documents/:doc_id/view`، `GET /api/v3/reporting/events/:id/merge-candidates`، `POST /api/v3/reporting/events/:id/merge`، `GET /api/v3/reporting/events/:id/normalization`، `GET/POST /api/v3/reporting/units/:unit_id/baseline`، و `POST /api/v3/reporting/events/export-dossier-bundle`.
+    - رمزگشایی صحیح اسامی یونیکد فارسی حوزه‌ها با `urllib.parse.unquote`.
+  - `src/eitaa_bridge/reporting/excel_export.py`:
+    - پیاده‌سازی متد `create_dossier_bundle` جهت صدور بسته فشرده ZIP حاوی فایل اکسل تجمیعی و پوشه‌بندی منطقی اسناد و تصاویر (تصاویر شاخص، سایر عکس‌ها، فاکتورها، نظرسنجی‌ها، فهرست شرکت‌کنندگان و سایر مستندات).
+  - `ui/src/components/ReportEventDetailModal.tsx`:
+    - بازطراحی به مودال پوشه پرونده رویداد با ۵ برگه مجزا: برگه ۰ (شناسنامه و سرفصل)، برگه ۱ (اقلام و پرسشنامه ساختاریافته کاربرگ تخصصی + کارت نرمال‌سازی آماری)، برگه ۲ (نگارخانه تصاویر چندرسانه‌ای با تعیین تصویر شاخص و بارگذاری فایل با Base64)، برگه ۳ (شواهد پیام‌های ایتا و تاریخچه ممیزی)، برگه ۴ (کاندیداهای ادغام هوشمند با رتبه‌بندی امتیاز و دکمه یکپارچه‌سازی).
+  - `ui/src/ReportingWorkbench.tsx`:
+    - افزودن دکمه حذف با دیالوگ تأییدیه امن در جدول کارتابل، و دکمه «صدور بسته اسناد و تصاویر (ZIP)» در نوار ابزار.
+  - `tests/test_event_dossier_crud_and_merge.py`:
+    - نگارش ۵ سناریوی جامع آزمون بک‌اند: آزمون حذف آبشاری کامل، بارگذاری و حذف و تصویر شاخص اسناد، امتیازدهی و ادغام هوشمند رویدادها، بسته فشرده ZIP چندرسانه‌ای، و نرمال‌سازی آماری با بانک‌های پایه.
+- شواهد و آزمون‌های کیفیت:
+  - آزمون‌های متمرکز پرونده، CRUD و ادغام: `pytest tests/test_event_dossier_crud_and_merge.py`؛ ۵ از ۵ پاس کامل (Exit code 0).
+  - آزمون‌های کارتابل و اکسل: `pytest tests/test_reporting_cartable_and_export.py`؛ ۶ از ۶ پاس کامل.
+  - آزمون‌های گیت فاز ۲ گزارش‌گیری: `pytest tests/test_reporting_phase2_gate.py`؛ ۱۰ از ۱۰ پاس کامل.
+  - آزمون Parity پکیجینگ و Wheel: بازسازی Wheel رسمی به `eitaa_bridge-0.7.0.dev31-py3-none-any.whl` (SHA-256: `28dd464d0ca413058ea99274f5eb45edcc1e6efd477ed427840e66d276dfefe7`) و پاس‌شدن کامل تمام تست‌های `tests/test_g07_release_packaging.py`.
+  - آزمون کامل سراسری بک‌اند (Pytest Suite): اجرای کامل تمامی ۱۲۸۵ تست پروژه با پاس‌شدن ۱۰۰٪ (۱۲۸۴ passed, ۱ skipped, ۰ failed).
+  - ممیزی و تایپ‌چک فرانت‌اند: `npm.cmd --prefix ui run check` با خروجی صفر خطا (0 TypeScript errors)؛ `npm.cmd --prefix ui run test:observability` پاس کامل.
+- نتیجه: تمام نیازمندی‌های سناریوی پرونده رویداد، مدیریت چندرسانه‌ای، حذف آبشاری، ادغام هوشمند بر اساس شباهت شاخصه‌ها، خروجی ZIP اسناد و اتصال به بانک اطلاعات پایه با موفقیت پیاده‌سازی و بدون هرگونه خطا یا افت کارایی تثبیت شد.
+- مرجع: F-131.
 
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
