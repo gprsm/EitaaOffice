@@ -476,3 +476,149 @@ def test_update_event_all_dossier_fields(store: ReportingStore):
     assert "trip" in file_after["program_kinds"]
     assert len(file_after["facts"]) == 2
 
+
+
+def test_event_all_fields_save_and_non_save_scenarios(store: ReportingStore):
+    # 1. Create base event
+    ev = _make_event("ev-check-all", title="عنوان اولیه", unit="ساری - دادگستری")
+    store.save_event(ev)
+    f0 = store.get_event_file("ev-check-all")
+    assert f0 is not None
+    etag = f0["etag"]
+
+    # 2. Test saving every single field individually
+    fields_to_test = [
+        ("occasion", "عنوان جدید تست تکی"),
+        ("macro_category", "other_cultural"),
+        ("custom_topic", "موضوع اختصاصی جدید"),
+        ("macro_indicator", "شاخص کلان آزمایشی"),
+        ("micro_indicators", ["شاخص جزئی تکی"]),
+        ("program_kinds", ["cultural"]),
+        ("unit", "courthouse"),
+        ("unit_name", "دادگستری بابل"),
+        ("occurred_on", "2026-09-01"),
+        ("official_present", 1),
+        ("is_ashura_pilgrimage", 1),
+        ("notes", "شرح جدید یادداشت"),
+        ("facts", [{"metric": "attendees", "value": 77, "unit_of_measure": "نفر", "note": "تست"}]),
+    ]
+
+    current_etag = etag
+    for field_name, new_val in fields_to_test:
+        res = dispatch(
+            store,
+            "tester",
+            {"editor"},
+            "PUT",
+            "/api/v3/reporting/events/ev-check-all",
+            payload={"if_match": current_etag, "fields": {field_name: new_val}},
+        )
+        assert res is not None
+        status, payload, _ = res
+        assert status == 200, f"Failed updating {field_name}: {payload}"
+        current_etag = payload["etag"]
+
+        # Verify field saved in store
+        f_check = store.get_event_file("ev-check-all")
+        assert f_check is not None
+        if field_name == "facts":
+            assert len(f_check["facts"]) == 1
+            assert f_check["facts"][0]["metric"] == "attendees"
+            assert f_check["facts"][0]["value"] == 77
+        elif field_name in ("micro_indicators", "program_kinds"):
+            assert f_check[field_name] == new_val
+        elif field_name in ("official_present", "is_ashura_pilgrimage"):
+            assert f_check[field_name] == 1
+        else:
+            assert f_check[field_name] == new_val, f"Field {field_name} mismatch: {f_check[field_name]} != {new_val}"
+
+    # 3. Test Clearing Optional Fields (عدم ذخیره مقادیر قبلی و خالی کردن آن‌ها)
+    res_clear = dispatch(
+        store,
+        "tester",
+        {"editor"},
+        "PUT",
+        "/api/v3/reporting/events/ev-check-all",
+        payload={
+            "if_match": current_etag,
+            "fields": {
+                "macro_indicator": "",
+                "custom_topic": "",
+                "micro_indicators": [],
+                "program_kinds": [],
+                "notes": "",
+                "facts": [],
+                "official_present": 0,
+                "is_ashura_pilgrimage": 0,
+            },
+        },
+    )
+    assert res_clear is not None
+    assert res_clear[0] == 200
+    current_etag = res_clear[1]["etag"]
+
+    f_cleared = store.get_event_file("ev-check-all")
+    assert f_cleared["macro_indicator"] == ""
+    assert f_cleared["custom_topic"] == ""
+    assert f_cleared["micro_indicators"] == []
+    assert f_cleared["program_kinds"] == []
+    assert f_cleared["notes"] == ""
+    assert f_cleared["facts"] == []
+    assert f_cleared["official_present"] == 0
+    assert f_cleared["is_ashura_pilgrimage"] == 0
+
+    # 4. Test Non-Saving Scenarios (عدم ذخیره به دلیل تداخل نسخه، فیلدهای غیرمجاز، یا خطای اعتبارسنجی)
+    # A) Stale ETag Conflict: Should reject with 409 or 412 without changing data
+    res_conflict = dispatch(
+        store,
+        "tester",
+        {"editor"},
+        "PUT",
+        "/api/v3/reporting/events/ev-check-all",
+        payload={"if_match": "stale-wrong-etag-9999", "fields": {"occasion": "این نباید ذخیره شود"}},
+    )
+    assert res_conflict is not None
+    assert res_conflict[0] in (409, 412)
+    # Verify data remained untouched
+    f_after_conflict = store.get_event_file("ev-check-all")
+    assert f_after_conflict["occasion"] == "عنوان جدید تست تکی"
+
+    # B) Unknown/Uneditable field: Should reject with 400
+    res_unknown = dispatch(
+        store,
+        "tester",
+        {"editor"},
+        "PUT",
+        "/api/v3/reporting/events/ev-check-all",
+        payload={"if_match": current_etag, "fields": {"malicious_hacked_field": 123}},
+    )
+    assert res_unknown is not None
+    assert res_unknown[0] == 400
+    assert "not editable" in res_unknown[1]["error"]["message"]
+
+    # C) Empty fields payload: Should reject with 400
+    res_empty = dispatch(
+        store,
+        "tester",
+        {"editor"},
+        "PUT",
+        "/api/v3/reporting/events/ev-check-all",
+        payload={"if_match": current_etag, "fields": {}},
+    )
+    assert res_empty is not None
+    assert res_empty[0] == 400
+
+    # 5. Test saving and preserving all UnitScope values
+    for scope in ["provincial_hq", "judicial_domain", "courthouse", "special_council", "province_wide"]:
+        res_unit = dispatch(
+            store,
+            "tester",
+            {"editor"},
+            "PUT",
+            "/api/v3/reporting/events/ev-check-all",
+            payload={"if_match": current_etag, "fields": {"unit": scope}},
+        )
+        assert res_unit[0] == 200
+        current_etag = res_unit[1]["etag"]
+        f_unit = store.get_event_file("ev-check-all")
+        assert f_unit["unit"] == scope

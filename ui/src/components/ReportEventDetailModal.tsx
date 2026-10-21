@@ -319,6 +319,107 @@ export function ReportEventDetailModal({
     setMicroIndicators(prev => prev.filter(m => m !== title))
   }
 
+  // Reset / Discard unsaved changes (عدم ذخیره تغییرات)
+  const handleResetChanges = () => {
+    if (!rawEvent) return
+    const ev = rawEvent
+    setOccasion(ev.occasion || ev.custom_topic || '')
+    setMacroCategory(ev.macro_category || 'workbook_approved')
+    setCustomTopic(ev.custom_topic || '')
+    setMacroIndicator(ev.macro_indicator || '')
+
+    let parsedMicros: string[] = []
+    if (Array.isArray(ev.micro_indicators)) {
+      parsedMicros = ev.micro_indicators
+    } else if (typeof ev.micro_indicators_json === 'string') {
+      try {
+        parsedMicros = JSON.parse(ev.micro_indicators_json)
+      } catch {
+        parsedMicros = []
+      }
+    }
+    setMicroIndicators(parsedMicros)
+    setSelectedPrograms(Array.isArray(ev.program_kinds) ? ev.program_kinds : [])
+    setUnitScope(ev.unit || 'provincial_hq')
+    setUnitName(ev.unit_name || '')
+    setOccurredOn(ev.occurred_on || '')
+    setOfficialPresent(Boolean(ev.official_present))
+    setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage))
+    setNotes(ev.notes || '')
+
+    if (Array.isArray(ev.facts)) {
+      setFacts(
+        ev.facts.map((f: any) => ({
+          metric: f.metric || '',
+          value: typeof f.value === 'number' ? f.value : parseFloat(f.value || 0),
+          unit_of_measure: f.unit_of_measure || 'count',
+          note: f.note || '',
+        })),
+      )
+    } else {
+      setFacts([])
+    }
+    setErrorText('')
+    toast.info('کلیه تغییرات لغو و مقادیر اولیه پرونده از پایگاه داده بازیابی شد.')
+  }
+
+  // Calculate dirty state across all editable fields
+  const isDirty = useMemo(() => {
+    if (!rawEvent) return false
+    const origOccasion = rawEvent.occasion || rawEvent.custom_topic || ''
+    if (occasion !== origOccasion) return true
+    if (macroCategory !== (rawEvent.macro_category || 'workbook_approved')) return true
+    if (customTopic !== (rawEvent.custom_topic || '')) return true
+    if (macroIndicator !== (rawEvent.macro_indicator || '')) return true
+    if (unitScope !== (rawEvent.unit || 'provincial_hq')) return true
+    if (unitName !== (rawEvent.unit_name || '')) return true
+    if (occurredOn !== (rawEvent.occurred_on || '')) return true
+    if (officialPresent !== Boolean(rawEvent.official_present)) return true
+    if (isAshuraPilgrimage !== Boolean(rawEvent.is_ashura_pilgrimage)) return true
+    if (notes !== (rawEvent.notes || '')) return true
+
+    let origMicros: string[] = []
+    if (Array.isArray(rawEvent.micro_indicators)) {
+      origMicros = rawEvent.micro_indicators
+    } else if (typeof rawEvent.micro_indicators_json === 'string') {
+      try {
+        origMicros = JSON.parse(rawEvent.micro_indicators_json)
+      } catch {
+        origMicros = []
+      }
+    }
+    if (JSON.stringify([...microIndicators].sort()) !== JSON.stringify([...origMicros].sort())) return true
+
+    const origPrograms = Array.isArray(rawEvent.program_kinds) ? rawEvent.program_kinds : []
+    if (JSON.stringify([...selectedPrograms].sort()) !== JSON.stringify([...origPrograms].sort())) return true
+
+    const origFacts = Array.isArray(rawEvent.facts) ? rawEvent.facts : []
+    if (facts.length !== origFacts.length) return true
+    for (const f of facts) {
+      const orig = origFacts.find((x: any) => x.metric === f.metric)
+      if (!orig || (typeof orig.value === 'number' ? orig.value : parseFloat(orig.value || 0)) !== f.value) {
+        return true
+      }
+    }
+
+    return false
+  }, [
+    rawEvent,
+    occasion,
+    macroCategory,
+    customTopic,
+    macroIndicator,
+    unitScope,
+    unitName,
+    occurredOn,
+    officialPresent,
+    isAshuraPilgrimage,
+    notes,
+    microIndicators,
+    selectedPrograms,
+    facts,
+  ])
+
   // Save changes
   const handleSave = async () => {
     if (!eventId) return
@@ -626,6 +727,15 @@ export function ReportEventDetailModal({
                   پوشه پرونده جامع رویداد فرهنگی
                 </Typography>
                 <Chip size="small" label={eventId} sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+                {isDirty && (
+                  <Chip
+                    size="small"
+                    label="تغییرات ذخیره‌نشده"
+                    color="warning"
+                    variant="outlined"
+                    sx={{ fontWeight: 800 }}
+                  />
+                )}
                 <Chip
                   size="small"
                   label={
@@ -1721,9 +1831,19 @@ export function ReportEventDetailModal({
         </Stack>
 
         {/* Right Side: Close, Submit & Save */}
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
           <Button onClick={onClose} color="inherit" size="small">
-            بستن
+            بستن (انصراف)
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            onClick={handleResetChanges}
+            disabled={!isDirty || saving || actionLoading}
+            title="لغو کلیه تغییرات اعمال شده و بازگردانی به مقادیر اولیه پرونده"
+          >
+            لغو تغییرات (عدم ذخیره)
           </Button>
           <Button
             variant="outlined"

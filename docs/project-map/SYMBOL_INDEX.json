@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "034c963c8f72e94b",
+  "source_fingerprint": "dea851a605110484",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -16177,62 +16177,62 @@
         {
           "name": "ValueSource",
           "kind": "class",
-          "line": 73
+          "line": 76
         },
         {
           "name": "Program",
           "kind": "class",
-          "line": 82
+          "line": 85
         },
         {
           "name": "Program.validate",
           "kind": "method",
-          "line": 89
+          "line": 92
         },
         {
           "name": "Evidence",
           "kind": "class",
-          "line": 152
+          "line": 155
         },
         {
           "name": "Fact",
           "kind": "class",
-          "line": 161
+          "line": 164
         },
         {
           "name": "Fact.validate",
           "kind": "method",
-          "line": 173
+          "line": 176
         },
         {
           "name": "Fact.is_export_ready",
           "kind": "method",
-          "line": 181
+          "line": 184
         },
         {
           "name": "ReportedEvent",
           "kind": "class",
-          "line": 186
+          "line": 189
         },
         {
           "name": "ReportedEvent.add_fact",
           "kind": "method",
-          "line": 224
+          "line": 227
         },
         {
           "name": "ReportedEvent.validate",
           "kind": "method",
-          "line": 228
+          "line": 231
         },
         {
           "name": "facts_by_metric",
           "kind": "function",
-          "line": 237
+          "line": 240
         },
         {
           "name": "verified_or_observed",
           "kind": "function",
-          "line": 246
+          "line": 249
         }
       ]
     },
@@ -21646,6 +21646,11 @@
           "name": "test_update_event_all_dossier_fields",
           "kind": "function",
           "line": 408
+        },
+        {
+          "name": "test_event_all_fields_save_and_non_save_scenarios",
+          "kind": "function",
+          "line": 481
         }
       ]
     },
@@ -29281,69 +29286,74 @@
           "line": 317
         },
         {
-          "name": "handleSave",
+          "name": "handleResetChanges",
           "kind": "script symbol",
           "line": 323
         },
         {
+          "name": "handleSave",
+          "kind": "script symbol",
+          "line": 424
+        },
+        {
           "name": "handleDeleteEvent",
           "kind": "script symbol",
-          "line": 361
+          "line": 462
         },
         {
           "name": "handleFileInputChange",
           "kind": "script symbol",
-          "line": 378
+          "line": 479
         },
         {
           "name": "handleDeleteDocument",
           "kind": "script symbol",
-          "line": 412
+          "line": 513
         },
         {
           "name": "handleSetCover",
           "kind": "script symbol",
-          "line": 423
+          "line": 524
         },
         {
           "name": "handleDownloadDoc",
           "kind": "script symbol",
-          "line": 436
+          "line": 537
         },
         {
           "name": "handlePreviewDoc",
           "kind": "script symbol",
-          "line": 460
+          "line": 561
         },
         {
           "name": "handleDetachWitness",
           "kind": "script symbol",
-          "line": 485
+          "line": 586
         },
         {
           "name": "handleMergeCandidate",
           "kind": "script symbol",
-          "line": 508
+          "line": 609
         },
         {
           "name": "handleApprove",
           "kind": "script symbol",
-          "line": 529
+          "line": 630
         },
         {
           "name": "handleRequestRevision",
           "kind": "script symbol",
-          "line": 543
+          "line": 644
         },
         {
           "name": "handleMarkConflict",
           "kind": "script symbol",
-          "line": 564
+          "line": 665
         },
         {
           "name": "handleSubmitReview",
           "kind": "script symbol",
-          "line": 585
+          "line": 686
         }
       ]
     },

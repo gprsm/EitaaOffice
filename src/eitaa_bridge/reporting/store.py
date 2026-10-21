@@ -1569,7 +1569,7 @@ class ReportingStore:
         "duration_minutes", "official_present", "prior_announcement",
         "had_reception", "is_ashura_pilgrimage", "contains_inner_contest",
         "macro_category", "custom_topic", "macro_indicator", "micro_indicators_json",
-        "occurred_on", "unit", "program_kinds_json", "micro_indicators", "program_kinds", "facts",
+        "occurred_on", "unit", "program_kinds_json", "micro_indicators", "program_kinds", "facts", "is_standalone_titled",
     })
 
     def _run_in_transaction(self, operation):

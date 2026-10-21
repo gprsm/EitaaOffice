@@ -68,6 +68,9 @@ class OccasionClass(str, Enum):
 class UnitScope(str, Enum):
     PROVINCIAL_HQ = "provincial_hq"
     JUDICIAL_DOMAIN = "judicial_domain"
+    COURTHOUSE = "courthouse"
+    SPECIAL_COUNCIL = "special_council"
+    PROVINCE_WIDE = "province_wide"
 
 
 class ValueSource(str, Enum):
