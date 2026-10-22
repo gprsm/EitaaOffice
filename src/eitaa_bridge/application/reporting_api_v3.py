@@ -150,14 +150,39 @@ def _build_event_payload(payload: Mapping[str, Any], store: ReportingStore | Non
         if store and macro_indicator:
             try:
                 catalog = store.list_program_catalog()
-                matched = next((p for p in catalog if (p.canonical_macro or p.title) == macro_indicator), None)
-                if matched and matched.kind:
-                    derived_kind = ProgramKind(matched.kind)
+                norm_macro = macro_indicator.replace("\u200c", "").replace(" ", "").strip()
+                for p in catalog:
+                    p_canon = (p.get("canonical_macro") if isinstance(p, dict) else getattr(p, "canonical_macro", "")) or ""
+                    p_title = (p.get("title") if isinstance(p, dict) else getattr(p, "title", "")) or ""
+                    p_kind = (p.get("kind") if isinstance(p, dict) else getattr(p, "kind", "")) or ""
+                    if p_kind and (norm_macro in p_canon.replace("\u200c", "").replace(" ", "").strip() or norm_macro in p_title.replace("\u200c", "").replace(" ", "").strip()):
+                        derived_kind = ProgramKind(str(p_kind))
+                        break
             except Exception:
                 pass
+
+        if not derived_kind and macro_indicator:
+            norm = macro_indicator.replace("\u200c", "").replace(" ", "").strip()
+            if "تجلیل" in norm or "تکریم" in norm:
+                derived_kind = ProgramKind.HONOR
+            elif "نماز" in norm:
+                derived_kind = ProgramKind.PRAYER
+            elif "مسابق" in norm:
+                derived_kind = ProgramKind.CONTEST
+            elif "اردو" in norm:
+                derived_kind = ProgramKind.TRIP
+            elif "ارباب" in norm or "مشتری" in norm:
+                derived_kind = ProgramKind.CUSTOMER_CARE
+            elif "منشور" in norm:
+                derived_kind = ProgramKind.CHARTER
+            elif "آموزش" in norm:
+                derived_kind = ProgramKind.TRAINING
+            elif "غیربرنامه" in norm:
+                derived_kind = ProgramKind.NON_PROGRAMMATIC
+
         if derived_kind:
             kinds = (derived_kind,)
-        elif macro_category == "other_cultural":
+        elif macro_category == "other_cultural" or "غیر" in macro_indicator:
             kinds = (ProgramKind.NON_PROGRAMMATIC,)
         else:
             kinds = (ProgramKind.CEREMONY,)

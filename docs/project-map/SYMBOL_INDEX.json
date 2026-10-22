@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "f0274221d1dcc75c",
+  "source_fingerprint": "6800877d59dc0924",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -8281,342 +8281,342 @@
         {
           "name": "create_event",
           "kind": "function",
-          "line": 265
+          "line": 290
         },
         {
           "name": "update_event",
           "kind": "function",
-          "line": 277
+          "line": 302
         },
         {
           "name": "delete_event",
           "kind": "function",
-          "line": 300
+          "line": 325
         },
         {
           "name": "get_event_file",
           "kind": "function",
-          "line": 310
+          "line": 335
         },
         {
           "name": "upload_document",
           "kind": "function",
-          "line": 339
+          "line": 364
         },
         {
           "name": "delete_document",
           "kind": "function",
-          "line": 365
+          "line": 390
         },
         {
           "name": "set_document_cover",
           "kind": "function",
-          "line": 375
+          "line": 400
         },
         {
           "name": "view_document",
           "kind": "function",
-          "line": 384
+          "line": 409
         },
         {
           "name": "list_merge_candidates",
           "kind": "function",
-          "line": 415
+          "line": 440
         },
         {
           "name": "execute_merge",
           "kind": "function",
-          "line": 420
+          "line": 445
         },
         {
           "name": "get_unit_baseline",
           "kind": "function",
-          "line": 434
+          "line": 459
         },
         {
           "name": "save_unit_baseline",
           "kind": "function",
-          "line": 440
+          "line": 465
         },
         {
           "name": "list_unit_baselines",
           "kind": "function",
-          "line": 457
+          "line": 482
         },
         {
           "name": "list_imams",
           "kind": "function",
-          "line": 461
+          "line": 486
         },
         {
           "name": "save_imam",
           "kind": "function",
-          "line": 467
+          "line": 492
         },
         {
           "name": "delete_imam",
           "kind": "function",
-          "line": 490
+          "line": 515
         },
         {
           "name": "list_venues",
           "kind": "function",
-          "line": 497
+          "line": 522
         },
         {
           "name": "save_venue",
           "kind": "function",
-          "line": 503
+          "line": 528
         },
         {
           "name": "delete_venue",
           "kind": "function",
-          "line": 522
+          "line": 547
         },
         {
           "name": "list_persons",
           "kind": "function",
-          "line": 529
+          "line": 554
         },
         {
           "name": "save_person",
           "kind": "function",
-          "line": 536
+          "line": 561
         },
         {
           "name": "delete_person",
           "kind": "function",
-          "line": 556
+          "line": 581
         },
         {
           "name": "get_event_normalization",
           "kind": "function",
-          "line": 563
+          "line": 588
         },
         {
           "name": "attach_document",
           "kind": "function",
-          "line": 571
+          "line": 596
         },
         {
           "name": "transition_event",
           "kind": "function",
-          "line": 596
+          "line": 621
         },
         {
           "name": "get_event_defects",
           "kind": "function",
-          "line": 647
+          "line": 672
         },
         {
           "name": "link_witness",
           "kind": "function",
-          "line": 670
+          "line": 695
         },
         {
           "name": "detach_link",
           "kind": "function",
-          "line": 690
+          "line": 715
         },
         {
           "name": "list_queue",
           "kind": "function",
-          "line": 713
+          "line": 738
         },
         {
           "name": "resolve_queue_item",
           "kind": "function",
-          "line": 720
+          "line": 745
         },
         {
           "name": "set_roles",
           "kind": "function",
-          "line": 740
+          "line": 765
         },
         {
           "name": "get_event_audit",
           "kind": "function",
-          "line": 761
+          "line": 786
         },
         {
           "name": "witness_status",
           "kind": "function",
-          "line": 771
+          "line": 796
         },
         {
           "name": "record_feedback",
           "kind": "function",
-          "line": 792
+          "line": 817
         },
         {
           "name": "revoke_feedback",
           "kind": "function",
-          "line": 819
+          "line": 844
         },
         {
           "name": "list_feedback",
           "kind": "function",
-          "line": 832
+          "line": 857
         },
         {
           "name": "add_alias",
           "kind": "function",
-          "line": 845
+          "line": 870
         },
         {
           "name": "revoke_alias",
           "kind": "function",
-          "line": 872
+          "line": 897
         },
         {
           "name": "list_aliases",
           "kind": "function",
-          "line": 885
+          "line": 910
         },
         {
           "name": "list_events_v3",
           "kind": "function",
-          "line": 896
+          "line": 921
         },
         {
           "name": "export_filtered_events",
           "kind": "function",
-          "line": 963
+          "line": 988
         },
         {
           "name": "export_dossier_bundle_api",
           "kind": "function",
-          "line": 1004
+          "line": 1029
         },
         {
           "name": "list_units",
           "kind": "function",
-          "line": 1058
+          "line": 1083
         },
         {
           "name": "save_unit",
           "kind": "function",
-          "line": 1068
+          "line": 1093
         },
         {
           "name": "delete_unit",
           "kind": "function",
-          "line": 1101
+          "line": 1126
         },
         {
           "name": "list_liaisons",
           "kind": "function",
-          "line": 1108
+          "line": 1133
         },
         {
           "name": "save_liaison",
           "kind": "function",
-          "line": 1122
+          "line": 1147
         },
         {
           "name": "delete_liaison",
           "kind": "function",
-          "line": 1156
+          "line": 1181
         },
         {
           "name": "resolve_liaison",
           "kind": "function",
-          "line": 1163
+          "line": 1188
         },
         {
           "name": "assign_author_liaison",
           "kind": "function",
-          "line": 1182
+          "line": 1207
         },
         {
           "name": "unlink_author_liaison",
           "kind": "function",
-          "line": 1216
+          "line": 1241
         },
         {
           "name": "lookup_liaison",
           "kind": "function",
-          "line": 1225
+          "line": 1250
         },
         {
           "name": "get_liaison_profile",
           "kind": "function",
-          "line": 1248
+          "line": 1273
         },
         {
           "name": "sync_liaison_eitaa_contact",
           "kind": "function",
-          "line": 1272
+          "line": 1297
         },
         {
           "name": "sync_all_liaisons_eitaa_contacts",
           "kind": "function",
-          "line": 1283
+          "line": 1308
         },
         {
           "name": "list_program_catalog",
           "kind": "function",
-          "line": 1291
+          "line": 1316
         },
         {
           "name": "save_program_catalog_item",
           "kind": "function",
-          "line": 1304
+          "line": 1329
         },
         {
           "name": "toggle_program_active",
           "kind": "function",
-          "line": 1343
+          "line": 1368
         },
         {
           "name": "list_macro_indicators",
           "kind": "function",
-          "line": 1355
+          "line": 1380
         },
         {
           "name": "list_micro_indicators",
           "kind": "function",
-          "line": 1359
+          "line": 1384
         },
         {
           "name": "save_micro_indicator",
           "kind": "function",
-          "line": 1363
+          "line": 1388
         },
         {
           "name": "update_micro_indicator",
           "kind": "function",
-          "line": 1376
+          "line": 1401
         },
         {
           "name": "delete_micro_indicator",
           "kind": "function",
-          "line": 1387
+          "line": 1412
         },
         {
           "name": "get_message_indicators",
           "kind": "function",
-          "line": 1392
+          "line": 1417
         },
         {
           "name": "assign_message_indicators",
           "kind": "function",
-          "line": 1411
+          "line": 1436
         },
         {
           "name": "get_message_splits",
           "kind": "function",
-          "line": 1436
+          "line": 1461
         },
         {
           "name": "set_message_splits",
           "kind": "function",
-          "line": 1444
+          "line": 1469
         },
         {
           "name": "dispatch",
           "kind": "function",
-          "line": 1456
+          "line": 1481
         }
       ]
     },
