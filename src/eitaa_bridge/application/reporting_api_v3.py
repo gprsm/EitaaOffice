@@ -127,18 +127,40 @@ def _mapped_error(exc: Exception):
     return None
 
 
-def _build_event_payload(payload: Mapping[str, Any]):
+def _build_event_payload(payload: Mapping[str, Any], store: ReportingStore | None = None):
     raw = payload.get("occurred_on")
     try:
         occurred = date.fromisoformat(str(raw)) if raw else date.today()
     except ValueError:
         return _error(400, "occurred_on must be an ISO date")
-    try:
-        kinds = tuple(
-            ProgramKind(str(k)) for k in (payload.get("program_kinds") or ["ceremony"])
-        )
-    except ValueError:
-        return _error(400, "unknown program kind")
+
+    macro_cat = str(payload.get("macro_category", "workbook_approved") or "workbook_approved").strip()
+    macro_category = "other_cultural" if macro_cat == "other_cultural" else "workbook_approved"
+    custom_topic = str(payload.get("custom_topic", "") or "").strip()
+    macro_indicator = str(payload.get("macro_indicator", "") or "").strip()
+
+    raw_kinds = payload.get("program_kinds")
+    if raw_kinds and isinstance(raw_kinds, (list, tuple)) and len(raw_kinds) > 0:
+        try:
+            kinds = tuple(ProgramKind(str(k)) for k in raw_kinds)
+        except ValueError:
+            return _error(400, "unknown program kind")
+    else:
+        derived_kind = None
+        if store and macro_indicator:
+            try:
+                catalog = store.list_program_catalog()
+                matched = next((p for p in catalog if (p.canonical_macro or p.title) == macro_indicator), None)
+                if matched and matched.kind:
+                    derived_kind = ProgramKind(matched.kind)
+            except Exception:
+                pass
+        if derived_kind:
+            kinds = (derived_kind,)
+        elif macro_category == "other_cultural":
+            kinds = (ProgramKind.NON_PROGRAMMATIC,)
+        else:
+            kinds = (ProgramKind.CEREMONY,)
     unit_str = str(payload.get("unit", "provincial_hq"))
     if unit_str not in {u.value for u in UnitScope}:
         return _error(400, "unknown unit scope")
@@ -216,7 +238,7 @@ def _build_event_payload(payload: Mapping[str, Any]):
         occurred_on=occurred,
         unit=UnitScope(unit_str),
         unit_name=str(payload.get("unit_name", "")),
-        occasion=str(payload.get("occasion", "")),
+        occasion=str(payload.get("occasion") or payload.get("topic") or "").strip(),
         occasion_class=occ_class,
         macro_category=macro_category,
         custom_topic=custom_topic,
@@ -241,7 +263,7 @@ def _build_event_payload(payload: Mapping[str, Any]):
 
 
 def create_event(store: ReportingStore, actor: str, payload: Mapping[str, Any]):
-    built = _build_event_payload(payload)
+    built = _build_event_payload(payload, store=store)
     if isinstance(built, tuple):
         return built
     try:
@@ -299,6 +321,16 @@ def get_event_file(store: ReportingStore, event_id: str, bridge_api: Any = None)
                 mime = mimetypes.guess_type(path.name)[0] or ("image/jpeg" if doc.get("kind") == "image" else "application/octet-stream")
                 token = bridge_api.register_media_cache_file(path, mime)
                 doc["media_url"] = f"/api/v1/media-cache/{token}"
+            except Exception:
+                pass
+    for w in file.get("witnesses", []):
+        storage_ref = w.get("storage_ref")
+        if storage_ref and os.path.exists(storage_ref) and bridge_api and hasattr(bridge_api, "register_media_cache_file"):
+            try:
+                path = Path(storage_ref)
+                mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
+                token = bridge_api.register_media_cache_file(path, mime)
+                w["media_url"] = f"/api/v1/media-cache/{token}"
             except Exception:
                 pass
     return _ok({"event": file}, headers=headers)

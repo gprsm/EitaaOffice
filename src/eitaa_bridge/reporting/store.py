@@ -10,6 +10,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import date, datetime, timedelta, timezone
+import glob
 import hashlib
 import json
 import os
@@ -1842,6 +1843,97 @@ class ReportingStore:
 
         return self._run_in_transaction(_op)
 
+    def _lookup_witness_details(self, message_id: int | str) -> tuple[str, dict | None, Path | None]:
+        """Look up message text, media_json, and thumbnail path for an Eitaa message."""
+        msg_num = int(message_id) if str(message_id).isdigit() else 0
+        if not msg_num:
+            return ("", None, None)
+
+        base_dir = self.db_path.parent.parent
+        found_text = ""
+        found_media = None
+
+        for mdb in glob.glob(str(base_dir / "accounts/*/core/messages.sqlite3")):
+            try:
+                with sqlite3.connect(mdb) as mconn:
+                    mconn.row_factory = sqlite3.Row
+                    mrow = mconn.execute(
+                        "SELECT text, media_json FROM messages WHERE message_id = ?", (msg_num,)
+                    ).fetchone()
+                    if mrow:
+                        found_text = mrow["text"] or ""
+                        if mrow["media_json"]:
+                            try:
+                                found_media = json.loads(mrow["media_json"])
+                            except Exception:
+                                pass
+                        break
+            except Exception:
+                pass
+
+        cached_path = None
+        pattern = f"*_{msg_num}_*.jpg"
+        for cfile in glob.glob(str(base_dir / "accounts/*/media/ui-cache/thumbnail" / pattern)):
+            if os.path.isfile(cfile) and os.path.getsize(cfile) > 0:
+                cached_path = Path(cfile)
+                break
+        if not cached_path:
+            for cfile in glob.glob(str(base_dir / "media/ui-cache/thumbnail" / pattern)):
+                if os.path.isfile(cfile) and os.path.getsize(cfile) > 0:
+                    cached_path = Path(cfile)
+                    break
+
+        return (found_text, found_media, cached_path)
+
+    def _auto_attach_witness_media(
+        self,
+        conn: sqlite3.Connection,
+        event_id: str,
+        peer_id: str,
+        message_id: str,
+        witness_id: str,
+        actor: str,
+        now: str,
+    ) -> None:
+        """Locate cached thumbnail/photo for this witness message and link into event_documents."""
+        msg_num = int(message_id) if str(message_id).isdigit() else 0
+        if not msg_num:
+            return
+
+        _, found_media, cached_path = self._lookup_witness_details(msg_num)
+        if cached_path and cached_path.exists():
+            doc_id = f"doc-w-{witness_id[:8]}-{msg_num}"
+            existing = conn.execute(
+                "SELECT document_id FROM event_documents WHERE event_id = ? AND (document_id = ? OR storage_ref = ?)",
+                (event_id, doc_id, str(cached_path.resolve())),
+            ).fetchone()
+            if not existing:
+                cur_count = conn.execute(
+                    "SELECT COUNT(*) FROM event_documents WHERE event_id = ?", (event_id,)
+                ).fetchone()[0]
+                is_cover = 1 if cur_count == 0 else 0
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO event_documents (
+                        document_id, event_id, media_id, sha256, kind,
+                        size_bytes, display_order, is_cover, added_by, added_at, storage_ref
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        doc_id,
+                        event_id,
+                        f"تصویر شاهد ایتا #{msg_num}",
+                        "",
+                        "image",
+                        cached_path.stat().st_size,
+                        cur_count + 1,
+                        is_cover,
+                        actor or "eitaa_witness",
+                        now,
+                        str(cached_path.resolve()),
+                    ),
+                )
+
     def link_witness(self, event_id: str, *, peer_id: str, message_id: str,
                      provider: str = "eitaa", messenger_account: str = "",
                      role: str = "primary", note: str = "", actor: str,
@@ -1900,6 +1992,11 @@ class ReportingStore:
                 """,
                 (link_id, event_id, witness_id, role, actor, now, note),
             )
+            if provider == "eitaa" and message_id:
+                try:
+                    self._auto_attach_witness_media(conn, event_id, peer_id, message_id, witness_id, actor, now)
+                except Exception:
+                    pass
             if messenger_account == "":
                 conn.execute(
                     """
@@ -2074,6 +2171,16 @@ class ReportingStore:
                 """,
                 (event_id,),
             ).fetchall()
+            now = _utc_now()
+            for w in witnesses:
+                if w["provider"] == "eitaa" and w["message_id"] and not w["detached_at"]:
+                    try:
+                        self._auto_attach_witness_media(
+                            conn, event_id, w["peer_id"], str(w["message_id"]), w["witness_id"], w["linked_by"] or "eitaa_witness", now
+                        )
+                    except Exception:
+                        pass
+
             documents = conn.execute(
                 """
                 SELECT document_id, event_id, media_id, sha256, kind, size_bytes, display_order,
@@ -2098,7 +2205,23 @@ class ReportingStore:
                 for fr in fact_rows
             ]
         file["etag"] = self._compute_etag(event_id, version)
-        file["witnesses"] = [dict(w) for w in witnesses]
+        enriched_witnesses = []
+        for w in witnesses:
+            wd = dict(w)
+            if wd.get("provider") == "eitaa" and wd.get("message_id"):
+                try:
+                    f_text, f_media, f_path = self._lookup_witness_details(wd["message_id"])
+                    if f_text:
+                        wd["text"] = f_text
+                    if f_media and isinstance(f_media, dict):
+                        wd["media_type"] = f_media.get("type")
+                    if f_path and f_path.exists():
+                        wd["storage_ref"] = str(f_path.resolve())
+                        wd["is_image"] = True
+                except Exception:
+                    pass
+            enriched_witnesses.append(wd)
+        file["witnesses"] = enriched_witnesses
         file["documents"] = [dict(d) for d in documents]
         if file.get("micro_indicators_json"):
             try:

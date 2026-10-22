@@ -109,6 +109,19 @@ function b64toBlob(b64Data: string, contentType = '', sliceSize = 512): Blob {
   return new Blob(byteArrays, { type: contentType })
 }
 
+function getInitialOccasion(ev: Record<string, any> | null): string {
+  if (!ev) return ''
+  let occ = (ev.occasion || ev.custom_topic || '').trim()
+  if (!occ && ev.notes) {
+    const cleanNotes = ev.notes.replace(/^نویسنده[^\n]*\n?/, '').trim()
+    const firstLine = cleanNotes.split('\n')[0]?.trim()
+    if (firstLine && firstLine.length > 2) {
+      occ = firstLine.slice(0, 120)
+    }
+  }
+  return occ
+}
+
 export function ReportEventDetailModal({
   open,
   eventId,
@@ -210,7 +223,7 @@ export function ReportEventDetailModal({
       setAuditRecords(auditRes.audit || [])
       setNormalization(normRes)
 
-      setOccasion(ev.occasion || ev.custom_topic || '')
+      setOccasion(getInitialOccasion(ev))
       setMacroCategory(ev.macro_category || 'workbook_approved')
       setCustomTopic(ev.custom_topic || '')
       setMacroIndicator(ev.macro_indicator || '')
@@ -323,7 +336,7 @@ export function ReportEventDetailModal({
   const handleResetChanges = () => {
     if (!rawEvent) return
     const ev = rawEvent
-    setOccasion(ev.occasion || ev.custom_topic || '')
+    setOccasion(getInitialOccasion(ev))
     setMacroCategory(ev.macro_category || 'workbook_approved')
     setCustomTopic(ev.custom_topic || '')
     setMacroIndicator(ev.macro_indicator || '')
@@ -366,7 +379,7 @@ export function ReportEventDetailModal({
   // Calculate dirty state across all editable fields
   const isDirty = useMemo(() => {
     if (!rawEvent) return false
-    const origOccasion = rawEvent.occasion || rawEvent.custom_topic || ''
+    const origOccasion = getInitialOccasion(rawEvent)
     if (occasion !== origOccasion) return true
     if (macroCategory !== (rawEvent.macro_category || 'workbook_approved')) return true
     if (customTopic !== (rawEvent.custom_topic || '')) return true
@@ -723,8 +736,8 @@ export function ReportEventDetailModal({
             </Avatar>
             <Box>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="h6" fontWeight={800}>
-                  پوشه پرونده جامع رویداد فرهنگی
+                <Typography variant="h6" fontWeight={800} noWrap sx={{ maxWidth: 480 }} title={occasion || getInitialOccasion(rawEvent) || 'پوشه پرونده جامع رویداد فرهنگی'}>
+                  {occasion || getInitialOccasion(rawEvent) || 'پوشه پرونده جامع رویداد فرهنگی'}
                 </Typography>
                 <Chip size="small" label={eventId} sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
                 {isDirty && (
@@ -1615,14 +1628,58 @@ export function ReportEventDetailModal({
                               )}
                             </Stack>
                           </Stack>
-                          {w.note && (
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                              یادداشت استخراج: {w.note}
-                            </Typography>
-                          )}
-                          <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>
-                            ثبت‌شده توسط: {w.linked_by || 'سیستم'} {w.linked_at ? `در ${w.linked_at}` : ''}
-                          </Typography>
+                          <Stack direction="row" spacing={1.5} sx={{ mt: 1 }} alignItems="flex-start">
+                            {w.media_url ? (
+                              <Box
+                                component="img"
+                                src={w.media_url}
+                                alt="شاهد تصویری"
+                                sx={{
+                                  width: 72,
+                                  height: 72,
+                                  objectFit: 'cover',
+                                  borderRadius: 1.5,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                  transition: 'transform 0.15s',
+                                  '&:hover': { transform: 'scale(1.04)', borderColor: 'primary.main' },
+                                }}
+                                onClick={() => setPreviewImageDoc({ url: w.media_url, title: `تصویر شاهد ایتا #${w.message_id}` })}
+                              />
+                            ) : null}
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              {w.text ? (
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    p: 1,
+                                    borderRadius: 1,
+                                    bgcolor: 'background.paper',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    mb: 0.75,
+                                    whiteSpace: 'pre-wrap',
+                                    maxHeight: 120,
+                                    overflowY: 'auto',
+                                    fontSize: '0.8rem',
+                                    lineHeight: 1.6,
+                                  }}
+                                >
+                                  {w.text}
+                                </Typography>
+                              ) : null}
+                              {w.note && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                  یادداشت استخراج: {w.note}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>
+                                ثبت‌شده توسط: {w.linked_by || 'سیستم'} {w.linked_at ? `در ${w.linked_at}` : ''}
+                              </Typography>
+                            </Box>
+                          </Stack>
                         </Box>
                       ))}
                     </Stack>

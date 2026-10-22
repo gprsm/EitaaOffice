@@ -229,7 +229,7 @@ const EMPTY: RegistrationDraft = {
   macroCategory: 'workbook_approved', customTopic: '',
   macroIndicator: '', microIndicators: [],
   topic: '', author: '', notes: '', occurredOn: '', unit: 'provincial_hq', unit_name: '',
-  programKinds: ['ceremony'], witnesses: [], facts: [],
+  programKinds: [], witnesses: [], facts: [],
 }
 
 const STEPS = ['موضوع و شناسنامه', 'سرفصل برنامه و آمار عددی', 'شاهدان ایتا', 'بازبینی و ثبت']
@@ -436,6 +436,18 @@ export function ReportingRegistrationPanel(props: {
     void fetchMicroIndicators().then(setAvailableMicroIndicators).catch(() => {})
   }, [])
 
+  // Auto-sync programKinds if user picked a macroIndicator and programKinds is empty
+  useEffect(() => {
+    if (draft.macroIndicator && (!draft.programKinds || draft.programKinds.length === 0) && programCatalog.length > 0) {
+      const matchedProg = programCatalog.find(p => (p.canonical_macro || p.title) === draft.macroIndicator)
+      if (matchedProg?.kind) {
+        setDraft(d => ({ ...d, programKinds: [matchedProg.kind] }))
+      } else if (draft.macroIndicator === 'غیر برنامه‌ای') {
+        setDraft(d => ({ ...d, programKinds: ['non_programmatic'] }))
+      }
+    }
+  }, [draft.macroIndicator, programCatalog])
+
   const submit = async () => {
     if (!jalaliDate) { setErrorText('تاریخ وقوع جلالی نامعتبر است (مثال: ۱۴۰۵/۰۵/۰۱)'); setStep(0); return }
     setSubmitting(true)
@@ -451,15 +463,27 @@ export function ReportingRegistrationPanel(props: {
           unit_of_measure: f.unit_of_measure || 'count',
         }))
 
+      let effectiveProgramKinds = draft.programKinds
+      if (!effectiveProgramKinds || effectiveProgramKinds.length === 0) {
+        const matched = programCatalog.find(p => (p.canonical_macro || p.title) === draft.macroIndicator)
+        if (matched?.kind) {
+          effectiveProgramKinds = [matched.kind]
+        } else if (draft.macroCategory === 'other_cultural' || draft.macroIndicator === 'غیر برنامه‌ای') {
+          effectiveProgramKinds = ['non_programmatic']
+        }
+      }
+
       const created = await api<{ ok?: boolean; event_id: string; etag: string }>('POST', '/api/v3/reporting/events', {
         macro_category: draft.macroCategory,
         custom_topic: draft.customTopic,
         macro_indicator: draft.macroIndicator,
         micro_indicators: draft.microIndicators,
-        program_kinds: draft.programKinds.length ? draft.programKinds : ['ceremony'],
+        program_kinds: effectiveProgramKinds && effectiveProgramKinds.length > 0 ? effectiveProgramKinds : undefined,
         occurred_on: iso,
         unit: draft.unit,
         unit_name: draft.unit_name,
+        occasion: draft.topic.trim(),
+        topic: draft.topic.trim(),
         notes: [draft.author ? `نویسنده / رابط گزارش: ${draft.author.trim()}` : '', draft.topic, draft.notes].filter(Boolean).join('\n'),
         author: draft.author,
         registered_by_id: activeUserId,
@@ -606,7 +630,7 @@ export function ReportingRegistrationPanel(props: {
                 const matchedProg = programCatalog.find(p => (p.canonical_macro || p.title) === val)
                 update({
                   macroIndicator: val,
-                  programKinds: matchedProg ? [matchedProg.kind] : draft.programKinds,
+                  programKinds: matchedProg ? [matchedProg.kind] : (val === 'غیر برنامه‌ای' ? ['non_programmatic'] : draft.programKinds),
                 })
               }}
               fullWidth
