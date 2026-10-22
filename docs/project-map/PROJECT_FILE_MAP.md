@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 475
-- اثرانگشت منبع: `6800877d59dc0924`
+- اثرانگشت منبع: `e5a4c230cb929602`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -364,7 +364,7 @@
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
 | `tests/test_reporting_api.py` | Python test | 16 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_baseline_banks.py` | Python test | 5 | Tests for Master Baseline Banks and Registry APIs in reporting phase 2. |
-| `tests/test_reporting_cartable_and_export.py` | Python test | 8 | — |
+| `tests/test_reporting_cartable_and_export.py` | Python test | 9 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
@@ -438,7 +438,7 @@
 | `ui/src/components/MacroIndicatorSelectPopover.tsx` | React UI | 4 | — |
 | `ui/src/components/MicroIndicatorEditPopover.tsx` | React UI | 6 | — |
 | `ui/src/components/MicroIndicatorsManagementModal.tsx` | React UI | 6 | — |
-| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 23 | — |
+| `ui/src/components/ReportEventDetailModal.tsx` | React UI | 24 | — |
 | `ui/src/components/SplitMessageDialog.tsx` | React UI | 6 | — |
 | `ui/src/ConnectionStatus.tsx` | React UI | 4 | — |
 | `ui/src/ContactDirectoryModal.tsx` | React UI | 20 | — |

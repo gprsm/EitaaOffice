@@ -10,12 +10,14 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Stack,
   Step,
   StepLabel,
   Stepper,
+  Switch,
   Paper,
   TextField,
   Typography,
@@ -214,6 +216,9 @@ export function inferRegistrationDefaults(
     }
   }
 
+  // 5. Official Presence detection
+  const officialPresent = /رئیس( کل)? دادگستری|دادستان|معاون قضایی|رئیس دادگاه|مدیرکل/i.test(combinedText)
+
   return {
     occurredOn,
     sourceTimeFormatted,
@@ -222,6 +227,7 @@ export function inferRegistrationDefaults(
     unit_name,
     topic,
     notes: combinedText,
+    officialPresent,
   }
 }
 
@@ -230,6 +236,7 @@ const EMPTY: RegistrationDraft = {
   macroIndicator: '', microIndicators: [],
   topic: '', author: '', notes: '', occurredOn: '', unit: 'provincial_hq', unit_name: '',
   programKinds: [], witnesses: [], facts: [],
+  officialPresent: false,
 }
 
 const STEPS = ['موضوع و شناسنامه', 'سرفصل برنامه و آمار عددی', 'شاهدان ایتا', 'بازبینی و ثبت']
@@ -266,6 +273,7 @@ type RegistrationDraft = {
   programKinds: string[]
   witnesses: WitnessDraft[]
   facts: FactDraft[]
+  officialPresent: boolean
 }
 
 type SubmitResult = { message_id: string; ok: boolean; error?: string; existing_event_id?: string }
@@ -482,6 +490,7 @@ export function ReportingRegistrationPanel(props: {
         occurred_on: iso,
         unit: draft.unit,
         unit_name: draft.unit_name,
+        official_present: draft.officialPresent ? 1 : 0,
         occasion: draft.topic.trim(),
         topic: draft.topic.trim(),
         notes: [draft.author ? `نویسنده / رابط گزارش: ${draft.author.trim()}` : '', draft.topic, draft.notes].filter(Boolean).join('\n'),
@@ -849,6 +858,29 @@ export function ReportingRegistrationPanel(props: {
               })
             )}
           </Stack>
+        </Box>
+
+        {/* حضور مقام عالی قضایی (قاعده B9/C8 برای تکریم و تجلیل و تشویق ارباب رجوع) */}
+        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={draft.officialPresent}
+                onChange={e => update({ officialPresent: e.target.checked })}
+                color="success"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="subtitle2" fontWeight={800}>
+                  حضور رئیس‌کل دادگستری یا بالاترین مقام قضایی استان / شهرستان
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  مطابق ضوابط کاربرگ‌های «تکریم و تجلیل» و «تشویق ارباب رجوع»، احراز حضور مقام قضایی جهت تأیید و تجمیع رسمی آمار الزامی است.
+                </Typography>
+              </Box>
+            }
+          />
         </Box>
 
         {/* ۲. آمار، سنجه‌ها و ارقام عددی رویداد */}

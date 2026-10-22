@@ -164,6 +164,10 @@ export function ReportEventDetailModal({
 
   // Facts & metrics
   const [facts, setFacts] = useState<Array<{ metric: string; value: number; unit_of_measure: string; note: string }>>([])
+  const [viewingProgramKind, setViewingProgramKind] = useState<string>('')
+  const [newCustomFactMetric, setNewCustomFactMetric] = useState<string>('')
+  const [newCustomFactValue, setNewCustomFactValue] = useState<string>('')
+  const [newCustomFactUnit, setNewCustomFactUnit] = useState<string>('نفر')
 
   // Document upload state
   const [uploadingDoc, setUploadingDoc] = useState<boolean>(false)
@@ -301,23 +305,46 @@ export function ReportEventDetailModal({
     }
   }, [activeTab, eventId])
 
+  // Fact alias mapping
+  const FACT_ALIASES: Record<string, string[]> = {
+    honored_count: ['honored_count', 'honoree_count', 'honorees'],
+    honorees: ['honorees', 'honored_count', 'honoree_count'],
+    attendees: ['attendees', 'participants_count', 'quran_attendees', 'attendee_count'],
+    participants_count: ['participants_count', 'attendees', 'attendee_count'],
+    ceremony_count: ['ceremony_count', 'ceremonies', 'events', 'sessions'],
+    trip_count: ['trip_count', 'trips', 'events'],
+    contest_count: ['contest_count', 'contests', 'events'],
+    prayer_count: ['prayer_count', 'prayers', 'sessions'],
+    survey: ['survey', 'survey_score', 'survey_count'],
+    reception: ['reception', 'reception_count'],
+    announcement: ['announcement', 'announcement_count'],
+    gifts: ['gifts', 'gift_count'],
+  }
+
   // Fact helpers
   const getFactValue = (metric: string): number => {
-    const f = facts.find(x => x.metric === metric)
+    const aliases = FACT_ALIASES[metric] || [metric]
+    const f = facts.find(x => aliases.includes(x.metric))
     return f ? f.value : 0
   }
 
   const setFactValue = (metric: string, value: number, unit = 'count', note = '') => {
+    const aliases = FACT_ALIASES[metric] || [metric]
     setFacts(prev => {
-      const idx = prev.findIndex(x => x.metric === metric)
+      const idx = prev.findIndex(x => aliases.includes(x.metric))
       if (idx >= 0) {
         const next = [...prev]
-        next[idx] = { ...next[idx], value, unit_of_measure: unit, note: note || next[idx].note }
+        next[idx] = { ...next[idx], metric, value, unit_of_measure: unit, note: note || next[idx].note }
         return next
       } else {
         return [...prev, { metric, value, unit_of_measure: unit, note }]
       }
     })
+  }
+
+  const removeFact = (metric: string) => {
+    const aliases = FACT_ALIASES[metric] || [metric]
+    setFacts(prev => prev.filter(x => !aliases.includes(x.metric) && x.metric !== metric))
   }
 
   // Micro-indicators tag operations
@@ -723,7 +750,9 @@ export function ReportEventDetailModal({
   const filesList = documentsList.filter(d => !photosList.includes(d))
 
   // Determine active primary program kind
-  const activeProgramKind = selectedPrograms[0] || 'trip'
+  const activeProgramKind = viewingProgramKind && selectedPrograms.includes(viewingProgramKind)
+    ? viewingProgramKind
+    : (selectedPrograms[0] || 'honor')
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth dir="rtl" PaperProps={{ sx: { bgcolor: 'background.paper', color: 'text.primary', backgroundImage: 'none' } }}>
@@ -1165,10 +1194,12 @@ export function ReportEventDetailModal({
                         </Grid>
                         <Grid size={{ xs: 6, sm: 3 }}>
                           <Typography variant="caption" color="text.secondary" display="block">
-                            شرکت‌کنندگان ثبت‌شده:
+                            {activeProgramKind === 'honor' || activeProgramKind === 'customer_care' ? 'افراد تقدیرشده ثبت‌شده:' : 'شرکت‌کنندگان ثبت‌شده:'}
                           </Typography>
                           <Typography variant="body1" fontWeight={800} color="primary.main">
-                            {normalization.reported_attendees || getFactValue('attendees')} نفر
+                            {activeProgramKind === 'honor' || activeProgramKind === 'customer_care'
+                              ? `${getFactValue('honored_count')} نفر`
+                              : `${normalization.reported_attendees || getFactValue('attendees')} نفر`}
                           </Typography>
                         </Grid>
                         <Grid size={{ xs: 6, sm: 3 }}>
@@ -1196,149 +1227,658 @@ export function ReportEventDetailModal({
 
                 {/* Worksheet Criteria Inputs */}
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: 'background.paper' }}>
-                  <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <AssessmentRounded fontSize="small" />
-                    سنجه‌ها و اقلام تفکیکی کاربرگ مربوطه ({activeProgramKind})
-                  </Typography>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+                    <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AssessmentRounded fontSize="small" />
+                      سنجه‌ها و اقلام تفکیکی کاربرگ مربوطه ({activeProgramKind})
+                    </Typography>
 
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="تعداد کل شرکت‌کنندگان (نفر)"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('attendees')}
-                        onChange={e => setFactValue('attendees', parseFloat(e.target.value) || 0, 'نفر', 'شرکت‌کنندگان کل')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
-                      />
-                    </Grid>
+                    {selectedPrograms.length > 1 && (
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="caption" color="text.secondary">انتخاب کاربرگ:</Typography>
+                        {selectedPrograms.map(prog => (
+                          <Chip
+                            key={prog}
+                            label={prog}
+                            size="small"
+                            clickable
+                            color={activeProgramKind === prog ? 'primary' : 'default'}
+                            variant={activeProgramKind === prog ? 'filled' : 'outlined'}
+                            onClick={() => setViewingProgramKind(prog)}
+                          />
+                        ))}
+                      </Stack>
+                    )}
+                  </Stack>
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="نفرات اختصاصی همکاران"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('trip_type_staff')}
-                        onChange={e => setFactValue('trip_type_staff', parseFloat(e.target.value) || 0, 'نفر', 'همکاران')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
-                      />
+                  {/* 1. HONOR (80406 - تکریم و تجلیل) */}
+                  {activeProgramKind === 'honor' && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد کل افراد تقدیرشده (نفر)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honored_count')}
+                          onChange={e => setFactValue('honored_count', parseFloat(e.target.value) || 0, 'نفر', 'افراد تقدیرشده کل')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تکریم مفاخر و نخبگان"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honor_legends')}
+                          onChange={e => setFactValue('honor_legends', parseFloat(e.target.value) || 0, 'نفر', 'مفاخر')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تکریم بازنشستگان"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honor_retirees')}
+                          onChange={e => setFactValue('honor_retirees', parseFloat(e.target.value) || 0, 'نفر', 'بازنشستگان')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تکریم پیشکسوتان و ایثارگران"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honor_veterans')}
+                          onChange={e => setFactValue('honor_veterans', parseFloat(e.target.value) || 0, 'نفر', 'پیشکسوتان')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تکریم خادمان نماز"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honor_prayer_servants')}
+                          onChange={e => setFactValue('honor_prayer_servants', parseFloat(e.target.value) || 0, 'نفر', 'خادمان نماز')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تکریم مناسبت‌های خاص"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honor_special')}
+                          onChange={e => setFactValue('honor_special', parseFloat(e.target.value) || 0, 'نفر', 'مناسبت‌های خاص')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="هدایای اهدایی به تکریم‌شدگان"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('gifts')}
+                          onChange={e => setFactValue('gifts', parseFloat(e.target.value) || 0, 'فقره', 'هدایا')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">فقره</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="پذیرایی و ضیافت غذا"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('reception')}
+                          onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="اطلاع‌رسانی و بازتاب رسانه‌ای"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('announcement')}
+                          onChange={e => setFactValue('announcement', parseFloat(e.target.value) || 0, 'مورد', 'اطلاع‌رسانی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مورد</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
+                  )}
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="نفرات اعضای خانواده"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('trip_type_family')}
-                        onChange={e => setFactValue('trip_type_family', parseFloat(e.target.value) || 0, 'نفر', 'اعضای خانواده')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
-                      />
+                  {/* 2. CEREMONIES (80403 - مراسم مذهبی، ملی و انقلابی) */}
+                  {(activeProgramKind === 'ceremony' || activeProgramKind === 'ceremonies') && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد کل شرکت‌کنندگان در مراسم (نفر)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('attendees')}
+                          onChange={e => setFactValue('attendees', parseFloat(e.target.value) || 0, 'نفر', 'شرکت‌کنندگان کل')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد مراسم مذهبی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('ceremony_religious')}
+                          onChange={e => setFactValue('ceremony_religious', parseFloat(e.target.value) || 0, 'مراسم', 'مذهبی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مراسم</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد مراسم ملی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('ceremony_national')}
+                          onChange={e => setFactValue('ceremony_national', parseFloat(e.target.value) || 0, 'مراسم', 'ملی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مراسم</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد مراسم انقلابی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('ceremony_revolutionary')}
+                          onChange={e => setFactValue('ceremony_revolutionary', parseFloat(e.target.value) || 0, 'مراسم', 'انقلابی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مراسم</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="هماهنگی سخنران / مداح / مجری"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('speaker_count')}
+                          onChange={e => setFactValue('speaker_count', parseFloat(e.target.value) || 0, 'نفر', 'سخنران/مداح')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="بسته‌های فرهنگی توزیع‌شده"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('culture_pack_count')}
+                          onChange={e => setFactValue('culture_pack_count', parseFloat(e.target.value) || 0, 'بسته', 'بسته‌های فرهنگی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">بسته</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="فضاسازی و تبلیغات محیطی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('space_setup_count')}
+                          onChange={e => setFactValue('space_setup_count', parseFloat(e.target.value) || 0, 'مورد', 'فضاسازی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مورد</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="پذیرایی و ضیافت غذا"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('reception')}
+                          onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="زیارت عاشورا — تعداد مراسم (پیوست جدا)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('ashura_pilgrimage_count')}
+                          onChange={e => setFactValue('ashura_pilgrimage_count', parseFloat(e.target.value) || 0, 'مراسم', 'زیارت عاشورا')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مراسم</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
+                  )}
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="ویژه مزدوجین سال اول ازدواج"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('trip_type_marriage')}
-                        onChange={e => setFactValue('trip_type_marriage', parseFloat(e.target.value) || 0, 'نفر', 'مزدوجین')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
-                      />
+                  {/* 3. PRAYER (80501 - ترویج و توسعه فرهنگ اقامه نماز) */}
+                  {activeProgramKind === 'prayer' && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد نمازگزاران (نفر)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('attendees')}
+                          onChange={e => setFactValue('attendees', parseFloat(e.target.value) || 0, 'نفر', 'نمازگزاران')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد نوبت‌های اقامه نماز جماعت"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('prayer_sessions')}
+                          onChange={e => setFactValue('prayer_sessions', parseFloat(e.target.value) || 0, 'نوبت', 'نوبت‌های نماز')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نوبت</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تجلیل از نومکلفین (رویش جوانه‌ها)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('new_duty_honorees')}
+                          onChange={e => setFactValue('new_duty_honorees', parseFloat(e.target.value) || 0, 'نفر', 'نومکلفین')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="ائمه جماعت مستقر و راتب"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('clergy_count')}
+                          onChange={e => setFactValue('clergy_count', parseFloat(e.target.value) || 0, 'نفر', 'ائمه جماعت')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تجهیز و زیباسازی نمازخانه"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('space_setup')}
+                          onChange={e => setFactValue('space_setup', parseFloat(e.target.value) || 0, 'مورد', 'تجهیز نمازخانه')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مورد</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="پذیرایی و افطاری"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('reception')}
+                          onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی نماز')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
+                  )}
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="امتیاز / تعداد نظرسنجی اثربخشی"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('survey')}
-                        onChange={e => setFactValue('survey', parseFloat(e.target.value) || 0, 'عدد', 'نظرسنجی')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">نمره/تعداد</InputAdornment> }}
-                      />
+                  {/* 4. CONTEST (80402 - مسابقات قرآن و مسابقات فرهنگی-ورزشی) */}
+                  {(activeProgramKind === 'contest' || activeProgramKind === 'contests' || activeProgramKind === 'quran_contest') && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="شرکت‌کنندگان مسابقات قرآنی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('quran_attendees')}
+                          onChange={e => setFactValue('quran_attendees', parseFloat(e.target.value) || 0, 'نفر', 'شرکت‌کنندگان قرآنی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="شرکت‌کنندگان مسابقات فرهنگی-ورزشی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('attendees')}
+                          onChange={e => setFactValue('attendees', parseFloat(e.target.value) || 0, 'نفر', 'شرکت‌کنندگان فرهنگی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد مسابقات برگزار شده"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('contest_count')}
+                          onChange={e => setFactValue('contest_count', parseFloat(e.target.value) || 0, 'دوره', 'تعداد مسابقه')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">دوره</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد برندگان و تجلیل‌شدگان"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('winners_count')}
+                          onChange={e => setFactValue('winners_count', parseFloat(e.target.value) || 0, 'نفر', 'برندگان')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="مسابقه تشویق به فرزندآوری (ماده ۲۸)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('contest_childbearing')}
+                          onChange={e => setFactValue('contest_childbearing', parseFloat(e.target.value) || 0, 'مورد', 'ماده ۲۸')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مورد</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="جوایز و هدایای اهدایی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('awards_count')}
+                          onChange={e => setFactValue('awards_count', parseFloat(e.target.value) || 0, 'فقره', 'جوایز')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">فقره</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
+                  )}
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="وسیله نقلیه / اتوبوس هماهنگ‌شده"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('vehicle')}
-                        onChange={e => setFactValue('vehicle', parseFloat(e.target.value) || 0, 'دستگاه', 'هماهنگی خودرو')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">دستگاه</InputAdornment> }}
-                      />
+                  {/* 5. CUSTOMER CARE (80601 - تشویق ارباب رجوع) */}
+                  {activeProgramKind === 'customer_care' && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد کارکنان تشویق‌شده (نفر)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('honored_count')}
+                          onChange={e => setFactValue('honored_count', parseFloat(e.target.value) || 0, 'نفر', 'کارکنان تشویق‌شده')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد نشست‌ها و آیین‌های تشویق"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('ceremony_count')}
+                          onChange={e => setFactValue('ceremony_count', parseFloat(e.target.value) || 0, 'مراسم', 'جلسات تشویق')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">مراسم</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="کارکنان اداری تشویق‌شده"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('audience_administrative')}
+                          onChange={e => setFactValue('audience_administrative', parseFloat(e.target.value) || 0, 'نفر', 'اداری')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="کارکنان قضایی تشویق‌شده"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('audience_judicial')}
+                          onChange={e => setFactValue('audience_judicial', parseFloat(e.target.value) || 0, 'نفر', 'قضایی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="پذیرایی و ضیافت غذا"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('reception')}
+                          onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
+                  )}
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="بیمه‌نامه معتبر حوادث"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('insurance')}
-                        onChange={e => setFactValue('insurance', parseFloat(e.target.value) || 0, 'فقره', 'بیمه‌نامه')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">فقره</InputAdornment> }}
-                      />
+                  {/* 6. CHARTER (80602 - منشور اخلاقی و رفتار حرفه‌ای) */}
+                  {activeProgramKind === 'charter' && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="شرکت‌کنندگان دوره‌ها و کارگاه‌ها"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('attendees')}
+                          onChange={e => setFactValue('attendees', parseFloat(e.target.value) || 0, 'نفر', 'شرکت‌کنندگان منشور')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد جلسات و نشست‌های تبیینی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('sessions')}
+                          onChange={e => setFactValue('sessions', parseFloat(e.target.value) || 0, 'جلسه', 'جلسات منشور')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">جلسه</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="توزیع منشور و دستنامه‌های رفتاری"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('handbooks')}
+                          onChange={e => setFactValue('handbooks', parseFloat(e.target.value) || 0, 'جلد', 'دستنامه‌ها')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">جلد</InputAdornment> }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="پذیرایی و ضیافت"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('reception')}
+                          onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
+                  )}
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="پذیرایی و ضیافت غذا"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('reception')}
-                        onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
-                      />
-                    </Grid>
+                  {/* 7. TRIP (80404 - اردو و گردشگری) OR DEFAULT */}
+                  {(activeProgramKind === 'trip' || (!['honor', 'ceremony', 'ceremonies', 'prayer', 'contest', 'contests', 'quran_contest', 'customer_care', 'charter'].includes(activeProgramKind))) && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="تعداد کل شرکت‌کنندگان (نفر)"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('attendees')}
+                          onChange={e => setFactValue('attendees', parseFloat(e.target.value) || 0, 'نفر', 'شرکت‌کنندگان کل')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
 
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField
-                        label="سین تفصیلی برنامه"
-                        type="number"
-                        size="small"
-                        fullWidth
-                        value={getFactValue('program_schedule')}
-                        onChange={e => setFactValue('program_schedule', parseFloat(e.target.value) || 0, 'برنامه', 'سین برنامه')}
-                        InputProps={{ endAdornment: <InputAdornment position="end">برگ</InputAdornment> }}
-                      />
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="نفرات اختصاصی همکاران"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('trip_type_staff')}
+                          onChange={e => setFactValue('trip_type_staff', parseFloat(e.target.value) || 0, 'نفر', 'همکاران')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="نفرات اعضای خانواده"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('trip_type_family')}
+                          onChange={e => setFactValue('trip_type_family', parseFloat(e.target.value) || 0, 'نفر', 'اعضای خانواده')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="ویژه مزدوجین سال اول ازدواج"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('trip_type_marriage')}
+                          onChange={e => setFactValue('trip_type_marriage', parseFloat(e.target.value) || 0, 'نفر', 'مزدوجین')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نفر</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="امتیاز / تعداد نظرسنجی اثربخشی"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('survey')}
+                          onChange={e => setFactValue('survey', parseFloat(e.target.value) || 0, 'عدد', 'نظرسنجی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">نمره/تعداد</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="وسیله نقلیه / اتوبوس هماهنگ‌شده"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('vehicle')}
+                          onChange={e => setFactValue('vehicle', parseFloat(e.target.value) || 0, 'دستگاه', 'هماهنگی خودرو')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">دستگاه</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="بیمه‌نامه معتبر حوادث"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('insurance')}
+                          onChange={e => setFactValue('insurance', parseFloat(e.target.value) || 0, 'فقره', 'بیمه‌نامه')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">فقره</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="پذیرایی و ضیافت غذا"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('reception')}
+                          onChange={e => setFactValue('reception', parseFloat(e.target.value) || 0, 'وعده', 'پذیرایی')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">وعده</InputAdornment> }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                          label="سین تفصیلی برنامه"
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={getFactValue('program_schedule')}
+                          onChange={e => setFactValue('program_schedule', parseFloat(e.target.value) || 0, 'برنامه', 'سین برنامه')}
+                          InputProps={{ endAdornment: <InputAdornment position="end">برگ</InputAdornment> }}
+                        />
+                      </Grid>
                     </Grid>
-                  </Grid>
+                  )}
                 </Paper>
 
-                {/* All Event Facts Table */}
+                {/* All Event Facts Table with Inline Edit & Delete */}
                 <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-                  <Typography variant="subtitle2" fontWeight={800} color="text.secondary" sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={800} color="text.secondary" sx={{ mb: 1.5 }}>
                     جدول کلیه فکت‌ها و سنجه‌های ثبت‌شده در پایگاه داده ({facts.length} ردیف):
                   </Typography>
-                  <TableContainer sx={{ maxHeight: 240 }}>
+                  <TableContainer sx={{ maxHeight: 260 }}>
                     <Table size="small">
                       <TableHead sx={{ bgcolor: 'action.hover' }}>
                         <TableRow>
                           <TableCell sx={{ fontWeight: 700 }}>شناسه سنجه (Metric)</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>مقدار</TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>واحد سنجش</TableCell>
+                          <TableCell sx={{ fontWeight: 700, width: 140 }}>مقدار</TableCell>
+                          <TableCell sx={{ fontWeight: 700, width: 100 }}>واحد سنجش</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>توضیحات</TableCell>
+                          <TableCell sx={{ fontWeight: 700, width: 60 }} align="center">عملیات</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {facts.map((f, i) => (
                           <TableRow key={i}>
                             <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{f.metric}</TableCell>
-                            <TableCell sx={{ fontWeight: 700 }}>{f.value}</TableCell>
+                            <TableCell>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={f.value}
+                                onChange={e => {
+                                  const val = parseFloat(e.target.value) || 0
+                                  setFacts(prev => prev.map((item, idx) => idx === i ? { ...item, value: val } : item))
+                                }}
+                                sx={{ width: 110 }}
+                              />
+                            </TableCell>
                             <TableCell>{f.unit_of_measure}</TableCell>
                             <TableCell>{f.note || '—'}</TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => removeFact(f.metric)}
+                                title="حذف این سنجه"
+                              >
+                                <DeleteForeverRounded fontSize="small" />
+                              </IconButton>
+                            </TableCell>
                           </TableRow>
                         ))}
                         {facts.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={4} align="center" sx={{ py: 2, color: 'text.secondary' }}>
+                            <TableCell colSpan={5} align="center" sx={{ py: 2, color: 'text.secondary' }}>
                               هنوز سنجه‌ای ذخیره نشده است. با تنظیم فیلدهای بالا و ذخیره، اقلام اضافه خواهند شد.
                             </TableCell>
                           </TableRow>
@@ -1346,6 +1886,48 @@ export function ReportEventDetailModal({
                       </TableBody>
                     </Table>
                   </TableContainer>
+
+                  {/* Add Custom Fact inline */}
+                  <Box sx={{ mt: 2, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
+                      <TextField
+                        size="small"
+                        label="شناسه سنجه جدید (Metric)"
+                        value={newCustomFactMetric}
+                        onChange={e => setNewCustomFactMetric(e.target.value)}
+                        placeholder="مثال: honored_count"
+                        sx={{ flex: 1 }}
+                      />
+                      <TextField
+                        size="small"
+                        type="number"
+                        label="مقدار"
+                        value={newCustomFactValue}
+                        onChange={e => setNewCustomFactValue(e.target.value)}
+                        sx={{ width: 100 }}
+                      />
+                      <TextField
+                        size="small"
+                        label="واحد"
+                        value={newCustomFactUnit}
+                        onChange={e => setNewCustomFactUnit(e.target.value)}
+                        sx={{ width: 90 }}
+                      />
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        disabled={!newCustomFactMetric.trim() || isNaN(Number(newCustomFactValue))}
+                        onClick={() => {
+                          if (!newCustomFactMetric.trim()) return
+                          setFactValue(newCustomFactMetric.trim(), parseFloat(newCustomFactValue) || 0, newCustomFactUnit.trim() || 'count', 'دستی')
+                          setNewCustomFactMetric('')
+                          setNewCustomFactValue('')
+                        }}
+                      >
+                        + افزودن سنجه
+                      </Button>
+                    </Stack>
+                  </Box>
                 </Paper>
               </Stack>
             )}

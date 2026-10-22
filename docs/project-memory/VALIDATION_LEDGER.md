@@ -3607,6 +3607,40 @@ otes, program_kinds_json, occurred_on در update_event_fields؛ لود و دی�
 - نتیجه: عنوان رویداد، سرفصل برنامه و تمام تصاویر شواهد ایتا به طور دقیق ثبت شده و در پوشه پرونده جامع رویداد فرهنگی در دسترس قرار گرفتند.
 - مرجع: F-140.
 
+### V-307 — اعتبارسنجی تجمیع استانی سنجه‌های تکریم، الیاس‌های سنجه، پیش‌تکمیل خودکار کاربرگ و انطباق با قاعده B9
+
+- تاریخ: 2026-10-22؛ Trigger: گزارش کاربر مبنی بر عدم نمایش عدد ۱ ثبت‌شده برای سنجه افراد تقدیرشده در کاربرگ مربوطه و لزوم تجمیع دقیق اعداد در محاسبات استانی.
+- دامنهٔ تغییرات:
+  - `src/eitaa_bridge/reporting/forms.py`:
+    - پیاده‌سازی نگاشت `METRIC_ALIASES` برای مترادف‌های `honored_count`, `honoree_count`, `honorees`, `attendees`, `participants_count`, `quran_attendees`, `ceremony_count`, `trip_count`, `contest_count`.
+    - پیش‌تکمیل خودکار شمارنده رویدادها (`ceremony_count`) در غیاب فکت مستقیم.
+  - `src/eitaa_bridge/reporting/aggregate.py`:
+    - به‌روزرسانی `aggregate_program_report` جهت تجمیع جامع سنجه‌های عددی تکریم در `report.counts["honorees"]` و دیکشنری تفکیک حوزه قضایی (`unit_bucket["honorees"]`).
+  - `src/eitaa_bridge/reporting/excel_export.py`:
+    - فال‌بک ایمن سلول C5 در شیت تکریم و تجلیل و تشویق ارباب رجوع به مقدار تجمیعی `report.counts.get("honorees")`.
+  - `src/eitaa_bridge/reporting/defect_scanner.py`:
+    - افزودن کد نقص `unconfirmed_official_presence` به اسکنر جهت کنترل قاعده B9/C8.
+  - `src/eitaa_bridge/application/api.py`:
+    - پیش‌تکمیل خودکار مقادیر پاسخ فرم در `_reporting_list_forms` و `_reporting_get_form` از رویدادهای تاییدشده در غیاب پاسخ دستی ذخیره‌شده.
+  - `ui/src/ReportingRegistrationPanel.tsx`:
+    - الحاق سوییچ «حضور رئیس‌کل یا بالاترین مقام قضایی حوزه» به استپ دوم با استنتاج هوشمند از متن پیام و ارسال فیلد `official_present` در پی‌لود ساخت رویداد.
+  - `ui/src/components/ReportEventDetailModal.tsx`:
+    - پیاده‌سازی `FACT_ALIASES` و ارتقای توابع `getFactValue` و `setFactValue` و `removeFact`.
+    - رندر داینامیک اقلام و سنجه‌های تفکیکی متناسب با هر یک از ۷ سرفصل برنامه مصوب در تب ۱.
+    - ارتقای کارت آماری KPI در تب ۱ جهت نمایش «افراد تقدیرشده ثبت‌شده: ۱ نفر».
+    - جدول تعاملی، قابل ویرایش درون‌خطی و قابل حذف برای تمامی فکت‌ها به همراه کادر افزودن سنجه دستی جدید.
+  - `tests/test_reporting_cartable_and_export.py`:
+    - نگارش آزمون جدید `test_honor_form_prefill_and_aggregation_with_metric_aliases`.
+- شواهد و آزمون‌های کیفیت:
+  - آزمون واحد: اجرای موفق `test_honor_form_prefill_and_aggregation_with_metric_aliases` و کسب ۱۰۰٪ پاس.
+  - آزمون تجمیع در پایگاه داده واقعی: سوادکوه شمالی (۱ نفر) + تنکابن (۱ نفر) + دادگستری کل (۵۴ نفر) = تجمیع دقیق ۵۶ نفر تقدیرشده در سطح استان.
+  - بیلد و تایپ‌چک کامل UI: اجرای `npm run check` و `npm run build` با کد خروجی ۰.
+  - آزمون‌های رگرسیون پایتون: اجرای کل سوئیت آزمون‌های گزارش‌گیری و بسته تحویل `test_g07_release_packaging.py` با کد خروجی ۰.
+  - بازسازی و به‌روزرسانی پکیج Wheel با `scripts/build_wheel_stdlib.py --force`.
+  - راه‌اندازی زنده: راه‌اندازی مجدد سرور پس‌زمینه با PID=11344 روی پورت ۸۷۶۵.
+- نتیجه: سنجه افراد تقدیرشده (عدد ۱) به طور کامل در تب ۱ پوشه پرونده جامع نمایش داده شده و در کاربرگ‌ها، فرم‌ها و خروجی اکسل در کنار سایر واحدهای قضایی استان به درستی تجمیع می‌شود.
+- مرجع: F-141.
+
 ## آزمون‌ها و اعتبارسنجی‌های تاریخی ادغام‌شده از مخزن EitaaDesktop
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.

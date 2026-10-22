@@ -452,18 +452,50 @@ def prefill_form(
     for key in ("province", "report_period", "row_scope"):
         form.set(key, context.get(key, "جمع استان" if key == "row_scope" else ""), source=ValueSource.MANUAL)
 
+    METRIC_ALIASES: dict[str, set[str]] = {
+        "honoree_count": {"honoree_count", "honored_count", "honorees"},
+        "honored_count": {"honoree_count", "honored_count", "honorees"},
+        "honorees": {"honoree_count", "honored_count", "honorees"},
+        "attendees": {"attendees", "participants_count", "quran_attendees"},
+        "participants_count": {"attendees", "participants_count"},
+        "quran_attendees": {"attendees", "participants_count", "quran_attendees"},
+        "ceremony_count": {"ceremony_count", "events_count", "events"},
+        "trip_count": {"trip_count", "events_count", "events"},
+        "contest_count": {"contest_count", "events_count", "events"},
+        "survey": {"survey", "survey_score", "survey_count"},
+        "reception": {"reception", "reception_count"},
+        "announcement": {"announcement", "announcement_count"},
+        "gifts": {"gifts", "gift_count"},
+    }
+
     auto_answers: dict[str, list[Any]] = {}
     for item in events:
         facts_list = getattr(item, "facts", None)
         if facts_list is not None and isinstance(facts_list, (list, tuple)):
             for fact in facts_list:
+                f_metric = getattr(fact, "metric", "")
                 for question in definition.questions:
-                    if question.auto_from and question.auto_from == getattr(fact, "metric", ""):
+                    target_key = question.auto_from or question.key
+                    aliases = METRIC_ALIASES.get(target_key, {target_key})
+                    if f_metric in aliases:
                         auto_answers.setdefault(question.key, []).append(fact)
         elif hasattr(item, "metric"):
+            f_metric = getattr(item, "metric", "")
             for question in definition.questions:
-                if question.auto_from and question.auto_from == getattr(item, "metric", ""):
+                target_key = question.auto_from or question.key
+                aliases = METRIC_ALIASES.get(target_key, {target_key})
+                if f_metric in aliases:
                     auto_answers.setdefault(question.key, []).append(item)
+
+    valid_events_count = len(events)
+    for question in definition.questions:
+        if question.key in ("ceremony_count", "trip_count", "contest_count") and not auto_answers.get(question.key):
+            form.set(
+                question.key,
+                valid_events_count,
+                value_kind=FactValueKind.OBSERVED,
+                source=ValueSource.EITAA,
+            )
 
     for question in definition.questions:
         if question.human_gate or not question.auto_from:

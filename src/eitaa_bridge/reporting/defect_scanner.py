@@ -144,4 +144,17 @@ def scan_event_defects(
             )
         )
 
+    # Rule 7: Missing official presence for honor / customer care (Rule B9 / C8)
+    if any(k in (ProgramKind.HONOR, ProgramKind.CUSTOMER_CARE) for k in event.program_kinds):
+        if event.official_present is not True:
+            defects.append(
+                DefectItem(
+                    defect_code="unconfirmed_official_presence",
+                    severity="warning",
+                    title="عدم تأیید حضور مقام قضایی / رئیس‌کل (قاعده B9/C8)",
+                    description="مطابق کاربرگ تکریم و تجلیل و تشویق ارباب رجوع، احراز حضور رئیس‌کل یا مقام قضایی استان جهت شمارش آماری در کاربرگ الزامی است.",
+                    field_name="official_present",
+                )
+            )
+
     return defects

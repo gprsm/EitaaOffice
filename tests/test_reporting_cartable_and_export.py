@@ -250,3 +250,51 @@ def test_list_events_safe_against_numeric_catalog_codes(store: ReportingStore) -
     # list_events must not crash
     events = store.list_events()
     assert any(e.event_id == "evt_num_01" for e in events)
+
+
+def test_honor_form_prefill_and_aggregation_with_metric_aliases() -> None:
+    from eitaa_bridge.reporting.model import (
+        ReportedEvent,
+        ProgramKind,
+        UnitScope,
+        Fact,
+        FactValueKind,
+        ValueSource,
+        ProgramId,
+    )
+    from eitaa_bridge.reporting.forms import HONOR_FORM, prefill_form
+    from eitaa_bridge.reporting.aggregate import aggregate_program_report
+    from datetime import date
+
+    ev = ReportedEvent(
+        event_id="evt-test-honor-01",
+        program_kinds=(ProgramKind.HONOR,),
+        occurred_on=date(2026, 10, 19),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="سوادکوه - دادگستری",
+        occasion="تقدیر از همکار روشن دل",
+        official_present=True,
+        is_standalone_titled=True,
+        facts=[
+            Fact(
+                metric="honored_count",
+                value=1.0,
+                value_kind=FactValueKind.VERIFIED,
+                unit_of_measure="نفر",
+                source=ValueSource.MANUAL,
+            )
+        ],
+    )
+
+    # 1. prefill_form must map honored_count to honorees and ceremony_count to 1
+    filled = prefill_form(HONOR_FORM, [ev])
+    assert filled.answers["honorees"].value == 1
+    assert filled.answers["ceremony_count"].value == 1
+
+    # 2. aggregate_program_report must sum into counts['honorees'] and breakdown_by_unit
+    rep = aggregate_program_report(ProgramId.HONOR, [ev])
+    assert rep.counts["honor"] == 1
+    assert rep.counts["honorees"] == 1
+    assert rep.breakdown_by_unit["سوادکوه - دادگستری"]["honorees"] == 1
+    assert rep.breakdown_by_unit["سوادکوه - دادگستری"]["events"] == 1
+

@@ -86,14 +86,23 @@ def aggregate_program_report(
         unit_bucket["events"] = unit_bucket.get("events", 0) + 1
 
         for fact in event.facts:
-            if fact.metric == "attendees":
-                if _exportable(fact.value_kind):
-                    report.attendees_total += int(fact.value)
-                    unit_bucket["attendees"] = unit_bucket.get("attendees", 0) + int(fact.value)
-                else:
-                    report.value_kind_warnings.append(
-                        f"{event.event_id}: attendees value_kind={fact.value_kind.value} excluded from verified aggregate"
-                    )
+            if not _exportable(fact.value_kind):
+                report.value_kind_warnings.append(
+                    f"{event.event_id}: {fact.metric} value_kind={fact.value_kind.value} excluded from verified aggregate"
+                )
+                continue
+            m = fact.metric
+            val = int(fact.value) if float(fact.value).is_integer() else fact.value
+            if m in ("attendees", "participants_count", "quran_attendees"):
+                report.attendees_total += int(val)
+                unit_bucket["attendees"] = unit_bucket.get("attendees", 0) + int(val)
+            elif m in ("honored_count", "honoree_count", "honorees"):
+                report.counts["honorees"] = report.counts.get("honorees", 0) + int(val)
+                report.counts["honored_count"] = report.counts.get("honored_count", 0) + int(val)
+                unit_bucket["honorees"] = unit_bucket.get("honorees", 0) + int(val)
+            else:
+                report.counts[m] = report.counts.get(m, 0) + val
+                unit_bucket[m] = unit_bucket.get(m, 0) + val
 
     return report
 

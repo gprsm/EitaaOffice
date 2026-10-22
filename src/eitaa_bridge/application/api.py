@@ -4839,12 +4839,21 @@ class BridgeApplicationApi:
             val_all = raw_all[0] if isinstance(raw_all, (list, tuple)) else str(raw_all or "")
             val_narrative = raw_narrative[0] if isinstance(raw_narrative, (list, tuple)) else str(raw_narrative or "")
             include_all = val_all in ("true", "1") or val_narrative in ("true", "1")
+        from ..reporting.model import ProgramId
         definitions = self._reporting_service.definitions(include_narrative=include_all)
         saved = self._reporting_service.load_filled_forms()
+        events_all = self._reporting_service.get_stored_events(limit=500)
         forms_list = []
         for defn in definitions:
             prog_id = "narrative" if defn.program_code == "80000" else defn.program_id.value
             f = saved.get(prog_id)
+            matching_events = [e for e in events_all if any(getattr(k, "value", str(k)) == prog_id for k in getattr(e, "program_kinds", ()))]
+            prefilled = None
+            try:
+                if hasattr(defn, "program_id") and isinstance(defn.program_id, ProgramId):
+                    prefilled = self._reporting_service.prefill(defn.program_id, matching_events)
+            except Exception:
+                pass
             questions_data = [
                 {
                     "key": q.key,
@@ -4855,7 +4864,9 @@ class BridgeApplicationApi:
                     "choices": list(q.choices),
                     "auto_from": q.auto_from,
                     "current_value": (
-                        f.answers[q.key].value if f and q.key in f.answers else None
+                        f.answers[q.key].value
+                        if f and q.key in f.answers and f.answers[q.key].value is not None
+                        else (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else None)
                     ),
                 }
                 for q in defn.questions
@@ -4887,9 +4898,18 @@ class BridgeApplicationApi:
             return ApiResponse(
                 404, {"ok": False, "error": {"message": f"Unknown program {program_id!r}"}}
             )
+        from ..reporting.model import ProgramId
         defn = EXTENDED_FORMS_BY_PROGRAM[program_id]
         saved = self._reporting_service.load_filled_forms()
         f = saved.get(program_id)
+        events_all = self._reporting_service.get_stored_events(limit=500)
+        matching_events = [e for e in events_all if any(getattr(k, "value", str(k)) == program_id for k in getattr(e, "program_kinds", ()))]
+        prefilled = None
+        try:
+            if hasattr(defn, "program_id") and isinstance(defn.program_id, ProgramId):
+                prefilled = self._reporting_service.prefill(defn.program_id, matching_events)
+        except Exception:
+            pass
         questions_data = [
             {
                 "key": q.key,
@@ -4900,7 +4920,9 @@ class BridgeApplicationApi:
                 "choices": list(q.choices),
                 "auto_from": q.auto_from,
                 "current_value": (
-                    f.answers[q.key].value if f and q.key in f.answers else None
+                    f.answers[q.key].value
+                    if f and q.key in f.answers and f.answers[q.key].value is not None
+                    else (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else None)
                 ),
             }
             for q in defn.questions
