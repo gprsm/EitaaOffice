@@ -3652,10 +3652,10 @@ class ReportingStore:
         count_liaisons = conn.execute("SELECT COUNT(*) FROM reporting_liaisons").fetchone()[0]
         if count_liaisons == 0:
             default_liaisons = [
-                ("قاسمی شورابی", "ساری - اداره کل", "ghasemi_sho", "قاسمی,شورابی,ستاد,اداره کل", "رابط فرهنگی اداره کل دادگستری استان مازندران"),
-                ("دیوسالار", "نور - دادگستری", "divsalar", "دیوسالار,نور", "رابط فرهنگی دادگستری شهرستان نور"),
-                ("مهدوی", "سوادکوه - دادگستری", "mahdavi_c", "مهدوی,سوادکوه", "رابط فرهنگی دادگستری شهرستان سوادکوه"),
-                ("احسانی", "بابل - دادگستری", "ehsani", "احسانی,بابل", "رابط فرهنگی دادگستری شهرستان بابل"),
+                ("قاسمی شورابی", "ساری - اداره کل", "ghasemi_sho", "قاسمی,شورابی", "رابط فرهنگی اداره کل دادگستری استان مازندران"),
+                ("دیوسالار", "نور - دادگستری", "divsalar", "دیوسالار", "رابط فرهنگی دادگستری شهرستان نور"),
+                ("مهدوی", "سوادکوه - دادگستری", "mahdavi_c", "مهدوی", "رابط فرهنگی دادگستری شهرستان سوادکوه"),
+                ("احسانی", "بابل - دادگستری", "ehsani", "احسانی", "رابط فرهنگی دادگستری شهرستان بابل"),
             ]
             for f_name, target_unit_disp, uname, kws, notes in default_liaisons:
                 unit_row = conn.execute(
@@ -3673,6 +3673,12 @@ class ReportingStore:
                         """,
                         (l_id, unit_row["unit_id"], f_name, uname, kws, notes, now, now),
                     )
+
+        # Clean up legacy noisy unit/city keywords from default seeded liaisons
+        conn.execute("UPDATE reporting_liaisons SET match_keywords = 'قاسمی,شورابی' WHERE full_name = 'قاسمی شورابی' AND match_keywords LIKE '%اداره کل%'")
+        conn.execute("UPDATE reporting_liaisons SET match_keywords = 'دیوسالار' WHERE full_name = 'دیوسالار' AND match_keywords LIKE '%نور%'")
+        conn.execute("UPDATE reporting_liaisons SET match_keywords = 'مهدوی' WHERE full_name = 'مهدوی' AND match_keywords LIKE '%سوادکوه%'")
+        conn.execute("UPDATE reporting_liaisons SET match_keywords = 'احسانی' WHERE full_name = 'احسانی' AND match_keywords LIKE '%بابل%'")
 
     @staticmethod
     def _row_to_unit(row: sqlite3.Row) -> UnitRecord:
@@ -3919,16 +3925,44 @@ class ReportingStore:
                     matched_liaison = l
                     break
 
-        # 4. Check match_keywords on liaisons against f_name, u_name, or text
+        # 4. Check match_keywords on liaisons against sender identity (f_name, u_name, s_key)
         if not matched_liaison:
-            target_str = f"{f_name} {u_name} {msg_text}"
-            for l in all_liaisons:
-                if not l.match_keywords:
-                    continue
-                kws = [k.strip() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
-                if any(kw in target_str for kw in kws):
-                    matched_liaison = l
-                    break
+            sender_identity = f"{f_name} {u_name} {s_key}".lower()
+            if sender_identity.strip():
+                for l in all_liaisons:
+                    if not l.match_keywords:
+                        continue
+                    kws = [k.strip().lower() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
+                    for kw in kws:
+                        kw_pattern = rf"(?:^|[^\w؀-ۿ]){re.escape(kw)}(?=[^\w؀-ۿ]|$)"
+                        if re.search(kw_pattern, sender_identity):
+                            matched_liaison = l
+                            break
+                    if matched_liaison:
+                        break
+
+        # 4b. Only inspect msg_text for explicit reporter markers if liaison is still not matched
+        # (e.g. text includes "رابط فرهنگی: مهدوی" or "گزارشگر: مهدوی" or "از مهدوی رابط")
+        if not matched_liaison and msg_text:
+            reporter_prefix_match = re.search(
+                r"(?:رابط فرهنگی|گزارشگر|نویسنده|ارسال‌کننده|توسط|از)\s*[:：\-–]?\s*([^\n،,.:]{3,35})",
+                msg_text,
+            )
+            extracted_author = reporter_prefix_match.group(1).strip() if reporter_prefix_match else ""
+            if extracted_author:
+                for l in all_liaisons:
+                    if l.full_name and (l.full_name in extracted_author or extracted_author in l.full_name):
+                        matched_liaison = l
+                        break
+                    if l.match_keywords:
+                        kws = [k.strip().lower() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
+                        for kw in kws:
+                            kw_pattern = rf"(?:^|[^\w؀-ۿ]){re.escape(kw)}(?=[^\w؀-ۿ]|$)"
+                            if re.search(kw_pattern, extracted_author.lower()):
+                                matched_liaison = l
+                                break
+                    if matched_liaison:
+                        break
 
         if matched_liaison:
             unit = self.get_unit(matched_liaison.unit_id)

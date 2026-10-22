@@ -83,7 +83,7 @@ export const MAZANDARAN_CITIES = [
 export const SENDER_BINDINGS: Record<string, { unit: 'provincial_hq' | 'judicial_domain'; unit_name: string; canonicalAuthor?: string }> = {
   'مهدوی': { unit: 'judicial_domain', unit_name: 'دادگستری سوادکوه', canonicalAuthor: 'مهدوی (رابط فرهنگی سوادکوه)' },
   'دیوسالار': { unit: 'judicial_domain', unit_name: 'دادگستری نور', canonicalAuthor: 'محمدامین دیوسالار (رابط فرهنگی نور)' },
-  'احسا': { unit: 'judicial_domain', unit_name: 'دادگستری بابل', canonicalAuthor: 'احسانی (رابط فرهنگی بابل)' },
+  'احسانی': { unit: 'judicial_domain', unit_name: 'دادگستری بابل', canonicalAuthor: 'احسانی (رابط فرهنگی بابل)' },
   'قاسمی شورابی': { unit: 'provincial_hq', unit_name: 'ستاد دادگستری کل استان', canonicalAuthor: 'قاسمی شورابی (ستاد استانی)' },
   'شورابی': { unit: 'provincial_hq', unit_name: 'ستاد دادگستری کل استان', canonicalAuthor: 'قاسمی شورابی (ستاد استانی)' },
 }
@@ -128,10 +128,11 @@ export function inferRegistrationDefaults(
 
   const isGenericAuthor = !author || author === 'Eitaa' || author === 'شما' || author === 'نویسنده نامشخص' || author === 'مخاطب ایتا'
 
-  // If author is generic, inspect SENDER_BINDINGS against message text
+  // If author is generic, inspect SENDER_BINDINGS strictly against sender peer title or username (NEVER message text!)
   if (isGenericAuthor) {
+    const senderIdentity = `${dialog?.peer?.title || ''} ${primaryMsg?.sender_username || ''}`
     for (const [senderKey, binding] of Object.entries(SENDER_BINDINGS)) {
-      if (combinedText.includes(senderKey) && binding.canonicalAuthor) {
+      if (senderIdentity.includes(senderKey) && binding.canonicalAuthor) {
         author = binding.canonicalAuthor
         break
       }
@@ -159,9 +160,9 @@ export function inferRegistrationDefaults(
   let unit: 'provincial_hq' | 'judicial_domain' = 'provincial_hq'
   let unit_name = ''
 
-  // First check sender bindings
+  // First check sender bindings strictly against author or peer title (NEVER against arbitrary words in combinedText)
   for (const [senderName, binding] of Object.entries(SENDER_BINDINGS)) {
-    if (author.includes(senderName) || combinedText.includes(senderName)) {
+    if (author.includes(senderName) || (dialog?.peer?.title && dialog.peer.title.includes(senderName))) {
       unit = binding.unit
       unit_name = binding.unit_name
       break
@@ -319,6 +320,9 @@ export function ReportingRegistrationPanel(props: {
   const [programCatalog, setProgramCatalog] = useState<ProgramCatalogItem[]>([])
   const [unitsModalOpen, setUnitsModalOpen] = useState(false)
   const dirtyRef = useRef(false)
+  const userEditedAuthorRef = useRef(false)
+  const userEditedUnitRef = useRef(false)
+  const resolvedMsgKeyRef = useRef<string>('')
 
   const loadJudicialUnits = useCallback(async () => {
     try {
@@ -340,11 +344,16 @@ export function ReportingRegistrationPanel(props: {
     })
   }, [loadJudicialUnits])
 
-  // Resolve liaison and unit from backend registry automatically
+  // Resolve liaison and unit from backend registry automatically (only once per unique message)
   useEffect(() => {
+    const primaryMsg = props.sourceMessage || (props.sourceMessages && props.sourceMessages.length ? props.sourceMessages[0] : null)
+    const msgKey = `${primaryMsg?.id || ''}_${props.dialog?.peer?.id || ''}`
+    if (!msgKey || msgKey === '_' || resolvedMsgKeyRef.current === msgKey) return
+    resolvedMsgKeyRef.current = msgKey
+
+    let isMounted = true
     const resolveSenderAndUnit = async () => {
       try {
-        const primaryMsg = props.sourceMessage || (props.sourceMessages && props.sourceMessages.length ? props.sourceMessages[0] : null)
         const combinedText = (props.sourceMessages || (props.sourceMessage ? [props.sourceMessage] : [])).map(m => m.text || '').join('\n')
         const author = primaryMsg ? authorLabel(props.dialog, primaryMsg) : ''
 
@@ -358,20 +367,28 @@ export function ReportingRegistrationPanel(props: {
           full_name: author,
           text: combinedText,
         })
+        if (!isMounted) return
+
         if (res.matched) {
-          setDraft(current => ({
-            ...current,
-            unit_name: res.unit?.display_name || current.unit_name,
-            unit: (res.unit?.kind === 'provincial_hq' ? 'provincial_hq' : 'judicial_domain') as any,
-            author: res.liaison?.full_name ? res.liaison.full_name : current.author,
-          }))
+          setDraft(current => {
+            const nextAuthor = !userEditedAuthorRef.current && res.liaison?.full_name ? res.liaison.full_name : current.author
+            const nextUnitName = !userEditedUnitRef.current && res.unit?.display_name ? res.unit.display_name : current.unit_name
+            const nextUnit = !userEditedUnitRef.current && res.unit?.kind ? (res.unit.kind === 'provincial_hq' ? 'provincial_hq' : 'judicial_domain') : current.unit
+            return {
+              ...current,
+              unit_name: nextUnitName,
+              unit: nextUnit as any,
+              author: nextAuthor,
+            }
+          })
         }
       } catch (err) {
         console.warn('Auto resolve liaison warning:', err)
       }
     }
-    resolveSenderAndUnit()
-  }, [props.sourceMessage, props.dialog, props.sourceMessages])
+    void resolveSenderAndUnit()
+    return () => { isMounted = false }
+  }, [props.sourceMessage?.id, props.dialog?.peer?.id])
 
   // Restore a saved draft once on mount (incomplete forms must survive reloads).
   useEffect(() => {
@@ -651,7 +668,10 @@ export function ReportingRegistrationPanel(props: {
           <TextField
             label="نویسنده / رابط فرهنگی گزارش"
             value={draft.author}
-            onChange={event => update({ author: event.target.value })}
+            onChange={event => {
+              userEditedAuthorRef.current = true
+              update({ author: event.target.value })
+            }}
             fullWidth
             placeholder="مثال: روابط عمومی دادگستری بابل / مهدوی"
             helperText="نام رابط فرهنگی یا ارسال‌کننده پیام در ایتا"
@@ -668,6 +688,7 @@ export function ReportingRegistrationPanel(props: {
               groupBy={option => (typeof option === 'string' ? 'سایر' : (option.county || 'واحدهای استانی'))}
               value={draft.unit_name}
               onChange={(_, val) => {
+                userEditedUnitRef.current = true
                 if (typeof val === 'string') {
                   const isHq = val.includes('اداره کل') || val.includes('ستاد')
                   update({
@@ -684,6 +705,7 @@ export function ReportingRegistrationPanel(props: {
                 }
               }}
               onInputChange={(_, val) => {
+                userEditedUnitRef.current = true
                 const isHq = val.includes('اداره کل') || val.includes('ستاد')
                 update({
                   unit_name: val,

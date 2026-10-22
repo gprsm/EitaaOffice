@@ -178,8 +178,8 @@ class Fact:
             raise ValueError("Fact metric cannot be empty.")
         if self.value < 0:
             raise ValueError("Fact value cannot be negative.")
-        if self.unit_of_measure not in {"count", "currency", "percent", "text"}:
-            raise ValueError(f"Unknown unit of measure: {self.unit_of_measure!r}")
+        if not isinstance(self.unit_of_measure, str) or not self.unit_of_measure.strip():
+            raise ValueError("Fact unit of measure cannot be empty.")
 
     def is_export_ready(self) -> bool:
         return self.value_kind in {FactValueKind.VERIFIED, FactValueKind.OBSERVED, FactValueKind.REPORTED_BY_UNIT}

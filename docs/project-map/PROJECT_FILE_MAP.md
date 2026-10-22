@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 475
-- اثرانگشت منبع: `e8811b418f67e02e`
+- اثرانگشت منبع: `95b89c2f98b67ded`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -322,7 +322,7 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
-| `tests/test_judicial_units_and_liaisons.py` | Python test | 14 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
+| `tests/test_judicial_units_and_liaisons.py` | Python test | 16 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
 | `tests/test_linux_identity_protection.py` | Python test | 4 | — |
 | `tests/test_m2m_endpoints.py` | Python test | 44 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |

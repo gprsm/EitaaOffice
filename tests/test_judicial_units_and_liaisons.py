@@ -553,3 +553,74 @@ def test_api_v3_sync_eitaa_contact_routes(tmp_path: Path) -> None:
     assert status_all == 200
     assert payload_all["ok"] is True
     assert payload_all["synced_count"] >= 1
+
+
+def test_fact_unit_of_measure_persian_and_custom_validation() -> None:
+    from eitaa_bridge.reporting.model import Fact, FactValueKind
+
+    # 1. Standard Persian units must pass validation
+    for uom in ["نفر", "جلسه", "عدد", "ساعت", "میلیون ریال", "درصد", "count", "text", "currency", "percent"]:
+        fact = Fact(metric="attendees", value=50.0, value_kind=FactValueKind.VERIFIED, unit_of_measure=uom)
+        fact.validate()
+
+    # 2. Empty metric must fail
+    with pytest.raises(ValueError, match="Fact metric cannot be empty"):
+        Fact(metric="   ", value=10.0, value_kind=FactValueKind.VERIFIED, unit_of_measure="نفر").validate()
+
+    # 3. Negative value must fail
+    with pytest.raises(ValueError, match="Fact value cannot be negative"):
+        Fact(metric="attendees", value=-5.0, value_kind=FactValueKind.VERIFIED, unit_of_measure="نفر").validate()
+
+    # 4. Empty unit of measure must fail
+    with pytest.raises(ValueError, match="Fact unit of measure cannot be empty"):
+        Fact(metric="attendees", value=10.0, value_kind=FactValueKind.VERIFIED, unit_of_measure="   ").validate()
+
+
+def test_resolve_liaison_prevents_false_author_attribution_from_message_body(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+
+    # 1. Message mentions "سوادکوه" in the news text, but sender is unknown.
+    # Must NOT assign liaison Mahdavi as the author!
+    # Must infer the unit as Savadkuh court, but keep liaison None.
+    l, u = store.resolve_liaison_and_unit(
+        sender_key="",
+        username="",
+        full_name="",
+        text="برگزاری مسابقات سراسری قرآن در دادگستری سوادکوه با شکوه فراوان انجام شد.",
+    )
+    assert l is None, "Should not attribute liaison Mahdavi to message body mentioning Savadkuh"
+    assert u is not None
+    assert "سوادکوه" in u.display_name
+
+    # 2. Message mentions "مهدویت" (contains substring 'مهدوی').
+    # Must NOT falsely match liaison Mahdavi.
+    l2, u2 = store.resolve_liaison_and_unit(
+        sender_key="",
+        username="",
+        full_name="",
+        text="مراسم معنوی دعای ندبه و تبیین مبانی مهدویت در نمازخانه برگزار گردید.",
+    )
+    assert l2 is None
+
+    # 3. Message mentions "احساس" (contains substring 'احسا').
+    # Must NOT falsely match liaison Ehsani.
+    l3, u3 = store.resolve_liaison_and_unit(
+        sender_key="",
+        username="",
+        full_name="",
+        text="ایجاد احساس آرامش و همدلی در میان کارکنان دستگاه قضایی.",
+    )
+    assert l3 is None
+
+    # 4. Explicit liaison mention in text (prefixed with 'رابط فرهنگی:')
+    # Must correctly resolve liaison Mahdavi
+    l4, u4 = store.resolve_liaison_and_unit(
+        sender_key="",
+        username="",
+        full_name="",
+        text="گزارش مراسم هفتگی زیارت عاشورا\nرابط فرهنگی: مهدوی",
+    )
+    assert l4 is not None
+    assert l4.full_name == "مهدوی"
+    assert u4 is not None
+    assert "سوادکوه" in u4.display_name
