@@ -82,3 +82,9 @@ artifacts/*.index
 artifacts/ux01_commit_snapshot/
 artifacts/ux01_commit_snapshot.zip
 gui-test-screenshots/
+.rtl-acceptance/
+offline_forms/
+/scripts/check_cdp.py
+/scripts/desktop_final_runner.py
+/scripts/mobile_visual_runner.py
+/scripts/run_reporting_registration_visual_audit.py
