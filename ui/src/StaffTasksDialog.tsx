@@ -56,6 +56,7 @@ import BusinessRounded from '@mui/icons-material/BusinessRounded'
 import PersonRounded from '@mui/icons-material/PersonRounded'
 import type { StaffTask, StaffTaskChecklistItem } from './lib/types'
 import { api } from './lib/api'
+import { JalaliDatePicker } from './components/JalaliDatePicker'
 
 type Props = {
   open: boolean
@@ -1050,14 +1051,13 @@ export function StaffTasksDialog({
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Stack spacing={1}>
-                    <TextField
-                      label="مهلت اقدام (سررسید YYYY-MM-DD)"
-                      type="date"
+                    <JalaliDatePicker
+                      label="مهلت اقدام (سررسید شمسی)"
                       value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
+                      onChange={(val) => setDueDate(val)}
                       fullWidth
                       size="small"
-                      InputLabelProps={{ shrink: true }}
+                      outputFormat="iso"
                     />
                     <Stack direction="row" spacing={1}>
                       <Button size="small" variant="text" onClick={() => applyDatePreset(1)}>

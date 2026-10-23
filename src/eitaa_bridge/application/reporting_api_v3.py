@@ -14,6 +14,7 @@ import uuid
 from datetime import date
 from typing import Any, Mapping
 
+from eitaa_bridge.reporting.jalali_dates import normalize_to_iso_date
 from eitaa_bridge.reporting.model import (
     Fact,
     FactValueKind,
@@ -130,9 +131,10 @@ def _mapped_error(exc: Exception):
 def _build_event_payload(payload: Mapping[str, Any], store: ReportingStore | None = None):
     raw = payload.get("occurred_on")
     try:
-        occurred = date.fromisoformat(str(raw)) if raw else date.today()
+        norm = normalize_to_iso_date(raw) if raw else date.today().isoformat()
+        occurred = date.fromisoformat(norm)
     except ValueError:
-        return _error(400, "occurred_on must be an ISO date")
+        return _error(400, "occurred_on must be an ISO or Jalali date")
 
     macro_cat = str(payload.get("macro_category", "workbook_approved") or "workbook_approved").strip()
     macro_category = "other_cultural" if macro_cat == "other_cultural" else "workbook_approved"

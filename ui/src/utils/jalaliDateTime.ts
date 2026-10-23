@@ -190,6 +190,31 @@ export function j2d(jy: number, jm: number, jd: number) {
   return g2d(r.gy, 3, r.march) + (jm - 1) * 31 - div(jm, 7) * (jm - 7) + jd - 1
 }
 
+export function d2j(jdn: number): { jy: number; jm: number; jd: number } {
+  const { gy } = d2g(jdn)
+  let jy = gy - 621
+  let r = jalCal(jy)
+  let jdn1f = g2d(gy, 3, r.march)
+  let k = jdn - jdn1f
+  if (k >= 0) {
+    if (k <= 185) {
+      return { jy, jm: 1 + div(k, 31), jd: 1 + mod(k, 31) }
+    } else {
+      k -= 186
+    }
+  } else {
+    jy -= 1
+    r = jalCal(jy)
+    jdn1f = g2d(r.gy, 3, r.march)
+    k = jdn - jdn1f - 186
+  }
+  return { jy, jm: 7 + div(k, 30), jd: 1 + mod(k, 30) }
+}
+
+export function gregorianToJalali(gy: number, gm: number, gd: number): { jy: number; jm: number; jd: number } {
+  return d2j(g2d(gy, gm, gd))
+}
+
 export function jalaliToGregorian(jy: number, jm: number, jd: number) {
   return d2g(j2d(jy, jm, jd))
 }
@@ -202,7 +227,7 @@ export function jalaliMonthLength(year: number, month: number): number {
 }
 
 /**
- * Parses Jalali string formatted as "YYYY/MM/DD" or "YYYY-MM-DD" into a Gregorian Date.
+ * Parses Jalali string formatted as "YYYY/MM/DD" or "YYYY-MM-DD", or ISO date into a Date.
  */
 export function parseJalaliDate(value: string): Date | null {
   if (!value) return null
@@ -213,6 +238,13 @@ export function parseJalaliDate(value: string): Date | null {
   const jy = Number(match[1])
   const jm = Number(match[2])
   const jd = Number(match[3])
+
+  // If year is > 1600, it is an ISO Gregorian date
+  if (jy > 1600) {
+    if (jm < 1 || jm > 12 || jd < 1 || jd > 31) return null
+    return new Date(jy, jm - 1, jd, 0, 0, 0, 0)
+  }
+
   if (jm < 1 || jm > 12 || jd < 1 || jd > 31) return null
   if (jm > 6 && jd > 30) return null
   if (jm === 12 && jd > jalaliMonthLength(jy, 12)) return null
@@ -222,7 +254,7 @@ export function parseJalaliDate(value: string): Date | null {
 }
 
 /**
- * Parses Jalali string formatted as "YYYY/MM/DD HH:mm" or "YYYY/MM/DD" into a Gregorian Date.
+ * Parses Jalali string formatted as "YYYY/MM/DD HH:mm" or "YYYY/MM/DD" into a Date.
  */
 export function parseJalaliDateTime(value: string): Date | null {
   if (!value) return null
@@ -237,8 +269,17 @@ export function parseJalaliDateTime(value: string): Date | null {
   const minute = match[5] ? Number(match[5]) : 0
   const second = match[6] ? Number(match[6]) : 0
 
-  if (jm < 1 || jm > 12 || jd < 1 || jd > 31) return null
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return null
+
+  // If year is > 1600, it is an ISO Gregorian date
+  if (jy > 1600) {
+    if (jm < 1 || jm > 12 || jd < 1 || jd > 31) return null
+    return new Date(jy, jm - 1, jd, hour, minute, second, 0)
+  }
+
+  if (jm < 1 || jm > 12 || jd < 1 || jd > 31) return null
+  if (jm > 6 && jd > 30) return null
+  if (jm === 12 && jd > jalaliMonthLength(jy, 12)) return null
 
   const g = jalaliToGregorian(jy, jm, jd)
   return new Date(g.gy, g.gm - 1, g.gd, hour, minute, second, 0)
@@ -249,5 +290,50 @@ export function parseJalaliDateTime(value: string): Date | null {
  */
 export function jalaliYmd(year: number, month: number, day: number): string {
   return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`
+}
+
+/**
+ * Converts any date representation (ISO date string, Date object, or Jalali string)
+ * to a standardized Jalali date string "YYYY/MM/DD".
+ */
+export function toJalaliString(value: Date | string | number | null | undefined): string {
+  if (!value) return ''
+  if (value instanceof Date) {
+    const j = gregorianToJalali(value.getFullYear(), value.getMonth() + 1, value.getDate())
+    return jalaliYmd(j.jy, j.jm, j.jd)
+  }
+  const latin = toLatinDigits(String(value)).trim()
+  if (!latin) return ''
+  const clean = latin.split(/[\sT]/)[0].replace(/-/g, '/')
+  const match = clean.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/)
+  if (!match) return latin
+  const y = Number(match[1])
+  const m = Number(match[2])
+  const d = Number(match[3])
+  if (y > 1600) {
+    const j = gregorianToJalali(y, m, d)
+    return jalaliYmd(j.jy, j.jm, j.jd)
+  }
+  return jalaliYmd(y, m, d)
+}
+
+/**
+ * Converts any date representation (Jalali string, ISO string) to standard ISO Gregorian "YYYY-MM-DD".
+ */
+export function toIsoDateString(value: string | null | undefined): string {
+  if (!value) return ''
+  const latin = toLatinDigits(String(value)).trim()
+  if (!latin) return ''
+  const clean = latin.split(/[\sT]/)[0].replace(/\//g, '-')
+  const match = clean.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!match) return latin
+  const y = Number(match[1])
+  const m = Number(match[2])
+  const d = Number(match[3])
+  if (y <= 1600) {
+    const g = jalaliToGregorian(y, m, d)
+    return `${g.gy}-${String(g.gm).padStart(2, '0')}-${String(g.gd).padStart(2, '0')}`
+  }
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 

@@ -79,7 +79,43 @@ import {
   type MicroIndicatorItem,
   type ProgramCatalogItem,
 } from '../lib/indicators'
-import { JalaliDateTimePicker } from './JalaliDateTimePicker'
+import { JalaliDatePicker } from './JalaliDatePicker'
+import { toPersianDigits } from '../utils/jalaliDateTime'
+
+export const METRIC_LABELS: Record<string, string> = {
+  honored_count: 'تعداد کل افراد تقدیرشده',
+  honorees: 'تعداد افراد تجلیل‌شده',
+  honoree_count: 'تعداد افراد تقدیرشده',
+  honor_legends: 'تکریم مفاخر و نخبگان',
+  honor_retirees: 'تکریم بازنشستگان',
+  honor_veterans: 'تکریم ایثارگران و جانبازان',
+  honor_prayer_servants: 'تجلیل از خادمان نماز',
+  honor_special: 'تقدیر ویژه / مناسبتی',
+  trip_type_staff: 'تعداد همکاران (پرسنل)',
+  trip_type_family: 'تعداد اعضای خانواده',
+  trip_count: 'تعداد اردوها / سفرها',
+  session_count: 'تعداد جلسات / نوبت‌ها',
+  duration_hours: 'مدت زمان برگزاری (ساعت)',
+  duration_minutes: 'مدت زمان (دقیقه)',
+  survey: 'نمره نظرسنجی اثربخشی',
+  survey_score: 'نمره نظرسنجی',
+  survey_respondents: 'تعداد پاسخ‌دهندگان نظرسنجی',
+  survey_satisfaction: 'درصد رضایت نظرسنجی',
+  attendees: 'تعداد شرکت‌کنندگان / مخاطبان',
+  attendee_count: 'تعداد مخاطبان',
+  participants_count: 'تعداد شرکت‌کنندگان',
+  quran_attendees: 'تعداد شرکت‌کنندگان قرآنی',
+  contest_count: 'تعداد مسابقات برگزارشده',
+  prayer_count: 'تعداد اقامه نماز جماعت',
+  reception: 'پذیرایی / میان‌وعده',
+  reception_cost: 'هزینه پذیرایی',
+  announcement: 'اطلاع‌رسانی قبلی / پوستر',
+  gifts: 'اهدای جوایز / هدایا',
+  exhibition_booths: 'تعداد غرفه‌های نمایشگاهی',
+  consultation_sessions: 'تعداد جلسات مشاوره',
+  charity_beneficiaries: 'تعداد بهره‌مندان کمک‌های مومنانه',
+  financial_docs_present: 'مستندات مالی موجود',
+}
 
 export interface ReportEventDetailModalProps {
   open: boolean
@@ -982,11 +1018,12 @@ export function ReportEventDetailModal({
                     </Grid>
 
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <JalaliDateTimePicker
-                        label="تاریخ وقوع رویداد"
+                      <JalaliDatePicker
+                        label="تاریخ برگزاری رویداد (شمسی)"
                         value={occurredOn}
                         onChange={val => setOccurredOn(val)}
                         size="small"
+                        fullWidth
                       />
                     </Grid>
 
@@ -1109,6 +1146,60 @@ export function ReportEventDetailModal({
                       </Box>
                     </Grid>
 
+                    {/* Summary of Registered Numeric Metrics (فکت‌ها و سنجه‌های ثبت‌شده رویداد) */}
+                    <Grid size={{ xs: 12 }}>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          bgcolor: 'background.paper',
+                          borderColor: facts.length > 0 ? 'primary.main' : 'divider',
+                        }}
+                      >
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <AssessmentRounded color={facts.length > 0 ? 'primary' : 'disabled'} fontSize="small" />
+                              <Typography variant="subtitle2" fontWeight={800}>
+                                آمار و سنجه‌های ثبت‌شده این رویداد ({toPersianDigits(facts.length)} قلم)
+                              </Typography>
+                            </Stack>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => setActiveTab(1)}
+                            >
+                              مشاهده و ویرایش تفصیلی در کاربرگ ←
+                            </Button>
+                          </Stack>
+
+                          {facts.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                              {facts.map((fact, idx) => {
+                                const label = METRIC_LABELS[fact.metric] || fact.note || fact.metric
+                                return (
+                                  <Chip
+                                    key={fact.metric + idx}
+                                    label={`${label}: ${toPersianDigits(fact.value)} ${fact.unit_of_measure || 'نفر'}`}
+                                    color="primary"
+                                    variant="outlined"
+                                    onClick={() => setActiveTab(1)}
+                                    clickable
+                                    sx={{ fontWeight: 700 }}
+                                  />
+                                )
+                              })}
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              هنوز سنجهٔ عددی برای این رویداد ثبت نشده است. می‌توانید در برگهٔ «ارزیابی و اقلام کاربرگ» یا بخش افزودن سنجه، آمار مورد نظر را وارد نمایید.
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Paper>
+                    </Grid>
+
                     {/* Extended Summary & Detailed Event Notes (Minimum 5 lines) */}
                     <Grid size={{ xs: 12 }}>
                       <TextField
@@ -1224,6 +1315,91 @@ export function ReportEventDetailModal({
                     </Stack>
                   </Paper>
                 )}
+
+                {/* Universal Registered Facts Section (کلیه سنجه‌های آماری ثبت‌شده این رویداد) */}
+                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: 'background.paper', border: 1, borderColor: 'primary.light' }}>
+                  <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <AssessmentRounded color="primary" />
+                        <Typography variant="subtitle1" fontWeight={800}>
+                          کلیه سنجه‌های آماری ثبت‌شده این رویداد ({toPersianDigits(facts.length)} سنجه)
+                        </Typography>
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        کلیه شاخص‌های کمی (از جمله افراد، همکاران، شرکت‌کنندگان و...) بدون تفکیک سرفصل از این بخش قابل مشاهده و ویرایش هستند.
+                      </Typography>
+                    </Stack>
+
+                    {facts.length > 0 ? (
+                      <Grid container spacing={2}>
+                        {facts.map((fact, idx) => {
+                          const label = METRIC_LABELS[fact.metric] || fact.note || fact.metric
+                          return (
+                            <Grid key={fact.metric + idx} size={{ xs: 12, sm: 6, md: 4 }}>
+                              <Paper
+                                variant="outlined"
+                                sx={{
+                                  p: 1.5,
+                                  borderRadius: 2,
+                                  bgcolor: 'action.hover',
+                                  borderColor: 'divider',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 1,
+                                }}
+                              >
+                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography variant="body2" fontWeight={800} color="text.primary">
+                                      {label}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                                      {fact.metric}
+                                    </Typography>
+                                  </Box>
+                                  <Tooltip title="حذف این سنجه">
+                                    <IconButton size="small" color="error" onClick={() => removeFact(fact.metric)}>
+                                      <DeleteOutlineRounded fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Stack>
+
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    fullWidth
+                                    label="مقدار"
+                                    value={fact.value}
+                                    onChange={e => setFactValue(fact.metric, parseFloat(e.target.value) || 0, fact.unit_of_measure, fact.note)}
+                                    InputProps={{
+                                      endAdornment: <InputAdornment position="end">{fact.unit_of_measure || 'نفر'}</InputAdornment>,
+                                    }}
+                                  />
+                                  <TextField
+                                    size="small"
+                                    label="واحد"
+                                    value={fact.unit_of_measure}
+                                    onChange={e => {
+                                      const nextUnit = e.target.value
+                                      setFacts(prev => prev.map((f, i) => i === idx ? { ...f, unit_of_measure: nextUnit } : f))
+                                    }}
+                                    sx={{ width: 90 }}
+                                  />
+                                </Stack>
+                              </Paper>
+                            </Grid>
+                          )
+                        })}
+                      </Grid>
+                    ) : (
+                      <Alert severity="info" variant="outlined">
+                        هنوز هیچ سنجهٔ آماری برای این رویداد ثبت نشده است. می‌توانید با فیلدهای کاربرگ زیر یا بخش «افزودن سنجه جدید» آمار را وارد نمایید.
+                      </Alert>
+                    )}
+                  </Stack>
+                </Paper>
 
                 {/* Worksheet Criteria Inputs */}
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, bgcolor: 'background.paper' }}>

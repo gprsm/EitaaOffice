@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 475
-- اثرانگشت منبع: `e5a4c230cb929602`
+- تعداد فایل‌های نقشه: 478
+- اثرانگشت منبع: `6f71b385217f7620`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -252,6 +252,7 @@
 | `src/eitaa_bridge/reporting/excel_export.py` | Project | 11 | Excel export: project a unified report onto a *copy* of the 1405 workbook. |
 | `src/eitaa_bridge/reporting/forms.py` | Project | 17 | Versioned questionnaire definitions for the seven workbook programs. |
 | `src/eitaa_bridge/reporting/indexer.py` | Project | 12 | Multi-criteria Eitaa message indexer for the 1405 reporting core. |
+| `src/eitaa_bridge/reporting/jalali_dates.py` | Project | 14 | Jalali (Solar Hijri) calendar utilities and conversion algorithms. |
 | `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-088). |
 | `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
 | `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
@@ -366,6 +367,7 @@
 | `tests/test_reporting_baseline_banks.py` | Python test | 5 | Tests for Master Baseline Banks and Registry APIs in reporting phase 2. |
 | `tests/test_reporting_cartable_and_export.py` | Python test | 9 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
+| `tests/test_reporting_event_fields_and_facts_crud.py` | Python test | 5 | Comprehensive CRUD and field-by-field verification test for ReportedEvents and Facts. |
 | `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
@@ -432,6 +434,7 @@
 | `ui/src/BaleWorkspace.tsx` | React UI | 15 | — |
 | `ui/src/ChatHeader.tsx` | React UI | 1 | — |
 | `ui/src/ClientErrorBoundary.tsx` | React UI | 4 | — |
+| `ui/src/components/JalaliDatePicker.tsx` | React UI | 9 | — |
 | `ui/src/components/JalaliDateTimePicker.tsx` | React UI | 7 | — |
 | `ui/src/components/JudicialUnitsManagementModal.tsx` | React UI | 17 | — |
 | `ui/src/components/LiaisonAuthorDialog.tsx` | React UI | 5 | — |
@@ -479,7 +482,7 @@
 | `ui/src/UsageInfoDialog.tsx` | React UI | 1 | — |
 | `ui/src/utils/helpers.tsx` | React UI | 28 | — |
 | `ui/src/utils/jalali.tsx` | React UI | 20 | — |
-| `ui/src/utils/jalaliDateTime.ts` | React UI | 21 | — |
+| `ui/src/utils/jalaliDateTime.ts` | React UI | 25 | — |
 | `ui/src/vite-env.d.ts` | React UI | 0 | — |
 | `ui/src/WordPressIcon.tsx` | React UI | 1 | — |
 | `ui/src/WorkspaceNavigation.tsx` | React UI | 4 | — |

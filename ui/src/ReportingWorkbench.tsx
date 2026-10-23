@@ -68,6 +68,7 @@ import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
 import { formatJalaliDate } from './utils/jalaliDateTime'
+import { JalaliDatePicker } from './components/JalaliDatePicker'
 import { ReportEventDetailModal } from './components/ReportEventDetailModal'
 import { JudicialUnitsManagementModal } from './components/JudicialUnitsManagementModal'
 import {
@@ -3218,12 +3219,13 @@ export function ReportingWorkbench({
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
+                <JalaliDatePicker
                   size="small"
                   fullWidth
-                  label="تاریخ برگزاری رویداد (YYYY-MM-DD)"
+                  label="تاریخ برگزاری رویداد (شمسی)"
                   value={approveOccurredOn}
-                  onChange={e => setApproveOccurredOn(e.target.value)}
+                  onChange={val => setApproveOccurredOn(val)}
+                  outputFormat="iso"
                 />
               </Grid>
 

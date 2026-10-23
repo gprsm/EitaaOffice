@@ -41,6 +41,7 @@ from .plans import Mandate, PlanItem
 from .registry import EntityFact, ImamRecord, LiaisonRecord, NomokalafRecord, PersonRecord, UnitRecord, VenueRecord
 from .sections import OFFICE_SECTIONS
 from .wp_links import WpPostLink
+from .jalali_dates import normalize_to_iso_date
 
 REPORTING_SCHEMA_VERSION = 8
 
@@ -1651,6 +1652,8 @@ class ReportingStore:
             progs = fields.pop("program_kinds")
             if "program_kinds_json" not in fields:
                 fields["program_kinds_json"] = json.dumps(progs, ensure_ascii=False)
+        if "occurred_on" in fields and fields["occurred_on"]:
+            fields["occurred_on"] = normalize_to_iso_date(fields["occurred_on"])
         unknown = set(fields) - self._EDITABLE_EVENT_FIELDS
         if unknown:
             raise ValueError(f"fields not editable: {sorted(unknown)}")

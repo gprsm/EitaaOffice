@@ -32,7 +32,7 @@ import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded'
 import AssessmentRounded from '@mui/icons-material/AssessmentRounded'
 import { api } from './lib/api'
 import { jalaliDayKey, jalaliDayLabel, parseJalaliDate } from './utils/helpers'
-import { JalaliDateTimePicker } from './components/JalaliDateTimePicker'
+import { JalaliDatePicker } from './components/JalaliDatePicker'
 import { JudicialUnitsManagementModal, JudicialUnitItem, LiaisonItem } from './components/JudicialUnitsManagementModal'
 import { useAppUser } from './AppUserGate'
 import type { DialogItem, MessageItem } from './lib/types'
@@ -688,14 +688,14 @@ export function ReportingRegistrationPanel(props: {
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <Box sx={{ flex: 1 }}>
-            <JalaliDateTimePicker
+            <JalaliDatePicker
               value={draft.occurredOn}
               onChange={val => update({ occurredOn: val })}
-              label="تاریخ و زمان رویداد (شمسی)"
+              label="تاریخ برگزاری رویداد (شمسی)"
               required
               fullWidth
-              error={Boolean(draft.occurredOn.length > 3 && !parseJalaliDate(draft.occurredOn))}
-              helperText={draft.occurredOn.length > 3 && !parseJalaliDate(draft.occurredOn) ? 'قالب تاریخ نامعتبر است' : 'تقویم خورشیدی و انتخاب ساعت/دقیقه'}
+              size="small"
+              helperText="تقویم خورشیدی و درج تاریخ وقوع فعالیت فرهنگی"
             />
           </Box>
           <TextField

@@ -3645,6 +3645,39 @@ otes, program_kinds_json, occurred_on در update_event_fields؛ لود و دی�
 
 رکوردهای LEGACY-DESKTOP-V* زیر از مخزن EitaaDesktop (شاخهٔ server-update-20261003) ادغام شده‌اند. شناسه‌های اولیهٔ V-221 تا V-260 با آزمون‌های بومی سامانهٔ دفتر و تقویم هم‌پوشانی داشتند و طبق اصل تقدم محلی با پیشوند LEGACY-DESKTOP- نگهداری می‌شوند.
 
+### V-308 — اعتبارسنجی ماژول یکپارچه تقویم خورشیدی (JalaliDatePicker)، نرمال‌سازی خودکار تاریخ شمسی/میلادی، رفع ناپیدایی سنجه‌های جانبی در پرونده رویداد و تست تک‌تک فیلدها و فکت‌ها
+
+- تاریخ: 2026-10-23؛ Trigger: دستور کاربر پیرامون استفاده انحصاری از DatePicker ماژولار شمسی بدون مؤلفه ساعت، شفاف‌سازی علت عدم نمایش فکت دوم در رویداد evt-296c357aef و ضرورت تست کامل تک‌به‌تک فیلدها و فکت‌ها.
+- دامنهٔ تغییرات:
+  - ui/src/components/JalaliDatePicker.tsx:
+    - کامپوننت ماژولار تقویم شمسی بدون ساعت با انتخابگرهای سال و ماه، هایلایت روز جاری، دکمه‌های اقدام سریع و خروجی استاندارد ISO/Jalali.
+    - کامپوننت بازه زمانی JalaliDateRangePicker با پیش‌تنظیم‌های روز، ماه و سال جاری.
+  - ui/src/utils/jalaliDateTime.ts:
+    - پیاده‌سازی تبدیل معکوس d2j / gregorianToJalali و تصحیح باگ تفسیر سال‌های بزرگتر از ۱۶۰۰ به عنوان سال جلالی در parseJalaliDate.
+  - src/eitaa_bridge/reporting/jalali_dates.py:
+    - ماژول ریاضی مستقل پایتون برای تبدیل تقویم و نرمال‌سازی 
+ormalize_to_iso_date و ormat_to_jalali_date.
+  - src/eitaa_bridge/reporting/store.py و src/eitaa_bridge/application/reporting_api_v3.py:
+    - نرمال‌سازی مقاوم ورودی‌های occurred_on در ثبت و به‌روزرسانی رویدادها.
+  - ui/src/components/ReportEventDetailModal.tsx:
+    - اضافه شدن کارت خلاصه فکت‌ها به تب ۰ و کارت‌های ویرایش فراگیر سنجه‌ها در بالای تب ۱، جایگزینی کامل با JalaliDatePicker.
+  - ui/src/ReportingRegistrationPanel.tsx, ui/src/StaffTasksDialog.tsx, ui/src/ReportingWorkbench.tsx:
+    - جایگزینی پیکرهای یتیم با JalaliDatePicker.
+  - 	ests/test_reporting_event_fields_and_facts_crud.py:
+    - اعتبارسنجی خودکار به‌روزرسانی تمام فیلدهای قابل ویرایش (occasion, macro_category, custom_topic, macro_indicator, micro_indicators, program_kinds, unit, unit_name, occurred_on, official_present, is_ashura_pilgrimage, is_standalone_titled, 
+otes) و پایداری فکت‌های همزمان.
+- شواهد و نتایج ارزیابی:
+  - pytest tests/test_reporting_event_fields_and_facts_crud.py: ۴ آزمون با موفقیت پاس شدند.
+  - pytest tests/test_g07_release_packaging.py: ۱۵ آزمون با موفقیت پاس شدند.
+  - 
+pm.cmd --prefix ui run check: بررسی کامل TypeScript با خروجی ۰ پاس شد.
+  - 
+pm.cmd --prefix ui run build: بیلد کامل با vite با موفقیت در ۱۲.۱۳ ثانیه انجام شد و فایل باندل تولید گردید.
+  - 
+pm.cmd --prefix ui run test:observability: کلیه تست‌های قرارداد پاس شدند.
+  - scripts/check_project_memory_integrity.py: سلامت فایل‌های حافظه بدون خطای انکودینگ تایید شد.
+- وضعیت: VERIFIED / PASS.
+
 ### LEGACY-DESKTOP-V221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
 
 - تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / ISOLATED SYNTHETIC RUNTIME REPRO / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.
