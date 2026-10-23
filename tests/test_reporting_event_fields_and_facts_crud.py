@@ -215,3 +215,140 @@ def test_rejects_non_editable_fields(memory_store: ReportingStore):
             expected_etag=etag,
             fields={"event_id": "malicious_change", "occasion": "عنوان جدید"},
         )
+
+
+def test_partial_update_preserves_unmodified_fields_and_facts(memory_store: ReportingStore):
+    """Delta updates must only modify passed fields without collateral wiping of others."""
+    event = ReportedEvent(
+        event_id="evt-partial-1",
+        program_kinds=(ProgramKind.HONOR,),
+        occurred_on=date(2026, 10, 22),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری بهشهر",
+        occasion="مراسم تقدیر از کارمندان نمونه دادگستری بهشهر در هفته قوه قضاییه",
+        macro_indicator="شاخصه اولیه",
+        notes="یادداشت اولیه",
+        created_by="تستر",
+    )
+    memory_store.save_event(event)
+    etag = memory_store.get_event_etag("evt-partial-1")
+
+    # Add a fact
+    etag = memory_store.update_event_fields(
+        "evt-partial-1",
+        actor="تستر",
+        expected_etag=etag,
+        fields={"facts": [{"metric": "honored_count", "value": 5.0, "unit_of_measure": "نفر"}]},
+    )
+
+    # Perform partial update changing ONLY macro_indicator
+    new_etag = memory_store.update_event_fields(
+        "evt-partial-1",
+        actor="تستر",
+        expected_etag=etag,
+        fields={"macro_indicator": "تکریم و تجلیل از همکاران و خانواده"},
+    )
+    assert new_etag != etag
+
+    # Verify macro_indicator was updated while occurred_on, program_kinds, facts, occasion remain intact!
+    loaded = memory_store.get_event("evt-partial-1")
+    assert loaded.macro_indicator == "تکریم و تجلیل از همکاران و خانواده"
+    assert loaded.occurred_on == date(2026, 10, 22)
+    assert loaded.program_kinds == (ProgramKind.HONOR,)
+    assert loaded.occasion == "مراسم تقدیر از کارمندان نمونه دادگستری بهشهر در هفته قوه قضاییه"
+    assert loaded.unit_name == "دادگستری بهشهر"
+    assert len(loaded.facts) == 1
+    assert loaded.facts[0].metric == "honored_count"
+    assert loaded.facts[0].value == 5.0
+
+
+def test_update_event_rejects_empty_mandatory_fields(memory_store: ReportingStore):
+    """Updating mandatory fields like occurred_on and occasion to empty must be rejected."""
+    event = ReportedEvent(
+        event_id="evt-mandatory-1",
+        program_kinds=(ProgramKind.HONOR,),
+        occurred_on=date(2026, 10, 22),
+        unit=UnitScope.COURTHOUSE,
+        unit_name="دادگستری ساری",
+        occasion="عنوان معتبر",
+        created_by="تستر",
+    )
+    memory_store.save_event(event)
+    etag = memory_store.get_event_etag("evt-mandatory-1")
+
+    # Reject empty occurred_on
+    with pytest.raises(ValueError, match="occurred_on"):
+        memory_store.update_event_fields(
+            "evt-mandatory-1",
+            actor="تستر",
+            expected_etag=etag,
+            fields={"occurred_on": ""},
+        )
+
+    with pytest.raises(ValueError, match="occurred_on"):
+        memory_store.update_event_fields(
+            "evt-mandatory-1",
+            actor="تستر",
+            expected_etag=etag,
+            fields={"occurred_on": "   "},
+        )
+
+    # Reject empty occasion
+    with pytest.raises(ValueError, match="occasion"):
+        memory_store.update_event_fields(
+            "evt-mandatory-1",
+            actor="تستر",
+            expected_etag=etag,
+            fields={"occasion": ""},
+        )
+
+    # Empty unit defaults to provincial_hq
+    new_etag = memory_store.update_event_fields(
+        "evt-mandatory-1",
+        actor="تستر",
+        expected_etag=etag,
+        fields={"unit": ""},
+    )
+    assert memory_store.get_event("evt-mandatory-1").unit == UnitScope.PROVINCIAL_HQ
+
+
+def test_get_and_list_events_crash_resilience_on_corrupt_db_records(memory_store: ReportingStore):
+    """Corrupted legacy rows with empty occurred_on or non-standard program_kinds must not crash store."""
+    # Directly inject corrupted row into SQLite to simulate bad database state
+    with memory_store._connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO reported_events (
+                event_id, program_kinds_json, occurred_on, unit, unit_name,
+                occasion, occasion_class, official_present, is_standalone_titled,
+                duration_minutes, prior_announcement, had_reception, is_ashura_pilgrimage,
+                contains_inner_contest, notes, created_at, created_by, campaign,
+                review_status, version, registered_by_id, registered_by_name,
+                reviewed_by_id, reviewed_by_name, reviewed_at, review_notes,
+                revision_count, defects_json, macro_category, custom_topic,
+                macro_indicator, micro_indicators_json
+            ) VALUES (
+                'evt-corrupt-row', '["80406"]', '', 'courthouse', 'واحد تست',
+                'رویداد با تاریخ خالی', NULL, 0, 1,
+                NULL, 0, 0, 0,
+                0, 'تست تاب‌آوری', '2026-10-22T08:00:00Z', 'تستر', '',
+                'draft', 1, '', '',
+                '', '', NULL, '',
+                0, '[]', 'workbook_approved', '',
+                '', '[]'
+            )
+            """
+        )
+        conn.commit()
+
+    # get_event must NOT crash with ValueError: Invalid isoformat string
+    event = memory_store.get_event("evt-corrupt-row")
+    assert event is not None
+    assert event.event_id == "evt-corrupt-row"
+    assert isinstance(event.occurred_on, date)
+    assert event.program_kinds == (ProgramKind.HONOR,)
+
+    # list_events must NOT crash
+    all_events = memory_store.list_events()
+    assert any(e.event_id == "evt-corrupt-row" for e in all_events)
+

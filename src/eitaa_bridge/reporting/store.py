@@ -50,6 +50,64 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _safe_date_from_row(val: Any, fallback: date | None = None) -> date:
+    if isinstance(val, date):
+        return val
+    if isinstance(val, datetime):
+        return val.date()
+    val_str = str(val or "").strip()
+    if not val_str:
+        return fallback or date.today()
+    try:
+        iso_str = normalize_to_iso_date(val_str)
+        return date.fromisoformat(iso_str)
+    except Exception:
+        return fallback or date.today()
+
+
+def _safe_datetime_from_row(val: Any, fallback: datetime | None = None) -> datetime:
+    if isinstance(val, datetime):
+        return val
+    val_str = str(val or "").strip()
+    if not val_str:
+        return fallback or datetime.now(timezone.utc)
+    try:
+        return datetime.fromisoformat(val_str)
+    except Exception:
+        return fallback or datetime.now(timezone.utc)
+
+
+def _safe_program_kind(k: Any) -> ProgramKind:
+    try:
+        return ProgramKind(k)
+    except ValueError:
+        code_map = {
+            "80401": ProgramKind.TRIP,
+            "80402": ProgramKind.CONTEST,
+            "80403": ProgramKind.CEREMONY,
+            "80501": ProgramKind.PRAYER,
+            "80406": ProgramKind.HONOR,
+            "80601": ProgramKind.CUSTOMER_CARE,
+            "80202": ProgramKind.CHARTER,
+        }
+        return code_map.get(str(k), ProgramKind.CEREMONY)
+
+
+def _safe_json_list(val: Any) -> list:
+    if isinstance(val, list):
+        return val
+    if isinstance(val, (tuple, set)):
+        return list(val)
+    val_str = str(val or "").strip()
+    if not val_str:
+        return []
+    try:
+        res = json.loads(val_str)
+        return res if isinstance(res, list) else []
+    except Exception:
+        return []
+
+
 class ReportingStoreError(Exception):
     """Base error for reporting storage operations."""
 
@@ -1652,8 +1710,21 @@ class ReportingStore:
             progs = fields.pop("program_kinds")
             if "program_kinds_json" not in fields:
                 fields["program_kinds_json"] = json.dumps(progs, ensure_ascii=False)
-        if "occurred_on" in fields and fields["occurred_on"]:
-            fields["occurred_on"] = normalize_to_iso_date(fields["occurred_on"])
+        if "occurred_on" in fields:
+            raw_occ = str(fields["occurred_on"] or "").strip()
+            if not raw_occ:
+                raise ValueError("تاریخ برگزاری رویداد (occurred_on) الزامی است و نمی‌تواند خالی باشد.")
+            fields["occurred_on"] = normalize_to_iso_date(raw_occ)
+        if "occasion" in fields:
+            raw_occ = str(fields["occasion"] or "").strip()
+            if not raw_occ:
+                raise ValueError("عنوان یا مناسبت رویداد (occasion) نمی‌تواند خالی باشد.")
+            fields["occasion"] = raw_occ
+        if "unit" in fields:
+            unit_val = fields["unit"]
+            if hasattr(unit_val, "value"):
+                unit_val = unit_val.value
+            fields["unit"] = str(unit_val or "").strip() or "provincial_hq"
         unknown = set(fields) - self._EDITABLE_EVENT_FIELDS
         if unknown:
             raise ValueError(f"fields not editable: {sorted(unknown)}")
@@ -2905,42 +2976,22 @@ class ReportingStore:
                     Fact(
                         metric=fr["metric"],
                         value=float(fr["value"]),
-                        value_kind=FactValueKind(fr["value_kind"]),
+                        value_kind=FactValueKind(fr["value_kind"]) if fr["value_kind"] in FactValueKind._value2member_map_ else FactValueKind.OBSERVED,
                         unit_of_measure=fr["unit_of_measure"],
                         scope=fr["scope"],
-                        evidence_refs=tuple(json.loads(fr["evidence_refs_json"])),
-                        source=ValueSource(fr["source"]),
-                        created_at=datetime.fromisoformat(fr["created_at"]),
+                        evidence_refs=tuple(_safe_json_list(fr["evidence_refs_json"])),
+                        source=ValueSource(fr["source"]) if fr["source"] in ValueSource._value2member_map_ else ValueSource.MANUAL,
+                        created_at=_safe_datetime_from_row(fr["created_at"]),
                         created_by=fr["created_by"] or "",
                         note=fr["note"] or "",
                     )
                     for fr in fact_rows
                 ]
 
-                occurred = (
-                    date.fromisoformat(row["occurred_on"])
-                    if isinstance(row["occurred_on"], str)
-                    else row["occurred_on"]
-                )
-
-                def _to_program_kind(k: Any) -> ProgramKind:
-                    try:
-                        return ProgramKind(k)
-                    except ValueError:
-                        code_map = {
-                            "80401": ProgramKind.TRIP,
-                            "80402": ProgramKind.CONTEST,
-                            "80403": ProgramKind.CEREMONY,
-                            "80501": ProgramKind.PRAYER,
-                            "80406": ProgramKind.HONOR,
-                            "80601": ProgramKind.CUSTOMER_CARE,
-                            "80202": ProgramKind.CHARTER,
-                        }
-                        return code_map.get(str(k), ProgramKind.CEREMONY)
-
-                kinds = tuple(_to_program_kind(k) for k in json.loads(row["program_kinds_json"]))
+                occurred = _safe_date_from_row(row["occurred_on"])
+                kinds = tuple(_safe_program_kind(k) for k in _safe_json_list(row["program_kinds_json"]))
                 unit = UnitScope(row["unit"]) if row["unit"] in {u.value for u in UnitScope} else UnitScope.PROVINCIAL_HQ
-                occasion_class = OccasionClass(row["occasion_class"]) if row["occasion_class"] else None
+                occasion_class = OccasionClass(row["occasion_class"]) if row["occasion_class"] and row["occasion_class"] in OccasionClass._value2member_map_ else None
                 official_present = (
                     True if row["official_present"] == 1 else (False if row["official_present"] == 0 else None)
                 )
@@ -2996,22 +3047,18 @@ class ReportingStore:
                     value_kind=FactValueKind(fr["value_kind"]) if fr["value_kind"] in FactValueKind._value2member_map_ else FactValueKind.OBSERVED,
                     unit_of_measure=fr["unit_of_measure"],
                     scope=fr["scope"],
-                    evidence_refs=tuple(json.loads(fr["evidence_refs_json"])),
+                    evidence_refs=tuple(_safe_json_list(fr["evidence_refs_json"])),
                     source=ValueSource(fr["source"]) if fr["source"] in ValueSource._value2member_map_ else ValueSource.MANUAL,
-                    created_at=datetime.fromisoformat(fr["created_at"]),
+                    created_at=_safe_datetime_from_row(fr["created_at"]),
                     created_by=fr["created_by"] or "",
                     note=fr["note"] or "",
                 )
                 for fr in fact_rows
             ]
-            occurred = (
-                date.fromisoformat(row["occurred_on"])
-                if isinstance(row["occurred_on"], str)
-                else row["occurred_on"]
-            )
-            kinds = tuple(ProgramKind(k) for k in json.loads(row["program_kinds_json"]))
+            occurred = _safe_date_from_row(row["occurred_on"])
+            kinds = tuple(_safe_program_kind(k) for k in _safe_json_list(row["program_kinds_json"]))
             unit = UnitScope(row["unit"]) if row["unit"] in {u.value for u in UnitScope} else UnitScope.PROVINCIAL_HQ
-            occasion_class = OccasionClass(row["occasion_class"]) if row["occasion_class"] else None
+            occasion_class = OccasionClass(row["occasion_class"]) if row["occasion_class"] and row["occasion_class"] in OccasionClass._value2member_map_ else None
             official_present = (
                 True if row["official_present"] == 1 else (False if row["official_present"] == 0 else None)
             )
@@ -3027,7 +3074,7 @@ class ReportingStore:
                 macro_category=row["macro_category"] if "macro_category" in row.keys() and row["macro_category"] else "workbook_approved",
                 custom_topic=row["custom_topic"] if "custom_topic" in row.keys() and row["custom_topic"] else "",
                 macro_indicator=row["macro_indicator"] if "macro_indicator" in row.keys() and row["macro_indicator"] else "",
-                micro_indicators=json.loads(row["micro_indicators_json"]) if "micro_indicators_json" in row.keys() and row["micro_indicators_json"] else [],
+                micro_indicators=_safe_json_list(row["micro_indicators_json"]) if "micro_indicators_json" in row.keys() else [],
                 facts=facts,
                 official_present=official_present,
                 is_standalone_titled=bool(row["is_standalone_titled"]),
@@ -3038,14 +3085,14 @@ class ReportingStore:
                 contains_inner_contest=bool(row["contains_inner_contest"]),
                 campaign=(row["campaign"] or "") if "campaign" in row.keys() else "",
                 notes=row["notes"] or "",
-                created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else datetime.now(timezone.utc),
+                created_at=_safe_datetime_from_row(row["created_at"]),
                 created_by=row["created_by"] or "",
                 review_status=row["review_status"] if "review_status" in row.keys() and row["review_status"] else "draft",
                 registered_by_id=row["registered_by_id"] if "registered_by_id" in row.keys() and row["registered_by_id"] else (row["created_by"] or ""),
                 registered_by_name=row["registered_by_name"] if "registered_by_name" in row.keys() and row["registered_by_name"] else (row["created_by"] or ""),
                 reviewed_by_id=row["reviewed_by_id"] if "reviewed_by_id" in row.keys() and row["reviewed_by_id"] else "",
                 reviewed_by_name=row["reviewed_by_name"] if "reviewed_by_name" in row.keys() and row["reviewed_by_name"] else "",
-                reviewed_at=datetime.fromisoformat(row["reviewed_at"]) if "reviewed_at" in row.keys() and row["reviewed_at"] else None,
+                reviewed_at=_safe_datetime_from_row(row["reviewed_at"]) if "reviewed_at" in row.keys() and row["reviewed_at"] else None,
                 review_notes=row["review_notes"] if "review_notes" in row.keys() and row["review_notes"] else "",
                 revision_count=int(row["revision_count"]) if "revision_count" in row.keys() and row["revision_count"] is not None else 0,
                 defects_json=row["defects_json"] if "defects_json" in row.keys() and row["defects_json"] else "[]",

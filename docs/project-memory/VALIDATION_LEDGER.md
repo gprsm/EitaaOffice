@@ -3678,6 +3678,35 @@ pm.cmd --prefix ui run test:observability: کلیه تست‌های قراردا
   - scripts/check_project_memory_integrity.py: سلامت فایل‌های حافظه بدون خطای انکودینگ تایید شد.
 - وضعیت: VERIFIED / PASS.
 
+### V-309 — اعتبارسنجی به‌روزرسانی تفاضلی (Delta Updates)، ممانعت از بازنویسی فیلدهای دست‌نخورده، رد تاریخ خالی با 400 Bad Request و تاب‌آوری store در مواجهه با رکوردهای بدون تاریخ
+
+- تاریخ: 2026-10-23؛ Trigger: ریشه‌یابی و حل خطای 500 در ویرایش شاخصه کلی رویداد evt-e39b1a143e و ممانعت قطعی از پاک‌شدن فیلد تاریخ یا سایر فیلدهای دست‌نخورده.
+- دامنهٔ تغییرات:
+  - `ui/src/components/ReportEventDetailModal.tsx`:
+    - پیاده‌سازی تابع تفاضلی `getDirtyFields()` جهت ارسال انحصاری فیلدهای تغییریافته به اندپوینت PUT به جای بازنویسی کورکورانه هر ۱۳ فیلد.
+    - افزودن اعتبارسنجی مقادیر خالی در فیلدهای اجباری (`occasion` و `occurredOn`) قبل از ارسال درخواست.
+    - تنظیم `required={true}`، `error` و `helperText` برای کامپوننت `JalaliDatePicker` جهت حذف دکمه پاک‌کردن تاریخ در فیلد اجباری.
+  - `src/eitaa_bridge/reporting/store.py`:
+    - در `update_event_fields`: اعتبارسنجی صریح فیلدهای `occurred_on` و `occasion` و عدم اجازه به ذخیره رشته خالی در دیتابیس (صدور `ValueError` که در لایه API به 400 Bad Request نگاشت می‌شود).
+    - در `list_events` و `get_event`: استفاده از توابع کمکی امن `_safe_date_from_row`، `_safe_program_kind` و `_safe_json_list` جهت تاب‌آوری صددرصدی در صورت وجود داده‌های ناقص یا خراب در پایگاه‌داده و ریشه‌کن کردن خطای 500 `api_internal_error`.
+  - پایگاه داده `data/reporting/reporting.sqlite3`:
+    - بازیابی و اصلاح رکورد آسیب‌دیده `evt-e39b1a143e` (تنظیم مجدد تاریخ `2026-10-22` و سرفصل برنامه `["honor"]`).
+  - `tests/test_reporting_event_fields_and_facts_crud.py`:
+    - افزودن تست‌های خودکار برای:
+      1. به‌روزرسانی تفاضلی و عدم تغییر فیلدها و فکت‌های دست‌نخورده هنگام تغییر صرف یک فیلد.
+      2. رد درخواست به‌روزرسانی تاریخ یا عنوان به مقدار خالی.
+      3. تاب‌آوری `store.get_event` و `store.list_events` حتی در صورت تزریق رکوردهای بدون تاریخ یا کدهای نامعتبر در دیتابیس.
+  - بسته wheel:
+    - بازسازی پکیج با `scripts/build_wheel_stdlib.py --force` و پاس‌شدن آزمون تقارن سورس و چرخ.
+- شواهد و نتایج ارزیابی:
+  - `pytest tests/test_event_dossier_crud_and_merge.py tests/test_reporting_event_fields_and_facts_crud.py`: تمام ۱۴ تست پاس شدند.
+  - `pytest -q`: مجموعه کامل آزمون‌های بک‌اند (تمام تست‌ها با exit code 0) سبز شدند.
+  - `npm.cmd --prefix ui run check`: بررسی کامل بدون خطای تایپ‌اسکریپت.
+  - `npm.cmd --prefix ui run build`: بیلد موفقیت‌آمیز و تولید assetهای توزیع بدون خطا.
+  - `npm.cmd --prefix ui run test:observability`: پاس‌شدن تست‌های ناظر.
+  - ری‌استارت موفق سرور پس‌زمینه با PID 21488.
+- وضعیت: VERIFIED / PASS.
+
 ### LEGACY-DESKTOP-V221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
 
 - تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / ISOLATED SYNTHETIC RUNTIME REPRO / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.

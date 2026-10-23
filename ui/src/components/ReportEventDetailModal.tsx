@@ -496,35 +496,117 @@ export function ReportEventDetailModal({
     facts,
   ])
 
+  // Calculate only the fields that have actually changed (Delta / Partial Update)
+  const getDirtyFields = (): Record<string, any> => {
+    if (!rawEvent) return {}
+    const dirty: Record<string, any> = {}
+
+    const origOccasion = getInitialOccasion(rawEvent)
+    if (occasion.trim() !== origOccasion.trim()) {
+      dirty.occasion = occasion.trim()
+    }
+    if (macroCategory !== (rawEvent.macro_category || 'workbook_approved')) {
+      dirty.macro_category = macroCategory
+    }
+    if (customTopic.trim() !== (rawEvent.custom_topic || '').trim()) {
+      dirty.custom_topic = customTopic.trim()
+    }
+    if (macroIndicator.trim() !== (rawEvent.macro_indicator || '').trim()) {
+      dirty.macro_indicator = macroIndicator.trim()
+    }
+    if (unitScope !== (rawEvent.unit || 'provincial_hq')) {
+      dirty.unit = unitScope
+    }
+    if (unitName.trim() !== (rawEvent.unit_name || '').trim()) {
+      dirty.unit_name = unitName.trim()
+    }
+    if (occurredOn.trim() !== (rawEvent.occurred_on || '').trim()) {
+      dirty.occurred_on = occurredOn.trim()
+    }
+    if (officialPresent !== Boolean(rawEvent.official_present)) {
+      dirty.official_present = officialPresent ? 1 : 0
+    }
+    if (isAshuraPilgrimage !== Boolean(rawEvent.is_ashura_pilgrimage)) {
+      dirty.is_ashura_pilgrimage = isAshuraPilgrimage ? 1 : 0
+    }
+    if (notes.trim() !== (rawEvent.notes || '').trim()) {
+      dirty.notes = notes.trim()
+    }
+
+    let origMicros: string[] = []
+    if (Array.isArray(rawEvent.micro_indicators)) {
+      origMicros = rawEvent.micro_indicators
+    } else if (typeof rawEvent.micro_indicators_json === 'string') {
+      try {
+        origMicros = JSON.parse(rawEvent.micro_indicators_json)
+      } catch {
+        origMicros = []
+      }
+    }
+    if (JSON.stringify([...microIndicators].sort()) !== JSON.stringify([...origMicros].sort())) {
+      dirty.micro_indicators = microIndicators
+    }
+
+    const origPrograms = Array.isArray(rawEvent.program_kinds) ? rawEvent.program_kinds : []
+    if (JSON.stringify([...selectedPrograms].sort()) !== JSON.stringify([...origPrograms].sort())) {
+      dirty.program_kinds = selectedPrograms
+    }
+
+    const origFacts = Array.isArray(rawEvent.facts) ? rawEvent.facts : []
+    let factsChanged = facts.length !== origFacts.length
+    if (!factsChanged) {
+      for (const f of facts) {
+        const orig = origFacts.find((x: any) => x.metric === f.metric)
+        if (
+          !orig ||
+          (typeof orig.value === 'number' ? orig.value : parseFloat(orig.value || 0)) !== f.value ||
+          (orig.unit_of_measure || 'count') !== (f.unit_of_measure || 'count') ||
+          (orig.note || '') !== (f.note || '')
+        ) {
+          factsChanged = true
+          break
+        }
+      }
+    }
+    if (factsChanged) {
+      dirty.facts = facts
+    }
+
+    return dirty
+  }
+
   // Save changes
   const handleSave = async () => {
     if (!eventId) return
-    if (!occasion.trim()) {
+
+    const dirtyFields = getDirtyFields()
+    if (Object.keys(dirtyFields).length === 0) {
+      toast.info('هیچ تغییری برای ذخیره یافت نشد.')
+      return
+    }
+
+    // Validation for modified mandatory fields
+    if ('occasion' in dirtyFields && !dirtyFields.occasion.trim()) {
       setErrorText('عنوان یا مناسبت رویداد نمی‌تواند خالی باشد.')
       return
     }
+    if ('occurred_on' in dirtyFields && !dirtyFields.occurred_on.trim()) {
+      setErrorText('تاریخ برگزاری رویداد نمی‌تواند خالی باشد.')
+      return
+    }
+    if (!occurredOn.trim()) {
+      setErrorText('تاریخ برگزاری رویداد نمی‌تواند خالی باشد.')
+      return
+    }
+
     try {
       setSaving(true)
       setErrorText('')
       await api('PUT', `/api/v3/reporting/events/${encodeURIComponent(eventId)}`, {
         if_match: rawEvent?.etag,
-        fields: {
-          occasion: occasion.trim(),
-          macro_category: macroCategory,
-          custom_topic: customTopic.trim(),
-          macro_indicator: macroIndicator.trim(),
-          micro_indicators: microIndicators,
-          program_kinds: selectedPrograms,
-          unit: unitScope,
-          unit_name: unitName.trim(),
-          occurred_on: occurredOn.trim(),
-          official_present: officialPresent ? 1 : 0,
-          is_ashura_pilgrimage: isAshuraPilgrimage ? 1 : 0,
-          notes: notes.trim(),
-          facts: facts,
-        },
+        fields: dirtyFields,
       })
-      toast.success('کلیه اطلاعات و سنجه‌های پرونده با موفقیت ذخیره شد.')
+      toast.success('تغییرات پرونده با موفقیت ذخیره شد.')
       onSaved?.()
       await fetchEventData(eventId)
     } catch (err) {
@@ -1022,6 +1104,9 @@ export function ReportEventDetailModal({
                         label="تاریخ برگزاری رویداد (شمسی)"
                         value={occurredOn}
                         onChange={val => setOccurredOn(val)}
+                        required
+                        error={!occurredOn.trim()}
+                        helperText={!occurredOn.trim() ? 'تاریخ برگزاری الزامی است' : 'مثال: ۱۴۰۵/۰۷/۲۷'}
                         size="small"
                         fullWidth
                       />
