@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 479
-- اثرانگشت منبع: `f3a4b56b6ce84311`
+- اثرانگشت منبع: `94a32ed08e1759fe`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -423,7 +423,7 @@
 | `ui/scripts/test-jalali-datetime.mjs` | UI validation | 2 | — |
 | `ui/scripts/test-registration-inference.mjs` | UI validation | 0 | — |
 | `ui/src/AccessManagementPanel.tsx` | React UI | 4 | — |
-| `ui/src/App.tsx` | React UI | 74 | — |
+| `ui/src/App.tsx` | React UI | 77 | — |
 | `ui/src/AppUserGate.tsx` | React UI | 12 | — |
 | `ui/src/AppUserManagementPanel.tsx` | React UI | 6 | — |
 | `ui/src/AuthBrand.tsx` | React UI | 3 | — |
@@ -470,7 +470,7 @@
 | `ui/src/OfficeDashboard.tsx` | React UI | 4 | — |
 | `ui/src/QuickSendBar.tsx` | React UI | 4 | — |
 | `ui/src/ReportingRegistrationPanel.tsx` | React UI | 7 | — |
-| `ui/src/ReportingWorkbench.tsx` | React UI | 32 | — |
+| `ui/src/ReportingWorkbench.tsx` | React UI | 33 | — |
 | `ui/src/rtlCache.ts` | React UI | 0 | — |
 | `ui/src/ServiceAccountSettingsPanel.tsx` | React UI | 14 | — |
 | `ui/src/SessionManagementPanel.tsx` | React UI | 5 | — |

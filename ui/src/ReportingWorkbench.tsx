@@ -988,6 +988,7 @@ export function ReportingWorkbench({
   const [formEventsDialogOpen, setFormEventsDialogOpen] = useState<boolean>(false)
   const [formEventsList, setFormEventsList] = useState<ReportedEventItem[]>([])
   const [loadingFormEvents, setLoadingFormEvents] = useState<boolean>(false)
+  const [formEventsDialogTitle, setFormEventsDialogTitle] = useState<string>('')
   const [savingForm, setSavingForm] = useState<boolean>(false)
 
   // Mandates state
@@ -1437,15 +1438,16 @@ export function ReportingWorkbench({
     }
   }
 
-  // Load underlying events contributing to active workbook
-  const loadEventsForActiveForm = async () => {
+  // Load underlying events contributing to active workbook or selected program
+  const loadEventsForProgram = async (programCodeOverride?: string, programTitleOverride?: string) => {
     const activeForm = forms[selectedFormIndex]
-    if (!activeForm) return
+    const progCode = programCodeOverride || activeForm?.program_code || activeForm?.program_id
+    if (!progCode) return
     try {
       setLoadingFormEvents(true)
+      setFormEventsDialogTitle(programTitleOverride || activeForm?.title || '')
       setFormEventsDialogOpen(true)
       const params = new URLSearchParams()
-      const progCode = activeForm.program_code || activeForm.program_id
       params.set('program_code', progCode)
       if (formDateFrom) params.set('date_from', formDateFrom)
       if (formDateTo) params.set('date_to', formDateTo)
@@ -1461,6 +1463,7 @@ export function ReportingWorkbench({
       setLoadingFormEvents(false)
     }
   }
+  const loadEventsForActiveForm = () => loadEventsForProgram()
 
   // Save current form
   const handleSaveForm = async () => {
@@ -1909,20 +1912,30 @@ export function ReportingWorkbench({
                     </Box>
                   </Stack>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', width: { xs: '100%', md: 'auto' }, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                    <Button
-                      variant={cartableSubTab === 'export_workbook' ? 'contained' : 'outlined'}
-                      color="primary"
-                      size="small"
-                      startIcon={<FileDownloadRounded />}
-                      onClick={() => {
-                        setCartableSubTab('export_workbook')
-                        void loadForms()
-                        void loadEventsAndExports()
-                      }}
-                      sx={{ fontWeight: 800 }}
-                    >
-                      پیش‌نمایش تجمیع و صدور اکسل
-                    </Button>
+                    {cartableSubTab === 'cartable' && (
+                      <>
+                        <Button
+                          variant="outlined"
+                          color="secondary"
+                          size="small"
+                          startIcon={exportingBundle ? <CircularProgress size={16} color="inherit" /> : <FolderZipRounded />}
+                          onClick={handleExportDossierBundle}
+                          disabled={exportingBundle || loadingCartable}
+                        >
+                          صدور بسته اسناد و تصاویر (ZIP)
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          size="small"
+                          startIcon={exportingFiltered ? <CircularProgress size={16} color="inherit" /> : <FileDownloadRounded />}
+                          onClick={handleExportFilteredEvents}
+                          disabled={exportingFiltered || loadingCartable}
+                        >
+                          خروجی فهرست سوابق (Excel)
+                        </Button>
+                      </>
+                    )}
                     <Button
                       variant="outlined"
                       color="info"
@@ -1934,26 +1947,6 @@ export function ReportingWorkbench({
                       }}
                     >
                       بانک اطلاعات پایه و ظرفیت‌سنجی
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      size="small"
-                      startIcon={exportingBundle ? <CircularProgress size={16} color="inherit" /> : <FolderZipRounded />}
-                      onClick={handleExportDossierBundle}
-                      disabled={exportingBundle || loadingCartable}
-                    >
-                      صدور بسته اسناد و تصاویر (ZIP)
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      startIcon={exportingFiltered ? <CircularProgress size={16} color="inherit" /> : <FileDownloadRounded />}
-                      onClick={handleExportFilteredEvents}
-                      disabled={exportingFiltered || loadingCartable}
-                    >
-                      خروجی فهرست سوابق (Excel)
                     </Button>
                     <IconButton size="small" onClick={() => {
                       void loadEventsCartable()
@@ -2643,8 +2636,11 @@ export function ReportingWorkbench({
                     {programsCatalog.filter(p => p.workbook_sheet).map(p => {
                       const formObj = forms.find(f => f.program_id === p.kind || f.program_code === p.program_code)
                       const missingStars = formObj?.unresolved_star?.length || 0
-                      const relEvents = cartableEvents.filter(ev =>
-                        ev.program_kinds.includes(p.kind) || ev.program_kinds.includes(p.program_code)
+                      const sourceEvents = events.length > 0 ? events : cartableEvents
+                      const relEvents = sourceEvents.filter(ev =>
+                        (Array.isArray(ev.program_kinds) && (ev.program_kinds.includes(p.kind) || ev.program_kinds.includes(p.program_code))) ||
+                        (ev as any).program_code === p.program_code ||
+                        (ev as any).macro_category === p.kind
                       ).length
                       const isReady = missingStars === 0
                       return (
@@ -2655,7 +2651,16 @@ export function ReportingWorkbench({
                             <Chip size="small" variant="outlined" label={`شیت ${p.workbook_sheet}`} color="info" />
                           </TableCell>
                           <TableCell align="center">
-                            <Chip size="small" label={`${relEvents} پرونده`} color={relEvents > 0 ? 'primary' : 'default'} variant="outlined" />
+                            <Tooltip title="مشاهده ریز گزارش‌های متناظر با این کاربرگ">
+                              <Chip
+                                size="small"
+                                label={`${relEvents} پرونده`}
+                                color={relEvents > 0 ? 'primary' : 'default'}
+                                variant={relEvents > 0 ? 'filled' : 'outlined'}
+                                onClick={() => void loadEventsForProgram(p.program_code || p.kind, p.title)}
+                                sx={{ cursor: 'pointer', fontWeight: 600 }}
+                              />
+                            </Tooltip>
                           </TableCell>
                           <TableCell align="center">
                             {missingStars > 0 ? (
@@ -2674,19 +2679,30 @@ export function ReportingWorkbench({
                             />
                           </TableCell>
                           <TableCell align="center">
-                            <Button
-                              size="small"
-                              variant="text"
-                              color="primary"
-                              onClick={() => {
-                                const formIdx = forms.findIndex(f => f.program_id === p.kind || f.program_code === p.program_code)
-                                if (formIdx >= 0) setSelectedFormIndex(formIdx)
-                                setCurrentTab(2)
-                              }}
-                              sx={{ fontSize: '0.75rem', py: 0.2 }}
-                            >
-                              ویرایش کاربرگ
-                            </Button>
+                            <Stack direction="row" spacing={0.5} justifyContent="center">
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="info"
+                                onClick={() => void loadEventsForProgram(p.program_code || p.kind, p.title)}
+                                sx={{ fontSize: '0.72rem', px: 1, py: 0.2 }}
+                              >
+                                ریز گزارش‌ها
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="primary"
+                                onClick={() => {
+                                  const formIdx = forms.findIndex(f => f.program_id === p.kind || f.program_code === p.program_code)
+                                  if (formIdx >= 0) setSelectedFormIndex(formIdx)
+                                  setCurrentTab(2)
+                                }}
+                                sx={{ fontSize: '0.72rem', px: 1, py: 0.2 }}
+                              >
+                                ویرایش کاربرگ
+                              </Button>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       )
@@ -3868,7 +3884,7 @@ export function ReportingWorkbench({
               <FormatListBulletedRounded color="primary" />
               <Box>
                 <Typography variant="subtitle1" fontWeight={800}>
-                  ریز گزارش‌ها و رویدادهای متناظر: {selectedForm?.title}
+                  ریز گزارش‌ها و رویدادهای متناظر: {formEventsDialogTitle || selectedForm?.title || "کاربرگ"}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   فهرست رویدادهای ثبت‌شده در این برنامه که در محاسبهٔ مقادیر تجمیعی این کاربرگ نقش دارند.
