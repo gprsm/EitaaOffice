@@ -4833,6 +4833,7 @@ class BridgeApplicationApi:
         macro_category = query.get("macro_category") or None
         date_from = query.get("date_from") or None
         date_to = query.get("date_to") or None
+        program_code = query.get("program_code") or None
         events = self._reporting_service.get_stored_events(
             limit=limit,
             review_status=review_status,
@@ -4840,6 +4841,7 @@ class BridgeApplicationApi:
             macro_category=macro_category,
             date_from=date_from,
             date_to=date_to,
+            program_code=program_code,
         )
         serialized = []
         for ev in events:

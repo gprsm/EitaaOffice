@@ -50,6 +50,8 @@ import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded'
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
+import EditRounded from '@mui/icons-material/EditRounded'
+import FormatListBulletedRounded from '@mui/icons-material/FormatListBulletedRounded'
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
 import EventNoteRounded from '@mui/icons-material/EventNoteRounded'
 import FileDownloadRounded from '@mui/icons-material/FileDownloadRounded'
@@ -983,6 +985,9 @@ export function ReportingWorkbench({
   const [formDateTo, setFormDateTo] = useState<string>('')
   const [matchingEventsCount, setMatchingEventsCount] = useState<number | null>(null)
   const [loadingForms, setLoadingForms] = useState<boolean>(false)
+  const [formEventsDialogOpen, setFormEventsDialogOpen] = useState<boolean>(false)
+  const [formEventsList, setFormEventsList] = useState<ReportedEventItem[]>([])
+  const [loadingFormEvents, setLoadingFormEvents] = useState<boolean>(false)
   const [savingForm, setSavingForm] = useState<boolean>(false)
 
   // Mandates state
@@ -1429,6 +1434,31 @@ export function ReportingWorkbench({
       await loadCandidates()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در رد نامزد گزارش')
+    }
+  }
+
+  // Load underlying events contributing to active workbook
+  const loadEventsForActiveForm = async () => {
+    const activeForm = forms[selectedFormIndex]
+    if (!activeForm) return
+    try {
+      setLoadingFormEvents(true)
+      setFormEventsDialogOpen(true)
+      const params = new URLSearchParams()
+      const progCode = activeForm.program_code || activeForm.program_id
+      params.set('program_code', progCode)
+      if (formDateFrom) params.set('date_from', formDateFrom)
+      if (formDateTo) params.set('date_to', formDateTo)
+      params.set('limit', '500')
+      const res = await api<{ ok: boolean; events: ReportedEventItem[] }>(
+        'GET',
+        `/api/v2/reporting/events?${params.toString()}`
+      )
+      setFormEventsList(res.events || [])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'خطا در دریافت ریز گزارش‌های کاربرگ')
+    } finally {
+      setLoadingFormEvents(false)
     }
   }
 
@@ -2872,15 +2902,26 @@ export function ReportingWorkbench({
                           کد عملیاتی: {selectedForm.program_code || selectedForm.program_id} | شناسه سیستمی: {selectedForm.program_id} | تعداد کل فیلدها: {selectedForm.questions.length}
                         </Typography>
                       </Box>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={savingForm ? <CircularProgress size={18} color="inherit" /> : <SaveRounded />}
-                        onClick={handleSaveForm}
-                        disabled={savingForm}
-                      >
-                        {savingForm ? 'در حال ذخیره…' : 'ذخیره کاربرگ'}
-                      </Button>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Button
+                          variant="outlined"
+                          color="info"
+                          startIcon={<FormatListBulletedRounded />}
+                          onClick={() => void loadEventsForActiveForm()}
+                          sx={{ fontWeight: 700 }}
+                        >
+                          ریز گزارش‌های متناظر
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          startIcon={savingForm ? <CircularProgress size={18} color="inherit" /> : <SaveRounded />}
+                          onClick={handleSaveForm}
+                          disabled={savingForm}
+                        >
+                          {savingForm ? 'در حال ذخیره…' : 'ذخیره کاربرگ'}
+                        </Button>
+                      </Stack>
                     </Stack>
 
                     {selectedForm.unresolved_star && selectedForm.unresolved_star.length > 0 && (
@@ -3814,6 +3855,156 @@ export function ReportingWorkbench({
       </Dialog>
       )}
     
+      {/* Dialog for viewing underlying events contributing to this workbook */}
+      <Dialog
+        open={formEventsDialogOpen}
+        onClose={() => setFormEventsDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <FormatListBulletedRounded color="primary" />
+              <Box>
+                <Typography variant="subtitle1" fontWeight={800}>
+                  ریز گزارش‌ها و رویدادهای متناظر: {selectedForm?.title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  فهرست رویدادهای ثبت‌شده در این برنامه که در محاسبهٔ مقادیر تجمیعی این کاربرگ نقش دارند.
+                  {(formDateFrom || formDateTo) && (
+                    <span style={{ marginRight: 8, color: '#0288d1', fontWeight: 700 }}>
+                      (محدود به بازهٔ تاریخی: {formDateFrom ? `از ${formDateFrom}` : ''} {formDateTo ? `تا ${formDateTo}` : ''})
+                    </span>
+                  )}
+                </Typography>
+              </Box>
+            </Stack>
+            <IconButton onClick={() => setFormEventsDialogOpen(false)} size="small">
+              <CloseRounded />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 2 }}>
+          {loadingFormEvents ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <CircularProgress size={36} />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                در حال بارگذاری سوابق رویدادهای متناظر…
+              </Typography>
+            </Box>
+          ) : formEventsList.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Alert severity="info" variant="outlined" sx={{ justifyContent: 'center', mb: 2 }}>
+                هیچ رویدادی برای سرفصل «{selectedForm?.title}» در این بازهٔ زمانی ثبت نشده است.
+              </Alert>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddCircleOutlineRounded />}
+                onClick={() => {
+                  setFormEventsDialogOpen(false)
+                  openManualEvent()
+                }}
+              >
+                ثبت رویداد جدید (دستی)
+              </Button>
+            </Box>
+          ) : (
+            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 480, borderRadius: 2 }}>
+              <Table size="small" stickyHeader>
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 800, width: 48 }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>عنوان و مناسبت رویداد</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>واحد سازمانی</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>تاریخ برگزاری</TableCell>
+                    <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>شرکت‌کنندگان</TableCell>
+                    <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>وضعیت بازبینی</TableCell>
+                    <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>عملیات</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {formEventsList.map((ev, idx) => {
+                    const attendeesFact = ev.facts?.find(f => f.metric === 'attendees' || f.metric === 'participants_count' || f.metric === 'quran_attendees')
+                    const attendeeNum = attendeesFact ? Number(attendeesFact.value) || 0 : 0
+                    return (
+                      <TableRow
+                        key={ev.event_id}
+                        hover
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': { bgcolor: 'action.hover' },
+                        }}
+                        onClick={() => setDetailModalEventId(ev.event_id)}
+                      >
+                        <TableCell sx={{ fontWeight: 600 }}>{idx + 1}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={700}>
+                            {ev.occasion || 'بدون عنوان'}
+                          </Typography>
+                          {ev.notes && (
+                            <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 320, display: 'block' }}>
+                              {ev.notes}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={ev.unit_name || ev.unit || 'نامشخص'}
+                            sx={{ height: 22, fontSize: '0.75rem' }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption" fontWeight={600}>
+                            {ev.occurred_on ? jalaliDayLabel(ev.occurred_on) : '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight={700} color={attendeeNum > 0 ? 'primary.main' : 'text.secondary'}>
+                            {attendeeNum > 0 ? `${attendeeNum} نفر` : '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            size="small"
+                            color={(ev.review_status as any) === 'approved' ? 'success' : ((ev.review_status as any) === 'rejected' || (ev.review_status as any) === 'conflict') ? 'error' : 'warning'}
+                            label={(ev.review_status as any) === 'approved' ? 'تأیید شده' : ((ev.review_status as any) === 'rejected' || (ev.review_status as any) === 'conflict') ? 'رد / تعارض' : 'نیازمند بررسی'}
+                            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600 }}
+                          />
+                        </TableCell>
+                        <TableCell align="center" onClick={e => e.stopPropagation()}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            startIcon={<EditRounded />}
+                            onClick={() => setDetailModalEventId(ev.event_id)}
+                            sx={{ fontSize: '0.75rem', px: 1.5, py: 0.4 }}
+                          >
+                            مشاهده و اصلاح
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5, justifyContent: 'space-between' }}>
+          <Typography variant="caption" color="text.secondary">
+            مجموعاً {formEventsList.length} رویداد تطبیق‌یافته در این کاربرگ
+          </Typography>
+          <Button onClick={() => setFormEventsDialogOpen(false)} variant="outlined">
+            بستن
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Report Event Detail & Defect Editing Modal */}
       <ReportEventDetailModal
         open={Boolean(detailModalEventId)}
@@ -3822,6 +4013,10 @@ export function ReportingWorkbench({
         onSaved={() => {
           void loadEventsCartable()
           void loadEventsAndExports()
+          void loadForms(formDateFrom, formDateTo)
+          if (formEventsDialogOpen) {
+            void loadEventsForActiveForm()
+          }
         }}
       />
 
