@@ -88,3 +88,4 @@ offline_forms/
 /scripts/desktop_final_runner.py
 /scripts/mobile_visual_runner.py
 /scripts/run_reporting_registration_visual_audit.py
+/scripts/capture_unified_reporting_visual_audit.py

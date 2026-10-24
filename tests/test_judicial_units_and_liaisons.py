@@ -624,3 +624,45 @@ def test_resolve_liaison_prevents_false_author_attribution_from_message_body(tmp
     assert l4.full_name == "مهدوی"
     assert u4 is not None
     assert "سوادکوه" in u4.display_name
+
+
+def test_resolve_liaison_sender_key_normalization_and_prefixes(tmp_path: Path) -> None:
+    """Ensure resolve_liaison_and_unit handles user:, u:, and bare numeric sender keys robustly."""
+    store = _make_store(tmp_path)
+    unit = store.find_unit_by_name("ساری - اداره کل")
+    assert unit is not None
+
+    # Liaison stored with sender_key = 'user:56970569'
+    liaison = LiaisonRecord(
+        liaison_id="liaison-saeedi-test",
+        unit_id=unit.unit_id,
+        full_name="حمید سعیدی",
+        sender_key="user:56970569",
+        eitaa_user_id="",
+    )
+    store.save_liaison(liaison)
+
+    # 1. Resolve with exact sender_key 'user:56970569'
+    l1, u1 = store.resolve_liaison_and_unit(sender_key="user:56970569")
+    assert l1 is not None
+    assert l1.full_name == "حمید سعیدی"
+    assert u1 is not None
+
+    # 2. Resolve with bare numeric id '56970569'
+    l2, u2 = store.resolve_liaison_and_unit(sender_key="56970569")
+    assert l2 is not None
+    assert l2.full_name == "حمید سعیدی"
+
+    # 3. Resolve with 'u:56970569' prefix
+    l3, u3 = store.resolve_liaison_and_unit(sender_key="u:56970569")
+    assert l3 is not None
+    assert l3.full_name == "حمید سعیدی"
+
+    # 4. Resolve via API dispatch
+    status, payload, _ = v3.dispatch(
+        store, "staff", ["editor"], "POST", "/api/v3/reporting/liaisons/resolve",
+        payload={"sender_key": "user:56970569"},
+    )
+    assert status == 200
+    assert payload["matched"] is True
+    assert payload["liaison"]["full_name"] == "حمید سعیدی"

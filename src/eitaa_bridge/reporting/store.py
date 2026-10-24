@@ -2941,6 +2941,8 @@ class ReportingStore:
         unit_name: str | None = None,
         program_code: str | None = None,
         search_query: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> list[ReportedEvent]:
         with self._connect() as conn:
             clauses: list[str] = []
@@ -2970,6 +2972,12 @@ class ReportingStore:
                 q = f"%{search_query.strip()}%"
                 clauses.append("(occasion LIKE ? OR notes LIKE ? OR unit_name LIKE ? OR custom_topic LIKE ? OR macro_indicator LIKE ?)")
                 params.extend([q, q, q, q, q])
+            if date_from:
+                clauses.append("occurred_on >= ?")
+                params.append(str(date_from).strip())
+            if date_to:
+                clauses.append("occurred_on <= ?")
+                params.append(str(date_to).strip())
             where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
             sql = f"SELECT * FROM reported_events {where} ORDER BY occurred_on DESC, created_at DESC LIMIT ?"
             params.append(limit)
@@ -4122,10 +4130,19 @@ class ReportingStore:
         all_liaisons = self.list_liaisons()
         matched_liaison: LiaisonRecord | None = None
 
-        # 1. Exact sender_key match
+        # 1. Exact sender_key match or numeric/prefixed match
         if s_key:
+            clean_s = re.sub(r"^(user:|u:)", "", s_key).strip()
             for l in all_liaisons:
-                if l.sender_key and l.sender_key == s_key:
+                if l.sender_key:
+                    if l.sender_key == s_key:
+                        matched_liaison = l
+                        break
+                    clean_l = re.sub(r"^(user:|u:)", "", l.sender_key).strip()
+                    if clean_s and clean_s == clean_l:
+                        matched_liaison = l
+                        break
+                if clean_s and l.eitaa_user_id and str(l.eitaa_user_id).strip() == clean_s:
                     matched_liaison = l
                     break
 

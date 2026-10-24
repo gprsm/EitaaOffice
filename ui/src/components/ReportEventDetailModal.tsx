@@ -288,7 +288,12 @@ export function ReportEventDetailModal({
         setUnitName(ev.unit_name || '')
         setOccurredOn(ev.occurred_on || '')
         setOfficialPresent(Boolean(ev.official_present))
-        setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage) || parsedMicros.some((m: string) => typeof m === 'string' && m.includes('عاشورا')))
+        const hasAshura = Boolean(ev.is_ashura_pilgrimage)
+          || parsedMicros.some((m: string) => typeof m === 'string' && m.includes('عاشورا'))
+          || (typeof ev.topic === 'string' && ev.topic.includes('عاشورا'))
+          || (typeof ev.notes === 'string' && ev.notes.includes('عاشورا'))
+          || (Array.isArray(ev.witnesses) && ev.witnesses.some((w: any) => (w.text || w.message_text || w.note || '').includes('عاشورا')))
+        setIsAshuraPilgrimage(hasAshura)
         setNotes(ev.notes || '')
 
         // Facts
@@ -429,7 +434,12 @@ export function ReportEventDetailModal({
     setUnitName(ev.unit_name || '')
     setOccurredOn(ev.occurred_on || '')
     setOfficialPresent(Boolean(ev.official_present))
-    setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage) || parsedMicros.some((m: string) => typeof m === 'string' && m.includes('عاشورا')))
+    const hasAshura = Boolean(ev.is_ashura_pilgrimage)
+      || parsedMicros.some((m: string) => typeof m === 'string' && m.includes('عاشورا'))
+      || (typeof ev.topic === 'string' && ev.topic.includes('عاشورا'))
+      || (typeof ev.notes === 'string' && ev.notes.includes('عاشورا'))
+      || (Array.isArray(ev.witnesses) && ev.witnesses.some((w: any) => (w.text || w.message_text || w.note || '').includes('عاشورا')))
+    setIsAshuraPilgrimage(hasAshura)
     setNotes(ev.notes || '')
 
     if (Array.isArray(ev.facts)) {

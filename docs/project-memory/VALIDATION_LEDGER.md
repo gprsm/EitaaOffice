@@ -3754,6 +3754,27 @@ pm.cmd --prefix ui run build با خروجی معتبر و موفق در تما�
   6. کنترل یکپارچگی حافظه و اسناد: scripts/check_project_memory_integrity.py و scripts/refresh_project_docs.py --check --check-links هر دو با موفقیت کامل (exit code 0).
 - نتیجه نهایی: دکمه زائد بدون اثر منفی بر موتور ایندکس خودکار پس‌زمینه یا ثبت گزارش حذف شد و جریان کاری چت روان‌تر و شفاف‌تر گردید.
 
+### V-313 — اعتبارسنجی رفع ریشه‌ای انتساب رابط در پیام ۳۰۷۴۳، استنتاج فراگیر عاشورا C12، کاتالوگ رویدادها، تولید کامل باندل‌ها و نظارت دوایجنتی OpenCode (F-151)
+
+- تاریخ: 2026-10-24؛ Trigger: دستور صریح کاربر مبنی بر بازبینی عمیق و بدون ادعا، بیلد کامل پروژه و رفع قطعی نقص در انتساب پیام ۳۰۷۴۳ و عاشورا C12.
+- سطح شاهد: DUAL PERSPECTIVE / UNIT TESTS / TYPECHECK / FULL BUILD / SYSTEM CATALOG AUDIT / OPENCODE SUPERVISION VERDICT.
+- نتایج ارزیابی و آزمون‌ها:
+  1. زاویه اول (کیفیت کد، تست‌ها و بیلد):
+     - تست‌های اختصاصی رابطین و رویدادها: `python -m pytest tests/test_judicial_units_and_liaisons.py tests/test_reporting_event_fields_and_facts_crud.py -q` با نتیجه ۲۵ آزمون سبز (exit code 0).
+     - تست‌های توزیع و بسته‌بندی ویل: `python -m pytest tests/test_g07_release_packaging.py -q` با نتیجه ۱۵ آزمون سبز (exit code 0).
+     - تست قرارداد مشاهده‌پذیری و کاتالوگ رویدادها: `python -m pytest tests/test_observability_contract.py -q` با نتیجه ۶ آزمون سبز (exit code 0).
+     - بررسی تایپ فرانت‌اند: `npm.cmd --prefix ui run check` بدون هیچ‌گونه خطا (exit code 0).
+     - بیلد کامل پروداکشن فرانت‌اند: `npm.cmd --prefix ui run build` با ساخت موفق کلیه باندل‌ها در ۷.۵۲ ثانیه (exit code 0).
+     - همگام‌سازی وب‌فونت‌های ایران‌سنس: `scripts/sync_ui_fonts.py` با تأیید فونت‌های Regular و Bold.
+     - تولید پکیج توزیع ویل استاندارد: `scripts/build_wheel_stdlib.py --force` با SHA-256 معتبر `e34cba6095b33933f0fbd77968366d0c5dde60ad8e8bbed2e97980af7f9d44ec`.
+     - آزمون مشاهده‌پذیری فرانت‌اند: `npm.cmd --prefix ui run test:observability` با موفقیت کامل.
+     - آزمون‌های کارتابل و چت: `test:reporting-ui` و `test:reporting-chat-surface` با قبولی کامل.
+  2. زاویه دوم (نظارت دوایجنتی OSP با OpenCode):
+     - به‌روزرسانی پرونده نظارتی در `diagnostics/opencode_supervision_dossier.json`.
+     - اجرای رانر نظارت دوایجنتی `scripts/run_opencode_supervision.py`.
+     - ثبت حکم رسمی `APPROVED` با تأیید تمامی ۲۵ شاخص کلیدی در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه نهایی: با رفع باگ ارسال کلید فرستنده و نرمال‌سازی پیشوندها، انتساب پیام ۳۰۷۴۳ به «حمید سعیدی - چهاردانگه - دادگاه عمومی بخش» به طور قطعی تضمین و تأیید شد.
+
 ### LEGACY-DESKTOP-V221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
 
 - تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / ISOLATED SYNTHETIC RUNTIME REPRO / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.

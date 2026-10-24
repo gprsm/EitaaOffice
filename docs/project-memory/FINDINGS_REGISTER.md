@@ -2411,6 +2411,31 @@ eporting_api_v3.py، تضمین ذخیره‌سازی استاندارد ISO YYY
   3. حفظ کامل موتور ایندکس خودکار پس‌زمینه (autoIndexOnLoad و دیالوگ ایندکس کلی در هدر گفتگو) بدون هیچ‌گونه پس‌رفت یا تغییر در استخراج الگوها و فیلترهای پیام.
 - مرجع اعتبارسنجی: V-312.
 
+### F-151 — رفع ریشه‌ای انتساب رابط و حوزه قضایی در پیام‌های عکس‌محور (پیام ۳۰۷۴۳)، استخراج شناسه کاربری، ارسال sender_key واقعی به resolve و استنتاج فراگیر عاشورا C12
+
+- وضعیت: CLOSED / IMPLEMENTED / FULL_SUITE_VERIFIED
+- تاریخ: 2026-10-24
+- مؤلفه‌ها:
+  - ui/src/ReportingRegistrationPanel.tsx
+  - ui/src/components/ReportEventDetailModal.tsx
+  - src/eitaa_bridge/reporting/store.py
+  - src/eitaa_bridge/infrastructure/diagnostics/event_catalog.py
+  - tests/test_judicial_units_and_liaisons.py
+- ریشه‌یابی و تحلیل مسأله:
+  1. در پیام‌های تصویری فاقد متن (مانند پیام #30743 در گروه رابطین)، استخراج متنی (Step A) کارساز نبوده و سامانه باید از هویت فرستنده (Step B و اندپوینت resolve) برای تعیین نویسنده و حوزه استفاده می‌کرد.
+  2. در ReportingRegistrationPanel.tsx در فراخوانی resolve_liaison_and_unit، به جای primaryMsg.sender_key یا from_peer_id، مقدار props.dialog.peer.id (شناسه گروه رابطین: 6015778) ارسال می‌شد که منجر به عدم انطباق (matched: false) و باقی‌ماندن نویسنده روی نام کاربری اکانت (Arman) و حوزه روی ستاد استانی می‌گردید.
+  3. در inferRegistrationDefaults، استخراج شناسه کاربری تنها با startsWith('u:') سنجیده می‌شد در حالی که sender_key با فرمت استاندارد user:56970569 ذخیره می‌گردد. همچنین در صورت تأخیر در لود liaisonsMap، فرم با مقادیر اولیه مقداردهی شده و اثر واکنشی برای اعمال پس از لود وجود نداشت.
+  4. در متد resolve_liaison_and_unit در store.py، مقایسه فقط به صورت رشته‌ای دقیق انجام می‌شد و پیشوندهای user: و u: نسبت به شناسه عددی خالص نرمال‌سازی نمی‌شدند.
+  5. تیک «قرائت زیارت عاشورا (C12)» در مدال جزئیات پرونده نیاز به استنتاج یکپارچه از میکروها، موضوع، یادداشت‌ها و متن شاهدان داشت.
+- اصلاحات اعمال‌شده:
+  1. اصلاح ارسال sender_key در اندپوینت resolve به صورت primaryMsg.sender_key || user:${from_peer_id}.
+  2. نرمال‌سازی پیشوندهای user: و u: در Step B و استخراج cleanUserId جهت جستجوی چندوجهی در liaisonsMap.
+  3. افزودن useEffect واکنشی در ReportingRegistrationPanel جهت به‌روزرسانی خودکار نویسنده و واحد در صورت دریافت دیرتر liaisonsMap.
+  4. مقاوم‌سازی متد resolve_liaison_and_unit در store.py برای تطبیق بدون پیشوند با کلید فرستنده و eitaa_user_id.
+  5. افزودن استنتاج عاشورا C12 در fetchEventData و handleResetChanges در ReportEventDetailModal.tsx.
+  6. ثبت رویداد reporting_scan_provider_unavailable در کاتالوگ رویدادهای مشاهده‌پذیری.
+- مرجع اعتبارسنجی: V-313.
+
 ### LEGACY-DESKTOP-F090 — بازبینی تحویل V-217: replay و عمر نشست چت هنوز قرارداد را نقض می‌کنند
 
 - وضعیت: `CLOSED / IMPLEMENTED / FAKE_VERIFIED / LIVE_NOT_ACCEPTED` (بستن در 2026-09-27 با V-222)

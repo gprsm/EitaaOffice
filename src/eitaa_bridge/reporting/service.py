@@ -80,14 +80,49 @@ class ReportingService:
                 self.store.save_candidate(candidate, dialog_label=dialog_label)
         return result
 
-    def scan_provider_once(self, core: Any, *, limit_per_dialog: int = 50, timeout_seconds: float = 30.0) -> MonitorResult:
+    def scan_provider_once(
+        self,
+        core: Any,
+        *,
+        limit_per_dialog: int = 50,
+        timeout_seconds: float = 30.0,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> MonitorResult:
         """Scan configured dialogs through a live ``eitaa_core`` runtime with safety timeout."""
+        if self.store is not None:
+            targets = self.store.list_targets()
+            if targets:
+                self.monitor.watch_configs = tuple(targets)
+        return self.monitor.scan_once(
+            core,
+            limit_per_dialog=limit_per_dialog,
+            timeout_seconds=timeout_seconds,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
-        return self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog, timeout_seconds=timeout_seconds)
-
-    def scan_and_record_provider(self, core: Any, *, limit_per_dialog: int = 50, timeout_seconds: float = 30.0) -> MonitorResult:
+    def scan_and_record_provider(
+        self,
+        core: Any,
+        *,
+        limit_per_dialog: int = 50,
+        timeout_seconds: float = 30.0,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> MonitorResult:
         """Scan configured dialogs via live runtime and persist decisions into store with safety timeout."""
-        result = self.monitor.scan_once(core, limit_per_dialog=limit_per_dialog, timeout_seconds=timeout_seconds)
+        if self.store is not None:
+            targets = self.store.list_targets()
+            if targets:
+                self.monitor.watch_configs = tuple(targets)
+        result = self.monitor.scan_once(
+            core,
+            limit_per_dialog=limit_per_dialog,
+            timeout_seconds=timeout_seconds,
+            date_from=date_from,
+            date_to=date_to,
+        )
         if self.store is not None:
             for decision in result.decisions:
                 self.store.record_decision(decision)
@@ -474,6 +509,8 @@ class ReportingService:
         review_status: str | None = None,
         registered_by_id: str | None = None,
         macro_category: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> list[ReportedEvent]:
         """Load confirmed events from persistent storage."""
         if self.store is not None:
@@ -482,6 +519,8 @@ class ReportingService:
                 review_status=review_status,
                 registered_by_id=registered_by_id,
                 macro_category=macro_category,
+                date_from=date_from,
+                date_to=date_to,
             )
         return []
 

@@ -68,7 +68,7 @@ import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
 import { formatJalaliDate } from './utils/jalaliDateTime'
-import { JalaliDatePicker } from './components/JalaliDatePicker'
+import { JalaliDatePicker, JalaliDateRangePicker } from './components/JalaliDatePicker'
 import { ReportEventDetailModal } from './components/ReportEventDetailModal'
 import { JudicialUnitsManagementModal } from './components/JudicialUnitsManagementModal'
 import {
@@ -743,7 +743,15 @@ export function ReportingWorkbench({
   initialTab?: number
   initialEventId?: string | null
 }) {
-  const [currentTab, setCurrentTab] = useState<number>(initialEventId ? 1 : initialTab)
+  const [currentTab, setCurrentTab] = useState<number>(() => {
+    if (initialEventId) return 1
+    if (initialTab === 3) return 1
+    if (initialTab > 3) return initialTab - 1
+    return initialTab
+  })
+  const [cartableSubTab, setCartableSubTab] = useState<'cartable' | 'export_workbook'>(() => {
+    return initialTab === 3 ? 'export_workbook' : 'cartable'
+  })
   const [loading, setLoading] = useState<boolean>(false)
 
   // Catalog state
@@ -971,6 +979,10 @@ export function ReportingWorkbench({
   const [forms, setForms] = useState<FormSummary[]>([])
   const [selectedFormIndex, setSelectedFormIndex] = useState<number>(0)
   const [formAnswers, setFormAnswers] = useState<Record<string, any>>({})
+  const [formDateFrom, setFormDateFrom] = useState<string>('')
+  const [formDateTo, setFormDateTo] = useState<string>('')
+  const [matchingEventsCount, setMatchingEventsCount] = useState<number | null>(null)
+  const [loadingForms, setLoadingForms] = useState<boolean>(false)
   const [savingForm, setSavingForm] = useState<boolean>(false)
 
   // Mandates state
@@ -1167,10 +1179,27 @@ export function ReportingWorkbench({
   }
 
   // Fetch forms
-  const loadForms = async () => {
+  const loadForms = async (customDateFrom?: string, customDateTo?: string) => {
     try {
-      const res = await api<{ ok: boolean; forms: FormSummary[] }>('GET', '/api/v2/reporting/forms?all=1')
+      setLoadingForms(true)
+      const dFrom = customDateFrom !== undefined ? customDateFrom : formDateFrom
+      const dTo = customDateTo !== undefined ? customDateTo : formDateTo
+      const params = new URLSearchParams({ all: '1' })
+      if (dFrom) params.set('date_from', dFrom)
+      if (dTo) params.set('date_to', dTo)
+      const res = await api<{
+        ok: boolean
+        forms: FormSummary[]
+        total_events?: number
+        date_from?: string
+        date_to?: string
+      }>('GET', `/api/v2/reporting/forms?${params.toString()}`)
       setForms(res.forms || [])
+      if (res.total_events !== undefined) {
+        setMatchingEventsCount(res.total_events)
+      } else {
+        setMatchingEventsCount(null)
+      }
       if (res.forms && res.forms[selectedFormIndex]) {
         const initialAnswers: Record<string, any> = {}
         for (const q of res.forms[selectedFormIndex].questions) {
@@ -1185,6 +1214,8 @@ export function ReportingWorkbench({
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در دریافت کاربرگ‌ها')
+    } finally {
+      setLoadingForms(false)
     }
   }
 
@@ -1217,13 +1248,16 @@ export function ReportingWorkbench({
 
   useEffect(() => {
     if (currentTab === 0) void loadCandidates()
-    else if (currentTab === 1) void loadEventsCartable()
+    else if (currentTab === 1) {
+      void loadEventsCartable()
+      if (cartableSubTab === 'export_workbook') {
+        void loadForms()
+        void loadEventsAndExports()
+      }
+    }
     else if (currentTab === 2) void loadForms()
-    else if (currentTab === 3) {
-      void loadForms()
-      void loadEventsAndExports()
-    } else if (currentTab === 4) void loadWatchConfig()
-  }, [currentTab, candidateFilter, loadEventsCartable])
+    else if (currentTab === 3) void loadWatchConfig()
+  }, [currentTab, cartableSubTab, candidateFilter, loadEventsCartable])
 
   // Sync selected form answers when tab or selectedFormIndex changes
   useEffect(() => {
@@ -1254,12 +1288,16 @@ export function ReportingWorkbench({
   const handleScan = async () => {
     try {
       setScanning(true)
-      const res = await api<{ ok: boolean; result: any }>('POST', '/api/v2/reporting/scan', {
+      const res = await api<{ ok: boolean; result: any; note?: string }>('POST', '/api/v2/reporting/scan', {
         limit_per_dialog: 50,
       })
-      toast.success(
-        `پویش انجام شد: ${res.result?.scanned || 0} پیام بررسی شد، ${res.result?.event_reports || 0} رویداد شناسایی شد.`,
-      )
+      if (res.note === 'runtime_not_available') {
+        toast.warning('نشست پیام‌رسان در دسترس نیست یا گفتگوی فعالی در فهرست رصد پیدا نشد.')
+      } else {
+        toast.success(
+          `پویش انجام شد: ${res.result?.scanned || 0} پیام بررسی شد، ${res.result?.event_reports || 0} رویداد شناسایی شد.`,
+        )
+      }
       await loadCandidates()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در انجام پویش خودکار')
@@ -1430,6 +1468,8 @@ export function ReportingWorkbench({
           report_period: exportPeriod,
           allow_unresolved_star: exportForceUnresolved,
           single_program: exportScope === 'single' ? selectedSingleProgram : undefined,
+          date_from: formDateFrom || undefined,
+          date_to: formDateTo || undefined,
         },
       )
       setLastExportResult({ path: res.export_path, fileName: res.file_name })
@@ -1520,12 +1560,15 @@ export function ReportingWorkbench({
             <IconButton
               onClick={() => {
                 if (currentTab === 0) void loadCandidates()
-                else if (currentTab === 1) void loadEventsCartable()
+                else if (currentTab === 1) {
+                  void loadEventsCartable()
+                  if (cartableSubTab === 'export_workbook') {
+                    void loadForms()
+                    void loadEventsAndExports()
+                  }
+                }
                 else if (currentTab === 2) void loadForms()
-                else if (currentTab === 3) {
-                  void loadForms()
-                  void loadEventsAndExports()
-                } else if (currentTab === 4) void loadWatchConfig()
+                else if (currentTab === 3) void loadWatchConfig()
               }}
               disabled={loading}
             >
@@ -1563,7 +1606,7 @@ export function ReportingWorkbench({
               <Badge badgeContent={cartableEvents.filter(e => e.review_status === 'needs_review').length} color="warning" sx={{ pr: 1.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <AssignmentTurnedInRounded fontSize="small" />
-                  <span>کارتابل و آرشیو گزارش‌ها</span>
+                  <span>کارتابل و صدور گزارش‌ها</span>
                 </Stack>
               </Badge>
             }
@@ -1576,14 +1619,6 @@ export function ReportingWorkbench({
                   <span>کاربرگ‌های هفت‌گانه</span>
                 </Stack>
               </Badge>
-            }
-          />
-          <Tab
-            label={
-              <Stack direction="row" spacing={1} alignItems="center">
-                <FileDownloadRounded fontSize="small" />
-                <span>پیش‌نمایش تجمیع و صدور اکسل</span>
-              </Stack>
             }
           />
           <Tab
@@ -1682,9 +1717,9 @@ export function ReportingWorkbench({
                   </Button>
                   <Button
                     variant="outlined"
-                    onClick={() => setCurrentTab(4)}
+                    onClick={() => setCurrentTab(3)}
                   >
-                    تنظیم کانال‌های رصد (تب ۴)
+                    تنظیم کانال‌های رصد (تب ۳)
                   </Button>
                   <Button
                     variant="outlined"
@@ -1831,19 +1866,33 @@ export function ReportingWorkbench({
             {/* Filter Bar */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
               <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems="center" justifyContent="space-between">
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
                   <Stack direction="row" spacing={1} alignItems="center">
                     <AssignmentTurnedInRounded color="primary" />
                     <Box>
                       <Typography variant="subtitle1" fontWeight={800}>
-                        کارتابل و آرشیو سوابق گزارش‌های ثبت‌شده
+                        کارتابل و صدور گزارش‌ها
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        بازبینی، فیلتر پیشرفته، رفع نقص و صدور خروجی اکسل رویدادهای ثبت‌شده استان
+                        بازبینی پرونده‌ها، فیلتر پیشرفته، رفع نقص و پیش‌نمایش تجمیع و صدور اکسل الگوی رسمی استان (۱۴۰۵)
                       </Typography>
                     </Box>
                   </Stack>
-                  <Stack direction="row" spacing={1}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', width: { xs: '100%', md: 'auto' }, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                    <Button
+                      variant={cartableSubTab === 'export_workbook' ? 'contained' : 'outlined'}
+                      color="primary"
+                      size="small"
+                      startIcon={<FileDownloadRounded />}
+                      onClick={() => {
+                        setCartableSubTab('export_workbook')
+                        void loadForms()
+                        void loadEventsAndExports()
+                      }}
+                      sx={{ fontWeight: 800 }}
+                    >
+                      پیش‌نمایش تجمیع و صدور اکسل
+                    </Button>
                     <Button
                       variant="outlined"
                       color="info"
@@ -1867,20 +1916,80 @@ export function ReportingWorkbench({
                       صدور بسته اسناد و تصاویر (ZIP)
                     </Button>
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       color="primary"
                       size="small"
                       startIcon={exportingFiltered ? <CircularProgress size={16} color="inherit" /> : <FileDownloadRounded />}
                       onClick={handleExportFilteredEvents}
                       disabled={exportingFiltered || loadingCartable}
                     >
-                      خروجی اکسل گزارش‌ها
+                      خروجی فهرست سوابق (Excel)
                     </Button>
-                    <IconButton size="small" onClick={() => void loadEventsCartable()} disabled={loadingCartable}>
+                    <IconButton size="small" onClick={() => {
+                      void loadEventsCartable()
+                      if (cartableSubTab === 'export_workbook') {
+                        void loadForms()
+                        void loadEventsAndExports()
+                      }
+                    }} disabled={loadingCartable}>
                       <RefreshRounded />
                     </IconButton>
-                  </Stack>
+                  </Box>
                 </Stack>
+
+                <Divider />
+
+                {/* Sub-view switcher tabs */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <Tabs
+                    value={cartableSubTab}
+                    onChange={(_e, val) => {
+                      setCartableSubTab(val)
+                      if (val === 'export_workbook') {
+                        void loadForms()
+                        void loadEventsAndExports()
+                      } else {
+                        void loadEventsCartable()
+                      }
+                    }}
+                    textColor="primary"
+                    indicatorColor="primary"
+                    variant="scrollable"
+                    scrollButtons="auto"
+                  >
+                    <Tab
+                      value="cartable"
+                      label={
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <AssignmentTurnedInRounded fontSize="small" />
+                          <Typography variant="body2" fontWeight={700}>
+                            سوابق و پرونده‌های رویدادها ({cartableEvents.length})
+                          </Typography>
+                        </Stack>
+                      }
+                    />
+                    <Tab
+                      value="export_workbook"
+                      label={
+                        <Badge
+                          badgeContent={totalUnresolvedStars > 0 ? totalUnresolvedStars : 0}
+                          color="warning"
+                          sx={{ pr: totalUnresolvedStars > 0 ? 1.5 : 0 }}
+                        >
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <FileDownloadRounded fontSize="small" />
+                            <Typography variant="body2" fontWeight={700}>
+                              پیش‌نمایش تجمیع و صدور اکسل فایل الگو (۱۴۰۵)
+                            </Typography>
+                          </Stack>
+                        </Badge>
+                      }
+                    />
+                  </Tabs>
+                </Box>
+                {cartableSubTab === 'cartable' && (
+                  <>
+
 
                 <Divider />
 
@@ -2000,8 +2109,15 @@ export function ReportingWorkbench({
                     </Button>
                   </Grid>
                 </Grid>
+
+                  </>
+                )}
               </Stack>
             </Paper>
+
+            {cartableSubTab === 'cartable' && (
+              <>
+
 
             {lastFilteredExportResult && (
               <Alert severity="success" onClose={() => setLastFilteredExportResult(null)} sx={{ borderRadius: 2 }}>
@@ -2015,7 +2131,7 @@ export function ReportingWorkbench({
 
             {/* Live Aggregation Summary KPI Cards */}
             <Grid container spacing={1.5}>
-              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'primary.light' }}>
                   <Typography variant="caption" color="text.secondary">تعداد رویدادهای فیلترشده</Typography>
                   <Typography variant="h6" fontWeight={800} color="primary.main">
@@ -2026,7 +2142,7 @@ export function ReportingWorkbench({
                   </Typography>
                 </Card>
               </Grid>
-              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'success.light' }}>
                   <Typography variant="caption" color="text.secondary">مجموع مخاطبان / شرکت‌کنندگان</Typography>
                   <Typography variant="h6" fontWeight={800} color="success.main">
@@ -2039,7 +2155,7 @@ export function ReportingWorkbench({
                   </Typography>
                 </Card>
               </Grid>
-              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'warning.light' }}>
                   <Typography variant="caption" color="text.secondary">میانگین رضایت‌مندی / نظرسنجی</Typography>
                   <Typography variant="h6" fontWeight={800} color="warning.main">
@@ -2050,7 +2166,7 @@ export function ReportingWorkbench({
                   </Typography>
                 </Card>
               </Grid>
-              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Card variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, borderColor: 'info.light' }}>
                   <Typography variant="caption" color="text.secondary">حوزه‌های قضایی درگیر</Typography>
                   <Typography variant="h6" fontWeight={800} color="info.main">
@@ -2074,8 +2190,8 @@ export function ReportingWorkbench({
                 </Typography>
               </Stack>
 
-              <TableContainer sx={{ maxHeight: 520 }}>
-                <Table stickyHeader size="small">
+              <TableContainer sx={{ maxHeight: 520, overflowX: 'auto' }}>
+                <Table stickyHeader size="small" sx={{ minWidth: 900 }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: 'action.hover' }}>
                       <TableCell sx={{ fontWeight: 700, width: 45 }}>#</TableCell>
@@ -2257,7 +2373,11 @@ export function ReportingWorkbench({
                                   size="small"
                                   color={hasBlockers ? 'error' : 'warning'}
                                   label={`${defectCount} نقص/هشدار`}
-                                  sx={{ fontWeight: 700, fontSize: '0.7rem' }}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setDefectDialogEvent(ev)
+                                  }}
+                                  sx={{ fontWeight: 700, fontSize: '0.7rem', cursor: 'pointer' }}
                                 />
                               ) : (
                                 <Chip size="small" color="success" variant="outlined" label="بدون نقص" sx={{ fontSize: '0.7rem' }} />
@@ -2316,13 +2436,385 @@ export function ReportingWorkbench({
                     )}
                   </TableBody>
                 </Table>
+
               </TableContainer>
             </Paper>
+              </>
+            )}
+
+            {cartableSubTab === 'export_workbook' && (
+              <Stack spacing={2.5}>
+            {/* Export Readiness Card */}
+            <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+              <Typography variant="h6" fontWeight={800} gutterBottom>
+                صدور فایل اکسل گزارش نهایی استان
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                این گزارش فایل الگو (Template) را بدون تغییر حفظ کرده و یک نسخهٔ جدید با فرمت استاندارد در پوشهٔ خروجی ثبت می‌کند.
+              </Typography>
+
+              {totalUnresolvedStars > 0 ? (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <strong>هشدار خانه‌های ستاره‌دار الزامی:</strong> در مجموع {totalUnresolvedStars} فیلد ستاره‌دار در کاربرگ‌ها خالی مانده است. مطابق ضوابط دستورالعمل ۱۴۰۵، صدور نهایی قبل از تکمیل این موارد توصیه نمی‌شود مگر با فعال‌سازی گزینهٔ صدور اضطراری.
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  تمام فیلدهای ستاره‌دار کاربرگ‌های هفت‌گانه کامل هستند و سامانه آماده صدور نهایی بدون نقص است.
+                </Alert>
+              )}
+
+              {exportBlockers.length > 0 && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  <strong>خانه‌های مانع صدور:</strong>
+                  <ul>
+                    {exportBlockers.map(b => (
+                      <li key={b.program_id}>
+                        {PROGRAM_NAMES[b.program_id] || b.program_id}: فیلدهای {b.missing_star_keys.join('، ')}
+                      </li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
+
+              <Grid container spacing={2} alignItems="center">
+                <Grid size={{ xs: 12 }}>
+                  <FormControl component="fieldset">
+                    <FormLabel component="legend" sx={{ fontWeight: 700, fontSize: '0.85rem', mb: 0.5 }}>
+                      دامنه و نحوه صدور اکسل:
+                    </FormLabel>
+                    <RadioGroup
+                      row
+                      value={exportScope}
+                      onChange={e => setExportScope(e.target.value as 'all' | 'single')}
+                    >
+                      <FormControlLabel
+                        value="all"
+                        control={<Radio size="small" />}
+                        label={<Typography variant="body2" fontWeight={700}>صدور جامع استانی (فایل تجمیعی کامل سال ۱۴۰۵)</Typography>}
+                      />
+                      <FormControlLabel
+                        value="single"
+                        control={<Radio size="small" />}
+                        label={<Typography variant="body2" fontWeight={700}>صدور تک‌کاربرگ تفکیکی (Single Worksheet)</Typography>}
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                </Grid>
+
+                {exportScope === 'single' && (
+                  <Grid size={{ xs: 12 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>انتخاب کاربرگ جهت صدور شیت مستقل</InputLabel>
+                      <Select
+                        label="انتخاب کاربرگ جهت صدور شیت مستقل"
+                        value={selectedSingleProgram}
+                        onChange={e => setSelectedSingleProgram(e.target.value)}
+                      >
+                        {programsCatalog
+                          .filter(p => p.workbook_sheet)
+                          .map(p => (
+                            <MenuItem key={p.program_code} value={p.kind || p.program_code}>
+                              {p.program_code} - {p.title} (شیت الگوی: {p.workbook_sheet})
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    label="نام استان"
+                    size="small"
+                    fullWidth
+                    value={exportProvince}
+                    onChange={e => setExportProvince(e.target.value)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    label="دورهٔ گزارش"
+                    size="small"
+                    fullWidth
+                    value={exportPeriod}
+                    onChange={e => setExportPeriod(e.target.value)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={exportForceUnresolved}
+                        onChange={e => setExportForceUnresolved(e.target.checked)}
+                      />
+                    }
+                    label="اجازه صدور با فیلدهای ستاره‌دار ناقص"
+                  />
+                </Grid>
+              </Grid>
+
+              <Box sx={{ mt: 2.5, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <FileDownloadRounded />}
+                  sx={{ width: { xs: '100%', sm: 'auto' }, fontWeight: 800 }}
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  {exporting ? 'در حال ایجاد فایل اکسل…' : 'صدور فایل اکسل نهایی'}
+                </Button>
+              </Box>
+
+              {lastExportResult && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  فایل با موفقیت صادر شد: <strong>{lastExportResult.fileName}</strong>
+                  <br />
+                  <Typography variant="caption" color="text.secondary">
+                    مسیر ذخیره محلی: {lastExportResult.path}
+                  </Typography>
+                </Alert>
+              )}
+            </Paper>
+
+            {/* Workbook Aggregations Preview Matrix */}
+            <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2.5 }, borderRadius: 2 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={800}>
+                    پیش‌نمایش تجمیعی کاربرگ‌های هفت‌گانه مصوب (الگوی ۱۴۰۵)
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    وضعیت آماده‌سازی سلول‌ها، ارقام و پرونده‌های متناظر استان برای درج در فایل الگو
+                  </Typography>
+                </Box>
+                <Chip
+                  color={totalUnresolvedStars === 0 ? "success" : "warning"}
+                  variant="outlined"
+                  label={totalUnresolvedStars === 0 ? "کلیه کاربرگ‌ها تکمیل است" : `${totalUnresolvedStars} فیلد ستاره‌دار باز`}
+                  sx={{ fontWeight: 700 }}
+                />
+              </Stack>
+              <TableContainer sx={{ maxHeight: 380, overflowX: 'auto' }}>
+                <Table stickyHeader size="small" sx={{ minWidth: 700 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'action.hover' }}>
+                      <TableCell sx={{ fontWeight: 700, width: 90 }}>کد سرفصل</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>عنوان برنامه و کاربرگ</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>شیت الگو در اکسل</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">پرونده‌های مرتبط</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">فیلدهای الزامی (ستاره‌دار)</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">وضعیت شیت</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }} align="center">عملیات</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {programsCatalog.filter(p => p.workbook_sheet).map(p => {
+                      const formObj = forms.find(f => f.program_id === p.kind || f.program_code === p.program_code)
+                      const missingStars = formObj?.unresolved_star?.length || 0
+                      const relEvents = cartableEvents.filter(ev =>
+                        ev.program_kinds.includes(p.kind) || ev.program_kinds.includes(p.program_code)
+                      ).length
+                      const isReady = missingStars === 0
+                      return (
+                        <TableRow key={p.program_code} hover>
+                          <TableCell sx={{ fontWeight: 700, fontFamily: 'monospace' }}>{p.program_code}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>{p.title}</TableCell>
+                          <TableCell>
+                            <Chip size="small" variant="outlined" label={`شیت ${p.workbook_sheet}`} color="info" />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip size="small" label={`${relEvents} پرونده`} color={relEvents > 0 ? 'primary' : 'default'} variant="outlined" />
+                          </TableCell>
+                          <TableCell align="center">
+                            {missingStars > 0 ? (
+                              <Chip size="small" label={`${missingStars} فیلد خالی`} color="warning" />
+                            ) : (
+                              <Chip size="small" label="تکمیل شده" color="success" />
+                            )}
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              size="small"
+                              label={isReady ? 'آماده صدور' : 'نیازمند تکمیل'}
+                              color={isReady ? 'success' : 'warning'}
+                              variant={isReady ? 'filled' : 'outlined'}
+                              sx={{ fontWeight: 700 }}
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Button
+                              size="small"
+                              variant="text"
+                              color="primary"
+                              onClick={() => {
+                                const formIdx = forms.findIndex(f => f.program_id === p.kind || f.program_code === p.program_code)
+                                if (formIdx >= 0) setSelectedFormIndex(formIdx)
+                                setCurrentTab(2)
+                              }}
+                              sx={{ fontSize: '0.75rem', py: 0.2 }}
+                            >
+                              ویرایش کاربرگ
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+
+            {/* History of Exports */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+              <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>
+                تاریخچه و گزارش بازرسی صدورهای گذشته
+              </Typography>
+              <TableContainer sx={{ maxHeight: 280, overflowX: 'auto' }}>
+                <Table stickyHeader size="small" sx={{ minWidth: 650 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>نام فایل</TableCell>
+                      <TableCell>مسئول صدور</TableCell>
+                      <TableCell>زمان صدور</TableCell>
+                      <TableCell>تعداد رویداد</TableCell>
+                      <TableCell>خانه‌های ستاره‌دار ناقص</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {exportsList.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          هنوز صادراتی ثبت نشده است.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      exportsList.map(exp => (
+                        <TableRow key={exp.export_id}>
+                          <TableCell sx={{ fontWeight: 600 }}>{exp.file_name}</TableCell>
+                          <TableCell>{exp.exported_by}</TableCell>
+                          <TableCell>{exp.exported_at ? jalaliDayLabel(exp.exported_at) : '—'}</TableCell>
+                          <TableCell>{exp.events_count}</TableCell>
+                          <TableCell>
+                            {exp.unresolved_star_count && exp.unresolved_star_count > 0 ? (
+                              <Chip size="small" label={`${exp.unresolved_star_count} ستاره ناقص`} color="warning" />
+                            ) : (
+                              <Chip size="small" label="کامل" color="success" />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+              </Stack>
+            )}
           </Stack>
         )}
 
         {currentTab === 2 && (
-          <Grid container spacing={3}>
+          <Stack spacing={2.5}>
+            {/* Date filter bar for workbooks */}
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+              <Stack spacing={1.5}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems="center" justifyContent="space-between">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <EventNoteRounded color="primary" />
+                    <Box>
+                      <Typography variant="subtitle2" fontWeight={800}>
+                        فیلتر بازهٔ زمانی و محاسبهٔ خودکار مقادیر کاربرگ‌ها
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        با انتخاب بازهٔ تاریخی، اقلام آماری و محاسباتی کاربرگ‌ها بر اساس رویدادهای واقع در همان بازه بازشمارش می‌شوند.
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    {matchingEventsCount !== null && (
+                      <Chip
+                        size="small"
+                        icon={<CheckCircleOutlineRounded fontSize="small" />}
+                        label={`رویدادهای تطبیق‌یافته: ${matchingEventsCount} مورد`}
+                        color={matchingEventsCount > 0 ? 'primary' : 'default'}
+                        variant="outlined"
+                        sx={{ fontWeight: 700 }}
+                      />
+                    )}
+                    {(formDateFrom || formDateTo) ? (
+                      <Chip
+                        size="small"
+                        color="secondary"
+                        label="بازه تاریخی فعال است"
+                        onDelete={() => {
+                          setFormDateFrom('')
+                          setFormDateTo('')
+                          void loadForms('', '')
+                        }}
+                      />
+                    ) : (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label="کل دوره (بدون فیلتر تاریخ)"
+                        sx={{ color: 'text.secondary' }}
+                      />
+                    )}
+                  </Stack>
+                </Stack>
+
+                <Divider sx={{ my: 0.5 }} />
+
+                <Grid container spacing={1.5} alignItems="flex-end">
+                  <Grid size={{ xs: 12, md: 7 }}>
+                    <JalaliDateRangePicker
+                      startDate={formDateFrom}
+                      endDate={formDateTo}
+                      onRangeChange={(start, end) => {
+                        setFormDateFrom(start)
+                        setFormDateTo(end)
+                      }}
+                      label="انتخاب بازه تاریخی برگزاری رویدادها (شمسی)"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 5 }}>
+                    <Stack direction="row" spacing={1} sx={{ mt: { xs: 1, md: 0 } }}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        startIcon={loadingForms ? <CircularProgress size={16} color="inherit" /> : <RefreshRounded />}
+                        onClick={() => void loadForms(formDateFrom, formDateTo)}
+                        disabled={loadingForms}
+                        sx={{ flex: 1, py: 0.8 }}
+                      >
+                        {loadingForms ? 'در حال بازشمارش…' : 'اعمال بازه و محاسبه مجدد مقادیر'}
+                      </Button>
+                      {(formDateFrom || formDateTo) && (
+                        <Button
+                          variant="outlined"
+                          color="inherit"
+                          size="small"
+                          onClick={() => {
+                            setFormDateFrom('')
+                            setFormDateTo('')
+                            void loadForms('', '')
+                          }}
+                          disabled={loadingForms}
+                          sx={{ py: 0.8 }}
+                        >
+                          مشاهده کل دوره
+                        </Button>
+                      )}
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Stack>
+            </Paper>
+
+            <Grid container spacing={3}>
             {/* Sidebar list of 8 forms */}
             <Grid size={{ xs: 12, md: 3.5 }}>
               <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -2674,371 +3166,13 @@ export function ReportingWorkbench({
               )}
             </Grid>
           </Grid>
-        )}
-
-        {/* ================= TAB 2: پیش‌نمایش تجمیع و صدور اکسل ================= */}
-        {currentTab === 3 && (
-          <Stack spacing={3}>
-            {/* Export Readiness Card */}
-            <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="h6" fontWeight={800} gutterBottom>
-                صدور فایل اکسل گزارش نهایی استان
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                این گزارش فایل الگو (Template) را بدون تغییر حفظ کرده و یک نسخهٔ جدید با فرمت استاندارد در پوشهٔ خروجی ثبت می‌کند.
-              </Typography>
-
-              {totalUnresolvedStars > 0 ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  <strong>هشدار خانه‌های ستاره‌دار الزامی:</strong> در مجموع {totalUnresolvedStars} فیلد ستاره‌دار در کاربرگ‌ها خالی مانده است. مطابق ضوابط دستورالعمل ۱۴۰۵، صدور نهایی قبل از تکمیل این موارد توصیه نمی‌شود مگر با فعال‌سازی گزینهٔ صدور اضطراری.
-                </Alert>
-              ) : (
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  تمام فیلدهای ستاره‌دار کاربرگ‌های هفت‌گانه کامل هستند و سامانه آماده صدور نهایی بدون نقص است.
-                </Alert>
-              )}
-
-              {exportBlockers.length > 0 && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  <strong>خانه‌های مانع صدور:</strong>
-                  <ul>
-                    {exportBlockers.map(b => (
-                      <li key={b.program_id}>
-                        {PROGRAM_NAMES[b.program_id] || b.program_id}: فیلدهای {b.missing_star_keys.join('، ')}
-                      </li>
-                    ))}
-                  </ul>
-                </Alert>
-              )}
-
-              <Grid container spacing={2} alignItems="center">
-                <Grid size={{ xs: 12 }}>
-                  <FormControl component="fieldset">
-                    <FormLabel component="legend" sx={{ fontWeight: 700, fontSize: '0.85rem', mb: 0.5 }}>
-                      دامنه و نحوه صدور اکسل:
-                    </FormLabel>
-                    <RadioGroup
-                      row
-                      value={exportScope}
-                      onChange={e => setExportScope(e.target.value as 'all' | 'single')}
-                    >
-                      <FormControlLabel
-                        value="all"
-                        control={<Radio size="small" />}
-                        label={<Typography variant="body2" fontWeight={700}>صدور جامع استانی (فایل تجمیعی کامل سال ۱۴۰۵)</Typography>}
-                      />
-                      <FormControlLabel
-                        value="single"
-                        control={<Radio size="small" />}
-                        label={<Typography variant="body2" fontWeight={700}>صدور تک‌کاربرگ تفکیکی (Single Worksheet)</Typography>}
-                      />
-                    </RadioGroup>
-                  </FormControl>
-                </Grid>
-
-                {exportScope === 'single' && (
-                  <Grid size={{ xs: 12 }}>
-                    <FormControl size="small" fullWidth>
-                      <InputLabel>انتخاب کاربرگ جهت صدور شیت مستقل</InputLabel>
-                      <Select
-                        label="انتخاب کاربرگ جهت صدور شیت مستقل"
-                        value={selectedSingleProgram}
-                        onChange={e => setSelectedSingleProgram(e.target.value)}
-                      >
-                        {programsCatalog
-                          .filter(p => p.workbook_sheet)
-                          .map(p => (
-                            <MenuItem key={p.program_code} value={p.kind || p.program_code}>
-                              {p.program_code} - {p.title} (شیت الگوی: {p.workbook_sheet})
-                            </MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                )}
-
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField
-                    label="نام استان"
-                    size="small"
-                    fullWidth
-                    value={exportProvince}
-                    onChange={e => setExportProvince(e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField
-                    label="دورهٔ گزارش"
-                    size="small"
-                    fullWidth
-                    value={exportPeriod}
-                    onChange={e => setExportPeriod(e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={exportForceUnresolved}
-                        onChange={e => setExportForceUnresolved(e.target.checked)}
-                      />
-                    }
-                    label="اجازه صدور با فیلدهای ستاره‌دار ناقص"
-                  />
-                </Grid>
-              </Grid>
-
-              <Box sx={{ mt: 2.5, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <FileDownloadRounded />}
-                  onClick={handleExport}
-                  disabled={exporting}
-                >
-                  {exporting ? 'در حال ایجاد فایل اکسل…' : 'صدور فایل اکسل نهایی'}
-                </Button>
-              </Box>
-
-              {lastExportResult && (
-                <Alert severity="success" sx={{ mt: 2 }}>
-                  فایل با موفقیت صادر شد: <strong>{lastExportResult.fileName}</strong>
-                  <br />
-                  <Typography variant="caption" color="text.secondary">
-                    مسیر ذخیره محلی: {lastExportResult.path}
-                  </Typography>
-                </Alert>
-              )}
-            </Paper>
-
-            {/* Approved Events Table */}
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" fontWeight={800}>
-                  رویدادهای تأییدشدهٔ گزارش ({events.length} رویداد)
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  رویدادهایی که از طریق صف بازبینی تأیید شده‌اند و در تجمیع وارد می‌شوند.
-                </Typography>
-              </Stack>
-              <TableContainer sx={{ maxHeight: 380 }}>
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>شناسه رویداد</TableCell>
-                      <TableCell>برنامه‌ها</TableCell>
-                      <TableCell>تاریخ</TableCell>
-                      <TableCell>واحد برگزارکننده</TableCell>
-                      <TableCell>ثبت‌کننده</TableCell>
-                      <TableCell align="center">وضعیت چرخه</TableCell>
-                      <TableCell align="center">ارزیابی کیفی / نقایص</TableCell>
-                      <TableCell align="center">عملیات گردش کار</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {events.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} align="center">
-                          هیچ رویدادی تاکنون تأیید یا ثبت نشده است.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      events.map(ev => {
-                        const statusLabel =
-                          ev.review_status === 'approved'
-                            ? 'تایید مدیر'
-                            : ev.review_status === 'conflict'
-                            ? 'تعارض / رد'
-                            : ev.review_status === 'needs_review'
-                            ? (ev.revision_count && ev.revision_count > 0 ? `اصلاحیه (${ev.revision_count})` : 'در انتظار بررسی')
-                            : 'پیش‌نویس'
-                        const statusColor =
-                          ev.review_status === 'approved'
-                            ? 'success'
-                            : ev.review_status === 'conflict'
-                            ? 'error'
-                            : ev.review_status === 'needs_review'
-                            ? 'warning'
-                            : 'default'
-
-                        const creator = ev.registered_by_name || ev.registered_by_id || ev.created_by || 'نامشخص'
-                        const hasBlockers = ev.defects?.some(d => d.severity === 'blocker')
-                        const defectCount = ev.defects?.length || 0
-
-                        return (
-                          <TableRow key={ev.event_id} hover>
-                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{ev.event_id}</TableCell>
-                            <TableCell>
-                              {ev.macro_category === 'other_cultural' ? (
-                                <Chip
-                                  size="small"
-                                  color="secondary"
-                                  variant="outlined"
-                                  label={ev.custom_topic ? `سایر فرهنگی: ${ev.custom_topic}` : 'سایر برنامه‌های فرهنگی'}
-                                  sx={{ mr: 0.5, mb: 0.5, fontWeight: 700 }}
-                                />
-                              ) : (
-                                <Chip
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                  label="مصوب شیت"
-                                  sx={{ mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
-                                />
-                              )}
-                              {ev.program_kinds.map(p => (
-                                <Chip key={p} size="small" label={PROGRAM_NAMES[p] || p} sx={{ mr: 0.5, mb: 0.5 }} />
-                              ))}
-                            </TableCell>
-                            <TableCell>{ev.occurred_on}</TableCell>
-                            <TableCell>{ev.unit_name || ev.unit}</TableCell>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight={600}>
-                                {creator}
-                              </Typography>
-                              {ev.reviewed_by_name && (
-                                <Typography variant="caption" color="text.secondary" display="block">
-                                  تایید: {ev.reviewed_by_name}
-                                </Typography>
-                              )}
-                            </TableCell>
-                            <TableCell align="center">
-                              <Chip
-                                size="small"
-                                label={statusLabel}
-                                color={statusColor}
-                                variant={ev.review_status === 'approved' ? 'filled' : 'outlined'}
-                                sx={{ fontWeight: 700 }}
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              {defectCount > 0 ? (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color={hasBlockers ? 'error' : 'warning'}
-                                  onClick={() => setDefectDialogEvent(ev)}
-                                  sx={{ fontSize: '0.75rem', py: 0.2 }}
-                                >
-                                  {defectCount} ایراد / هشدار
-                                </Button>
-                              ) : (
-                                <Chip size="small" label="تطبیق کامل" color="success" variant="outlined" />
-                              )}
-                            </TableCell>
-                            <TableCell align="center">
-                              <Stack direction="row" spacing={0.5} justifyContent="center">
-                                {ev.review_status !== 'approved' && (
-                                  <Tooltip title="تأیید نهایی پرونده توسط مدیر">
-                                    <Button
-                                      size="small"
-                                      variant="contained"
-                                      color="success"
-                                      disabled={workflowActionLoading}
-                                      onClick={() => void handleApproveEvent(ev.event_id)}
-                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
-                                    >
-                                      تایید
-                                    </Button>
-                                  </Tooltip>
-                                )}
-                                {ev.review_status !== 'conflict' && (
-                                  <Tooltip title="ارجاع نقص و ایجاد وظیفه برای کارمند">
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      color="warning"
-                                      disabled={workflowActionLoading}
-                                      onClick={() => {
-                                        setRevisionDialogEvent(ev)
-                                        setRevisionReason(ev.review_notes || '')
-                                      }}
-                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
-                                    >
-                                      ارجاع نقص
-                                    </Button>
-                                  </Tooltip>
-                                )}
-                                {ev.review_status !== 'conflict' && (
-                                  <Tooltip title="اعلام تعارض یا رد پرونده">
-                                    <Button
-                                      size="small"
-                                      variant="text"
-                                      color="error"
-                                      disabled={workflowActionLoading}
-                                      onClick={() => {
-                                        const reason = window.prompt('دلیل رد یا تعارض رویداد:')
-                                        if (reason) void handleMarkConflict(ev.event_id, reason)
-                                      }}
-                                      sx={{ fontSize: '0.75rem', px: 1, minWidth: 'auto' }}
-                                    >
-                                      رد
-                                    </Button>
-                                  </Tooltip>
-                                )}
-                              </Stack>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-
-            {/* History of Exports */}
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-              <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>
-                تاریخچه و گزارش بازرسی صدورهای گذشته
-              </Typography>
-              <TableContainer sx={{ maxHeight: 260 }}>
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>نام فایل</TableCell>
-                      <TableCell>مسئول صدور</TableCell>
-                      <TableCell>زمان صدور</TableCell>
-                      <TableCell>تعداد رویداد</TableCell>
-                      <TableCell>خانه‌های ستاره‌دار ناقص</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {exportsList.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center">
-                          هنوز صادراتی ثبت نشده است.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      exportsList.map(exp => (
-                        <TableRow key={exp.export_id}>
-                          <TableCell sx={{ fontWeight: 600 }}>{exp.file_name}</TableCell>
-                          <TableCell>{exp.exported_by}</TableCell>
-                          <TableCell>{exp.exported_at ? jalaliDayLabel(exp.exported_at) : '—'}</TableCell>
-                          <TableCell>{exp.events_count}</TableCell>
-                          <TableCell>
-                            {exp.unresolved_star_count && exp.unresolved_star_count > 0 ? (
-                              <Chip size="small" label={`${exp.unresolved_star_count} ستاره ناقص`} color="warning" />
-                            ) : (
-                              <Chip size="small" label="کامل" color="success" />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
           </Stack>
         )}
 
         {/* ================= TAB 4: داشبورد دفتر ================= */}
-        {currentTab === 5 && <OfficeDashboard />}
+        {currentTab === 4 && <OfficeDashboard />}
         {/* ================= TAB 3: تنظیمات رصد گفتگوها ================= */}
-        {currentTab === 4 && (
+        {currentTab === 3 && (
           <Stack spacing={3}>
             {/* Targets Table */}
             <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>

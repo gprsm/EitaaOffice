@@ -2,8 +2,8 @@
 
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
-- تعداد فایل‌های نقشه: 478
-- اثرانگشت منبع: `0ff524795181a27b`
+- تعداد فایل‌های نقشه: 479
+- اثرانگشت منبع: `b148a9d0c2ef8441`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -19,6 +19,7 @@
 | `scripts/build_wheel_stdlib.py` | Operations/tooling | 9 | Build the pure-Python bridge wheel without network or build backends. |
 | `scripts/build_windows_icon.ps1` | Operations/tooling | 0 | — |
 | `scripts/capture_indicators_visual_audit.py` | Operations/tooling | 9 | Visual Acceptance Runner for Macro & Micro Indicators and Message Splitting Control Bar |
+| `scripts/capture_unified_reporting_visual_audit.py` | Operations/tooling | 9 | Visual Acceptance Runner for Unified Reporting Cartable & Excel Export |
 | `scripts/check_cdp.py` | Operations/tooling | 1 | — |
 | `scripts/check_gmi4_invariants.py` | Operations/tooling | 1 | Compare frozen assets directly against the signed clean GMI3 base ZIP. |
 | `scripts/check_office_payload_privacy.py` | Operations/tooling | 2 | — |
@@ -117,7 +118,7 @@
 | `src/eitaa_bridge/__init__.py` | Project | 0 | Eitaa Bridge public package. |
 | `src/eitaa_bridge/application/__init__.py` | Application | 0 | — |
 | `src/eitaa_bridge/application/account_auth.py` | Application | 15 | In-memory, account-bound Eitaa authentication challenge metadata. |
-| `src/eitaa_bridge/application/account_runtime.py` | Application | 50 | Account-scoped Eitaa runtime and fail-closed registry. |
+| `src/eitaa_bridge/application/account_runtime.py` | Application | 51 | Account-scoped Eitaa runtime and fail-closed registry. |
 | `src/eitaa_bridge/application/agent_gateway.py` | Application | 41 | AI Agent Chat Gateway (chat-only surface). |
 | `src/eitaa_bridge/application/api.py` | Application | 336 | UI-facing local application API independent of any web framework. |
 | `src/eitaa_bridge/application/bale_account_owner.py` | Application | 28 | Account-owned Bale connection on one persistent asyncio loop. |
@@ -255,7 +256,7 @@
 | `src/eitaa_bridge/reporting/jalali_dates.py` | Project | 14 | Jalali (Solar Hijri) calendar utilities and conversion algorithms. |
 | `src/eitaa_bridge/reporting/metrics.py` | Project | 18 | Versioned metric dictionary for the reporting section shell (F-088). |
 | `src/eitaa_bridge/reporting/model.py` | Project | 17 | Domain model for the 1405 provincial reporting core. |
-| `src/eitaa_bridge/reporting/monitor.py` | Project | 11 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
+| `src/eitaa_bridge/reporting/monitor.py` | Project | 12 | Monitors configured Eitaa dialogs and feeds the reporting pipeline. |
 | `src/eitaa_bridge/reporting/office_import.py` | Project | 18 | Bulk import of every dataset the owner provided (F-090/V-221 follow-up, |
 | `src/eitaa_bridge/reporting/ownership.py` | Project | 22 | Single-process ownership lease for reporting store (resolves F-104). |
 | `src/eitaa_bridge/reporting/plans.py` | Project | 9 | Mandate layer and approved program plans (F-088 / design doc §3, §10). |
@@ -323,7 +324,7 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
-| `tests/test_judicial_units_and_liaisons.py` | Python test | 16 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
+| `tests/test_judicial_units_and_liaisons.py` | Python test | 17 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
 | `tests/test_linux_identity_protection.py` | Python test | 4 | — |
 | `tests/test_m2m_endpoints.py` | Python test | 44 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
@@ -363,12 +364,12 @@
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_receipt_attempt_fence.py` | Python test | 4 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
-| `tests/test_reporting_api.py` | Python test | 16 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
+| `tests/test_reporting_api.py` | Python test | 17 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_baseline_banks.py` | Python test | 5 | Tests for Master Baseline Banks and Registry APIs in reporting phase 2. |
 | `tests/test_reporting_cartable_and_export.py` | Python test | 9 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
 | `tests/test_reporting_event_fields_and_facts_crud.py` | Python test | 11 | Comprehensive CRUD and field-by-field verification test for ReportedEvents and Facts. |
-| `tests/test_reporting_indexer.py` | Python test | 37 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
+| `tests/test_reporting_indexer.py` | Python test | 39 | Tests for the Eitaa intent indexer, monitor, and Bale messaging facade. |
 | `tests/test_reporting_migration_v5.py` | Python test | 9 | Migration v5 tests: witness layer, typed facts, review lifecycle (phase 1 of the unified reporting strategy). |
 | `tests/test_reporting_office.py` | Python test | 28 | Phase A/B tests: section registry, person registry, WP link layer, |
 | `tests/test_reporting_ownership.py` | Python test | 6 | Tests for single-process reporting store ownership lease. |

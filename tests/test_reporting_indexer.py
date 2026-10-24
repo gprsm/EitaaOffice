@@ -211,6 +211,87 @@ class TestMonitor:
         assert result.event_reports == 1
         assert result.candidates[0].source_message_refs[0].startswith("eitaa:1:")
 
+    def test_scan_provider_with_real_core_shape(self) -> None:
+        from datetime import datetime, timezone
+
+        class FakePeer:
+            id = 55
+            title = "رابطان فرهنگی دادگستری استان مازندران"
+
+        class FakeDialog:
+            peer = FakePeer()
+
+        class FakeMsg:
+            def __init__(self, mid: int, text: str, dt: datetime) -> None:
+                self.id = mid
+                self.text = text
+                self.date = dt
+
+        class FakeDiscovery:
+            def list_dialogs(self, limit: int = 100):
+                return type("P", (), {"dialogs": [FakeDialog()]})()
+
+        class FakeMessages:
+            def list(self, peer, limit: int = 50):
+                return [
+                    FakeMsg(101, "مراسم سالگرد با حضور ۹۰ نفر در دادگستری نور برگزار شد", datetime(2026, 7, 10, 10, 0, tzinfo=timezone.utc)),
+                    FakeMsg(102, "پیام تبریک عید سعید فطر", datetime(2026, 7, 11, 10, 0, tzinfo=timezone.utc)),
+                ]
+
+        class RealCoreMock:
+            discovery = FakeDiscovery()
+            messages = FakeMessages()
+
+        monitor = EitaaReportMonitor()
+        result = monitor.scan_once(RealCoreMock())
+        assert result.scanned == 2
+        assert result.event_reports == 1
+        assert result.informational == 1
+        assert len(result.candidates) == 1
+        assert result.candidates[0].source_message_refs[0] == "eitaa:55:101"
+
+    def test_scan_provider_with_date_range_filter(self) -> None:
+        from datetime import datetime, timezone
+
+        class FakePeer:
+            id = 55
+            title = "رابطان فرهنگی دادگستری"
+
+        class FakeDialog:
+            peer = FakePeer()
+
+        class FakeMsg:
+            def __init__(self, mid: int, text: str, dt: datetime) -> None:
+                self.id = mid
+                self.text = text
+                self.date = dt
+
+        class FakeDiscovery:
+            def list_dialogs(self, limit: int = 100):
+                return type("P", (), {"dialogs": [FakeDialog()]})()
+
+        class FakeMessages:
+            def list(self, peer, limit: int = 50):
+                return [
+                    FakeMsg(101, "مراسم خرداد با ۹۰ نفر", datetime(2026, 6, 15, tzinfo=timezone.utc)),
+                    FakeMsg(102, "مراسم مرداد با ۱۲۰ نفر", datetime(2026, 8, 20, tzinfo=timezone.utc)),
+                ]
+
+        class RealCoreMock:
+            discovery = FakeDiscovery()
+            messages = FakeMessages()
+
+        monitor = EitaaReportMonitor()
+        # Filter for August only
+        result = monitor.scan_once(
+            RealCoreMock(),
+            date_from=datetime(2026, 8, 1, tzinfo=timezone.utc),
+            date_to=datetime(2026, 8, 31, tzinfo=timezone.utc),
+        )
+        assert result.scanned == 1
+        assert result.event_reports == 1
+        assert result.candidates[0].source_message_refs[0] == "eitaa:55:102"
+
 
 # --------------------------------------------------------------------------
 # ReportingService integration

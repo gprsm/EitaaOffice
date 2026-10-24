@@ -146,6 +146,7 @@ _DEFINITIONS: Final[tuple[EventDefinition, ...]] = (
     EventDefinition("ai_connection_settings_updated", "ai_connection", "succeeded", audit_required=True),
     EventDefinition("ai_connection_probe_executed", "ai_connection", "succeeded", audit_required=True),
     EventDefinition("ai_data_policy_updated", "ai_data_policy", "succeeded", audit_required=True),
+    EventDefinition("reporting_scan_provider_unavailable", "reporting", "degraded"),
 )
 EVENT_CATALOG: Final[dict[str, EventDefinition]] = {item.name: item for item in _DEFINITIONS}
 

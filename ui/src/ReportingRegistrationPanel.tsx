@@ -191,15 +191,20 @@ export function inferRegistrationDefaults(
   // Step B: Inspect liaisonsMap against sender identity (e.g. sender username / key / display name / authorLabel)
   if (liaisonsMap && (!author || !unit_name)) {
     const rawWriter = authorLabel(dialog, primaryMsg)
-    const senderUserId = primaryMsg?.sender_key?.startsWith('u:') ? primaryMsg.sender_key.slice(2) : undefined
+    const rawSenderKey = primaryMsg?.sender_key || ((primaryMsg as any)?.from_peer_id ? `user:${(primaryMsg as any).from_peer_id}` : '')
+    const cleanUserId = rawSenderKey.replace(/^(user:|u:)/, '')
     const cleanUsername = primaryMsg?.sender_username?.toLowerCase().replace(/^@/, '')
     const rawName = primaryMsg?.sender_display_name?.trim()
 
     let matched = null
-    if (primaryMsg?.sender_key && liaisonsMap[primaryMsg.sender_key]) {
-      matched = liaisonsMap[primaryMsg.sender_key]
-    } else if (senderUserId && liaisonsMap[senderUserId]) {
-      matched = liaisonsMap[senderUserId]
+    if (rawSenderKey && liaisonsMap[rawSenderKey]) {
+      matched = liaisonsMap[rawSenderKey]
+    } else if (cleanUserId && liaisonsMap[cleanUserId]) {
+      matched = liaisonsMap[cleanUserId]
+    } else if (cleanUserId && liaisonsMap[`user:${cleanUserId}`]) {
+      matched = liaisonsMap[`user:${cleanUserId}`]
+    } else if (cleanUserId && liaisonsMap[`u:${cleanUserId}`]) {
+      matched = liaisonsMap[`u:${cleanUserId}`]
     } else if (cleanUsername && liaisonsMap[cleanUsername]) {
       matched = liaisonsMap[cleanUsername]
     } else if (rawName && liaisonsMap[rawName]) {
@@ -472,12 +477,13 @@ export function ReportingRegistrationPanel(props: {
         const combinedText = (props.sourceMessages || (props.sourceMessage ? [props.sourceMessage] : [])).map(m => m.text || '').join('\n')
         const author = primaryMsg ? authorLabel(props.dialog, primaryMsg) : ''
 
+        const rawSenderKey = primaryMsg?.sender_key || ((primaryMsg as any)?.from_peer_id ? `user:${(primaryMsg as any).from_peer_id}` : '')
         const res = await api<{
           matched: boolean
           liaison: LiaisonItem | null
           unit: JudicialUnitItem | null
         }>('POST', '/api/v3/reporting/liaisons/resolve', {
-          sender_key: primaryMsg?.sender_username || props.dialog?.peer?.id || '',
+          sender_key: rawSenderKey || (primaryMsg?.sender_username ? `@${primaryMsg.sender_username.replace(/^@/, '')}` : ''),
           username: primaryMsg?.sender_username || '',
           full_name: author,
           text: combinedText,
@@ -504,6 +510,45 @@ export function ReportingRegistrationPanel(props: {
     void resolveSenderAndUnit()
     return () => { isMounted = false }
   }, [props.sourceMessage?.id, props.dialog?.peer?.id])
+
+  // Reactively re-check liaisonsMap if loaded or updated asynchronously after panel open
+  useEffect(() => {
+    if (!props.liaisonsMap || Object.keys(props.liaisonsMap).length === 0) return
+    const primaryMsg = props.sourceMessage || (props.sourceMessages && props.sourceMessages.length ? props.sourceMessages[0] : null)
+    if (!primaryMsg) return
+
+    const rawSenderKey = primaryMsg.sender_key || ((primaryMsg as any)?.from_peer_id ? `user:${(primaryMsg as any).from_peer_id}` : '')
+    const cleanUserId = rawSenderKey.replace(/^(user:|u:)/, '')
+    const cleanUsername = primaryMsg.sender_username?.toLowerCase().replace(/^@/, '')
+    const rawName = primaryMsg.sender_display_name?.trim()
+    const rawWriter = authorLabel(props.dialog, primaryMsg)
+
+    let matched = null
+    if (rawSenderKey && props.liaisonsMap[rawSenderKey]) matched = props.liaisonsMap[rawSenderKey]
+    else if (cleanUserId && props.liaisonsMap[cleanUserId]) matched = props.liaisonsMap[cleanUserId]
+    else if (cleanUserId && props.liaisonsMap[`user:${cleanUserId}`]) matched = props.liaisonsMap[`user:${cleanUserId}`]
+    else if (cleanUserId && props.liaisonsMap[`u:${cleanUserId}`]) matched = props.liaisonsMap[`u:${cleanUserId}`]
+    else if (cleanUsername && props.liaisonsMap[cleanUsername]) matched = props.liaisonsMap[cleanUsername]
+    else if (rawName && props.liaisonsMap[rawName]) matched = props.liaisonsMap[rawName]
+    else if (rawWriter && props.liaisonsMap[rawWriter]) matched = props.liaisonsMap[rawWriter]
+
+    if (matched) {
+      setDraft(current => {
+        const isDefaultAuthor = !current.author || current.author === 'Arman' || current.author === rawWriter || current.author === rawName || current.author === 'نویسنده نامشخص'
+        const isDefaultUnit = !current.unit_name || current.unit_name === 'ستاد دادگستری کل استان' || current.unit === 'provincial_hq'
+        const shouldUpdateAuthor = !userEditedAuthorRef.current && isDefaultAuthor
+        const shouldUpdateUnit = !userEditedUnitRef.current && isDefaultUnit
+
+        if (!shouldUpdateAuthor && !shouldUpdateUnit) return current
+        return {
+          ...current,
+          author: shouldUpdateAuthor ? matched.full_name : current.author,
+          unit_name: shouldUpdateUnit ? matched.unit_display_name : current.unit_name,
+          unit: shouldUpdateUnit ? (matched.unit_display_name.includes('اداره کل') || matched.unit_display_name.includes('ستاد') ? 'provincial_hq' : 'judicial_domain') : current.unit,
+        }
+      })
+    }
+  }, [props.liaisonsMap, props.sourceMessage, props.sourceMessages, props.dialog])
 
   // Restore a saved draft once on mount (incomplete forms must survive reloads).
   useEffect(() => {

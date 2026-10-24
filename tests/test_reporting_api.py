@@ -410,3 +410,60 @@ class TestReportingFormsAndExportEndpoints:
         assert q_map["narrative_allocated_budget"] == 50000000
 
 
+
+    def test_forms_date_range_filtering(self, reporting_api: BridgeApplicationApi) -> None:
+        # Create event in May 2026
+        resp1 = reporting_api.dispatch(
+            "POST",
+            "/api/v2/reporting/events",
+            body={
+                "program_id": "trip",
+                "occurred_on": "2026-05-10",
+                "unit": "provincial_hq",
+                "unit_name": "ستاد مرکزی",
+                "attendee_count": 30,
+                "notes": "اردوی بهار",
+            },
+        )
+        assert resp1.status == 201
+
+        # Create event in September 2026
+        resp2 = reporting_api.dispatch(
+            "POST",
+            "/api/v2/reporting/events",
+            body={
+                "program_id": "trip",
+                "occurred_on": "2026-09-10",
+                "unit": "provincial_hq",
+                "unit_name": "ستاد مرکزی",
+                "attendee_count": 50,
+                "notes": "اردوی پاییز",
+            },
+        )
+        assert resp2.status == 201
+
+        # Query May only
+        may_resp = reporting_api.dispatch("GET", "/api/v2/reporting/forms?date_from=2026-05-01&date_to=2026-05-31")
+        assert may_resp.status == 200
+        assert may_resp.payload["total_events"] == 1
+        trip_may = next(f for f in may_resp.payload["forms"] if f["program_id"] == "trip")
+        q_may = {q["key"]: q["current_value"] for q in trip_may["questions"]}
+        assert q_may["trip_count"] == 1
+        assert q_may["attendees"] == 30
+
+        # Query entire season May-Sep
+        all_resp = reporting_api.dispatch("GET", "/api/v2/reporting/forms?date_from=2026-05-01&date_to=2026-09-30")
+        assert all_resp.status == 200
+        assert all_resp.payload["total_events"] == 2
+        trip_all = next(f for f in all_resp.payload["forms"] if f["program_id"] == "trip")
+        q_all = {q["key"]: q["current_value"] for q in trip_all["questions"]}
+        assert q_all["trip_count"] == 2
+        assert q_all["attendees"] == 80
+
+        # Query empty window in early 2026
+        empty_resp = reporting_api.dispatch("GET", "/api/v2/reporting/forms?date_from=2026-01-01&date_to=2026-04-30")
+        assert empty_resp.status == 200
+        assert empty_resp.payload["total_events"] == 0
+        trip_empty = next(f for f in empty_resp.payload["forms"] if f["program_id"] == "trip")
+        q_empty = {q["key"]: q["current_value"] for q in trip_empty["questions"]}
+        assert q_empty["trip_count"] == 0

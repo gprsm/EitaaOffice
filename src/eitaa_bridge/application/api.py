@@ -1819,7 +1819,7 @@ class BridgeApplicationApi:
                 return self._reporting_list_forms(query)
             form_match = _REPORTING_FORM_ROUTE.fullmatch(path)
             if selected_method == "GET" and form_match:
-                return self._reporting_get_form(form_match.group("program_id"))
+                return self._reporting_get_form(form_match.group("program_id"), query=query)
             if selected_method == "PUT" and form_match:
                 return self._reporting_save_form(
                     form_match.group("program_id"),
@@ -4448,10 +4448,46 @@ class BridgeApplicationApi:
             return ApiResponse(200, {"ok": True, "result": result.summary()})
 
         limit = int(payload.get("limit_per_dialog", 50))
+        date_from_str = payload.get("date_from")
+        date_to_str = payload.get("date_to")
+        date_from = None
+        date_to = None
+        if date_from_str:
+            try:
+                date_from = datetime.fromisoformat(str(date_from_str))
+            except Exception:
+                pass
+        if date_to_str:
+            try:
+                date_to = datetime.fromisoformat(str(date_to_str))
+            except Exception:
+                pass
+
         runtime = self._request_runtime.get() or self._v1_runtime
-        if runtime is not None and hasattr(runtime, "core") and runtime.core is not None:
-            result = self._reporting_service.scan_and_record_provider(runtime.core, limit_per_dialog=limit)
+        if runtime is not None and getattr(runtime, "core", None) is not None:
+            result = self._reporting_service.scan_and_record_provider(
+                runtime.core,
+                limit_per_dialog=limit,
+                date_from=date_from,
+                date_to=date_to,
+            )
             return ApiResponse(200, {"ok": True, "result": result.summary()})
+
+        try:
+            with self._open_bridge(self.config_path, env_file=self.env_file, open_core=True) as bridge:
+                result = self._reporting_service.scan_and_record_provider(
+                    bridge.core,
+                    limit_per_dialog=limit,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
+                return ApiResponse(200, {"ok": True, "result": result.summary()})
+        except Exception as exc:
+            self._application_logger.emit(
+                "reporting_scan_provider_unavailable",
+                level="warning",
+                fields={"error": str(exc)},
+            )
 
         return ApiResponse(
             200,
@@ -4471,9 +4507,24 @@ class BridgeApplicationApi:
     def _reporting_list_candidates(self, query: Mapping[str, str]) -> ApiResponse:
         status = query.get("status", "pending")
         limit = int(query.get("limit", 100))
-        candidates = self._reporting_service.list_review_candidates(
+        raw_candidates = self._reporting_service.list_review_candidates(
             status=status if status != "all" else None, limit=limit
         )
+        candidates = []
+        for c in raw_candidates:
+            item = dict(c)
+            source_refs = item.get("source_message_refs") or []
+            first_ref = str(source_refs[0]) if source_refs else ""
+            item.setdefault("status", item.get("review_status", "pending"))
+            item.setdefault("matched_programs", item.get("suggested_kinds") or [])
+            item.setdefault("attendee_count", item.get("extracted_attendees"))
+            item.setdefault("message_ref", first_ref)
+            item.setdefault("platform", "eitaa")
+            item.setdefault("confidence", 0.9 if item.get("confidence_note") else 0.8)
+            item.setdefault("unit_hints", [item["sender_hint"]] if item.get("sender_hint") else [])
+            item.setdefault("suggested_at", item.get("created_at") or "")
+            item.setdefault("indexed_at", item.get("created_at") or "")
+            candidates.append(item)
         return ApiResponse(200, {"ok": True, "candidates": candidates})
 
     def _reporting_review_candidate(
@@ -4780,11 +4831,15 @@ class BridgeApplicationApi:
         review_status = query.get("review_status") or None
         registered_by_id = query.get("registered_by_id") or None
         macro_category = query.get("macro_category") or None
+        date_from = query.get("date_from") or None
+        date_to = query.get("date_to") or None
         events = self._reporting_service.get_stored_events(
             limit=limit,
             review_status=review_status,
             registered_by_id=registered_by_id,
             macro_category=macro_category,
+            date_from=date_from,
+            date_to=date_to,
         )
         serialized = []
         for ev in events:
@@ -4833,16 +4888,29 @@ class BridgeApplicationApi:
 
     def _reporting_list_forms(self, query: Mapping[str, Any] | None = None) -> ApiResponse:
         include_all = False
+        date_from = None
+        date_to = None
         if query:
             raw_all = query.get("all")
             raw_narrative = query.get("include_narrative")
             val_all = raw_all[0] if isinstance(raw_all, (list, tuple)) else str(raw_all or "")
             val_narrative = raw_narrative[0] if isinstance(raw_narrative, (list, tuple)) else str(raw_narrative or "")
             include_all = val_all in ("true", "1") or val_narrative in ("true", "1")
+            raw_df = query.get("date_from")
+            if raw_df:
+                date_from = raw_df[0] if isinstance(raw_df, (list, tuple)) else str(raw_df or "")
+            raw_dt = query.get("date_to")
+            if raw_dt:
+                date_to = raw_dt[0] if isinstance(raw_dt, (list, tuple)) else str(raw_dt or "")
         from ..reporting.model import ProgramId
         definitions = self._reporting_service.definitions(include_narrative=include_all)
         saved = self._reporting_service.load_filled_forms()
-        events_all = self._reporting_service.get_stored_events(limit=500)
+        has_date_filter = bool(date_from or date_to)
+        events_all = self._reporting_service.get_stored_events(
+            limit=1000,
+            date_from=date_from or None,
+            date_to=date_to or None,
+        )
         forms_list = []
         for defn in definitions:
             prog_id = "narrative" if defn.program_code == "80000" else defn.program_id.value
@@ -4864,9 +4932,13 @@ class BridgeApplicationApi:
                     "choices": list(q.choices),
                     "auto_from": q.auto_from,
                     "current_value": (
-                        f.answers[q.key].value
-                        if f and q.key in f.answers and f.answers[q.key].value is not None
-                        else (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else None)
+                        (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else (0 if q.qtype in ("count", "attendees") else None))
+                        if has_date_filter and (q.auto_from or q.key in ("ceremony_count", "trip_count", "contest_count"))
+                        else (
+                            f.answers[q.key].value
+                            if f and q.key in f.answers and f.answers[q.key].value is not None
+                            else (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else None)
+                        )
                     ),
                 }
                 for q in defn.questions
@@ -4890,19 +4962,42 @@ class BridgeApplicationApi:
                     ),
                 }
             )
-        return ApiResponse(200, {"ok": True, "forms": forms_list})
+        return ApiResponse(
+            200,
+            {
+                "ok": True,
+                "forms": forms_list,
+                "total_events": len(events_all),
+                "date_from": date_from,
+                "date_to": date_to,
+            },
+        )
 
-    def _reporting_get_form(self, program_id: str) -> ApiResponse:
+    def _reporting_get_form(self, program_id: str, query: Mapping[str, Any] | None = None) -> ApiResponse:
         from ..reporting.forms import EXTENDED_FORMS_BY_PROGRAM
         if program_id not in EXTENDED_FORMS_BY_PROGRAM:
             return ApiResponse(
                 404, {"ok": False, "error": {"message": f"Unknown program {program_id!r}"}}
             )
+        date_from = None
+        date_to = None
+        if query:
+            raw_df = query.get("date_from")
+            if raw_df:
+                date_from = raw_df[0] if isinstance(raw_df, (list, tuple)) else str(raw_df or "")
+            raw_dt = query.get("date_to")
+            if raw_dt:
+                date_to = raw_dt[0] if isinstance(raw_dt, (list, tuple)) else str(raw_dt or "")
+        has_date_filter = bool(date_from or date_to)
         from ..reporting.model import ProgramId
         defn = EXTENDED_FORMS_BY_PROGRAM[program_id]
         saved = self._reporting_service.load_filled_forms()
         f = saved.get(program_id)
-        events_all = self._reporting_service.get_stored_events(limit=500)
+        events_all = self._reporting_service.get_stored_events(
+            limit=1000,
+            date_from=date_from or None,
+            date_to=date_to or None,
+        )
         matching_events = [e for e in events_all if any(getattr(k, "value", str(k)) == program_id for k in getattr(e, "program_kinds", ()))]
         prefilled = None
         try:
@@ -4920,9 +5015,13 @@ class BridgeApplicationApi:
                 "choices": list(q.choices),
                 "auto_from": q.auto_from,
                 "current_value": (
-                    f.answers[q.key].value
-                    if f and q.key in f.answers and f.answers[q.key].value is not None
-                    else (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else None)
+                    (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else (0 if q.qtype in ("count", "attendees") else None))
+                    if has_date_filter and (q.auto_from or q.key in ("ceremony_count", "trip_count", "contest_count"))
+                    else (
+                        f.answers[q.key].value
+                        if f and q.key in f.answers and f.answers[q.key].value is not None
+                        else (prefilled.answers[q.key].value if prefilled and q.key in prefilled.answers else None)
+                    )
                 ),
             }
             for q in defn.questions
@@ -5084,6 +5183,8 @@ class BridgeApplicationApi:
         period = str(payload.get("report_period", "۱۴۰۵"))
         allow_unresolved = bool(payload.get("allow_unresolved_star", False))
         single_program = payload.get("single_program")
+        date_from = payload.get("date_from") or None
+        date_to = payload.get("date_to") or None
         dest_str = payload.get("destination")
         dest = (
             Path(dest_str)
@@ -5102,6 +5203,8 @@ class BridgeApplicationApi:
                 allow_unresolved_star=allow_unresolved,
                 exported_by=operator,
                 single_program=single_program,
+                date_from=date_from,
+                date_to=date_to,
             )
         except UnresolvedStarCellsError as exc:
             return ApiResponse(

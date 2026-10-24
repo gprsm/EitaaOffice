@@ -697,6 +697,10 @@ class EitaaAccountRuntime:
         self._worker_lease.update_session_generation(session_generation)
 
     @property
+    def core(self) -> Any:
+        return self.ownership.core if self.ownership is not None else None
+
+    @property
     def peer_directory(self) -> Path:
         return self.ownership.dialog_catalog_file.parent
 

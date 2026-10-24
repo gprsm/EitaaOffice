@@ -114,7 +114,100 @@ class EitaaReportMonitor:
             collected.append((ref, dialog_hint, text))
         return collected
 
-    def scan_once(self, core: Any, *, limit_per_dialog: int = 50, timeout_seconds: float = 30.0) -> MonitorResult:
+    def _scan_core_live(
+        self,
+        core: Any,
+        *,
+        limit_per_dialog: int = 50,
+        timeout_seconds: float = 30.0,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> MonitorResult:
+        result = MonitorResult()
+        seen_refs: set[str] = set()
+        start_time = time.monotonic()
+        try:
+            page = core.discovery.list_dialogs(limit=100)
+            dialogs = getattr(page, "dialogs", []) or []
+        except Exception:
+            return result
+
+        for dialog in dialogs:
+            if time.monotonic() - start_time >= timeout_seconds:
+                break
+            peer = getattr(dialog, "peer", None)
+            if peer is None:
+                continue
+            title = str(getattr(peer, "title", None) or getattr(dialog, "title", None) or "")
+            matched_config = self.matches_dialog(title)
+            if matched_config is None:
+                continue
+
+            try:
+                messages = core.messages.list(peer, limit=limit_per_dialog)
+            except Exception:
+                continue
+
+            for message in messages:
+                if time.monotonic() - start_time >= timeout_seconds:
+                    break
+                text = str(getattr(message, "text", "") or "")
+                if not text.strip():
+                    continue
+
+                if date_from is not None or date_to is not None:
+                    m_date = getattr(message, "date", None)
+                    if m_date is not None:
+                        if getattr(m_date, "tzinfo", None) is not None:
+                            if date_from is not None and getattr(date_from, "tzinfo", None) is None:
+                                date_from = date_from.replace(tzinfo=timezone.utc)
+                            if date_to is not None and getattr(date_to, "tzinfo", None) is None:
+                                date_to = date_to.replace(tzinfo=timezone.utc)
+                        if date_from is not None and m_date < date_from:
+                            continue
+                        if date_to is not None and m_date > date_to:
+                            continue
+
+                peer_id = getattr(peer, "id", 0)
+                msg_id = getattr(message, "id", 0)
+                ref = f"eitaa:{peer_id}:{msg_id}"
+                if ref in seen_refs:
+                    continue
+                seen_refs.add(ref)
+
+                decision = self.indexer.classify(text, message_ref=ref, dialog_label=title)
+                result.decisions.append(decision)
+                result.scanned += 1
+                if decision.intent == MessageIntent.EVENT_REPORT:
+                    result.event_reports += 1
+                    candidate = self.indexer.candidate_from_decision(decision)
+                    if candidate is not None:
+                        result.candidates.append(candidate)
+                elif decision.intent == MessageIntent.PROMOTIONAL:
+                    result.promotional += 1
+                else:
+                    result.informational += 1
+
+        return result
+
+    def scan_once(
+        self,
+        core: Any,
+        *,
+        limit_per_dialog: int = 50,
+        timeout_seconds: float = 30.0,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> MonitorResult:
+        if hasattr(core, "discovery") and hasattr(core, "messages"):
+            return self._scan_core_live(
+                core,
+                limit_per_dialog=limit_per_dialog,
+                timeout_seconds=timeout_seconds,
+                date_from=date_from,
+                date_to=date_to,
+            )
+
         result = MonitorResult()
         seen_refs: set[str] = set()
         start_time = time.monotonic()
@@ -125,7 +218,7 @@ class EitaaReportMonitor:
                 break
             try:
                 batch = self._iter_messages(core, config, limit_per_dialog)
-            except AttributeError:
+            except (AttributeError, Exception):
                 # Provider runtime not available (clean install, offline
                 # bootstrap): monitoring abstains instead of guessing.
                 continue
