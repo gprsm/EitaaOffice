@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "679fa4c3decad840",
+  "source_fingerprint": "0ff524795181a27b",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -30385,57 +30385,57 @@
         {
           "name": "formatDate",
           "kind": "script symbol",
-          "line": 81
+          "line": 80
         },
         {
           "name": "authorLabel",
           "kind": "script symbol",
-          "line": 86
+          "line": 85
         },
         {
           "name": "authorInitials",
           "kind": "script symbol",
-          "line": 99
+          "line": 98
         },
         {
           "name": "MessageAuthorAvatar",
           "kind": "script symbol",
-          "line": 105
+          "line": 104
         },
         {
           "name": "buildContentBlocks",
           "kind": "script symbol",
-          "line": 123
+          "line": 122
         },
         {
           "name": "ImageWithSkeleton",
           "kind": "script symbol",
-          "line": 151
+          "line": 150
         },
         {
           "name": "galleryColumnSpan",
           "kind": "script symbol",
-          "line": 189
+          "line": 188
         },
         {
           "name": "galleryTileAspectRatio",
           "kind": "script symbol",
-          "line": 202
+          "line": 201
         },
         {
           "name": "PlayableMediaBlock",
           "kind": "script symbol",
-          "line": 206
+          "line": 205
         },
         {
           "name": "MessageContentCard",
           "kind": "script symbol",
-          "line": 250
+          "line": 249
         },
         {
           "name": "handleCardClick",
           "kind": "script symbol",
-          "line": 381
+          "line": 379
         }
       ]
     },

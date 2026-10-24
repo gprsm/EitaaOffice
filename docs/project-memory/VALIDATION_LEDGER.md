@@ -3655,7 +3655,7 @@ otes, program_kinds_json, occurred_on در update_event_fields؛ لود و دی�
   - ui/src/utils/jalaliDateTime.ts:
     - پیاده‌سازی تبدیل معکوس d2j / gregorianToJalali و تصحیح باگ تفسیر سال‌های بزرگتر از ۱۶۰۰ به عنوان سال جلالی در parseJalaliDate.
   - src/eitaa_bridge/reporting/jalali_dates.py:
-    - ماژول ریاضی مستقل پایتون برای تبدیل تقویم و نرمال‌سازی 
+    - ماژول ریاضی مستقل پایتون برای تبدیل تقویم و نرمال‌سازی
 ormalize_to_iso_date و ormat_to_jalali_date.
   - src/eitaa_bridge/reporting/store.py و src/eitaa_bridge/application/reporting_api_v3.py:
     - نرمال‌سازی مقاوم ورودی‌های occurred_on در ثبت و به‌روزرسانی رویدادها.
@@ -3664,16 +3664,16 @@ ormalize_to_iso_date و ormat_to_jalali_date.
   - ui/src/ReportingRegistrationPanel.tsx, ui/src/StaffTasksDialog.tsx, ui/src/ReportingWorkbench.tsx:
     - جایگزینی پیکرهای یتیم با JalaliDatePicker.
   - 	ests/test_reporting_event_fields_and_facts_crud.py:
-    - اعتبارسنجی خودکار به‌روزرسانی تمام فیلدهای قابل ویرایش (occasion, macro_category, custom_topic, macro_indicator, micro_indicators, program_kinds, unit, unit_name, occurred_on, official_present, is_ashura_pilgrimage, is_standalone_titled, 
+    - اعتبارسنجی خودکار به‌روزرسانی تمام فیلدهای قابل ویرایش (occasion, macro_category, custom_topic, macro_indicator, micro_indicators, program_kinds, unit, unit_name, occurred_on, official_present, is_ashura_pilgrimage, is_standalone_titled,
 otes) و پایداری فکت‌های همزمان.
 - شواهد و نتایج ارزیابی:
   - pytest tests/test_reporting_event_fields_and_facts_crud.py: ۴ آزمون با موفقیت پاس شدند.
   - pytest tests/test_g07_release_packaging.py: ۱۵ آزمون با موفقیت پاس شدند.
-  - 
+  -
 pm.cmd --prefix ui run check: بررسی کامل TypeScript با خروجی ۰ پاس شد.
-  - 
+  -
 pm.cmd --prefix ui run build: بیلد کامل با vite با موفقیت در ۱۲.۱۳ ثانیه انجام شد و فایل باندل تولید گردید.
-  - 
+  -
 pm.cmd --prefix ui run test:observability: کلیه تست‌های قرارداد پاس شدند.
   - scripts/check_project_memory_integrity.py: سلامت فایل‌های حافظه بدون خطای انکودینگ تایید شد.
 - وضعیت: VERIFIED / PASS.
@@ -3735,6 +3735,24 @@ pm.cmd --prefix ui run test:observability: کلیه تست‌های قراردا
      - اجرای آزمون داوری رسمی با `scripts/run_opencode_supervision.py`.
      - صدور رأی رسمی `APPROVED` با تأیید ۲۵/۲۵ شاخص کیفیتی و معماری در `diagnostics/opencode_supervision_verdict.json`.
 - نتیجه نهایی: تمامی ۶ محور فنی پیاده‌سازی و در هر دو زاویه به تأیید ۱۰۰٪ رسیدند.
+
+### V-312 — راستی‌آزمایی حذف دکمه قدیمی ایندکس محتوا از کارت پیام و آزمون یکپارچگی رابط کاربری و بک‌اند (F-150)
+
+- تاریخ: 2026-10-24؛ Trigger: درخواست صریح کاربر مبنی بر بررسی کارکرد دکمه «ثبت و یا اصلاح ایندکس محتوا» در ذیل پیام‌ها و حذف آن در صورت عدم کاربرد عملیاتی.
+- سطح شاهد: STATIC CODE REVIEW / UI TYPECHECK / UI OBSERVABILITY / UI CHAT SURFACE TESTS / UI REPORTING TESTS / UI BUILD / FULL BACKEND PYTEST / DOC INTEGRITY.
+- نتایج ارزیابی و آزمون‌ها:
+  1. بررسی کدهای تایپ‌اسکریپت:
+pm.cmd --prefix ui run check با نتیجه ۰ خطا (exit code 0).
+  2. آزمون مشاهده‌پذیری UI:
+pm.cmd --prefix ui run test:observability با موفقیت کامل (exit code 0).
+  3. آزمون‌های سطح چت و کارتابل گزارش‌گیری:
+pm.cmd --prefix ui run test:reporting-chat-surface و
+pm.cmd --prefix ui run test:reporting-ui هر دو سبز (exit code 0).
+  4. بیلد نهایی سمت کلاینت:
+pm.cmd --prefix ui run build با خروجی معتبر و موفق در تمامی باندل‌ها (exit code 0).
+  5. آزمون کامل و جامع بک‌اند: python -m pytest -q با قبولی ۱۰۵۱ آزمون، ۱ اسکیپ، ۰ خطا (exit code 0).
+  6. کنترل یکپارچگی حافظه و اسناد: scripts/check_project_memory_integrity.py و scripts/refresh_project_docs.py --check --check-links هر دو با موفقیت کامل (exit code 0).
+- نتیجه نهایی: دکمه زائد بدون اثر منفی بر موتور ایندکس خودکار پس‌زمینه یا ثبت گزارش حذف شد و جریان کاری چت روان‌تر و شفاف‌تر گردید.
 
 ### LEGACY-DESKTOP-V221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
 

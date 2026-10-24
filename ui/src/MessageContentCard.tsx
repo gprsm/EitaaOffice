@@ -19,7 +19,6 @@ import {
   Typography,
 } from '@mui/material'
 import EditRounded from '@mui/icons-material/EditRounded'
-import TuneRounded from '@mui/icons-material/TuneRounded'
 import AudioFileRounded from '@mui/icons-material/AudioFileRounded'
 import DownloadRounded from '@mui/icons-material/DownloadRounded'
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded'
@@ -54,7 +53,7 @@ type MessageContentCardProps = {
   loadMedia: (message: MessageItem) => Promise<void>
   openFullMedia: (message: MessageItem) => Promise<void>
   toggle: () => void
-  editIndex: () => void
+  editIndex?: () => void
   openUsage: () => void
   reportUsageByMessage?: Record<string, ReportingWitnessStatus>
   openReportEvent: (eventId: string) => void
@@ -260,7 +259,6 @@ export function MessageContentCard({
   loadMedia,
   openFullMedia,
   toggle,
-  editIndex,
   openUsage,
   reportUsageByMessage,
   openReportEvent,
@@ -709,16 +707,6 @@ export function MessageContentCard({
       />
       {dialog.display_kind === 'personal' && <Typography variant="caption" color="text.secondary" sx={{ direction: 'ltr' }}>{members.length > 1 ? `#${firstId}–#${lastId}` : `#${message.id}`}</Typography>}
       <Typography variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>{firstTime === lastTime ? firstTime : `${firstTime}–${lastTime}`}</Typography>
-      <Tooltip title="ثبت یا اصلاح ایندکس محتوا">
-        <IconButton
-          size="small"
-          aria-label="ثبت یا اصلاح ایندکس پیام"
-          onClick={event => { event.stopPropagation(); editIndex() }}
-          sx={{ minHeight: 28, p: 0.5 }}
-        >
-          <TuneRounded fontSize="small" />
-        </IconButton>
-      </Tooltip>
       <Box sx={{ flex: 1 }} />
       {reportUsage?.registered && reportUsage.events.length > 0 && <Chip
         size="small"
