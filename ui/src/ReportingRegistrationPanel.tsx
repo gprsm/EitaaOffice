@@ -21,7 +21,13 @@ import {
   Paper,
   TextField,
   Typography,
+  Card,
+  CardActions,
+  Checkbox,
+  Grid,
 } from '@mui/material'
+import PhotoLibraryRounded from '@mui/icons-material/PhotoLibraryRounded'
+import LayersRounded from '@mui/icons-material/LayersRounded'
 import CloseRounded from '@mui/icons-material/CloseRounded'
 import AddRounded from '@mui/icons-material/AddRounded'
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded'
@@ -75,17 +81,20 @@ const VALUE_TYPES = [
 ]
 
 export const MAZANDARAN_CITIES = [
-  'ساری', 'بابل', 'آمل', 'قائمشهر', 'قائم‌شهر', 'تنکابن', 'چالوس',
-  'نوشهر', 'نکا', 'بهشهر', 'رامسر', 'بابلسر', 'محمودآباد', 'سوادکوه',
-  'جویبار', 'فریدونکنار', 'فریدون‌کنار', 'گلوگاه', 'میاندرود', 'میاندورود',
-  'کلاردشت', 'سیمرغ', 'عباس‌آباد', 'زیراب', 'پل‌سفید', 'چمستان', 'دابودشت',
-  'کیاسر', 'بلده', 'کجور', 'نور',
+  'چهاردانگه', 'کیاسر', 'سوادکوه شمالی', 'شیرگاه', 'بندپی شرقی', 'بندپی غربی', 'بندپی',
+  'لاریجان', 'چمستان', 'کجور', 'کلاردشت', 'گتاب', 'مرزن‌آباد', 'مرزن آباد',
+  'نشتارود', 'نشتا', 'سرخرود', 'خرم‌آباد', 'خرم آباد', 'ساری', 'بابل',
+  'آمل', 'قائمشهر', 'قائم‌شهر', 'تنکابن', 'چالوس', 'نوشهر', 'نکا',
+  'بهشهر', 'رامسر', 'بابلسر', 'محمودآباد', 'سوادکوه', 'جویبار', 'فریدونکنار',
+  'فریدون‌کنار', 'گلوگاه', 'میاندرود', 'میاندورود', 'سیمرغ', 'عباس‌آباد', 'عباس آباد',
+  'زیراب', 'پل‌سفید', 'دابودشت', 'بلده', 'نور',
 ]
 
 export const SENDER_BINDINGS: Record<string, { unit: 'provincial_hq' | 'judicial_domain'; unit_name: string; canonicalAuthor?: string }> = {
   'مهدوی': { unit: 'judicial_domain', unit_name: 'دادگستری سوادکوه', canonicalAuthor: 'مهدوی (رابط فرهنگی سوادکوه)' },
   'دیوسالار': { unit: 'judicial_domain', unit_name: 'دادگستری نور', canonicalAuthor: 'محمدامین دیوسالار (رابط فرهنگی نور)' },
   'احسانی': { unit: 'judicial_domain', unit_name: 'دادگستری بابل', canonicalAuthor: 'احسانی (رابط فرهنگی بابل)' },
+  'سعیدی': { unit: 'judicial_domain', unit_name: 'چهاردانگه - دادگاه عمومی بخش', canonicalAuthor: 'حمید سعیدی' },
   'قاسمی شورابی': { unit: 'provincial_hq', unit_name: 'ستاد دادگستری کل استان', canonicalAuthor: 'قاسمی شورابی (ستاد استانی)' },
   'شورابی': { unit: 'provincial_hq', unit_name: 'ستاد دادگستری کل استان', canonicalAuthor: 'قاسمی شورابی (ستاد استانی)' },
 }
@@ -94,6 +103,8 @@ export function inferRegistrationDefaults(
   sourceMessage?: MessageItem | null,
   dialog?: DialogItem | null,
   sourceMessages?: MessageItem[] | null,
+  liaisonsMap?: Record<string, { full_name: string; unit_display_name: string; phone?: string }> | null,
+  initialMicros?: string[] | null,
 ) {
   const members = sourceMessages && sourceMessages.length ? sourceMessages : sourceMessage ? [sourceMessage] : []
   const primaryMsg = sourceMessage || (members.length ? members[0] : null)
@@ -122,74 +133,143 @@ export function inferRegistrationDefaults(
     }
   }
 
-  // 2. Author (نویسنده / رابط فرهنگی گزارش)
+  // 2. Author and Judicial Unit extraction
   let author = ''
-  if (primaryMsg) {
-    author = authorLabel(dialog, primaryMsg)
+  let unit: 'provincial_hq' | 'judicial_domain' = 'provincial_hq'
+  let unit_name = ''
+
+  // Step A: Parse structured liaison headers from text (Absolute Precedence for cultural reports)
+  // Example 1: حمید سعیدی - حوزه قضایی چهاردانگه - دادگاه عمومی بخش
+  // Example 2: حمید سعیدی - حوزه قضایی چهاردانگه
+  // Example 3: رابط فرهنگی: حمید سعیدی - حوزه قضایی چهاردانگه
+  const rawLines = combinedText.split('\n').map(l => l.trim()).filter(Boolean)
+  const headerLines = rawLines.slice(0, 8).concat(rawLines.slice(-6))
+
+  for (const line of headerLines) {
+    // Pattern: [نویسنده/رابط] - حوزه قضایی [نام حوزه] (- [واحد])
+    const headerMatch = line.match(
+      /^(?:[\s#*•\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]*(?:رابط\s*(?:فرهنگی|خبری)?\s*[:：\-–]?\s*)?)?([^\n–—\-:：]{2,30})\s*[-–—]\s*(?:حوزه\s*قضایی\s*|دادگستری\s*|دادگاه\s*عمومی\s*بخش\s*)?([^\n–—\-]+?)(?:\s*[-–—]\s*([^\n]+))?$/u
+    )
+    if (headerMatch) {
+      const candAuthor = headerMatch[1]?.trim()
+      const candUnitPart = headerMatch[2]?.trim()
+      const candCourt = headerMatch[3]?.trim()
+      const matchedCity = MAZANDARAN_CITIES.find(c => candUnitPart?.includes(c))
+      if (candAuthor && (matchedCity || line.includes('حوزه قضایی') || line.includes('دادگستری') || line.includes('دادگاه'))) {
+        author = candAuthor
+        if (candCourt) {
+          unit_name = `${candUnitPart} - ${candCourt}`
+        } else if (matchedCity) {
+          unit_name = matchedCity === 'ساری' ? 'ستاد دادگستری کل استان' : `دادگستری ${matchedCity}`
+        } else {
+          unit_name = candUnitPart
+        }
+        unit = unit_name.includes('اداره کل') || unit_name.includes('ستاد') ? 'provincial_hq' : 'judicial_domain'
+        break
+      }
+    }
+
+    // Pattern: ✍روابط‌عمومی و امور فرهنگی دادگستری شهرستان نور / امور فرهنگی دادگاه عمومی بخش چهاردانگه
+    const sigMatch = line.match(
+      /(?:امور\s*فرهنگی|روابط\s*عمومی(?:\s*و\s*امور\s*فرهنگی)?)\s*(?:حوزه\s*قضایی\s*|دادگستری\s*(?:شهرستان\s*)?|دادگاه\s*(?:عمومی\s*بخش\s*)?)([^\n]+)/
+    )
+    if (sigMatch && !unit_name) {
+      const rawPlace = sigMatch[1].trim()
+      const matchedCity = MAZANDARAN_CITIES.find(c => rawPlace.includes(c))
+      if (matchedCity) {
+        if (matchedCity === 'ساری' && (rawPlace.includes('کل') || rawPlace.includes('ستاد'))) {
+          unit = 'provincial_hq'
+          unit_name = 'ستاد دادگستری کل استان'
+        } else {
+          unit = 'judicial_domain'
+          unit_name = rawPlace.includes('دادگاه') ? `${matchedCity} - دادگاه عمومی بخش` : `دادگستری ${matchedCity}`
+        }
+      }
+    }
   }
 
-  const isGenericAuthor = !author || author === 'Eitaa' || author === 'شما' || author === 'نویسنده نامشخص' || author === 'مخاطب ایتا'
+  // Step B: Inspect liaisonsMap against sender identity (e.g. sender username / key / display name / authorLabel)
+  if (liaisonsMap && (!author || !unit_name)) {
+    const rawWriter = authorLabel(dialog, primaryMsg)
+    const senderUserId = primaryMsg?.sender_key?.startsWith('u:') ? primaryMsg.sender_key.slice(2) : undefined
+    const cleanUsername = primaryMsg?.sender_username?.toLowerCase().replace(/^@/, '')
+    const rawName = primaryMsg?.sender_display_name?.trim()
 
-  // If author is generic, inspect SENDER_BINDINGS strictly against sender peer title or username (NEVER message text!)
-  if (isGenericAuthor) {
-    const senderIdentity = `${dialog?.peer?.title || ''} ${primaryMsg?.sender_username || ''}`
+    let matched = null
+    if (primaryMsg?.sender_key && liaisonsMap[primaryMsg.sender_key]) {
+      matched = liaisonsMap[primaryMsg.sender_key]
+    } else if (senderUserId && liaisonsMap[senderUserId]) {
+      matched = liaisonsMap[senderUserId]
+    } else if (cleanUsername && liaisonsMap[cleanUsername]) {
+      matched = liaisonsMap[cleanUsername]
+    } else if (rawName && liaisonsMap[rawName]) {
+      matched = liaisonsMap[rawName]
+    } else if (rawWriter && liaisonsMap[rawWriter]) {
+      matched = liaisonsMap[rawWriter]
+    }
+
+    if (matched) {
+      if (!author) author = matched.full_name
+      if (!unit_name) {
+        unit_name = matched.unit_display_name
+        unit = matched.unit_display_name.includes('اداره کل') || matched.unit_display_name.includes('ستاد') ? 'provincial_hq' : 'judicial_domain'
+      }
+    }
+  }
+
+  // Step C: Check SENDER_BINDINGS
+  if (!author || !unit_name) {
+    const senderIdentity = `${dialog?.peer?.title || ''} ${primaryMsg?.sender_username || ''} ${author}`
     for (const [senderKey, binding] of Object.entries(SENDER_BINDINGS)) {
-      if (senderIdentity.includes(senderKey) && binding.canonicalAuthor) {
-        author = binding.canonicalAuthor
+      if (senderIdentity.includes(senderKey)) {
+        if (!author && binding.canonicalAuthor) author = binding.canonicalAuthor
+        if (!unit_name) {
+          unit = binding.unit
+          unit_name = binding.unit_name
+        }
         break
       }
     }
   }
 
-  // Also check textual author/liaison regex if still generic
-  if (!author || author === 'Eitaa' || author === 'نویسنده نامشخص' || author === 'شما' || author === 'مخاطب ایتا') {
-    const textAuthorMatch = combinedText.match(/(?:رابط فرهنگی|گزارشگر|نویسنده|ارسال‌کننده|توسط)\s*[:：\-–]?\s*([^\n،,.:]{3,35})/)
+  // Step D: Explicit textual author regex if author still blank
+  if (!author) {
+    const textAuthorMatch = combinedText.match(/(?:رابط\s*فرهنگی|گزارشگر|نویسنده|ارسال‌کننده|توسط)\s*[:：\-–]?\s*([^\n،,.:]{3,35})/)
     if (textAuthorMatch && textAuthorMatch[1]?.trim()) {
       author = textAuthorMatch[1].trim()
+    } else if (primaryMsg) {
+      author = authorLabel(dialog, primaryMsg)
+    }
+    if (!author || author === 'Eitaa' || author === 'نویسنده نامشخص' || author === 'شما' || author === 'مخاطب ایتا') {
+      if (dialog?.peer?.title?.trim() && dialog.peer.title.trim() !== 'Eitaa') {
+        author = dialog.peer.title.trim()
+      } else if (primaryMsg?.sender_username) {
+        author = `@${primaryMsg.sender_username.replace(/^@/, '')}`
+      }
     }
   }
 
-  // Fallback to dialog title or username if still generic
-  if (!author || author === 'Eitaa' || author === 'نویسنده نامشخص') {
-    if (dialog?.peer?.title?.trim() && dialog.peer.title.trim() !== 'Eitaa') {
-      author = dialog.peer.title.trim()
-    } else if (primaryMsg?.sender_username) {
-      author = `@${primaryMsg.sender_username.replace(/^@/, '')}`
-    }
-  }
-
-  // 3. Judicial Domain / City (شهر یا حوزه قضایی)
-  let unit: 'provincial_hq' | 'judicial_domain' = 'provincial_hq'
-  let unit_name = ''
-
-  // First check sender bindings strictly against author or peer title (NEVER against arbitrary words in combinedText)
-  for (const [senderName, binding] of Object.entries(SENDER_BINDINGS)) {
-    if (author.includes(senderName) || (dialog?.peer?.title && dialog.peer.title.includes(senderName))) {
-      unit = binding.unit
-      unit_name = binding.unit_name
-      break
-    }
-  }
-
+  // Step E: Match MAZANDARAN_CITIES for judicial unit
   if (!unit_name) {
     if (combinedText.includes('شورای حل اختلاف') || author.includes('شورای حل اختلاف')) {
       unit = 'judicial_domain'
       unit_name = 'شورای حل اختلاف'
-    } else if (author.includes('ساری') || author.includes('ستاد') || author.includes('دادگستری کل') || combinedText.includes('دادگستری کل')) {
-      unit = 'provincial_hq'
-      unit_name = 'ستاد دادگستری کل استان'
     } else {
-      // Check author first, then dialog title, then text for cities
       const searchTargets = [author, dialog?.peer?.title || '', combinedText]
       for (const target of searchTargets) {
         for (const city of MAZANDARAN_CITIES) {
           if (target.includes(city)) {
             if (city === 'ساری') {
-              unit = 'provincial_hq'
-              unit_name = 'ستاد دادگستری کل استان'
+              if (target.includes('اداره کل') || target.includes('ستاد') || target.includes('حوزه ریاست')) {
+                unit = 'provincial_hq'
+                unit_name = 'ستاد دادگستری کل استان'
+              } else {
+                unit = 'judicial_domain'
+                unit_name = 'دادگستری ساری'
+              }
             } else {
               unit = 'judicial_domain'
-              unit_name = `دادگستری ${city}`
+              unit_name = target.includes('دادگاه عمومی بخش') ? `${city} - دادگاه عمومی بخش` : `دادگستری ${city}`
             }
             break
           }
@@ -199,17 +279,23 @@ export function inferRegistrationDefaults(
     }
   }
 
-  if (!unit_name && dialog?.display_kind === 'personal' && dialog.peer.title?.trim()) {
-    unit = 'judicial_domain'
-    unit_name = dialog.peer.title.trim()
+  // Step F: Provincial HQ fallback ONLY if explicit mention of headquarters (and NEVER random 'دادگستری کل' in text)
+  if (!unit_name) {
+    if (author.includes('ستاد') || combinedText.includes('ستاد دادگستری کل استان') || combinedText.includes('حوزه ریاست دادگستری کل')) {
+      unit = 'provincial_hq'
+      unit_name = 'ستاد دادگستری کل استان'
+    } else if (dialog?.display_kind === 'personal' && dialog?.peer?.title?.trim()) {
+      unit = 'judicial_domain'
+      unit_name = dialog.peer.title.trim()
+    }
   }
 
   // 4. Topic
   let topic = ''
   if (combinedText.trim()) {
-    const lines = combinedText.split('\n').map(l => l.trim()).filter(Boolean)
-    if (lines.length) {
-      const cleanLine = lines[0].replace(/^[\s#*•\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]+/u, '').trim()
+    const rawLines2 = combinedText.split('\n').map(l => l.trim()).filter(Boolean)
+    if (rawLines2.length) {
+      const cleanLine = rawLines2[0].replace(/^[\s#*•\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]+/u, '').trim()
       if (cleanLine.length > 2) {
         topic = cleanLine.slice(0, 100)
       }
@@ -218,6 +304,11 @@ export function inferRegistrationDefaults(
 
   // 5. Official Presence detection
   const officialPresent = /رئیس( کل)? دادگستری|دادستان|معاون قضایی|رئیس دادگاه|مدیرکل/i.test(combinedText)
+
+  // 6. Ashura Pilgrimage detection (Rule C12)
+  const isAshuraPilgrimage =
+    Boolean(initialMicros?.some(m => m.includes('عاشورا'))) ||
+    /(?:زیارت\s+عاشورا|مراسم\s+عاشورا|دعای\s+عاشورا|قرائت\s+زیارت\s+پر\s*فیض\s+عاشورا)/i.test(combinedText)
 
   return {
     occurredOn,
@@ -228,6 +319,7 @@ export function inferRegistrationDefaults(
     topic,
     notes: combinedText,
     officialPresent,
+    isAshuraPilgrimage,
   }
 }
 
@@ -237,6 +329,7 @@ const EMPTY: RegistrationDraft = {
   topic: '', author: '', notes: '', occurredOn: '', unit: 'provincial_hq', unit_name: '',
   programKinds: [], witnesses: [], facts: [],
   officialPresent: false,
+  isAshuraPilgrimage: false,
 }
 
 const STEPS = ['موضوع و شناسنامه', 'سرفصل برنامه و آمار عددی', 'شاهدان ایتا', 'بازبینی و ثبت']
@@ -274,6 +367,7 @@ type RegistrationDraft = {
   witnesses: WitnessDraft[]
   facts: FactDraft[]
   officialPresent: boolean
+  isAshuraPilgrimage: boolean
 }
 
 type SubmitResult = { message_id: string; ok: boolean; error?: string; existing_event_id?: string }
@@ -291,6 +385,8 @@ export function ReportingRegistrationPanel(props: {
   sourceMessages?: MessageItem[] | null
   initialMacroIndicator?: string
   initialMicroIndicators?: string[]
+  liaisonsMap?: Record<string, { full_name: string; unit_display_name: string; phone?: string }>
+  media?: Record<string, string | null>
   onOpenEventDossier?: (eventId: string) => void
   onOpenCartable?: () => void
   onClose: () => void
@@ -306,8 +402,8 @@ export function ReportingRegistrationPanel(props: {
   const [step, setStep] = useState(0)
 
   const initialInferred = useMemo(
-    () => inferRegistrationDefaults(props.sourceMessage, props.dialog, props.sourceMessages),
-    [props.sourceMessage, props.dialog, props.sourceMessages],
+    () => inferRegistrationDefaults(props.sourceMessage, props.dialog, props.sourceMessages, props.liaisonsMap, props.initialMicroIndicators),
+    [props.sourceMessage, props.dialog, props.sourceMessages, props.liaisonsMap, props.initialMicroIndicators],
   )
   const sourceTimeFormatted = initialInferred.sourceTimeFormatted
 
@@ -316,8 +412,19 @@ export function ReportingRegistrationPanel(props: {
     ...initialInferred,
     macroIndicator: props.initialMacroIndicator || '',
     microIndicators: props.initialMicroIndicators || [],
+    isAshuraPilgrimage: initialInferred.isAshuraPilgrimage || (props.initialMicroIndicators || []).some(m => m.includes("عاشورا")),
     witnesses: props.messageIds.map(id => witnessRow(props.dialogPeerKey, id)),
   }))
+
+  const photoMessages = useMemo(() => {
+    const msgs = props.sourceMessages && props.sourceMessages.length > 0
+      ? props.sourceMessages
+      : props.sourceMessage ? [props.sourceMessage] : []
+    return msgs.filter(m => Boolean(m.media?.is_image || m.media?.thumbnail_url || (m.media?.type === 'photo')))
+  }, [props.sourceMessages, props.sourceMessage])
+
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<number[]>(() => photoMessages.map(m => m.id))
+  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(() => photoMessages.length > 0 ? photoMessages[0].id : null)
   const [restored, setRestored] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [results, setResults] = useState<{ eventId: string; etag: string; witnesses: SubmitResult[] } | null>(null)
@@ -491,6 +598,7 @@ export function ReportingRegistrationPanel(props: {
         unit: draft.unit,
         unit_name: draft.unit_name,
         official_present: draft.officialPresent ? 1 : 0,
+        is_ashura_pilgrimage: draft.isAshuraPilgrimage ? 1 : 0,
         occasion: draft.topic.trim(),
         topic: draft.topic.trim(),
         notes: [draft.author ? `نویسنده / رابط گزارش: ${draft.author.trim()}` : '', draft.topic, draft.notes].filter(Boolean).join('\n'),
@@ -499,6 +607,23 @@ export function ReportingRegistrationPanel(props: {
         registered_by_name: activeUserName,
         facts: factsPayload,
       })
+
+      // Attach selected witness photos to newly created event documents
+      for (const pMsg of photoMessages) {
+        if (!selectedPhotoIds.includes(pMsg.id)) continue
+        try {
+          const isCover = coverPhotoId === pMsg.id
+          await api('POST', `/api/v3/reporting/events/${encodeURIComponent(created.event_id)}/documents`, {
+            media_id: pMsg.media?.file_name || `msg_${pMsg.id}.jpg`,
+            storage_ref: (pMsg.media as any)?.local_path || '',
+            kind: 'photo',
+            is_cover: isCover,
+            added_by: activeUserName,
+          })
+        } catch (docErr) {
+          console.warn('Failed to attach selected photo to event documents:', docErr)
+        }
+      }
       const witnessResults: SubmitResult[] = []
       for (const witness of draft.witnesses) {
         if (!witness.message_id.trim()) continue
@@ -660,7 +785,13 @@ export function ReportingRegistrationPanel(props: {
               freeSolo
               options={availableMicroIndicators.map(i => i.title)}
               value={draft.microIndicators || []}
-              onChange={(_, val) => update({ microIndicators: val })}
+              onChange={(_, val) => {
+                const hasAshura = val.some(item => item.includes("عاشورا"))
+                update({
+                  microIndicators: val,
+                  ...(hasAshura ? { isAshuraPilgrimage: true } : {}),
+                })
+              }}
               renderTags={(value, getTagProps) =>
                 value.map((option, index) => (
                   <Chip
@@ -883,6 +1014,29 @@ export function ReportingRegistrationPanel(props: {
           />
         </Box>
 
+        {/* قرائت زیارت عاشورا (سرفصل مستقل پیوست C12) */}
+        <Box sx={{ p: 2, bgcolor: draft.isAshuraPilgrimage ? 'secondary.50' : 'background.paper', borderRadius: 2, border: 1, borderColor: draft.isAshuraPilgrimage ? 'secondary.main' : 'divider' }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={draft.isAshuraPilgrimage}
+                onChange={e => update({ isAshuraPilgrimage: e.target.checked })}
+                color="secondary"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="subtitle2" fontWeight={800}>
+                  قرائت زیارت عاشورا (سرفصل مستقل پیوست C12)
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  در صورت فعال بودن، این رویداد مشمول سرفصل مستقل و انحصاری زیارت عاشورا شده و در کاربرگ‌های تجمیعی تفکیک می‌گردد.
+                </Typography>
+              </Box>
+            }
+          />
+        </Box>
+
         {/* ۲. آمار، سنجه‌ها و ارقام عددی رویداد */}
         <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2, border: 1, borderColor: 'divider' }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
@@ -1015,24 +1169,159 @@ export function ReportingRegistrationPanel(props: {
         </Box>
       </Stack>}
 
-      {step === 2 && <Stack spacing={1.5} sx={{ maxWidth: 760, mx: 'auto' }}>
-        {draft.witnesses.map((witness, index) => <Stack key={`${witness.message_id}-${index}`} spacing={1} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-            <TextField size="small" label="شناسهٔ گفتگو (peer)" value={witness.peer_id} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, peer_id: event.target.value } : w) })} sx={{ flex: 2 }} dir="ltr" />
-            <TextField size="small" label="شناسهٔ پیام" value={witness.message_id} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, message_id: event.target.value } : w) })} sx={{ flex: 1 }} dir="ltr" />
-            <TextField size="small" label="حساب پیامرسان (اختیاری)" value={witness.messenger_account} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, messenger_account: event.target.value } : w) })} sx={{ flex: 1 }} dir="ltr" />
-            <TextField size="small" select label="نقش" value={witness.role} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, role: event.target.value as 'primary' | 'supporting' } : w) })} sx={{ flex: 1 }}>
-              <MenuItem value="primary">اصلی</MenuItem>
-              <MenuItem value="supporting">پشتیبان</MenuItem>
-            </TextField>
-          </Stack>
-          {witness.role === 'supporting' && <TextField size="small" label="دلیل پیوند پشتیبان (الزامی)" value={witness.note} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, note: event.target.value } : w) })} fullWidth />}
-          <Stack direction="row" justifyContent="flex-end">
-            <Button size="small" color="error" startIcon={<DeleteOutlineRounded />} onClick={() => update({ witnesses: draft.witnesses.filter((_, i) => i !== index) })}>حذف شاهد</Button>
-          </Stack>
-        </Stack>)}
-        <Button variant="text" startIcon={<AddRounded />} onClick={() => update({ witnesses: [...draft.witnesses, witnessRow('', '')] })}>افزودن شاهد دستی</Button>
-      </Stack>}
+      {step === 2 && (
+        <Stack spacing={2.5} sx={{ maxWidth: 760, mx: 'auto' }}>
+          {/* بخش انتخاب عکس‌های شاهد برای رویداد */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+              <Box>
+                <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PhotoLibraryRounded fontSize="small" />
+                  تصاویر و اسناد پیوست استخراج‌شده از پیام‌های شاهد ({selectedPhotoIds.length} از {photoMessages.length} انتخاب‌شده)
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  عکس‌های منتخب به عنوان اسناد تصویری به پرونده الحاق شده و در آلبوم و کاربرگ رویداد درج می‌گردند.
+                </Typography>
+              </Box>
+              {photoMessages.length > 0 && (
+                <Button
+                  size="small"
+                  onClick={() => {
+                    if (selectedPhotoIds.length === photoMessages.length) {
+                      setSelectedPhotoIds([])
+                    } else {
+                      setSelectedPhotoIds(photoMessages.map(m => m.id))
+                    }
+                  }}
+                >
+                  {selectedPhotoIds.length === photoMessages.length ? 'لغو انتخاب همه' : 'انتخاب همه'}
+                </Button>
+              )}
+            </Stack>
+
+            {photoMessages.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  هیچ تصویر پیوستی در پیام‌های ارجاعی شاهدان این گفتگو یافت نشد.
+                </Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={1.5}>
+                {photoMessages.map(pMsg => {
+                  const isSelected = selectedPhotoIds.includes(pMsg.id)
+                  const isCover = coverPhotoId === pMsg.id
+                  const key = `${props.dialogPeerKey}:${pMsg.id}`
+                  const mediaSrc = (props.media && props.media[key]) || pMsg.media?.thumbnail_url || ''
+                  return (
+                    <Grid size={{ xs: 6, sm: 4, md: 3 }} key={pMsg.id}>
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          position: 'relative',
+                          borderRadius: 2,
+                          border: '2px solid',
+                          borderColor: isCover ? 'secondary.main' : isSelected ? 'primary.main' : 'divider',
+                          bgcolor: isCover ? 'rgba(77, 208, 184, 0.08)' : isSelected ? 'rgba(100, 181, 246, 0.06)' : 'background.paper',
+                          transition: 'all 0.15s ease',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => {
+                          setSelectedPhotoIds(prev =>
+                            prev.includes(pMsg.id) ? prev.filter(id => id !== pMsg.id) : [...prev, pMsg.id]
+                          )
+                        }}
+                      >
+                        <Box sx={{ height: 110, position: 'relative', bgcolor: 'black', overflow: 'hidden' }}>
+                          {mediaSrc ? (
+                            <Box
+                              component="img"
+                              src={mediaSrc}
+                              alt={`پیام #${pMsg.id}`}
+                              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <Stack alignItems="center" justifyContent="center" sx={{ height: '100%', color: 'text.disabled' }}>
+                              <PhotoLibraryRounded fontSize="large" />
+                            </Stack>
+                          )}
+                          <Box sx={{ position: 'absolute', top: 4, right: 4 }}>
+                            <Checkbox
+                              checked={isSelected}
+                              size="small"
+                              sx={{
+                                color: 'white',
+                                bgcolor: 'rgba(0,0,0,0.5)',
+                                p: 0.3,
+                                borderRadius: 1,
+                                '&.Mui-checked': { color: 'primary.main', bgcolor: 'white' },
+                              }}
+                            />
+                          </Box>
+                          {isCover && (
+                            <Chip
+                              size="small"
+                              color="secondary"
+                              label="عکس شاخص"
+                              sx={{ position: 'absolute', bottom: 4, left: 4, fontWeight: 800, fontSize: '0.65rem' }}
+                            />
+                          )}
+                        </Box>
+                        <CardActions sx={{ p: 0.75, justifyContent: 'space-between' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 600 }}>
+                            پیام #{pMsg.id}
+                          </Typography>
+                          {isSelected && (
+                            <Button
+                              size="small"
+                              variant={isCover ? 'contained' : 'text'}
+                              color="secondary"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setCoverPhotoId(pMsg.id)
+                              }}
+                              sx={{ fontSize: '0.65rem', py: 0.1, px: 0.8 }}
+                            >
+                              {isCover ? 'شاخص است' : 'انتخاب شاخص'}
+                            </Button>
+                          )}
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  )
+                })}
+              </Grid>
+            )}
+          </Paper>
+
+          {/* فهرست شناسه‌های شاهد ایتا */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+            <Typography variant="subtitle2" fontWeight={800} color="primary" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <LayersRounded fontSize="small" />
+              شناسه‌های پیام و شواهد ارجاعی ایتا ({draft.witnesses.length} پیام)
+            </Typography>
+            <Stack spacing={1.5}>
+              {draft.witnesses.map((witness, index) => (
+                <Stack key={`${witness.message_id}-${index}`} spacing={1} sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 1.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                    <TextField size="small" label="شناسهٔ گفتگو (peer)" value={witness.peer_id} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, peer_id: event.target.value } : w) })} sx={{ flex: 2 }} dir="ltr" />
+                    <TextField size="small" label="شناسهٔ پیام" value={witness.message_id} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, message_id: event.target.value } : w) })} sx={{ flex: 1 }} dir="ltr" />
+                    <TextField size="small" label="حساب پیام‌رسان (اختیاری)" value={witness.messenger_account} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, messenger_account: event.target.value } : w) })} sx={{ flex: 1 }} dir="ltr" />
+                    <TextField size="small" select label="نقش" value={witness.role} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, role: event.target.value as 'primary' | 'supporting' } : w) })} sx={{ flex: 1 }}>
+                      <MenuItem value="primary">اصلی</MenuItem>
+                      <MenuItem value="supporting">پشتیبان</MenuItem>
+                    </TextField>
+                  </Stack>
+                  {witness.role === 'supporting' && <TextField size="small" label="دلیل پیوند پشتیبان (الزامی)" value={witness.note} onChange={event => update({ witnesses: draft.witnesses.map((w, i) => i === index ? { ...w, note: event.target.value } : w) })} fullWidth />}
+                  <Stack direction="row" justifyContent="flex-end">
+                    <Button size="small" color="error" startIcon={<DeleteOutlineRounded />} onClick={() => update({ witnesses: draft.witnesses.filter((_, i) => i !== index) })}>حذف شاهد</Button>
+                  </Stack>
+                </Stack>
+              ))}
+              <Button variant="text" startIcon={<AddRounded />} onClick={() => update({ witnesses: [...draft.witnesses, witnessRow('', '')] })}>افزودن شاهد دستی</Button>
+            </Stack>
+          </Paper>
+        </Stack>
+      )}
 
       {step === 3 && !results && <Stack spacing={2} sx={{ maxWidth: 640, mx: 'auto' }}>
         <Typography variant="subtitle2" fontWeight={800}>خلاصهٔ اطلاعات و ارزیابی اولیه کیفیت پرونده</Typography>

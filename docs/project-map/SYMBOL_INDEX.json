@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_fingerprint": "821c5f07025b1c95",
+  "source_fingerprint": "679fa4c3decad840",
   "files": [
     {
       "path": "installer/EitaaBridge.iss",
@@ -1720,12 +1720,12 @@
         {
           "name": "find_opencode_binary",
           "kind": "function",
-          "line": 75
+          "line": 88
         },
         {
           "name": "run_supervision",
           "kind": "function",
-          "line": 85
+          "line": 98
         }
       ]
     },
@@ -8281,342 +8281,342 @@
         {
           "name": "create_event",
           "kind": "function",
-          "line": 292
+          "line": 301
         },
         {
           "name": "update_event",
           "kind": "function",
-          "line": 304
+          "line": 313
         },
         {
           "name": "delete_event",
           "kind": "function",
-          "line": 327
+          "line": 336
         },
         {
           "name": "get_event_file",
           "kind": "function",
-          "line": 337
+          "line": 346
         },
         {
           "name": "upload_document",
           "kind": "function",
-          "line": 366
+          "line": 375
         },
         {
           "name": "delete_document",
           "kind": "function",
-          "line": 392
+          "line": 401
         },
         {
           "name": "set_document_cover",
           "kind": "function",
-          "line": 402
+          "line": 411
         },
         {
           "name": "view_document",
           "kind": "function",
-          "line": 411
+          "line": 420
         },
         {
           "name": "list_merge_candidates",
           "kind": "function",
-          "line": 442
+          "line": 451
         },
         {
           "name": "execute_merge",
           "kind": "function",
-          "line": 447
+          "line": 456
         },
         {
           "name": "get_unit_baseline",
           "kind": "function",
-          "line": 461
+          "line": 470
         },
         {
           "name": "save_unit_baseline",
           "kind": "function",
-          "line": 467
+          "line": 476
         },
         {
           "name": "list_unit_baselines",
           "kind": "function",
-          "line": 484
+          "line": 493
         },
         {
           "name": "list_imams",
           "kind": "function",
-          "line": 488
+          "line": 497
         },
         {
           "name": "save_imam",
           "kind": "function",
-          "line": 494
+          "line": 503
         },
         {
           "name": "delete_imam",
           "kind": "function",
-          "line": 517
+          "line": 526
         },
         {
           "name": "list_venues",
           "kind": "function",
-          "line": 524
+          "line": 533
         },
         {
           "name": "save_venue",
           "kind": "function",
-          "line": 530
+          "line": 539
         },
         {
           "name": "delete_venue",
           "kind": "function",
-          "line": 549
+          "line": 558
         },
         {
           "name": "list_persons",
           "kind": "function",
-          "line": 556
+          "line": 565
         },
         {
           "name": "save_person",
           "kind": "function",
-          "line": 563
+          "line": 572
         },
         {
           "name": "delete_person",
           "kind": "function",
-          "line": 583
+          "line": 592
         },
         {
           "name": "get_event_normalization",
           "kind": "function",
-          "line": 590
+          "line": 599
         },
         {
           "name": "attach_document",
           "kind": "function",
-          "line": 598
+          "line": 607
         },
         {
           "name": "transition_event",
           "kind": "function",
-          "line": 623
+          "line": 633
         },
         {
           "name": "get_event_defects",
           "kind": "function",
-          "line": 674
+          "line": 684
         },
         {
           "name": "link_witness",
           "kind": "function",
-          "line": 697
+          "line": 707
         },
         {
           "name": "detach_link",
           "kind": "function",
-          "line": 717
+          "line": 727
         },
         {
           "name": "list_queue",
           "kind": "function",
-          "line": 740
+          "line": 750
         },
         {
           "name": "resolve_queue_item",
           "kind": "function",
-          "line": 747
+          "line": 757
         },
         {
           "name": "set_roles",
           "kind": "function",
-          "line": 767
+          "line": 777
         },
         {
           "name": "get_event_audit",
           "kind": "function",
-          "line": 788
+          "line": 798
         },
         {
           "name": "witness_status",
           "kind": "function",
-          "line": 798
+          "line": 808
         },
         {
           "name": "record_feedback",
           "kind": "function",
-          "line": 819
+          "line": 829
         },
         {
           "name": "revoke_feedback",
           "kind": "function",
-          "line": 846
+          "line": 856
         },
         {
           "name": "list_feedback",
           "kind": "function",
-          "line": 859
+          "line": 869
         },
         {
           "name": "add_alias",
           "kind": "function",
-          "line": 872
+          "line": 882
         },
         {
           "name": "revoke_alias",
           "kind": "function",
-          "line": 899
+          "line": 909
         },
         {
           "name": "list_aliases",
           "kind": "function",
-          "line": 912
+          "line": 922
         },
         {
           "name": "list_events_v3",
           "kind": "function",
-          "line": 923
+          "line": 933
         },
         {
           "name": "export_filtered_events",
           "kind": "function",
-          "line": 990
+          "line": 1000
         },
         {
           "name": "export_dossier_bundle_api",
           "kind": "function",
-          "line": 1031
+          "line": 1041
         },
         {
           "name": "list_units",
           "kind": "function",
-          "line": 1085
+          "line": 1095
         },
         {
           "name": "save_unit",
           "kind": "function",
-          "line": 1095
+          "line": 1105
         },
         {
           "name": "delete_unit",
           "kind": "function",
-          "line": 1128
+          "line": 1138
         },
         {
           "name": "list_liaisons",
           "kind": "function",
-          "line": 1135
+          "line": 1145
         },
         {
           "name": "save_liaison",
           "kind": "function",
-          "line": 1149
+          "line": 1159
         },
         {
           "name": "delete_liaison",
           "kind": "function",
-          "line": 1183
+          "line": 1193
         },
         {
           "name": "resolve_liaison",
           "kind": "function",
-          "line": 1190
+          "line": 1200
         },
         {
           "name": "assign_author_liaison",
           "kind": "function",
-          "line": 1209
+          "line": 1219
         },
         {
           "name": "unlink_author_liaison",
           "kind": "function",
-          "line": 1243
+          "line": 1253
         },
         {
           "name": "lookup_liaison",
           "kind": "function",
-          "line": 1252
+          "line": 1262
         },
         {
           "name": "get_liaison_profile",
           "kind": "function",
-          "line": 1275
+          "line": 1285
         },
         {
           "name": "sync_liaison_eitaa_contact",
           "kind": "function",
-          "line": 1299
+          "line": 1309
         },
         {
           "name": "sync_all_liaisons_eitaa_contacts",
           "kind": "function",
-          "line": 1310
+          "line": 1320
         },
         {
           "name": "list_program_catalog",
           "kind": "function",
-          "line": 1318
+          "line": 1328
         },
         {
           "name": "save_program_catalog_item",
           "kind": "function",
-          "line": 1331
+          "line": 1341
         },
         {
           "name": "toggle_program_active",
           "kind": "function",
-          "line": 1370
+          "line": 1380
         },
         {
           "name": "list_macro_indicators",
           "kind": "function",
-          "line": 1382
+          "line": 1392
         },
         {
           "name": "list_micro_indicators",
           "kind": "function",
-          "line": 1386
+          "line": 1396
         },
         {
           "name": "save_micro_indicator",
           "kind": "function",
-          "line": 1390
+          "line": 1400
         },
         {
           "name": "update_micro_indicator",
           "kind": "function",
-          "line": 1403
+          "line": 1413
         },
         {
           "name": "delete_micro_indicator",
           "kind": "function",
-          "line": 1414
+          "line": 1424
         },
         {
           "name": "get_message_indicators",
           "kind": "function",
-          "line": 1419
+          "line": 1429
         },
         {
           "name": "assign_message_indicators",
           "kind": "function",
-          "line": 1438
+          "line": 1448
         },
         {
           "name": "get_message_splits",
           "kind": "function",
-          "line": 1463
+          "line": 1473
         },
         {
           "name": "set_message_splits",
           "kind": "function",
-          "line": 1471
+          "line": 1481
         },
         {
           "name": "dispatch",
           "kind": "function",
-          "line": 1483
+          "line": 1493
         }
       ]
     },
@@ -17276,537 +17276,537 @@
         {
           "name": "ReportingStore.transition_event_status",
           "kind": "method",
-          "line": 1814
+          "line": 1823
         },
         {
           "name": "ReportingStore._lookup_witness_details",
           "kind": "method",
-          "line": 1920
+          "line": 1929
         },
         {
           "name": "ReportingStore._auto_attach_witness_media",
           "kind": "method",
-          "line": 1962
+          "line": 1971
         },
         {
           "name": "ReportingStore.link_witness",
           "kind": "method",
-          "line": 2011
+          "line": 2020
         },
         {
           "name": "ReportingStore.detach_witness_link",
           "kind": "method",
-          "line": 2101
+          "line": 2110
         },
         {
           "name": "ReportingStore.resolve_review_item",
           "kind": "method",
-          "line": 2137
+          "line": 2146
         },
         {
           "name": "ReportingStore.set_user_roles",
           "kind": "method",
-          "line": 2159
+          "line": 2168
         },
         {
           "name": "ReportingStore.get_user_roles",
           "kind": "method",
-          "line": 2185
+          "line": 2194
         },
         {
           "name": "ReportingStore.get_event_audit",
           "kind": "method",
-          "line": 2195
+          "line": 2204
         },
         {
           "name": "ReportingStore.list_review_queue",
           "kind": "method",
-          "line": 2210
+          "line": 2219
         },
         {
           "name": "ReportingStore.get_event_file",
           "kind": "method",
-          "line": 2225
+          "line": 2234
         },
         {
           "name": "ReportingStore.attach_document",
           "kind": "method",
-          "line": 2325
+          "line": 2334
         },
         {
           "name": "ReportingStore.delete_document",
           "kind": "method",
-          "line": 2390
+          "line": 2399
         },
         {
           "name": "ReportingStore.set_document_cover",
           "kind": "method",
-          "line": 2422
+          "line": 2431
         },
         {
           "name": "ReportingStore.upload_and_attach_document",
           "kind": "method",
-          "line": 2443
+          "line": 2452
         },
         {
           "name": "ReportingStore.list_user_role_entries",
           "kind": "method",
-          "line": 2498
+          "line": 2507
         },
         {
           "name": "ReportingStore.record_assistant_feedback",
           "kind": "method",
-          "line": 2515
+          "line": 2524
         },
         {
           "name": "ReportingStore.revoke_assistant_feedback",
           "kind": "method",
-          "line": 2592
+          "line": 2601
         },
         {
           "name": "ReportingStore.list_assistant_feedback",
           "kind": "method",
-          "line": 2618
+          "line": 2627
         },
         {
           "name": "ReportingStore.add_scoped_alias",
           "kind": "method",
-          "line": 2645
+          "line": 2654
         },
         {
           "name": "ReportingStore.revoke_scoped_alias",
           "kind": "method",
-          "line": 2715
+          "line": 2724
         },
         {
           "name": "ReportingStore.list_scoped_aliases",
           "kind": "method",
-          "line": 2739
+          "line": 2748
         },
         {
           "name": "ReportingStore.find_witness_status",
           "kind": "method",
-          "line": 2771
+          "line": 2780
         },
         {
           "name": "ReportingStore.save_event",
           "kind": "method",
-          "line": 2813
+          "line": 2822
         },
         {
           "name": "ReportingStore.list_events",
           "kind": "method",
-          "line": 2923
+          "line": 2932
         },
         {
           "name": "ReportingStore.get_event",
           "kind": "method",
-          "line": 3037
+          "line": 3046
         },
         {
           "name": "ReportingStore.delete_event",
           "kind": "method",
-          "line": 3102
+          "line": 3111
         },
         {
           "name": "ReportingStore.find_merge_candidates",
           "kind": "method",
-          "line": 3141
+          "line": 3150
         },
         {
           "name": "ReportingStore.merge_events",
           "kind": "method",
-          "line": 3248
+          "line": 3293
         },
         {
           "name": "ReportingStore.get_unit_baseline",
           "kind": "method",
-          "line": 3367
+          "line": 3412
         },
         {
           "name": "ReportingStore.save_unit_baseline",
           "kind": "method",
-          "line": 3387
+          "line": 3432
         },
         {
           "name": "ReportingStore.list_unit_baselines",
           "kind": "method",
-          "line": 3430
+          "line": 3475
         },
         {
           "name": "ReportingStore.normalize_event_statistics",
           "kind": "method",
-          "line": 3436
+          "line": 3481
         },
         {
           "name": "ReportingStore.get_staff_reporting_stats",
           "kind": "method",
-          "line": 3486
+          "line": 3531
         },
         {
           "name": "ReportingStore.save_filled_form",
           "kind": "method",
-          "line": 3542
+          "line": 3587
         },
         {
           "name": "ReportingStore.get_filled_form",
           "kind": "method",
-          "line": 3584
+          "line": 3629
         },
         {
           "name": "ReportingStore.list_filled_forms",
           "kind": "method",
-          "line": 3624
+          "line": 3669
         },
         {
           "name": "ReportingStore.record_export",
           "kind": "method",
-          "line": 3638
+          "line": 3683
         },
         {
           "name": "ReportingStore.list_exports",
           "kind": "method",
-          "line": 3680
+          "line": 3725
         },
         {
           "name": "ReportingStore.get_config",
           "kind": "method",
-          "line": 3690
+          "line": 3735
         },
         {
           "name": "ReportingStore.set_config",
           "kind": "method",
-          "line": 3695
+          "line": 3740
         },
         {
           "name": "ReportingStore._migrate_and_seed_judicial_units_and_liaisons",
           "kind": "method",
-          "line": 3713
+          "line": 3758
         },
         {
           "name": "ReportingStore._row_to_unit",
           "kind": "method",
-          "line": 3857
+          "line": 3902
         },
         {
           "name": "ReportingStore._row_to_liaison",
           "kind": "method",
-          "line": 3875
+          "line": 3920
         },
         {
           "name": "ReportingStore.find_unit_by_name",
           "kind": "method",
-          "line": 3893
+          "line": 3938
         },
         {
           "name": "ReportingStore.get_unit",
           "kind": "method",
-          "line": 3902
+          "line": 3947
         },
         {
           "name": "ReportingStore.save_unit",
           "kind": "method",
-          "line": 3909
+          "line": 3954
         },
         {
           "name": "ReportingStore.delete_unit",
           "kind": "method",
-          "line": 3974
+          "line": 4019
         },
         {
           "name": "ReportingStore.list_units",
           "kind": "method",
-          "line": 3980
+          "line": 4025
         },
         {
           "name": "ReportingStore.list_counties",
           "kind": "method",
-          "line": 3992
+          "line": 4037
         },
         {
           "name": "ReportingStore.save_liaison",
           "kind": "method",
-          "line": 4000
+          "line": 4045
         },
         {
           "name": "ReportingStore.get_liaison",
           "kind": "method",
-          "line": 4039
+          "line": 4084
         },
         {
           "name": "ReportingStore.delete_liaison",
           "kind": "method",
-          "line": 4046
+          "line": 4091
         },
         {
           "name": "ReportingStore.list_liaisons",
           "kind": "method",
-          "line": 4051
+          "line": 4096
         },
         {
           "name": "ReportingStore.resolve_liaison_and_unit",
           "kind": "method",
-          "line": 4063
+          "line": 4108
         },
         {
           "name": "ReportingStore._lookup_contact_phone",
           "kind": "method",
-          "line": 4167
+          "line": 4212
         },
         {
           "name": "ReportingStore.find_liaison_by_sender",
           "kind": "method",
-          "line": 4207
+          "line": 4252
         },
         {
           "name": "ReportingStore.assign_author_as_liaison",
           "kind": "method",
-          "line": 4252
+          "line": 4297
         },
         {
           "name": "ReportingStore.unlink_author_liaison",
           "kind": "method",
-          "line": 4326
+          "line": 4371
         },
         {
           "name": "ReportingStore.sync_liaison_to_eitaa_contact",
           "kind": "method",
-          "line": 4343
+          "line": 4388
         },
         {
           "name": "ReportingStore.sync_all_liaisons_to_eitaa_contacts",
           "kind": "method",
-          "line": 4449
+          "line": 4494
         },
         {
           "name": "ReportingStore.get_liaison_profile_analytics",
           "kind": "method",
-          "line": 4489
+          "line": 4534
         },
         {
           "name": "ReportingStore.save_imam",
           "kind": "method",
-          "line": 4689
+          "line": 4734
         },
         {
           "name": "ReportingStore.list_imams",
           "kind": "method",
-          "line": 4731
+          "line": 4776
         },
         {
           "name": "ReportingStore.delete_imam",
           "kind": "method",
-          "line": 4757
+          "line": 4802
         },
         {
           "name": "ReportingStore.save_venue",
           "kind": "method",
-          "line": 4763
+          "line": 4808
         },
         {
           "name": "ReportingStore.list_venues",
           "kind": "method",
-          "line": 4794
+          "line": 4839
         },
         {
           "name": "ReportingStore.delete_venue",
           "kind": "method",
-          "line": 4815
+          "line": 4860
         },
         {
           "name": "ReportingStore.save_nomokalaf",
           "kind": "method",
-          "line": 4821
+          "line": 4866
         },
         {
           "name": "ReportingStore.list_nomokalaf",
           "kind": "method",
-          "line": 4874
+          "line": 4919
         },
         {
           "name": "ReportingStore.save_entity_fact",
           "kind": "method",
-          "line": 4917
+          "line": 4962
         },
         {
           "name": "ReportingStore.list_entity_facts",
           "kind": "method",
-          "line": 4963
+          "line": 5008
         },
         {
           "name": "ReportingStore.save_normalization_candidate",
           "kind": "method",
-          "line": 5014
+          "line": 5059
         },
         {
           "name": "ReportingStore.list_normalization_candidates",
           "kind": "method",
-          "line": 5062
+          "line": 5107
         },
         {
           "name": "ReportingStore.approve_normalization_candidate",
           "kind": "method",
-          "line": 5073
+          "line": 5118
         },
         {
           "name": "ReportingStore.reject_normalization_candidate",
           "kind": "method",
-          "line": 5179
+          "line": 5224
         },
         {
           "name": "ReportingStore.approve_imam_candidate",
           "kind": "method",
-          "line": 5191
+          "line": 5236
         },
         {
           "name": "ReportingStore.save_plan_item",
           "kind": "method",
-          "line": 5220
+          "line": 5265
         },
         {
           "name": "ReportingStore.list_plan_items",
           "kind": "method",
-          "line": 5261
+          "line": 5306
         },
         {
           "name": "ReportingStore.seed_default_plans",
           "kind": "method",
-          "line": 5285
+          "line": 5330
         },
         {
           "name": "ReportingStore.save_mandate",
           "kind": "method",
-          "line": 5294
+          "line": 5339
         },
         {
           "name": "ReportingStore.list_mandates",
           "kind": "method",
-          "line": 5325
+          "line": 5370
         },
         {
           "name": "ReportingStore.delete_mandate",
           "kind": "method",
-          "line": 5348
+          "line": 5393
         },
         {
           "name": "ReportingStore.list_form_definitions",
           "kind": "method",
-          "line": 5356
+          "line": 5401
         },
         {
           "name": "ReportingStore.get_form_definition",
           "kind": "method",
-          "line": 5361
+          "line": 5406
         },
         {
           "name": "ReportingStore.list_sections",
           "kind": "method",
-          "line": 5371
+          "line": 5416
         },
         {
           "name": "ReportingStore.upsert_section",
           "kind": "method",
-          "line": 5390
+          "line": 5435
         },
         {
           "name": "ReportingStore.save_person",
           "kind": "method",
-          "line": 5427
+          "line": 5472
         },
         {
           "name": "ReportingStore.list_persons",
           "kind": "method",
-          "line": 5476
+          "line": 5521
         },
         {
           "name": "ReportingStore.person_family",
           "kind": "method",
-          "line": 5518
+          "line": 5563
         },
         {
           "name": "ReportingStore.delete_person",
           "kind": "method",
-          "line": 5522
+          "line": 5567
         },
         {
           "name": "ReportingStore.save_wp_link",
           "kind": "method",
-          "line": 5531
+          "line": 5576
         },
         {
           "name": "ReportingStore.link_wp_post_to_event",
           "kind": "method",
-          "line": 5566
+          "line": 5611
         },
         {
           "name": "ReportingStore.list_wp_links",
           "kind": "method",
-          "line": 5577
+          "line": 5622
         },
         {
           "name": "ReportingStore.list_program_catalog",
           "kind": "method",
-          "line": 5599
+          "line": 5644
         },
         {
           "name": "ReportingStore.get_program_by_code",
           "kind": "method",
-          "line": 5618
+          "line": 5663
         },
         {
           "name": "ReportingStore.save_program_catalog_item",
           "kind": "method",
-          "line": 5630
+          "line": 5675
         },
         {
           "name": "ReportingStore.toggle_program_active",
           "kind": "method",
-          "line": 5689
+          "line": 5734
         },
         {
           "name": "ReportingStore.list_macro_indicators",
           "kind": "method",
-          "line": 5702
+          "line": 5747
         },
         {
           "name": "ReportingStore.list_micro_indicators",
           "kind": "method",
-          "line": 5720
+          "line": 5765
         },
         {
           "name": "ReportingStore.save_micro_indicator",
           "kind": "method",
-          "line": 5729
+          "line": 5774
         },
         {
           "name": "ReportingStore.update_micro_indicator",
           "kind": "method",
-          "line": 5762
+          "line": 5807
         },
         {
           "name": "ReportingStore.delete_micro_indicator",
           "kind": "method",
-          "line": 5794
+          "line": 5839
         },
         {
           "name": "ReportingStore.get_message_indicators",
           "kind": "method",
-          "line": 5803
+          "line": 5848
         },
         {
           "name": "ReportingStore.set_message_indicators",
           "kind": "method",
-          "line": 5835
+          "line": 5880
         },
         {
           "name": "ReportingStore.get_detached_message_ids",
           "kind": "method",
-          "line": 5870
+          "line": 5915
         },
         {
           "name": "ReportingStore.set_message_splits",
           "kind": "method",
-          "line": 5879
+          "line": 5924
         }
       ]
     },
@@ -25449,6 +25449,21 @@
           "name": "test_get_and_list_events_crash_resilience_on_corrupt_db_records",
           "kind": "function",
           "line": 315
+        },
+        {
+          "name": "test_ashura_pilgrimage_auto_derivation_from_micro_indicators_and_text",
+          "kind": "function",
+          "line": 356
+        },
+        {
+          "name": "test_delete_document_physical_file_cleanup_and_id_flexibility",
+          "kind": "function",
+          "line": 420
+        },
+        {
+          "name": "test_find_merge_candidates_prioritized_ranking_hierarchy",
+          "kind": "function",
+          "line": 461
         }
       ]
     },
@@ -28581,197 +28596,197 @@
         {
           "name": "VirtualMessageList",
           "kind": "script symbol",
-          "line": 2628
+          "line": 2630
         },
         {
           "name": "markInteraction",
           "kind": "script symbol",
-          "line": 2779
+          "line": 2781
         },
         {
           "name": "processScroll",
           "kind": "script symbol",
-          "line": 2780
+          "line": 2782
         },
         {
           "name": "onScroll",
           "kind": "script symbol",
-          "line": 2813
+          "line": 2815
         },
         {
           "name": "Composer",
           "kind": "script symbol",
-          "line": 3015
+          "line": 3017
         },
         {
           "name": "reset",
           "kind": "script symbol",
-          "line": 3046
+          "line": 3048
         },
         {
           "name": "buildSources",
           "kind": "script symbol",
-          "line": 3051
+          "line": 3053
         },
         {
           "name": "composition",
           "kind": "script symbol",
-          "line": 3063
+          "line": 3065
         },
         {
           "name": "run",
           "kind": "script symbol",
-          "line": 3065
+          "line": 3067
         },
         {
           "name": "move",
           "kind": "script symbol",
-          "line": 3094
+          "line": 3096
         },
         {
           "name": "appendSelectedToEdit",
           "kind": "script symbol",
-          "line": 3099
+          "line": 3101
         },
         {
           "name": "loadHistory",
           "kind": "script symbol",
-          "line": 3112
+          "line": 3114
         },
         {
           "name": "chooseTag",
           "kind": "script symbol",
-          "line": 3128
+          "line": 3130
         },
         {
           "name": "createTag",
           "kind": "script symbol",
-          "line": 3133
+          "line": 3135
         },
         {
           "name": "ManualDialogModal",
           "kind": "script symbol",
-          "line": 3227
+          "line": 3229
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 3239
+          "line": 3241
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 3242
+          "line": 3244
         },
         {
           "name": "CommunityMembersModal",
           "kind": "script symbol",
-          "line": 3292
+          "line": 3294
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 3333
+          "line": 3335
         },
         {
           "name": "mergeMembers",
           "kind": "script symbol",
-          "line": 3371
+          "line": 3373
         },
         {
           "name": "loadAllMembers",
           "kind": "script symbol",
-          "line": 3407
+          "line": 3409
         },
         {
           "name": "poll",
           "kind": "script symbol",
-          "line": 3446
+          "line": 3448
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 3474
+          "line": 3476
         },
         {
           "name": "syncRemote",
           "kind": "script symbol",
-          "line": 3478
+          "line": 3480
         },
         {
           "name": "toggleAll",
           "kind": "script symbol",
-          "line": 3511
+          "line": 3513
         },
         {
           "name": "startContactImport",
           "kind": "script symbol",
-          "line": 3559
+          "line": 3561
         },
         {
           "name": "runMemberMutation",
           "kind": "script symbol",
-          "line": 3575
+          "line": 3577
         },
         {
           "name": "BulkOperationsModal",
           "kind": "script symbol",
-          "line": 3649
+          "line": 3651
         },
         {
           "name": "onKey",
           "kind": "script symbol",
-          "line": 3675
+          "line": 3677
         },
         {
           "name": "waitTask",
           "kind": "script symbol",
-          "line": 3678
+          "line": 3680
         },
         {
           "name": "chooseMedia",
           "kind": "script symbol",
-          "line": 3692
+          "line": 3694
         },
         {
           "name": "choosePhoneFile",
           "kind": "script symbol",
-          "line": 3697
+          "line": 3699
         },
         {
           "name": "messagePayload",
           "kind": "script symbol",
-          "line": 3701
+          "line": 3703
         },
         {
           "name": "ensurePhoneList",
           "kind": "script symbol",
-          "line": 3714
+          "line": 3716
         },
         {
           "name": "prepare",
           "kind": "script symbol",
-          "line": 3731
+          "line": 3733
         },
         {
           "name": "loadJobReport",
           "kind": "script symbol",
-          "line": 3770
+          "line": 3772
         },
         {
           "name": "loadFailures",
           "kind": "script symbol",
-          "line": 3776
+          "line": 3778
         },
         {
           "name": "controlJob",
           "kind": "script symbol",
-          "line": 3782
+          "line": 3784
         },
         {
           "name": "execute",
           "kind": "script symbol",
-          "line": 3800
+          "line": 3802
         }
       ]
     },
@@ -29494,97 +29509,97 @@
         {
           "name": "loadMergeCandidates",
           "kind": "script symbol",
-          "line": 322
+          "line": 328
         },
         {
           "name": "setFactValue",
           "kind": "script symbol",
-          "line": 366
+          "line": 372
         },
         {
           "name": "removeFact",
           "kind": "script symbol",
-          "line": 380
+          "line": 386
         },
         {
           "name": "handleAddMicroTag",
           "kind": "script symbol",
-          "line": 387
+          "line": 393
         },
         {
           "name": "handleRemoveMicroTag",
           "kind": "script symbol",
-          "line": 393
+          "line": 402
         },
         {
           "name": "handleResetChanges",
           "kind": "script symbol",
-          "line": 399
+          "line": 408
         },
         {
           "name": "handleSave",
           "kind": "script symbol",
-          "line": 579
+          "line": 588
         },
         {
           "name": "handleDeleteEvent",
           "kind": "script symbol",
-          "line": 620
+          "line": 629
         },
         {
           "name": "handleFileInputChange",
           "kind": "script symbol",
-          "line": 637
+          "line": 646
         },
         {
           "name": "handleDeleteDocument",
           "kind": "script symbol",
-          "line": 671
+          "line": 680
         },
         {
           "name": "handleSetCover",
           "kind": "script symbol",
-          "line": 682
+          "line": 701
         },
         {
           "name": "handleDownloadDoc",
           "kind": "script symbol",
-          "line": 695
+          "line": 727
         },
         {
           "name": "handlePreviewDoc",
           "kind": "script symbol",
-          "line": 719
+          "line": 751
         },
         {
           "name": "handleDetachWitness",
           "kind": "script symbol",
-          "line": 744
+          "line": 776
         },
         {
           "name": "handleMergeCandidate",
           "kind": "script symbol",
-          "line": 767
+          "line": 799
         },
         {
           "name": "handleApprove",
           "kind": "script symbol",
-          "line": 788
+          "line": 820
         },
         {
           "name": "handleRequestRevision",
           "kind": "script symbol",
-          "line": 802
+          "line": 834
         },
         {
           "name": "handleMarkConflict",
           "kind": "script symbol",
-          "line": 823
+          "line": 855
         },
         {
           "name": "handleSubmitReview",
           "kind": "script symbol",
-          "line": 844
+          "line": 876
         }
       ]
     },
@@ -30577,37 +30592,37 @@
         {
           "name": "inferRegistrationDefaults",
           "kind": "script symbol",
-          "line": 92
+          "line": 101
         },
         {
           "name": "witnessRow",
           "kind": "script symbol",
-          "line": 280
+          "line": 374
         },
         {
           "name": "ReportingRegistrationPanel",
           "kind": "script symbol",
-          "line": 284
+          "line": 378
         },
         {
           "name": "resolveSenderAndUnit",
           "kind": "script symbol",
-          "line": 363
+          "line": 470
         },
         {
           "name": "update",
           "kind": "script symbol",
-          "line": 428
+          "line": 535
         },
         {
           "name": "submit",
           "kind": "script symbol",
-          "line": 458
+          "line": 565
         },
         {
           "name": "requestClose",
           "kind": "script symbol",
-          "line": 547
+          "line": 672
         }
       ]
     },
@@ -31038,7 +31053,7 @@
         {
           "name": "createAppTheme",
           "kind": "script symbol",
-          "line": 243
+          "line": 252
         }
       ]
     },

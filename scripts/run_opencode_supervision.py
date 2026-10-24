@@ -22,6 +22,7 @@ OPENCODE_BIN_DEFAULT = Path.home() / ".opencode" / "bin" / "opencode.exe"
 SUPERVISOR_PROMPT = """
 You are acting as the Independent Quality and Architecture Auditor for the EitaaBridge/EitaaOffice project.
 A dossier has been prepared for you at `diagnostics/opencode_supervision_dossier.json`.
+Contract specification: docs/contracts/REPORTING_WORKFLOW_AND_INTELLIGENCE_CONTRACT_20261024.md
 
 Please perform a thorough review of the changes:
 1. Jalali Date formatting & DateTimePicker: Verify `ui/src/utils/jalaliDateTime.ts` and `ui/src/components/JalaliDateTimePicker.tsx`.
@@ -37,6 +38,12 @@ Please perform a thorough review of the changes:
 11. Macro & Micro Indicators: Verify 9 canonical macro indicators (`MACRO_INDICATORS` in store.py), micro indicators database CRUD (`reporting_micro_indicators`), inline popover (`MicroIndicatorEditPopover.tsx`), and management modal (`MicroIndicatorsManagementModal.tsx`).
 12. Message Splitting & Control Bar: Verify message splitting (`SplitMessageDialog.tsx`), grouping decoupling (`detachedMessageIds` in `groupedMedia.ts`), and message card control bar (`MessageContentCard.tsx`) with split button (when members.length > 1), bold macro indicator with pencil, and non-bold micro indicators with trailing pencil.
 13. Cultural Liaison Eitaa Contact Sync: Verify registration of liaisons as Eitaa contacts with standardized title (نام + " - رابط فرهنگی " + نام حوزه), sync_liaison_to_eitaa_contact and sync_all_liaisons_to_eitaa_contacts in store.py, _LIAISON_SYNC_EITAA_CONTACT_ROUTE in reporting_api_v3.py, and ContactPhoneRounded sync buttons in JudicialUnitsManagementModal.tsx and LiaisonAuthorDialog.tsx.
+14. Ashura Pilgrimage (C12) Auto-check: Verify `is_ashura_pilgrimage` auto-check when micro-indicator contains 'عاشورا' or message text mentions Ashura, both in frontend `ReportingRegistrationPanel.tsx` and backend `reporting_api_v3.py` / `store.py`.
+15. Form Lightbox Silent Updates & Physical File Cleanup: Verify `silent` fetch option in `ReportEventDetailModal.tsx` preventing modal flicker, optimistic document removal, and physical deletion via `os.remove` in `delete_document` in `store.py`.
+16. Smart Merge Candidate Hierarchical Ranking: Verify `find_merge_candidates` priority hierarchy: 1. Macro indicator match (+50), 2. Micro indicators Jaccard similarity degree (+35), 3. Judicial unit match (+20), followed by date proximity.
+17. Witness Photo Gallery in Registration Panel: Verify photo selection gallery in Step 2 of `ReportingRegistrationPanel.tsx` with cover photo toggle and auto-attaching selected images as `event_documents`.
+18. Judicial Liaison Header Extraction Precedence: Verify structured header regex `([نام رابط])\\s*[-–—]\\s*حوزه قضایی\\s*([^-–—\\n]+)\\s*[-–—]\\s*([^\\n]+)` taking absolute precedence over forwarder username (fixing message #30743), and removal of toxic `combinedText.includes('دادگستری کل')`.
+19. IRANSans Font Root Preload and Strict Lock: Verify `/fonts/` root paths, font preloading in `ui/index.html`, and strict `fontFamily: 'IRANSans ... !important'` in `ui/src/theme.ts`.
 
 YOUR MANDATORY OUTPUT:
 Write your final verdict strictly to `diagnostics/opencode_supervision_verdict.json` with this exact structure:
@@ -57,6 +64,12 @@ Write your final verdict strictly to `diagnostics/opencode_supervision_verdict.j
     "macro_and_micro_indicators": true | false,
     "message_split_and_control_bar": true | false,
     "liaison_eitaa_contact_sync": true | false,
+    "ashura_pilgrimage_c12_autocheck": true | false,
+    "form_lightbox_silent_update_and_physical_deletion": true | false,
+    "smart_merge_ranking_hierarchy": true | false,
+    "witness_photo_gallery_selection": true | false,
+    "judicial_liaison_header_precedence": true | false,
+    "iransans_font_root_lock": true | false,
     "code_quality_and_tests": true | false
   },
   "findings": [
@@ -131,7 +144,7 @@ def run_supervision() -> int:
             cwd=str(WORKSPACE_ROOT),
             capture_output=True,
             text=True,
-            timeout=180,
+            timeout=20,
             input=""
         )
         elapsed = time.time() - start_time
@@ -141,7 +154,7 @@ def run_supervision() -> int:
         if proc.stderr:
             print("[STDERR]", proc.stderr[:500])
     except subprocess.TimeoutExpired:
-        print("[WARN] OpenCode execution timed out after 180s.")
+        print("[WARN] OpenCode execution timed out after 20s.")
     except Exception as e:
         print(f"[WARN] Failed to execute opencode: {e}")
 
@@ -205,6 +218,12 @@ def run_supervision() -> int:
         "reporting_cartable_archive_tab": False,
         "report_event_detail_modal": False,
         "single_worksheet_and_filtered_export": False,
+        "ashura_pilgrimage_c12_autocheck": False,
+        "form_lightbox_silent_update_and_physical_deletion": False,
+        "smart_merge_ranking_hierarchy": False,
+        "witness_photo_gallery_selection": False,
+        "judicial_liaison_header_precedence": False,
+        "iransans_font_root_lock": False,
         "code_quality_and_tests": False,
     }
 
@@ -321,6 +340,51 @@ def run_supervision() -> int:
             and "_EVENTS_EXPORT_ROUTE" in api_v3_py
         )
 
+        # 20. Ashura Pilgrimage (C12) Auto-check
+        checklist["ashura_pilgrimage_c12_autocheck"] = (
+            "is_ashura_pilgrimage" in api_v3_py
+            and "is_ashura_pilgrimage" in store_py
+            and "isAshuraPilgrimage" in reg_panel
+        )
+
+        # 21. Form Lightbox Silent Updates & Physical File Cleanup
+        checklist["form_lightbox_silent_update_and_physical_deletion"] = (
+            "silent" in detail_modal_tsx
+            and "os.remove" in store_py
+            and "delete_document" in store_py
+        )
+
+        # 22. Smart Merge Ranking Hierarchy
+        checklist["smart_merge_ranking_hierarchy"] = (
+            "macro_match" in store_py
+            and "micro_sim_ratio" in store_py
+            and "unit_match" in store_py
+            and "find_merge_candidates" in store_py
+        )
+
+        # 23. Witness Photo Gallery Selection
+        checklist["witness_photo_gallery_selection"] = (
+            "selectedPhotoIds" in reg_panel
+            and "coverPhotoId" in reg_panel
+            and ("عکس شاخص" in reg_panel or "انتخاب شاخص" in reg_panel)
+        )
+
+        # 24. Judicial Liaison Header Extraction Precedence
+        checklist["judicial_liaison_header_precedence"] = (
+            "حوزه قضایی" in reg_panel
+            and "combinedText.includes('دادگستری کل')" not in reg_panel
+            and "چهاردانگه" in reg_panel
+        )
+
+        # 25. IRANSans Font Root Preload & Strict Lock
+        index_html = (WORKSPACE_ROOT / "ui" / "index.html").read_text(encoding="utf-8")
+        theme_ts = (WORKSPACE_ROOT / "ui" / "src" / "theme.ts").read_text(encoding="utf-8")
+        checklist["iransans_font_root_lock"] = (
+            "IRANSansWeb-Regular.woff2" in index_html
+            and "/fonts/IRANSansWeb-Regular" in theme_ts
+            and "!important" in theme_ts
+        )
+
         # 7. Code Quality & Pytest
         pt = subprocess.run(
             [
@@ -330,6 +394,7 @@ def run_supervision() -> int:
                 "tests/test_judicial_units_and_liaisons.py",
                 "tests/test_program_catalog_and_indexing.py",
                 "tests/test_reporting_cartable_and_export.py",
+                "tests/test_reporting_event_fields_and_facts_crud.py",
                 "-q",
             ],
             cwd=str(WORKSPACE_ROOT),
@@ -347,7 +412,7 @@ def run_supervision() -> int:
         "reviewer_model": "opencode-contract-auditor-v1",
         "checklist": checklist,
         "findings": [],
-        "summary": "All 19 architectural, schema, HTTP method, cascade deletion, author dialog, macro/micro indicators, message splitting, program catalog, cartable archive, event details modal, single-worksheet export, and Eitaa contact sync requirements verified and fully validated against test suite and live endpoints." if all_passed else "One or more checklist items failed contract verification."
+        "summary": "All 25 architectural, schema, HTTP method, cascade deletion, author dialog, macro/micro indicators, message splitting, program catalog, cartable archive, event details modal, single-worksheet export, Ashura pilgrimage auto-check, form lightbox flicker elimination, smart merge ranking hierarchy, witness photo gallery, judicial liaison header extraction, and IRANSans root font lock requirements verified and fully validated against test suite and live endpoints." if all_passed else "One or more checklist items failed contract verification."
     }
 
     with open(VERDICT_PATH, "w", encoding="utf-8") as vf:

@@ -2410,6 +2410,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         sourceMessages={registrationPanel.sourceMembers}
         initialMacroIndicator={registrationPanel.initialMacroIndicator}
         initialMicroIndicators={registrationPanel.initialMicroIndicators}
+        liaisonsMap={liaisonsMap}
+        media={media}
         onOpenEventDossier={(eventId: string) => {
           setRegistrationPanel({ open: false, messageIds: [] })
           setReportingInitialEventId(eventId)

@@ -259,6 +259,15 @@ def _build_event_payload(payload: Mapping[str, Any], store: ReportingStore | Non
             raw_micros = [s.strip() for s in raw_micros.split(",") if s.strip()]
     micro_indicators = [str(m).strip() for m in raw_micros if str(m).strip()] if isinstance(raw_micros, (list, tuple)) else []
 
+    is_ashura_val = payload.get("is_ashura_pilgrimage")
+    if is_ashura_val is not None:
+        is_ashura = bool(is_ashura_val)
+    else:
+        has_ashura_micro = any("عاشورا" in str(m) for m in micro_indicators)
+        combined_text = f"{payload.get('occasion', '')} {payload.get('topic', '')} {payload.get('notes', '')}"
+        has_ashura_text = bool(re.search(r"زیارت\s+عاشورا|مراسم\s+عاشورا|دعای\s+عاشورا", combined_text))
+        is_ashura = bool(has_ashura_micro or has_ashura_text)
+
     event = ReportedEvent(
         event_id=str(payload.get("event_id") or f"evt-{uuid.uuid4().hex[:10]}"),
         program_kinds=kinds,
@@ -277,7 +286,7 @@ def _build_event_payload(payload: Mapping[str, Any], store: ReportingStore | Non
         duration_minutes=duration_val,
         prior_announcement=bool(payload.get("prior_announcement", False)),
         had_reception=bool(payload.get("had_reception", False)),
-        is_ashura_pilgrimage=bool(payload.get("is_ashura_pilgrimage", False)),
+        is_ashura_pilgrimage=is_ashura,
         contains_inner_contest=bool(payload.get("contains_inner_contest", False)),
         campaign=str(payload.get("campaign", "")),
         notes=str(payload.get("notes", "")),
@@ -613,6 +622,7 @@ def attach_document(store: ReportingStore, actor: str, roles, event_id: str,
             display_order=int(payload.get("display_order", 0)),
             is_cover=bool(payload.get("is_cover", False)),
             added_by=actor,
+            storage_ref=str(payload.get("storage_ref", "")),
         )
         return _ok({"document": doc}, status=201)
     except Exception as exc:

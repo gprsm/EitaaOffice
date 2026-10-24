@@ -3707,6 +3707,35 @@ pm.cmd --prefix ui run test:observability: کلیه تست‌های قراردا
   - ری‌استارت موفق سرور پس‌زمینه با PID 21488.
 - وضعیت: VERIFIED / PASS.
 
+- وضعیت: VERIFIED / PASS.
+
+### V-310 — سنجش مستقل سلامت پروژه پس از هفته تغییرات گزارش‌گیری (F-125 تا F-143)
+
+- تاریخ: 2026-10-23؛ Trigger: درخواست مالک برای سنجش کلی پروژه با تمرکز بر تغییرات یک هفته اخیر، اتصال دیتابیس، سلامت فرم‌ها و چرخه ذخیره/بازیابی داده. سنجش فقط‌خواندنی بود؛ کد محصول و داده عملیاتی (`data/`، `runtime/`، `bridge.json`، `.env`) تغییر نکردند.
+- پوشش بررسی: تاریخچه Git هفته اخیر (۱۹ کامیت F-125 تا F-143)، معماری اتصال دیتابیس در `ReportingStore`، وارسی مستقیم دیتابیس زنده `data/reporting/reporting.sqlite3`، تعریف و وضعیت فرم‌ها، چرخه ذخیره/بازیابی، سلامت سرور و اجرای دروازه کامل.
+- شواهد: `pytest -q` سبز (۱۰۰٪، ۱ skip، فقط هشدار deprecation `websockets.legacy`)؛ `npm.cmd --prefix ui run check` بدون خطا؛ health پورت 8765 برابر 200؛ `opencode_supervision_verdict.json` امروز APPROVED (19/19)؛ وارسی مستقیم SQLite: ۳۵ جدول، schema نسخه 8، WAL فعال، ۴۲ رویداد (۳۸ needs_review، ۳ draft، ۱ approved)، ۸۹ فکت رویداد، ۲۳ پیوند شاهد، ۴۶ رکورد ممیزی با هم‌روندی خوش‌بینانه etag؛ آخرین نوشتن امروز؛ رکورد بازیابی‌شده F-143 (`evt-e39b1a143e`) سالم (تاریخ 2026-10-22، سرفصل `["honor"]`).
+- یافته‌های ثبت‌شده در گزارش: دیتابیس‌های سرگردان کهنه (`data/reporting.db`، `data/reporting.sqlite3` ریشه data، `test_tmp.db`، `runtime/reporting_v3.db`) که مؤلفه کد به آن‌ها متصل نیست؛ خالی‌بودن `answers_json` در ۲ رکورد `filled_forms`؛ هشدار deprecation `websockets.legacy`؛ `ConnectionAbortedError [WinError 10053]` بی‌آسیب در لاگ سرور پس‌زمینه؛ پاسخ‌ندادن پورت 8766.
+- گزارش کامل: `../reports/validation/PROJECT_HEALTH_ASSESSMENT_2026-10-23.md`.
+- وضعیت: VERIFIED / PASS.
+
+### V-311 — اعتبارسنجی جامع ارتقای هوشمند گزارش‌گیری، بهینه‌سازی فرم‌ها، ادغام پیشرفته و نظارت دوایجنتی OpenCode (F-144 تا F-149)
+
+- تاریخ: 2026-10-24؛ Trigger: درخواست صریح کاربر و اجرای قرارداد `CONTRACT-20261024-REPORTING-PERFECTION` برای رفع نقایص گزارش‌گیری شامل تیک خودکار زیارت عاشورا (C12)، حذف پرش و ریلود لایت‌باکس با بروزرسانی بی‌صدا و حذف فیزیکی عکس‌ها، اولویت‌بندی ادغام هوشمند (Macro > Micro Jaccard > Unit)، گالری انتخاب تصاویر و تصویر شاخص پیام‌های شاهد ایتا، استخراج دقیق سربرگ رابط و حوزه قضایی (رفع باگ پیام #30743) و تثبیت سراسری قلم ایران‌سنس.
+- قانون ارزیابی دوطرفه (Dual-Perspective Law):
+  1. زاویه اول (ساختاری و سیستمی):
+     - اجرای آزمون‌های بک‌اند: `python -m pytest tests/test_reporting_event_fields_and_facts_crud.py -q` با قبولی ۱۰/۱۰ (شامل تست‌های اختصاصی ادغام سلسله‌مراتبی و حذف فیزیکی عکس‌ها).
+     - اجرای فول سوییت بک‌اند: `python -m pytest -q` با قبولی ۱۰۰٪ (۱۰۸۷ passed, 1 skipped).
+     - بررسی تایپ‌اسکریپت: `npm.cmd --prefix ui run check` با خروجی 0 errors.
+     - آزمون‌های سطح چت و کارتابل: `npm.cmd --prefix ui run test:reporting-chat-surface` (۶/۶ سبز) و `npm.cmd --prefix ui run test:reporting-ui` (۴/۴ سبز).
+     - آزمون قرارداد مشاهده‌پذیری: `npm.cmd --prefix ui run test:observability` با قبولی کامل.
+     - بیلد نهایی و کلاینت: `npm.cmd --prefix ui run build` با خروجی موفق در ۱۷.۴۱ ثانیه.
+     - تولید پکیج توزیع ویل: `scripts/build_wheel_stdlib.py --force` با هش `fe8084778d8956c3ad470487fb8502864f362d16aa6636ab821713190004f2af`.
+  2. زاویه دوم (رفتاری و نظارت دوایجنتی با OpenCode):
+     - تشکیل پرونده نظارتی در `diagnostics/opencode_supervision_dossier.json`.
+     - اجرای آزمون داوری رسمی با `scripts/run_opencode_supervision.py`.
+     - صدور رأی رسمی `APPROVED` با تأیید ۲۵/۲۵ شاخص کیفیتی و معماری در `diagnostics/opencode_supervision_verdict.json`.
+- نتیجه نهایی: تمامی ۶ محور فنی پیاده‌سازی و در هر دو زاویه به تأیید ۱۰۰٪ رسیدند.
+
 ### LEGACY-DESKTOP-V221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
 
 - تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / ISOLATED SYNTHETIC RUNTIME REPRO / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.

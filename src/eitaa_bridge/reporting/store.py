@@ -1706,6 +1706,15 @@ class ReportingStore:
             micros = fields.pop("micro_indicators")
             if "micro_indicators_json" not in fields:
                 fields["micro_indicators_json"] = json.dumps(micros, ensure_ascii=False)
+            if any("عاشورا" in str(m) for m in (micros or [])) and "is_ashura_pilgrimage" not in fields:
+                fields["is_ashura_pilgrimage"] = 1
+        elif "micro_indicators_json" in fields and "is_ashura_pilgrimage" not in fields:
+            try:
+                micros_list = json.loads(fields["micro_indicators_json"])
+                if any("عاشورا" in str(m) for m in micros_list):
+                    fields["is_ashura_pilgrimage"] = 1
+            except Exception:
+                pass
         if "program_kinds" in fields:
             progs = fields.pop("program_kinds")
             if "program_kinds_json" not in fields:
@@ -2391,8 +2400,8 @@ class ReportingStore:
         """Delete document from event_documents and cleanup physical file if stored on disk."""
         def _op(conn):
             row = conn.execute(
-                "SELECT storage_ref FROM event_documents WHERE event_id = ? AND document_id = ?",
-                (event_id, document_id),
+                "SELECT storage_ref FROM event_documents WHERE event_id = ? AND (document_id = ? OR media_id = ?)",
+                (event_id, document_id, document_id),
             ).fetchone()
             if not row:
                 return False
@@ -2404,8 +2413,8 @@ class ReportingStore:
                     pass
 
             conn.execute(
-                "DELETE FROM event_documents WHERE event_id = ? AND document_id = ?",
-                (event_id, document_id),
+                "DELETE FROM event_documents WHERE event_id = ? AND (document_id = ? OR media_id = ?)",
+                (event_id, document_id, document_id),
             )
             self._append_audit(
                 conn,
@@ -3171,62 +3180,84 @@ class ReportingStore:
             scored: list[dict[str, Any]] = []
             for row in candidates_rows:
                 cand = dict(row)
-                score = 0
+                score = 0.0
                 reasons: list[str] = []
 
-                # 1. Micro-indicators match (weight 35 per match)
+                # Priority 1: شاخصه کلی (Macro Indicator) - بالاترین اولویت
+                cand_macro_indicator = cand.get("macro_indicator") or ""
+                macro_match = False
+                if target_macro_indicator and cand_macro_indicator and target_macro_indicator == cand_macro_indicator:
+                    score += 50.0
+                    macro_match = True
+                    reasons.append(f"همسانی قطعی شاخصه کلی ({target_macro_indicator})")
+                else:
+                    cand_programs = set()
+                    try:
+                        cand_programs = set(json.loads(cand.get("program_kinds_json") or "[]"))
+                    except Exception:
+                        pass
+                    if target_programs and target_programs.intersection(cand_programs):
+                        score += 25.0
+                        macro_match = True
+                        reasons.append("همسانی سرفصل کلی برنامه")
+
+                # Priority 2: شاخصه‌های جزئی به حسب میزان همسانی (Micro-indicators similarity degree)
                 cand_micros = set()
                 try:
                     cand_micros = set(json.loads(cand.get("micro_indicators_json") or "[]"))
                 except Exception:
                     pass
                 common_micros = target_micros.intersection(cand_micros)
+                union_micros = target_micros.union(cand_micros)
+                micro_sim_ratio = 0.0
+                if union_micros:
+                    micro_sim_ratio = len(common_micros) / len(union_micros)
                 if common_micros:
-                    score += len(common_micros) * 35
-                    reasons.append(f"{len(common_micros)} شاخصه جزئی مشترک ({', '.join(common_micros)})")
+                    micro_score = round(micro_sim_ratio * 35.0, 1)
+                    score += micro_score
+                    pct = int(micro_sim_ratio * 100)
+                    reasons.append(f"همسانی شاخصه‌های جزئی: {len(common_micros)} مورد مشترک ({pct}٪ هم‌پوشانی)")
 
-                # 2. Program match
-                cand_programs = set()
-                try:
-                    cand_programs = set(json.loads(cand.get("program_kinds_json") or "[]"))
-                except Exception:
-                    pass
-                if (target_programs and target_programs.intersection(cand_programs)) or (target_macro_indicator and target_macro_indicator == cand.get("macro_indicator")):
-                    score += 25
-                    reasons.append("همسانی عنوان/سرفصل برنامه")
-
-                # 3. Unit match
+                # Priority 3: همسانی واحد قضایی و سپس سایر واحدها (Judicial Unit Match)
                 cand_unit = cand.get("unit") or cand.get("unit_name") or ""
-                if target_unit and cand_unit and target_unit == cand_unit:
-                    score += 20
-                    reasons.append(f"همسانی واحد قضایی ({cand_unit})")
+                unit_match = 0
+                if target_unit and cand_unit:
+                    if target_unit == cand_unit or (cand.get("unit_name") and cand.get("unit_name") == target.get("unit_name")):
+                        unit_match = 2
+                        score += 20.0
+                        reasons.append(f"همسانی قطعی واحد قضایی ({cand.get('unit_name') or cand_unit})")
+                    else:
+                        target_county = target_unit.split(" - ")[0].replace("دادگستری ", "").strip()
+                        cand_county = cand_unit.split(" - ")[0].replace("دادگستری ", "").strip()
+                        if target_county and cand_county and target_county == cand_county:
+                            unit_match = 1
+                            score += 10.0
+                            reasons.append(f"همسانی شهرستان/حوزه قضایی ({target_county})")
 
-                # 4. Date proximity
+                # Priority 4: سایر عوامل (نزدیکی زمانی و هم‌پوشانی متنی)
                 cand_date_str = str(cand.get("occurred_on") or "")
                 if target_date_str and cand_date_str:
                     if target_date_str == cand_date_str:
-                        score += 15
-                        reasons.append("تاریخ وقوع دقیقاً یکسان")
+                        score += 10.0
+                        reasons.append("تاریخ وقوع یکسان")
                     else:
                         try:
                             d1 = date.fromisoformat(target_date_str[:10])
                             d2 = date.fromisoformat(cand_date_str[:10])
                             days = abs((d1 - d2).days)
                             if days <= 7:
-                                score += 10
-                                reasons.append(f"فاصله زمانی کمتر از {days} روز")
-                            elif days <= 30:
-                                score += 5
+                                score += 5.0
                                 reasons.append(f"فاصله زمانی کمتر از {days} روز")
                         except Exception:
                             pass
 
-                # 5. Text token overlap
+                # هم‌پوشانی واژگان
                 cand_title = (cand.get("occasion") or cand.get("custom_topic") or cand.get("notes") or "").lower()
                 cand_tokens = set(re.findall(r"\w+", cand_title))
                 common_tokens = {t for t in target_tokens.intersection(cand_tokens) if len(t) > 2}
                 if common_tokens:
-                    score += min(len(common_tokens) * 3, 15)
+                    token_pts = min(len(common_tokens), 5)
+                    score += float(token_pts)
                     reasons.append(f"هم‌پوشانی واژگان ({len(common_tokens)} کلمه)")
 
                 if score > 0:
@@ -3238,11 +3269,25 @@ class ReportingStore:
                         "review_status": cand.get("review_status") or "needs_review",
                         "macro_indicator": cand.get("macro_indicator") or "",
                         "micro_indicators": list(cand_micros),
-                        "score": score,
+                        "score": round(score, 1),
+                        "macro_match": 1 if macro_match else 0,
+                        "micro_sim_ratio": round(micro_sim_ratio, 3),
+                        "unit_match": unit_match,
                         "reasons": reasons,
                     })
 
-            scored.sort(key=lambda x: (x["score"], x["occurred_on"]), reverse=True)
+            # رتبه‌بندی دقیق مطابق اولویت کاربر:
+            # ۱. شاخصه کلی، ۲. شاخصه جزئی به حسب میزان همسانی، ۳. همسانی واحد قضایی، ۴. امتیاز تجمیعی و تاریخ
+            scored.sort(
+                key=lambda x: (
+                    x["macro_match"],
+                    x["micro_sim_ratio"],
+                    x["unit_match"],
+                    x["score"],
+                    x["occurred_on"],
+                ),
+                reverse=True,
+            )
             return scored[:limit]
 
     def merge_events(self, target_event_id: str, source_event_id: str, actor: str = "system") -> dict[str, Any]:

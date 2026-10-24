@@ -248,9 +248,11 @@ export function ReportEventDetailModal({
   }, [open])
 
   // Fetch event details
-  const fetchEventData = async (id: string) => {
+  const fetchEventData = async (id: string, options?: { silent?: boolean; syncFields?: boolean }) => {
     try {
-      setLoading(true)
+      if (!options?.silent) {
+        setLoading(true)
+      }
       setErrorText('')
       const [res, auditRes, normRes] = await Promise.all([
         api<{ ok: boolean; event: Record<string, any> }>('GET', `/api/v3/reporting/events/${encodeURIComponent(id)}`),
@@ -263,46 +265,50 @@ export function ReportEventDetailModal({
       setAuditRecords(auditRes.audit || [])
       setNormalization(normRes)
 
-      setOccasion(getInitialOccasion(ev))
-      setMacroCategory(ev.macro_category || 'workbook_approved')
-      setCustomTopic(ev.custom_topic || '')
-      setMacroIndicator(ev.macro_indicator || '')
+      if (!options?.silent || options?.syncFields) {
+        setOccasion(getInitialOccasion(ev))
+        setMacroCategory(ev.macro_category || 'workbook_approved')
+        setCustomTopic(ev.custom_topic || '')
+        setMacroIndicator(ev.macro_indicator || '')
 
-      let parsedMicros: string[] = []
-      if (Array.isArray(ev.micro_indicators)) {
-        parsedMicros = ev.micro_indicators
-      } else if (typeof ev.micro_indicators_json === 'string') {
-        try {
-          parsedMicros = JSON.parse(ev.micro_indicators_json)
-        } catch {
-          parsedMicros = []
+        let parsedMicros: string[] = []
+        if (Array.isArray(ev.micro_indicators)) {
+          parsedMicros = ev.micro_indicators
+        } else if (typeof ev.micro_indicators_json === 'string') {
+          try {
+            parsedMicros = JSON.parse(ev.micro_indicators_json)
+          } catch {
+            parsedMicros = []
+          }
         }
-      }
-      setMicroIndicators(parsedMicros)
+        setMicroIndicators(parsedMicros)
 
-      setSelectedPrograms(Array.isArray(ev.program_kinds) ? ev.program_kinds : [])
-      setUnitScope(ev.unit || 'provincial_hq')
-      setUnitName(ev.unit_name || '')
-      setOccurredOn(ev.occurred_on || '')
-      setOfficialPresent(Boolean(ev.official_present))
-      setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage))
-      setNotes(ev.notes || '')
+        setSelectedPrograms(Array.isArray(ev.program_kinds) ? ev.program_kinds : [])
+        setUnitScope(ev.unit || 'provincial_hq')
+        setUnitName(ev.unit_name || '')
+        setOccurredOn(ev.occurred_on || '')
+        setOfficialPresent(Boolean(ev.official_present))
+        setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage) || parsedMicros.some((m: string) => typeof m === 'string' && m.includes('عاشورا')))
+        setNotes(ev.notes || '')
 
-      // Facts
-      if (Array.isArray(ev.facts)) {
-        setFacts(ev.facts.map((f: any) => ({
-          metric: f.metric || '',
-          value: typeof f.value === 'number' ? f.value : parseFloat(f.value || 0),
-          unit_of_measure: f.unit_of_measure || 'count',
-          note: f.note || '',
-        })))
-      } else {
-        setFacts([])
+        // Facts
+        if (Array.isArray(ev.facts)) {
+          setFacts(ev.facts.map((f: any) => ({
+            metric: f.metric || '',
+            value: typeof f.value === 'number' ? f.value : parseFloat(f.value || 0),
+            unit_of_measure: f.unit_of_measure || 'count',
+            note: f.note || '',
+          })))
+        } else {
+          setFacts([])
+        }
       }
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'خطا در بارگذاری اطلاعات پرونده رویداد')
     } finally {
-      setLoading(false)
+      if (!options?.silent) {
+        setLoading(false)
+      }
     }
   }
 
@@ -388,6 +394,9 @@ export function ReportEventDetailModal({
     const trimmed = title.trim()
     if (!trimmed || microIndicators.includes(trimmed)) return
     setMicroIndicators(prev => [...prev, trimmed])
+    if (trimmed.includes('عاشورا')) {
+      setIsAshuraPilgrimage(true)
+    }
     setNewMicroTag('')
   }
 
@@ -420,7 +429,7 @@ export function ReportEventDetailModal({
     setUnitName(ev.unit_name || '')
     setOccurredOn(ev.occurred_on || '')
     setOfficialPresent(Boolean(ev.official_present))
-    setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage))
+    setIsAshuraPilgrimage(Boolean(ev.is_ashura_pilgrimage) || parsedMicros.some((m: string) => typeof m === 'string' && m.includes('عاشورا')))
     setNotes(ev.notes || '')
 
     if (Array.isArray(ev.facts)) {
@@ -608,7 +617,7 @@ export function ReportEventDetailModal({
       })
       toast.success('تغییرات پرونده با موفقیت ذخیره شد.')
       onSaved?.()
-      await fetchEventData(eventId)
+      await fetchEventData(eventId, { silent: true, syncFields: true })
     } catch (err) {
       setErrorText(err instanceof Error ? err.message : 'خطا در ذخیره تغییرات پرونده')
     } finally {
@@ -652,7 +661,7 @@ export function ReportEventDetailModal({
             is_cover: uploadIsCover,
           })
           toast.success(`فایل ${file.name} با موفقیت به پرونده الحاق شد.`)
-          await fetchEventData(eventId)
+          await fetchEventData(eventId, { silent: true })
         } catch (uploadErr) {
           toast.error(uploadErr instanceof Error ? uploadErr.message : 'خطا در بارگذاری فایل')
         } finally {
@@ -672,24 +681,47 @@ export function ReportEventDetailModal({
     if (!eventId) return
     if (!window.confirm(`آیا از حذف سند "${docName}" اطمینان دارید؟`)) return
     try {
+      // Optimistic local state update to prevent any modal flickering or full reloading
+      setRawEvent((prev: any) => {
+        if (!prev) return prev
+        const docs = Array.isArray(prev.documents) ? prev.documents : []
+        return {
+          ...prev,
+          documents: docs.filter((d: any) => d.document_id !== docId && d.media_id !== docId),
+        }
+      })
       await api('DELETE', `/api/v3/reporting/events/${encodeURIComponent(eventId)}/documents/${encodeURIComponent(docId)}`)
       toast.success('سند با موفقیت از پرونده حذف گردید.')
-      await fetchEventData(eventId)
+      await fetchEventData(eventId, { silent: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در حذف سند')
+      await fetchEventData(eventId, { silent: true })
     }
   }
 
   const handleSetCover = async (docId: string) => {
     if (!eventId) return
     try {
+      // Optimistic local state update for instant cover indicator toggle
+      setRawEvent((prev: any) => {
+        if (!prev) return prev
+        const docs = Array.isArray(prev.documents) ? prev.documents : []
+        return {
+          ...prev,
+          documents: docs.map((d: any) => ({
+            ...d,
+            is_cover: d.document_id === docId || d.media_id === docId,
+          })),
+        }
+      })
       await api('POST', `/api/v3/reporting/events/${encodeURIComponent(eventId)}/documents/${encodeURIComponent(docId)}/cover`, {
         is_cover: true,
       })
       toast.success('تصویر موردنظر به عنوان عکس شاخص رویداد برگزیده شد.')
-      await fetchEventData(eventId)
+      await fetchEventData(eventId, { silent: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'خطا در انتخاب عکس شاخص')
+      await fetchEventData(eventId, { silent: true })
     }
   }
 
@@ -2637,6 +2669,15 @@ export function ReportEventDetailModal({
                                   label={`امتیاز همسانی: ${cand.score}`}
                                   sx={{ fontWeight: 800 }}
                                 />
+                                {Boolean(cand.macro_match) && (
+                                  <Chip size="small" color="primary" variant="filled" label="شاخصه کلی (اولویت ۱)" sx={{ fontWeight: 700, fontSize: '0.7rem' }} />
+                                )}
+                                {cand.micro_sim_ratio > 0 && (
+                                  <Chip size="small" color="secondary" variant="outlined" label={`همسانی جزئی ${Math.round(cand.micro_sim_ratio * 100)}٪ (اولویت ۲)`} sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
+                                )}
+                                {cand.unit_match >= 2 && (
+                                  <Chip size="small" color="success" variant="outlined" label="واحد قضایی (اولویت ۳)" sx={{ fontWeight: 600, fontSize: '0.7rem' }} />
+                                )}
                                 <Chip size="small" label={cand.event_id} sx={{ fontFamily: 'monospace' }} />
                               </Stack>
 

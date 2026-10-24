@@ -34,6 +34,6 @@ assert.match(app, /const ReportingWorkbench = lazy\(/)
 assert.match(app, /const \[reportingOpen, setReportingOpen\] = useState\(false\)/)
 assert.match(app, /onReporting=\{\(\) => setReportingOpen\(true\)\}/)
 assert.match(app, /<Dialog open=\{reportingOpen\} fullScreen onClose=\{\(\) => setReportingOpen\(false\)\}>/)
-assert.match(app, /<ReportingWorkbench onClose=\{\(\) => setReportingOpen\(false\)\} \/>/)
+assert.match(app, /<ReportingWorkbench onClose=\{[\s\S]*setReportingOpen\(false\)[\s\S]*\}\s*(?:initialEventId=\{reportingInitialEventId\}\s*)?\/>/)
 
 console.log('# Reporting UI and Navigation integration contract assertions passed')

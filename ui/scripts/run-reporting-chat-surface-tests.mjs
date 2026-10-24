@@ -76,6 +76,33 @@ assert.match(panel, /microIndicators/)
 assert.match(panel, /macro_indicator:\s*draft\.macroIndicator/)
 assert.match(panel, /micro_indicators:\s*draft\.microIndicators/)
 
+// 8. Phase 1 contract: Ashura Pilgrimage (C12) and Liaison Extraction (Message #30743)
+assert.match(panel, /isAshuraPilgrimage:\s*boolean/)
+assert.match(panel, /is_ashura_pilgrimage:\s*draft\.isAshuraPilgrimage/)
+assert.match(panel, /قرائت زیارت عاشورا \(سرفصل مستقل پیوست C12\)/)
+assert.match(panel, /چهاردانگه/)
+assert.match(panel, /سوادکوه شمالی/)
+assert.match(app, /liaisonsMap=\{liaisonsMap\}/)
+
+// Functional regex verification of Message #30743 extraction logic
+const sampleText = 'حمید سعیدی - حوزه قضایی چهاردانگه - دادگاه عمومی بخش\nبرگزاری مراسم قرائت زیارت عاشورا'
+const lines = sampleText.split('\n').map(l => l.trim()).filter(Boolean)
+let extractedAuthor = ''
+let extractedUnit = ''
+for (const line of lines) {
+  const headerMatch = line.match(
+    /^(?:[\s#*•\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]*(?:رابط\s*(?:فرهنگی|خبری)?\s*[:：\-–]?\s*)?)?([^\n–—\-:：]{2,30})\s*[-–—]\s*(?:حوزه\s*قضایی\s*|دادگستری\s*|دادگاه\s*عمومی\s*بخش\s*)?([^\n–—\-]+?)(?:\s*[-–—]\s*([^\n]+))?$/u
+  )
+  if (headerMatch) {
+    extractedAuthor = headerMatch[1]?.trim()
+    extractedUnit = `${headerMatch[2]?.trim()} - ${headerMatch[3]?.trim()}`
+    break
+  }
+}
+assert.equal(extractedAuthor, 'حمید سعیدی', 'Liaison author must match Hamid Saeedi')
+assert.equal(extractedUnit, 'چهاردانگه - دادگاه عمومی بخش', 'Judicial unit must match Chahardangeh')
+assert.ok(/زیارت\s+عاشورا/.test(sampleText), 'Ashura pilgrimage pattern must match')
+
 console.log('# Reporting chat-surface integration contract assertions passed')
 
 

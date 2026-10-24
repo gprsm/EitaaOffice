@@ -352,3 +352,181 @@ def test_get_and_list_events_crash_resilience_on_corrupt_db_records(memory_store
     all_events = memory_store.list_events()
     assert any(e.event_id == "evt-corrupt-row" for e in all_events)
 
+
+def test_ashura_pilgrimage_auto_derivation_from_micro_indicators_and_text(memory_store: ReportingStore):
+    """Micro-indicator containing 'عاشورا' or Ashura text must auto-derive is_ashura_pilgrimage."""
+    from eitaa_bridge.application.reporting_api_v3 import _build_event_payload
+
+    # 1. Payload with micro_indicators containing 'عاشورا'
+    p1 = {
+        "event_id": "evt-ashura-auto-1",
+        "occurred_on": "2026-10-24",
+        "unit": "judicial_domain",
+        "unit_name": "دادگستری نور",
+        "topic": "مراسم هفتگی",
+        "micro_indicators": ["قرائت زیارت عاشورا (C12)"],
+    }
+    ev1 = _build_event_payload(p1, store=memory_store)
+    assert ev1.is_ashura_pilgrimage is True
+
+    # 2. Payload with text mentioning زیارت عاشورا
+    p2 = {
+        "event_id": "evt-ashura-auto-2",
+        "occurred_on": "2026-10-24",
+        "unit": "judicial_domain",
+        "unit_name": "چهاردانگه",
+        "topic": "برگزاری مراسم پر فیض زیارت عاشورا",
+        "micro_indicators": [],
+    }
+    ev2 = _build_event_payload(p2, store=memory_store)
+    assert ev2.is_ashura_pilgrimage is True
+
+    # 3. Explicit False must be respected
+    p3 = {
+        "event_id": "evt-ashura-auto-3",
+        "occurred_on": "2026-10-24",
+        "unit": "judicial_domain",
+        "unit_name": "دادگستری بابل",
+        "topic": "مراسم زیارت عاشورا",
+        "is_ashura_pilgrimage": False,
+    }
+    ev3 = _build_event_payload(p3, store=memory_store)
+    assert ev3.is_ashura_pilgrimage is False
+
+    # 4. Updating micro_indicators via update_event_fields auto-toggles is_ashura_pilgrimage
+    base_event = ReportedEvent(
+        event_id="evt-ashura-update-1",
+        program_kinds=(ProgramKind.CEREMONY,),
+        occurred_on=date(2026, 10, 24),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری نور",
+        occasion="مراسم فرهنگی",
+        is_ashura_pilgrimage=False,
+    )
+    memory_store.save_event(base_event)
+    etag = memory_store.get_event_etag("evt-ashura-update-1")
+    assert memory_store.get_event("evt-ashura-update-1").is_ashura_pilgrimage is False
+
+    memory_store.update_event_fields(
+        "evt-ashura-update-1",
+        actor="tester",
+        expected_etag=etag,
+        fields={"micro_indicators": ["قرائت زیارت عاشورا"]},
+    )
+    updated_ev = memory_store.get_event("evt-ashura-update-1")
+    assert updated_ev.is_ashura_pilgrimage is True
+
+
+def test_delete_document_physical_file_cleanup_and_id_flexibility(memory_store: ReportingStore, tmp_path: Path):
+    """Deleting a document must physically remove its storage_ref file and support media_id matching."""
+    event_id = "evt-doc-del-test"
+    ev = ReportedEvent(
+        event_id=event_id,
+        program_kinds=(ProgramKind.CEREMONY,),
+        occurred_on=date(2026, 10, 24),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری نور",
+        occasion="رویداد تست سند",
+    )
+    memory_store.save_event(ev)
+
+    # Create dummy physical file
+    doc_file = tmp_path / "test_photo.jpg"
+    doc_file.write_bytes(b"\xff\xd8\xff\xe0" + b"dummy image content" * 100)
+    assert doc_file.exists()
+
+    # Attach document
+    doc_info = memory_store.attach_document(
+        event_id=event_id,
+        document_id="doc-uuid-1234",
+        media_id="channel_6015778_30743_30039444340.jpg",
+        sha256="dummy_sha256",
+        kind="photo",
+        size_bytes=len(doc_file.read_bytes()),
+        display_order=1,
+        is_cover=True,
+        added_by="tester",
+        storage_ref=str(doc_file),
+    )
+    assert doc_info["document_id"] == "doc-uuid-1234"
+
+    # Delete by media_id (or document_id)
+    deleted = memory_store.delete_document(event_id, "channel_6015778_30743_30039444340.jpg", actor="tester")
+    assert deleted is True
+
+    # Assert physical file is removed from disk
+    assert not doc_file.exists(), "Physical file must be deleted upon document deletion"
+
+
+def test_find_merge_candidates_prioritized_ranking_hierarchy(memory_store: ReportingStore):
+    """Smart merge candidate ranking must prioritize:
+    1. Macro indicator match
+    2. Micro indicators similarity degree
+    3. Judicial unit match
+    """
+    target = ReportedEvent(
+        event_id="evt-target-ranking",
+        program_kinds=(ProgramKind.HONOR,),
+        occurred_on=date(2026, 10, 24),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری نور",
+        occasion="مراسم تکریم و تجلیل",
+        macro_indicator="تجلیل و تکریم از کارکنان",
+        micro_indicators=["تکریم بازنشستگان", "اهدای لوح تقدیر"],
+    )
+    memory_store.save_event(target)
+
+    # Cand A: Matches Macro (Priority 1), partial micro, different unit
+    cand_a = ReportedEvent(
+        event_id="evt-cand-a",
+        program_kinds=(ProgramKind.HONOR,),
+        occurred_on=date(2026, 10, 24),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری ساری",
+        occasion="مراسم تجلیل اداری",
+        macro_indicator="تجلیل و تکریم از کارکنان",
+        micro_indicators=["تکریم بازنشستگان"],
+    )
+    memory_store.save_event(cand_a)
+
+    # Cand B: Different Macro, identical micros and unit
+    cand_b = ReportedEvent(
+        event_id="evt-cand-b",
+        program_kinds=(ProgramKind.QURAN_CONTEST,),
+        occurred_on=date(2026, 10, 24),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری نور",
+        occasion="مسابقات قرآنی",
+        macro_indicator="برگزاری مسابقات قرآنی",
+        micro_indicators=["تکریم بازنشستگان", "اهدای لوح تقدیر"],
+    )
+    memory_store.save_event(cand_b)
+
+    # Cand C: Matches Macro (Priority 1) + 100% micro match (Priority 2) + Same Unit (Priority 3)
+    cand_c = ReportedEvent(
+        event_id="evt-cand-c",
+        program_kinds=(ProgramKind.HONOR,),
+        occurred_on=date(2026, 10, 24),
+        unit=UnitScope.JUDICIAL_DOMAIN,
+        unit_name="دادگستری نور",
+        occasion="مراسم تکریم همکاران",
+        macro_indicator="تجلیل و تکریم از کارکنان",
+        micro_indicators=["تکریم بازنشستگان", "اهدای لوح تقدیر"],
+    )
+    memory_store.save_event(cand_c)
+
+    candidates = memory_store.find_merge_candidates("evt-target-ranking", limit=10)
+    candidate_ids = [c["event_id"] for c in candidates]
+
+    # Cand C must be #1 (matches all 3 priorities)
+    assert candidate_ids[0] == "evt-cand-c"
+
+    # Cand A must be #2 because Macro Indicator is Priority 1, outranking Cand B (no macro match)
+    assert candidate_ids[1] == "evt-cand-a"
+
+    # Cand B must be #3
+    assert candidate_ids[2] == "evt-cand-b"
+
+
+
+
