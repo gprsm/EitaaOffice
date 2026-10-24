@@ -105,6 +105,8 @@ export function inferRegistrationDefaults(
   sourceMessages?: MessageItem[] | null,
   liaisonsMap?: Record<string, { full_name: string; unit_display_name: string; phone?: string }> | null,
   initialMicros?: string[] | null,
+  initialAuthor?: string,
+  initialUnitName?: string,
 ) {
   const members = sourceMessages && sourceMessages.length ? sourceMessages : sourceMessage ? [sourceMessage] : []
   const primaryMsg = sourceMessage || (members.length ? members[0] : null)
@@ -134,9 +136,9 @@ export function inferRegistrationDefaults(
   }
 
   // 2. Author and Judicial Unit extraction
-  let author = ''
-  let unit: 'provincial_hq' | 'judicial_domain' = 'provincial_hq'
-  let unit_name = ''
+  let author = initialAuthor || ''
+  let unit_name = initialUnitName || ''
+  let unit: 'provincial_hq' | 'judicial_domain' = (unit_name.includes('اداره کل') || unit_name.includes('ستاد')) ? 'provincial_hq' : 'judicial_domain'
 
   // Step A: Parse structured liaison headers from text (Absolute Precedence for cultural reports)
   // Example 1: حمید سعیدی - حوزه قضایی چهاردانگه - دادگاه عمومی بخش
@@ -390,6 +392,8 @@ export function ReportingRegistrationPanel(props: {
   sourceMessages?: MessageItem[] | null
   initialMacroIndicator?: string
   initialMicroIndicators?: string[]
+  initialAuthor?: string
+  initialUnitName?: string
   liaisonsMap?: Record<string, { full_name: string; unit_display_name: string; phone?: string }>
   media?: Record<string, string | null>
   onOpenEventDossier?: (eventId: string) => void
@@ -407,8 +411,8 @@ export function ReportingRegistrationPanel(props: {
   const [step, setStep] = useState(0)
 
   const initialInferred = useMemo(
-    () => inferRegistrationDefaults(props.sourceMessage, props.dialog, props.sourceMessages, props.liaisonsMap, props.initialMicroIndicators),
-    [props.sourceMessage, props.dialog, props.sourceMessages, props.liaisonsMap, props.initialMicroIndicators],
+    () => inferRegistrationDefaults(props.sourceMessage, props.dialog, props.sourceMessages, props.liaisonsMap, props.initialMicroIndicators, props.initialAuthor, props.initialUnitName),
+    [props.sourceMessage, props.dialog, props.sourceMessages, props.liaisonsMap, props.initialMicroIndicators, props.initialAuthor, props.initialUnitName],
   )
   const sourceTimeFormatted = initialInferred.sourceTimeFormatted
 
@@ -417,6 +421,9 @@ export function ReportingRegistrationPanel(props: {
     ...initialInferred,
     macroIndicator: props.initialMacroIndicator || '',
     microIndicators: props.initialMicroIndicators || [],
+    author: props.initialAuthor || initialInferred.author,
+    unit_name: props.initialUnitName || initialInferred.unit_name,
+    unit: props.initialUnitName ? (props.initialUnitName.includes('اداره کل') || props.initialUnitName.includes('ستاد') ? 'provincial_hq' : 'judicial_domain') : initialInferred.unit,
     isAshuraPilgrimage: initialInferred.isAshuraPilgrimage || (props.initialMicroIndicators || []).some(m => m.includes("عاشورا")),
     witnesses: props.messageIds.map(id => witnessRow(props.dialogPeerKey, id)),
   }))
@@ -559,10 +566,10 @@ export function ReportingRegistrationPanel(props: {
       setDraft(current => ({
         ...current,
         ...parsed,
-        author: parsed.author !== undefined && parsed.author !== '' ? parsed.author : current.author,
+        author: (parsed.author && parsed.author !== 'Arman' && parsed.author !== 'نویسنده نامشخص') ? parsed.author : (current.author || parsed.author || ''),
+        unit_name: (parsed.unit_name && parsed.unit_name !== 'ستاد دادگستری کل استان') ? parsed.unit_name : (current.unit_name || parsed.unit_name || ''),
+        unit: (parsed.unit_name && parsed.unit_name !== 'ستاد دادگستری کل استان') ? (parsed.unit || current.unit) : current.unit,
         occurredOn: parsed.occurredOn || current.occurredOn,
-        unit: parsed.unit || current.unit,
-        unit_name: parsed.unit_name || current.unit_name,
         witnesses: parsed.witnesses && parsed.witnesses.length ? parsed.witnesses : current.witnesses,
       }))
       setRestored(true)
@@ -896,6 +903,11 @@ export function ReportingRegistrationPanel(props: {
               getOptionLabel={option => (typeof option === 'string' ? option : option.display_name || option.name)}
               groupBy={option => (typeof option === 'string' ? 'سایر' : (option.county || 'واحدهای استانی'))}
               value={draft.unit_name}
+              isOptionEqualToValue={(option, val) => {
+                const optVal = typeof option === 'string' ? option : (option.display_name || option.name || '')
+                const currentVal = typeof val === 'string' ? val : (val?.display_name || val?.name || '')
+                return optVal === currentVal
+              }}
               onChange={(_, val) => {
                 userEditedUnitRef.current = true
                 if (typeof val === 'string') {
@@ -913,7 +925,8 @@ export function ReportingRegistrationPanel(props: {
                   update({ unit_name: '', unit: 'judicial_domain' })
                 }
               }}
-              onInputChange={(_, val) => {
+              onInputChange={(_, val, reason) => {
+                if (reason !== 'input') return
                 userEditedUnitRef.current = true
                 const isHq = val.includes('اداره کل') || val.includes('ستاد')
                 update({

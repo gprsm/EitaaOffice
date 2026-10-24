@@ -63,6 +63,8 @@ type MessageContentCardProps = {
     sourceMembers?: MessageItem[],
     initialMacroIndicator?: string,
     initialMicroIndicators?: string[],
+    initialAuthor?: string,
+    initialUnitName?: string,
   ) => void
   liaisonsMap?: Record<string, { full_name: string; unit_display_name: string }>
   onAuthorClick?: (author: { name: string; username?: string; userId?: string; senderKey?: string; message?: MessageItem }) => void
@@ -718,7 +720,7 @@ export function MessageContentCard({
         onClick={event => { event.stopPropagation(); openReportEvent(reportUsage.events[0].event_id) }}
         sx={{ minHeight: 28 }}
       />}
-      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, isExplicitlyNoneMacro ? '' : (currentMacro || autoSuggestedMacro), currentMicros.length > 0 ? currentMicros : autoSuggestedMicros) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
+      {!reportUsage?.registered && <Button size="small" variant="outlined" color="primary" startIcon={<AddTaskRounded />} onClick={event => { event.stopPropagation(); openRegistration(members.map(item => item.id), message, members, isExplicitlyNoneMacro ? '' : (currentMacro || autoSuggestedMacro), currentMicros.length > 0 ? currentMicros : autoSuggestedMicros, matchedLiaison?.full_name || undefined, matchedLiaison?.unit_display_name || undefined) }} sx={{ minHeight: 28, py: 0 }}>ثبت در گزارش</Button>}
       {anyUsed && <Button size="small" color={anyStale ? 'warning' : 'error'} variant="outlined" onClick={event => { event.stopPropagation(); openUsage() }} sx={{ minHeight: 28, py: 0 }}>{anyStale ? 'تغییرکرده' : allUsed ? 'وردپرس' : 'بخشی در وردپرس'}</Button>}
       {collapsible && <IconButton
         aria-label={expanded ? 'بستن ادامه پیام' : 'نمایش ادامه پیام'}

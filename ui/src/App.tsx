@@ -11,7 +11,7 @@ import { api, ApiError, AUTH_SESSION_INVALID_EVENT, fetchReportingWitnessStatus,
 import { buildMessageGroupLookup, messageGroupText } from './lib/groupedMedia'
 import type { MessageGroup } from './lib/groupedMedia'
 import { mediaPreviewRequest } from './lib/messageMedia'
-import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isNearBottom, mergeMessagesById, shouldAutoFollow, stableMessageKey, updateTopPaginationGate } from './lib/scrollMath'
+import { anchorScrollTop, appendedMessagesAfterTail, estimateMessageRowSize, isNearBottom, mergeMessagesById, shouldAutoFollow, stableMessageKey, updateTopPaginationGate, TOP_PAGINATION_TRIGGER_PX } from './lib/scrollMath'
 import type { MessageScrollMemory, ScrollAnchor, TopPaginationGate } from './lib/scrollMath'
 import type { CompositionRecord, ContentIndexJob, ContentIndexResult, DialogItem, DisplayKind, IndexPrediction, MessageItem, MessageUsage, PeerType, SenderFilterOption, Site, Term } from './lib/types'
 import { QuickSendBar } from './QuickSendBar'
@@ -437,6 +437,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     sourceMembers?: MessageItem[]
     initialMacroIndicator?: string
     initialMicroIndicators?: string[]
+    initialAuthor?: string
+    initialUnitName?: string
   }>({ open: false, messageIds: [] })
   const [detachedMessageIds, setDetachedMessageIds] = useState<Set<number>>(new Set())
   const [messageIndicatorsMap, setMessageIndicatorsMap] = useState<Record<string, MessageIndicatorData>>({})
@@ -1212,7 +1214,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       let older = await listMessages(selected, oldest)
       if (!older.length) {
         try {
-          await api('POST', '/api/v1/messages/sync', { site_key: siteKey, peer_file: selected.peer_file, pages: 1, page_size: viewportPageSize, offset_id: oldest, stop_when_unchanged: false })
+          await api('POST', '/api/v1/messages/sync', { site_key: siteKey, peer_file: selected.peer_file, pages: 1, page_size: Math.max(viewportPageSize, 40), offset_id: oldest, stop_when_unchanged: false })
           rememberMessageSync(selected.peer_key)
           older = await listMessages(selected, oldest)
         } catch (syncErr) {
@@ -1227,6 +1229,16 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         rememberDialogMessages(selected.peer_key, merged)
         return merged
       })
+      if (older.length > 0) {
+        setDateRange(current => {
+          if (!current) return null
+          const earliestDate = older[0].date
+          if (new Date(earliestDate).getTime() < new Date(current.from).getTime()) {
+            return { ...current, from: earliestDate }
+          }
+          return current
+        })
+      }
       return added
     } catch (e) { toast.error(e instanceof Error ? e.message : 'بازیابی پیام‌های قدیمی‌تر ناموفق بود.'); return 0 }
     finally { setLoadingMessages(false) }
@@ -1243,37 +1255,45 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
       setLoadingMessages(true)
       try {
         const nextFrom = new Date(new Date(lastMessage.date).getTime() + 1000).toISOString()
-        const request = {
-          site_key: siteKey,
-          peer_file: dialog.peer_file,
-          date_from: nextFrom,
-          date_to: dateRange.to,
-          limit: 10000,
-        }
-        let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
-
-        if (!response.messages.length) {
-          try {
-            await api('POST', '/api/v1/messages/date-range/sync', {
-              site_key: siteKey,
-              peer_file: dialog.peer_file,
-              date_from: nextFrom,
-              date_to: dateRange.to,
-              pages: 20,
-              page_size: 100,
-            })
-            response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
-          } catch (syncErr) {
-            console.warn('Network sync newer skipped (offline):', syncErr)
+        const effectiveTo = (dateMode === 'from' && new Date(nextFrom) > new Date(dateRange.to))
+          ? new Date().toISOString()
+          : dateRange.to
+        if (new Date(nextFrom) <= new Date(effectiveTo)) {
+          const request = {
+            site_key: siteKey,
+            peer_file: dialog.peer_file,
+            date_from: nextFrom,
+            date_to: effectiveTo,
+            limit: 10000,
           }
-        }
+          let response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
 
-        if (response.messages.length) {
-          ingestMessageMedia(dialog.peer_key, response.messages)
-          const chronological = [...response.messages].sort((left, right) => (
-            new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
-          ))
-          setMessages(current => mergeMessagesById(current, chronological))
+          if (!response.messages.length) {
+            try {
+              await api('POST', '/api/v1/messages/date-range/sync', {
+                site_key: siteKey,
+                peer_file: dialog.peer_file,
+                date_from: nextFrom,
+                date_to: effectiveTo,
+                pages: 20,
+                page_size: 100,
+              })
+              response = await api<{ messages: MessageItem[] }>('POST', '/api/v1/messages/list', request)
+            } catch (syncErr) {
+              console.warn('Network sync newer skipped (offline):', syncErr)
+            }
+          }
+
+          if (response.messages.length) {
+            ingestMessageMedia(dialog.peer_key, response.messages)
+            const chronological = [...response.messages].sort((left, right) => (
+              new Date(left.date).getTime() - new Date(right.date).getTime() || left.id - right.id
+            ))
+            setMessages(current => mergeMessagesById(current, chronological))
+            if (new Date(effectiveTo).getTime() > new Date(dateRange.to).getTime()) {
+              setDateRange(current => current ? { ...current, to: effectiveTo } : null)
+            }
+          }
         }
       } finally {
         setLoadingMessages(false)
@@ -1284,7 +1304,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
     const current = messages
     await syncDialogMessages(dialog, { force, silent: !force, local: current })
     if (force) toast.success('درخواست همگام‌سازی با موفقیت ارسال شد و در پس‌زمینه درحال انجام است.')
-  }, [dialog, loadingMessages, messages, syncDialogMessages, dateRange, siteKey])
+  }, [dateMode, dateRange, dialog, loadingMessages, messages, siteKey, syncDialogMessages])
 
   useEffect(() => {
     if (!dialog || !siteKey || !historySupported || dateRange || loadingDateRange) {
@@ -2373,7 +2393,7 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
           onSearch={setMessageSearch}
           onOpenComposer={() => { setCommunityOpen(!wordpressPanelAvailable); setComposerOpen(true) }}
         />
-        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} paginationEnabled={databaseSearchResults === null && !dateRange} readReceiptsEnabled={!dateRange && !messageSearch.trim() && databaseSearchResults === null && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={(messageIds, sourceMsg, sourceMembers, initialMacro, initialMicros) => { const msg = sourceMsg || filteredMessages.find(item => messageIds.includes(item.id)); const members = sourceMembers || filteredMessages.filter(item => messageIds.includes(item.id)); setRegistrationPanel({ open: true, messageIds, sourceMessage: msg, sourceMembers: members, initialMacroIndicator: initialMacro, initialMicroIndicators: initialMicros }) }} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} liaisonsMap={liaisonsMap} onAuthorClick={handleAuthorClick} indicatorsMap={messageIndicatorsMap} detachedMessageIds={detachedMessageIds} onOpenSplitDialog={messages => setSplitDialogState({ open: true, messages })} onOpenMacroSelect={(mids, macro) => setMacroSelectState({ open: true, messageIds: mids, currentMacro: macro })} onOpenMicroEdit={(mids, micros) => setMicroEditState({ open: true, messageIds: mids, currentMicros: micros })} />}
+        {!dialog ? <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ minHeight: 0, height: '100%', p: 3, textAlign: 'center' }}><AuthBrandMark /><Typography variant="h6">یک گفتگو را انتخاب کنید</Typography></Stack> : <VirtualMessageList key={dialog.peer_key} dialog={dialog} siteKey={siteKey} messages={filteredMessages} groupLookup={messageGroupLookup} media={media} mediaDisplay={mediaDisplay} selectedKeys={selectedKeys} selectionMode={selectionMode} loading={loadingMessages} paginationEnabled={databaseSearchResults === null} readReceiptsEnabled={!dateRange && !messageSearch.trim() && databaseSearchResults === null && showWordPressUsed && selectedIndexLabel === null && selectedSenderKey === null} focusMessageId={dateJump?.messageId || null} focusEpoch={dateJump?.epoch || 0} scrollMemory={messageScrollMemoryRef.current} loadMedia={loadMedia} openFullMedia={openFullMedia} toggleMessage={toggleMessage} editIndex={(message, members) => setIndexEditor({ message, messageIds: members.map(item => item.id), selectedIds: [...new Set(members.flatMap(item => (contentIndexResults[item.id]?.predictions || []).map(prediction => prediction.label_id)))] })} reportUsageByMessage={reportUsageByMessage} openReportEvent={eventId => setReportingOpen(true)} openRegistration={(messageIds, sourceMsg, sourceMembers, initialMacro, initialMicros, initialAuthor, initialUnitName) => { const msg = sourceMsg || filteredMessages.find(item => messageIds.includes(item.id)); const members = sourceMembers || filteredMessages.filter(item => messageIds.includes(item.id)); setRegistrationPanel({ open: true, messageIds, sourceMessage: msg, sourceMembers: members, initialMacroIndicator: initialMacro, initialMicroIndicators: initialMicros, initialAuthor, initialUnitName }) }} loadOlder={loadOlder} loadNewer={loadNewer} markRead={markDialogRead} openUsage={message => { setActiveUsage({ message, usage: message.usage }) }} liaisonsMap={liaisonsMap} onAuthorClick={handleAuthorClick} indicatorsMap={messageIndicatorsMap} detachedMessageIds={detachedMessageIds} onOpenSplitDialog={messages => setSplitDialogState({ open: true, messages })} onOpenMacroSelect={(mids, macro) => setMacroSelectState({ open: true, messageIds: mids, currentMacro: macro })} onOpenMicroEdit={(mids, micros) => setMicroEditState({ open: true, messageIds: mids, currentMicros: micros })} />}
         <QuickSendBar siteKey={siteKey} dialog={dialog} onSent={() => loadNewer(true)} />
       </Paper>
 
@@ -2410,6 +2430,8 @@ function Workspace({ onLogout, sessionWarning }: { onLogout: () => void; session
         sourceMessages={registrationPanel.sourceMembers}
         initialMacroIndicator={registrationPanel.initialMacroIndicator}
         initialMicroIndicators={registrationPanel.initialMicroIndicators}
+        initialAuthor={registrationPanel.initialAuthor}
+        initialUnitName={registrationPanel.initialUnitName}
         liaisonsMap={liaisonsMap}
         media={media}
         onOpenEventDossier={(eventId: string) => {
@@ -2659,6 +2681,8 @@ function VirtualMessageList(props: {
     sourceMembers?: MessageItem[],
     initialMacroIndicator?: string,
     initialMicroIndicators?: string[],
+    initialAuthor?: string,
+    initialUnitName?: string,
   ) => void
   liaisonsMap?: Record<string, { full_name: string; unit_display_name: string; phone?: string }>
   onAuthorClick?: (author: { name: string; username?: string; userId?: string; senderKey?: string }) => void
@@ -2815,13 +2839,60 @@ function VirtualMessageList(props: {
     const onScroll = () => {
       if (scrollFrame.current === null) scrollFrame.current = window.requestAnimationFrame(processScroll)
     }
-    element.addEventListener('wheel', markInteraction, { passive: true })
-    element.addEventListener('touchstart', markInteraction, { passive: true })
+    const onWheel = (event: WheelEvent) => {
+      userInteracted.current = true
+      if (
+        event.deltaY < 0 &&
+        element.scrollTop <= TOP_PAGINATION_TRIGGER_PX &&
+        !programmaticScroll.current &&
+        (props.paginationEnabled ?? true) &&
+        !topPagination.current.inFlight &&
+        props.messages.length > 0
+      ) {
+        const firstVisible = virtualizer.getVirtualItems().find(row => row.end > element.scrollTop + 1)
+        const anchorRow = firstVisible || virtualizer.getVirtualItems()[0]
+        const anchorMessage = anchorRow ? props.messages[anchorRow.index] : undefined
+        prependAnchor.current = anchorRow && anchorMessage ? { key: messageKey(props.dialog, anchorMessage), viewportOffset: anchorRow.start - element.scrollTop } : null
+        topPagination.current = { ...topPagination.current, inFlight: true }
+        void props.loadOlder()
+          .then(added => { if (added <= 0) prependAnchor.current = null })
+          .finally(() => { topPagination.current = { ...topPagination.current, inFlight: false } })
+      }
+    }
+    let touchStartY = 0
+    const onTouchStart = (event: TouchEvent) => {
+      userInteracted.current = true
+      if (event.touches.length > 0) touchStartY = event.touches[0].clientY
+    }
+    const onTouchMove = (event: TouchEvent) => {
+      if (
+        event.touches.length > 0 &&
+        element.scrollTop <= 10 &&
+        event.touches[0].clientY - touchStartY > 20 &&
+        !programmaticScroll.current &&
+        (props.paginationEnabled ?? true) &&
+        !topPagination.current.inFlight &&
+        props.messages.length > 0
+      ) {
+        const firstVisible = virtualizer.getVirtualItems().find(row => row.end > element.scrollTop + 1)
+        const anchorRow = firstVisible || virtualizer.getVirtualItems()[0]
+        const anchorMessage = anchorRow ? props.messages[anchorRow.index] : undefined
+        prependAnchor.current = anchorRow && anchorMessage ? { key: messageKey(props.dialog, anchorMessage), viewportOffset: anchorRow.start - element.scrollTop } : null
+        topPagination.current = { ...topPagination.current, inFlight: true }
+        void props.loadOlder()
+          .then(added => { if (added <= 0) prependAnchor.current = null })
+          .finally(() => { topPagination.current = { ...topPagination.current, inFlight: false } })
+      }
+    }
+    element.addEventListener('wheel', onWheel, { passive: true })
+    element.addEventListener('touchstart', onTouchStart, { passive: true })
+    element.addEventListener('touchmove', onTouchMove, { passive: true })
     element.addEventListener('pointerdown', markInteraction, { passive: true })
     element.addEventListener('scroll', onScroll, { passive: true })
     return () => {
-      element.removeEventListener('wheel', markInteraction)
-      element.removeEventListener('touchstart', markInteraction)
+      element.removeEventListener('wheel', onWheel)
+      element.removeEventListener('touchstart', onTouchStart)
+      element.removeEventListener('touchmove', onTouchMove)
       element.removeEventListener('pointerdown', markInteraction)
       element.removeEventListener('scroll', onScroll)
       if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current)

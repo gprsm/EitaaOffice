@@ -46,12 +46,13 @@ def test_schema_migration_and_seed_defaults(tmp_path: Path) -> None:
     assert {u.unit_type for u in qaem_units} == {"دادگستری", "دادسرا"}
 
     # Must seed default liaisons
-    assert len(liaisons) >= 4
+    assert len(liaisons) >= 5
     liaison_names = {l.full_name for l in liaisons}
     assert "قاسمی شورابی" in liaison_names
     assert "دیوسالار" in liaison_names
     assert "مهدوی" in liaison_names
     assert "احسانی" in liaison_names
+    assert "حمید سعیدی" in liaison_names
 
 
 def test_units_crud(tmp_path: Path) -> None:
@@ -666,3 +667,25 @@ def test_resolve_liaison_sender_key_normalization_and_prefixes(tmp_path: Path) -
     assert status == 200
     assert payload["matched"] is True
     assert payload["liaison"]["full_name"] == "حمید سعیدی"
+
+
+def test_resolve_hamid_saeedi_from_text_header(tmp_path: Path) -> None:
+    """Ensure message #30743 scenario: author Arman with Saeedi text header resolves to Hamid Saeedi and Chahardangeh."""
+    store = _make_store(tmp_path)
+    text = "حمید سعیدی - حوزه قضایی چهاردانگه - دادگاه عمومی بخش\nبرگزاری مراسم قرائت زیارت عاشورا"
+    liaison, unit = store.resolve_liaison_and_unit(full_name="Arman", text=text)
+    assert liaison is not None
+    assert liaison.full_name == "حمید سعیدی"
+    assert unit is not None
+    assert unit.display_name == "چهاردانگه - دادگاه عمومی بخش"
+    assert unit.kind == "judicial_domain"
+
+    # Also via API dispatch
+    status, payload, _ = v3.dispatch(
+        store, "staff", ["editor"], "POST", "/api/v3/reporting/liaisons/resolve",
+        payload={"full_name": "Arman", "text": text},
+    )
+    assert status == 200
+    assert payload["matched"] is True
+    assert payload["liaison"]["full_name"] == "حمید سعیدی"
+    assert payload["unit"]["display_name"] == "چهاردانگه - دادگاه عمومی بخش"
