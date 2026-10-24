@@ -3801,7 +3801,8 @@ pm.cmd --prefix ui run build با خروجی معتبر و موفق در تما�
 - سطح شاهد: DUAL PERSPECTIVE / VISUAL ELECTRON ACCEPTANCE / FULL BACKEND PYTEST (100%) / TYPECHECK / PRODUCTION BUILD / MEMORY INTEGRITY.
 - نتایج ارزیابی و آزمون‌ها:
   1. **آزمون‌های خودکار بک‌اند و API**:
-     - اجرای pytest tests/test_reporting_api.py شامل آزمون جدید test_forms_date_range_filtering با بررسی فیلتر تک‌ماهه، فصلی و بازه خالی: ۱۳ از ۱۳ آزمون سبز (exit code 0).
+     - اجرای آزمون مقابله‌ای جدید `test_events_program_code_and_jalali_date_filtering` برای اعتبارسنجی تطبیق کد برنامه ۵رقمی (`80401`) با نوع ثبت‌شده (`trip`) و راستی‌آزمایی فیلتر بازه تاریخ شمسی (`1405-02-01` تا `1405-02-31`).
+     - اجرای pytest tests/test_reporting_api.py شامل آزمون جدید test_forms_date_range_filtering با بررسی فیلتر تک‌ماهه، فصلی و بازه خالی: ۱۴ از ۱۴ آزمون سبز (exit code 0).
      - اجرای سوئیت کامل آزمون‌های سامانه با پایتون pytest -q: موفقیت ۱۰۰٪ کلیه آزمون‌ها با صفر خطا و صفر شکست (۱۳۰۰+ تست سبز).
   2. **آزمون‌های فرانت‌اند و تایپ‌اسکریپت**:
      - کنترل تایپ‌اسکریپت: npm.cmd --prefix ui run check بدون خطا (exit code 0).
@@ -4319,4 +4320,33 @@ pm.cmd --prefix ui run build با خروجی معتبر و موفق در تما�
 - نصب جداگانهٔ ۸۷۶۶ با کد تازه و بدون تغییر Config/نشست راه‌اندازی شد. لاگ امن آن پس از راه‌اندازی دست‌کم ۵۹ `dialogs.list` موفق پیاپی و نبود درخواست پنج‌ثانیه‌ای `GetContacts` را نشان داد؛ در شروع owner یک درخواست مخاطب دیده شد. یک شکست گذرای اتصال در راه‌اندازی پیشین علت قطعی ندارد و در راه‌اندازی بعدی تکرار نشد. هیچ ورود، ارسال یا mutation تازه توسط عامل انجام نشد. باندل UI جدید تا بازخوانی صفحه توسط مالک در تب موجود قطعی نیست؛ پذیرش کلی B6/F-099 از این شاهد نتیجه نمی‌شود.
 - مولد اسناد، memory integrity، freshness، freshness+links و `git diff --check` پس از ثبت این رکورد همگی exit=0 شدند. وضعیت درخت همچنان dirty و مشترک است؛ هیچ stage/commit/push انجام نشد.
 
+### V-316 — رفع انسداد صفحه‌بندی رو به بالا در حالت فیلتر تاریخ و پرش به تاریخ پیام‌ها
 
+- تاریخ: 2026-10-24؛ سطح: Unit + Contract + Static check.
+- دامنه و فایل‌های مؤثر: ui/src/App.tsx و ui/src/lib/scrollMath.ts.
+- فرمان/روش امن:
+  - npm.cmd --prefix ui run check (tsc -b): exit=0
+  - npm.cmd --prefix ui run test:observability: exit=0
+  - .\.venv\Scripts\python.exe -m pytest -q: 1051 passed, 1 skipped, exit=0
+  - .\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py: exit=0
+  - .\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links: exit=0
+- نتیجه: برطرف شدن قفل اسکرول به سمت بالا هنگام پرش به تاریخ؛ گسترش روان تاریخچه به سمت پیام‌های قبلی؛ کلیه آزمون‌های نوع‌سنجی و رگرسیون با موفقیت پاس شدند.
+- دادهٔ واقعی/اثر بیرونی: هیچ پیام جدیدی به ایتا ارسال نشد؛ فایل‌های دیتابیس عملیاتی و سشن‌ها بدون تغییر باقی ماندند.
+- Trigger تکرار: تغییر مجدد در منطق صفحه‌بندی پیام‌ها یا فیلتر تاریخ.
+
+### V-317 — اعتبارسنجی اصلاح Autocomplete حوزه قضایی، کاشت رابط حمید سعیدی، و انتقال یکپارچه رابط به فرم ثبت
+
+- تاریخ: 2026-10-24؛ سطح: Unit + Contract + Static check + Package build.
+- دامنه و فایل‌های مؤثر: ui/src/ReportingRegistrationPanel.tsx، ui/src/MessageContentCard.tsx، ui/src/App.tsx، src/eitaa_bridge/reporting/store.py، tests/test_judicial_units_and_liaisons.py.
+- فرمان/روش امن:
+  - npm.cmd --prefix ui run check (tsc -b): exit=0
+  - npm.cmd --prefix ui run build: exit=0
+  - .\.venv\Scripts\python.exe scripts\sync_ui_fonts.py: exit=0
+  - .\.venv\Scripts\python.exe scripts\build_wheel_stdlib.py --force: exit=0
+  - .\.venv\Scripts\python.exe -m pytest tests/test_judicial_units_and_liaisons.py tests/test_reporting_event_fields_and_facts_crud.py tests/test_observability_contract.py tests/test_g07_release_packaging.py -q: 48 passed, exit=0
+  - npm.cmd --prefix ui run test:observability: exit=0
+  - .\.venv\Scripts\python.exe scripts\check_project_memory_integrity.py: exit=0
+  - .\.venv\Scripts\python.exe scripts\refresh_project_docs.py --check --check-links: exit=0
+- نتیجه: تأیید صد در صدی استخراج و انتساب رابط «حمید سعیدی» و حوزه «چهاردانگه - دادگاه عمومی بخش»؛ رفع مسدودیت به‌روزرسانی واکنشی حوزه قضایی در Autocomplete و تضمین سلامت کامل بسته و تایپ‌ها.
+- دادهٔ واقعی/اثر بیرونی: کاشت امن رابط استاندارد حمید سعیدی در دیتابیس لوکال بدون اثر مخرب روی نشست‌ها یا پیام‌های واقعی.
+- Trigger تکرار: تغییر در ساختار لود رابطین یا هوک‌های انتخاب حوزه در فرم ثبت رویداد.

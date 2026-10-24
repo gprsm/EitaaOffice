@@ -69,7 +69,7 @@ import { api, ApiError } from './lib/api'
 import OfficeDashboard from './OfficeDashboard'
 import { toast } from './MaterialToast'
 import { jalaliDayLabel } from './utils/jalali'
-import { formatJalaliDate } from './utils/jalaliDateTime'
+import { formatJalaliDate, toJalaliString } from './utils/jalaliDateTime'
 import { JalaliDatePicker, JalaliDateRangePicker } from './components/JalaliDatePicker'
 import { ReportEventDetailModal } from './components/ReportEventDetailModal'
 import { JudicialUnitsManagementModal } from './components/JudicialUnitsManagementModal'
@@ -2793,7 +2793,7 @@ export function ReportingWorkbench({
                       <Chip
                         size="small"
                         color="secondary"
-                        label="بازه تاریخی فعال است"
+                        label={`بازه تاریخی فعال: ${formDateFrom ? `از ${toJalaliString(formDateFrom)}` : ""} ${formDateTo ? `تا ${toJalaliString(formDateTo)}` : ""}`.trim()}
                         onDelete={() => {
                           setFormDateFrom('')
                           setFormDateTo('')
@@ -3890,7 +3890,7 @@ export function ReportingWorkbench({
                   فهرست رویدادهای ثبت‌شده در این برنامه که در محاسبهٔ مقادیر تجمیعی این کاربرگ نقش دارند.
                   {(formDateFrom || formDateTo) && (
                     <span style={{ marginRight: 8, color: '#0288d1', fontWeight: 700 }}>
-                      (محدود به بازهٔ تاریخی: {formDateFrom ? `از ${formDateFrom}` : ''} {formDateTo ? `تا ${formDateTo}` : ''})
+                      (محدود به بازهٔ تاریخی: {formDateFrom ? `از ${toJalaliString(formDateFrom)}` : ''} {formDateTo ? `تا ${toJalaliString(formDateTo)}` : ''})
                     </span>
                   )}
                 </Typography>

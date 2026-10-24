@@ -2966,18 +2966,65 @@ class ReportingStore:
                 clauses.append("unit_name LIKE ?")
                 params.append(f"%{unit_name.strip()}%")
             if program_code:
-                clauses.append("(program_kinds_json LIKE ? OR macro_indicator LIKE ?)")
-                params.extend([f"%{program_code.strip()}%", f"%{program_code.strip()}%"])
+                clean_p = program_code.strip()
+                search_terms = {clean_p}
+                PROGRAM_CODE_MAP = {
+                    "80401": "trip",
+                    "80402": "contest",
+                    "80403": "ceremony",
+                    "80501": "prayer",
+                    "80406": "honor",
+                    "80601": "customer_care",
+                    "80202": "charter",
+                    "80301": "training",
+                }
+                if clean_p in PROGRAM_CODE_MAP:
+                    search_terms.add(PROGRAM_CODE_MAP[clean_p])
+                for code_k, kind_v in PROGRAM_CODE_MAP.items():
+                    if kind_v == clean_p:
+                        search_terms.add(code_k)
+                try:
+                    cat_rows = conn.execute(
+                        "SELECT program_code, kind, title, workbook_sheet FROM reporting_program_catalog WHERE program_code = ? OR kind = ?",
+                        (clean_p, clean_p),
+                    ).fetchall()
+                    for r in cat_rows:
+                        if r["program_code"]:
+                            search_terms.add(r["program_code"])
+                        if r["kind"]:
+                            search_terms.add(r["kind"])
+                        if r["title"]:
+                            search_terms.add(r["title"])
+                        if r["workbook_sheet"]:
+                            search_terms.add(r["workbook_sheet"])
+                except Exception:
+                    pass
+
+                term_clauses = []
+                for term in sorted(search_terms):
+                    if term:
+                        term_clauses.append("program_kinds_json LIKE ? OR macro_indicator LIKE ?")
+                        params.extend([f"%{term}%", f"%{term}%"])
+                if term_clauses:
+                    clauses.append(f"({' OR '.join(term_clauses)})")
             if search_query:
                 q = f"%{search_query.strip()}%"
                 clauses.append("(occasion LIKE ? OR notes LIKE ? OR unit_name LIKE ? OR custom_topic LIKE ? OR macro_indicator LIKE ?)")
                 params.extend([q, q, q, q, q])
             if date_from:
+                try:
+                    norm_df = normalize_to_iso_date(str(date_from).strip())
+                except Exception:
+                    norm_df = str(date_from).strip()
                 clauses.append("occurred_on >= ?")
-                params.append(str(date_from).strip())
+                params.append(norm_df)
             if date_to:
+                try:
+                    norm_dt = normalize_to_iso_date(str(date_to).strip())
+                except Exception:
+                    norm_dt = str(date_to).strip()
                 clauses.append("occurred_on <= ?")
-                params.append(str(date_to).strip())
+                params.append(norm_dt)
             where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
             sql = f"SELECT * FROM reported_events {where} ORDER BY occurred_on DESC, created_at DESC LIMIT ?"
             params.append(limit)
@@ -3882,8 +3929,31 @@ class ReportingStore:
                 ("دیوسالار", "نور - دادگستری", "divsalar", "دیوسالار", "رابط فرهنگی دادگستری شهرستان نور"),
                 ("مهدوی", "سوادکوه - دادگستری", "mahdavi_c", "مهدوی", "رابط فرهنگی دادگستری شهرستان سوادکوه"),
                 ("احسانی", "بابل - دادگستری", "ehsani", "احسانی", "رابط فرهنگی دادگستری شهرستان بابل"),
+                ("حمید سعیدی", "چهاردانگه - دادگاه عمومی بخش", "saeedi_h", "سعیدی,حمید سعیدی", "رابط فرهنگی دادگاه عمومی بخش چهاردانگه"),
             ]
             for f_name, target_unit_disp, uname, kws, notes in default_liaisons:
+                unit_row = conn.execute(
+                    "SELECT unit_id FROM reporting_units WHERE display_name = ? OR name = ?",
+                    (target_unit_disp, target_unit_disp),
+                ).fetchone()
+                if unit_row:
+                    l_id = f"liaison-{uuid.uuid4().hex[:10]}"
+                    conn.execute(
+                        """
+                        INSERT INTO reporting_liaisons (
+                            liaison_id, unit_id, full_name, eitaa_username, eitaa_user_id,
+                            sender_key, phone, match_keywords, notes, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, '', '', '', ?, ?, ?, ?)
+                        """,
+                        (l_id, unit_row["unit_id"], f_name, uname, kws, notes, now, now),
+                    )
+
+        # Ensure canonical liaisons exist even if table was already partially populated
+        for f_name, target_unit_disp, uname, kws, notes in [
+            ("حمید سعیدی", "چهاردانگه - دادگاه عمومی بخش", "saeedi_h", "سعیدی,حمید سعیدی", "رابط فرهنگی دادگاه عمومی بخش چهاردانگه"),
+        ]:
+            existing_l = conn.execute("SELECT liaison_id FROM reporting_liaisons WHERE full_name = ?", (f_name,)).fetchone()
+            if not existing_l:
                 unit_row = conn.execute(
                     "SELECT unit_id FROM reporting_units WHERE display_name = ? OR name = ?",
                     (target_unit_disp, target_unit_disp),
@@ -4176,28 +4246,53 @@ class ReportingStore:
                     if matched_liaison:
                         break
 
-        # 4b. Only inspect msg_text for explicit reporter markers if liaison is still not matched
-        # (e.g. text includes "رابط فرهنگی: مهدوی" or "گزارشگر: مهدوی" or "از مهدوی رابط")
+        # 4b. Inspect msg_text for structured header or explicit reporter markers
         if not matched_liaison and msg_text:
-            reporter_prefix_match = re.search(
-                r"(?:رابط فرهنگی|گزارشگر|نویسنده|ارسال‌کننده|توسط|از)\s*[:：\-–]?\s*([^\n،,.:]{3,35})",
-                msg_text,
-            )
-            extracted_author = reporter_prefix_match.group(1).strip() if reporter_prefix_match else ""
-            if extracted_author:
-                for l in all_liaisons:
-                    if l.full_name and (l.full_name in extracted_author or extracted_author in l.full_name):
-                        matched_liaison = l
-                        break
-                    if l.match_keywords:
-                        kws = [k.strip().lower() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
-                        for kw in kws:
-                            kw_pattern = rf"(?:^|[^\w؀-ۿ]){re.escape(kw)}(?=[^\w؀-ۿ]|$)"
-                            if re.search(kw_pattern, extracted_author.lower()):
-                                matched_liaison = l
-                                break
+            for raw_line in msg_text.splitlines()[:8]:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                header_m = re.match(
+                    r"^(?:[\s#*•\U00010000-\U0010ffff\u2600-\u26FF]*(?:رابط\s*(?:فرهنگی|خبری)?\s*[:：\-–]?\s*)?)?([^\n–—\-:：]{2,30})\s*[-–—]\s*(?:حوزه\s*قضایی\s*|دادگستری\s*|دادگاه\s*عمومی\s*بخش\s*)?([^\n–—\-]+?)(?:\s*[-–—]\s*([^\n]+))?$",
+                    line,
+                )
+                if header_m:
+                    cand_name = header_m.group(1).strip()
+                    for l in all_liaisons:
+                        if l.full_name and (l.full_name == cand_name or cand_name in l.full_name):
+                            matched_liaison = l
+                            break
+                        if l.match_keywords:
+                            kws = [k.strip().lower() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
+                            for kw in kws:
+                                if kw in cand_name.lower():
+                                    matched_liaison = l
+                                    break
+                        if matched_liaison:
+                            break
                     if matched_liaison:
                         break
+
+            if not matched_liaison:
+                reporter_prefix_match = re.search(
+                    r"(?:رابط فرهنگی|گزارشگر|نویسنده|ارسال‌کننده|توسط|از)\s*[:：\-–]?\s*([^\n،,.:]{3,35})",
+                    msg_text,
+                )
+                extracted_author = reporter_prefix_match.group(1).strip() if reporter_prefix_match else ""
+                if extracted_author:
+                    for l in all_liaisons:
+                        if l.full_name and (l.full_name in extracted_author or extracted_author in l.full_name):
+                            matched_liaison = l
+                            break
+                        if l.match_keywords:
+                            kws = [k.strip().lower() for k in re.split(r"[,،\s]+", l.match_keywords) if len(k.strip()) >= 3]
+                            for kw in kws:
+                                kw_pattern = rf"(?:^|[^\w؀-ۿ]){re.escape(kw)}(?=[^\w؀-ۿ]|$)"
+                                if re.search(kw_pattern, extracted_author.lower()):
+                                    matched_liaison = l
+                                    break
+                        if matched_liaison:
+                            break
 
         if matched_liaison:
             unit = self.get_unit(matched_liaison.unit_id)

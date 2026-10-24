@@ -467,3 +467,52 @@ class TestReportingFormsAndExportEndpoints:
         trip_empty = next(f for f in empty_resp.payload["forms"] if f["program_id"] == "trip")
         q_empty = {q["key"]: q["current_value"] for q in trip_empty["questions"]}
         assert q_empty["trip_count"] == 0
+
+
+    def test_events_program_code_and_jalali_date_filtering(self, reporting_api) -> None:
+        """Verify that list_events works with both 5-digit program_code ('80401') and kind ('trip'),
+        and that Jalali date inputs ('1405-02-01') are normalized and filter correctly."""
+        # Create an event in Ordibehesht 1405 (May 2026)
+        resp = reporting_api.dispatch(
+            "POST",
+            "/api/v2/reporting/events",
+            body={
+                "program_id": "trip",
+                "occurred_on": "2026-05-15",
+                "unit": "provincial_hq",
+                "unit_name": "ستاد مرکزی",
+                "attendee_count": 42,
+                "notes": "اردوی تست تطبیق کد",
+            },
+        )
+        assert resp.status == 201
+
+        # 1. Query by 5-digit operational code '80401'
+        code_resp = reporting_api.dispatch("GET", "/api/v2/reporting/events?program_code=80401")
+        assert code_resp.status == 200
+        events_by_code = code_resp.payload.get("events", [])
+        assert any(e["event_id"] == resp.payload["event_id"] for e in events_by_code)
+
+        # 2. Query by kind 'trip'
+        kind_resp = reporting_api.dispatch("GET", "/api/v2/reporting/events?program_code=trip")
+        assert kind_resp.status == 200
+        events_by_kind = kind_resp.payload.get("events", [])
+        assert any(e["event_id"] == resp.payload["event_id"] for e in events_by_kind)
+
+        # 3. Query by Jalali date window (Ordibehesht 1405: 1405-02-01 to 1405-02-31)
+        jalali_resp = reporting_api.dispatch(
+            "GET",
+            "/api/v2/reporting/events?program_code=80401&date_from=1405-02-01&date_to=1405-02-31",
+        )
+        assert jalali_resp.status == 200
+        jalali_events = jalali_resp.payload.get("events", [])
+        assert any(e["event_id"] == resp.payload["event_id"] for e in jalali_events)
+
+        # 4. Query by Jalali window outside the event date (Farvardin 1405: 1405-01-01 to 1405-01-31)
+        outside_resp = reporting_api.dispatch(
+            "GET",
+            "/api/v2/reporting/events?program_code=80401&date_from=1405-01-01&date_to=1405-01-31",
+        )
+        assert outside_resp.status == 200
+        outside_events = outside_resp.payload.get("events", [])
+        assert not any(e["event_id"] == resp.payload["event_id"] for e in outside_events)

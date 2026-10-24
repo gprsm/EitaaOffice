@@ -3,7 +3,7 @@
 > این فایل تولیدشونده است؛ با `scripts/refresh_project_docs.py` بازسازی شود.
 
 - تعداد فایل‌های نقشه: 479
-- اثرانگشت منبع: `94a32ed08e1759fe`
+- اثرانگشت منبع: `642c31354bd6ca0d`
 - دامنه: source، test، tooling و installer؛ runtime/data/config خصوصی عمداً حذف شده‌اند.
 
 | فایل | نقش | تعداد نماد | توضیح ماژول |
@@ -324,7 +324,7 @@
 | `tests/test_gmi42_contacts_send.py` | Python test | 8 | — |
 | `tests/test_grouped_media.py` | Python test | 9 | — |
 | `tests/test_http_api_media.py` | Python test | 2 | — |
-| `tests/test_judicial_units_and_liaisons.py` | Python test | 17 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
+| `tests/test_judicial_units_and_liaisons.py` | Python test | 18 | Tests for Judicial Units (حوزه‌های قضایی، شهرستان‌ها) and Cultural Liaisons (رابطین فرهنگی). |
 | `tests/test_linux_identity_protection.py` | Python test | 4 | — |
 | `tests/test_m2m_endpoints.py` | Python test | 44 | Tests for the M2M API endpoints (honest contract). |
 | `tests/test_material_ui_repair.py` | Python test | 30 | — |
@@ -364,7 +364,7 @@
 | `tests/test_publication_workflow.py` | Python test | 55 | — |
 | `tests/test_receipt_attempt_fence.py` | Python test | 4 | — |
 | `tests/test_refresh_project_docs.py` | Python test | 1 | — |
-| `tests/test_reporting_api.py` | Python test | 17 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
+| `tests/test_reporting_api.py` | Python test | 18 | API endpoint tests for reporting core, candidate reviews, forms, and exports. |
 | `tests/test_reporting_baseline_banks.py` | Python test | 5 | Tests for Master Baseline Banks and Registry APIs in reporting phase 2. |
 | `tests/test_reporting_cartable_and_export.py` | Python test | 9 | — |
 | `tests/test_reporting_core.py` | Python test | 44 | Tests for the 1405 reporting core: rules, aggregation, forms, gates, export. |
