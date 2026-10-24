@@ -3775,6 +3775,26 @@ pm.cmd --prefix ui run build با خروجی معتبر و موفق در تما�
      - ثبت حکم رسمی `APPROVED` با تأیید تمامی ۲۵ شاخص کلیدی در `diagnostics/opencode_supervision_verdict.json`.
 - نتیجه نهایی: با رفع باگ ارسال کلید فرستنده و نرمال‌سازی پیشوندها، انتساب پیام ۳۰۷۴۳ به «حمید سعیدی - چهاردانگه - دادگاه عمومی بخش» به طور قطعی تضمین و تأیید شد.
 
+### V-314 — اعتبارسنجی یکپارچه‌سازی کارتابل و صدور اکسل الگو، ماتریس تجمیع هفت کاربرگ، تطبیق کامل Responsive در دسکتاپ، تبلت و موبایل و ممیزی بصری زنده (F-152)
+
+- تاریخ: 2026-10-24؛ Trigger: درخواست کاربر مبنی بر ادغام کارتابل و پیش‌نمایش اکسل الگو، رعایت کامل موازین responsive، بررسی دوبرابره و ممیزی کامل بصری.
+- سطح شاهد: DUAL PERSPECTIVE / VISUAL HEADLESS AUDIT / RESPONSIVE CONTRACTS / TYPECHECK / FULL BUILD / PYTHON SUITE.
+- نتایج ارزیابی و آزمون‌ها:
+  1. کیفیت کد و قراردادهای فرانت‌اند:
+     - بررسی تایپ‌اسکریپت: `npm.cmd --prefix ui run check` بدون هیچ‌گونه خطا (exit code 0).
+     - آزمون مشاهده‌پذیری فرانت‌اند: `npm.cmd --prefix ui run test:observability` سبز کامل.
+     - آزمون قرارداد ناوبری و کارتابل گزارش‌گیری: `node ui/scripts/run-reporting-ui-tests.mjs` سبز کامل با تأیید ۵ زبانه تمیز و نگاشت سازگار عقب‌رو.
+     - بیلد کامل پروداکشن فرانت‌اند: `npm.cmd --prefix ui run build` موفق در ۷.۷۸ ثانیه.
+  2. بررسی جامع سلامت سیستم و بک‌اند:
+     - آزمون‌های جامع پایتون: `pytest -q` روی کل سوئیت آزمون‌های سامانه با موفقیت کامل.
+     - یکپارچگی حافظه مهندسی: `scripts/check_project_memory_integrity.py` سبز بدون خطای کاراکتر کنترلی یا تکرار شناسه.
+     - تازه‌سازی نقشه‌ها و لینک‌های اسناد: `scripts/refresh_project_docs.py --check --check-links` سبز بدون خطا.
+  3. ممیزی بصری زنده و تست موازین Responsive (مبتنی بر CDP در Microsoft Edge Headless):
+     - سناریوی دسکتاپ (1440x900): ثبت نماهای کارتابل و پیش‌نمایش تجمیع در شات‌های `01_desktop_cartable_records.png` و `02_desktop_excel_preview_export.png`.
+     - سناریوی تبلت (768x1024): ثبت نمای واکنش‌گرا و جدول ماتریس تجمیع در `03_tablet_excel_preview_export.png` و `04_tablet_cartable_records.png`.
+     - سناریوی موبایل (420x880): ثبت چینش پشته‌ای کارت‌های شاخص، دکمه‌های کنترلی چندسطره و اسکرول نرم جداول در `05_mobile_cartable_records.png` و `06_mobile_excel_preview_export.png`.
+- نتیجه نهایی: افزونگی رابط کاربری به طور ریشه‌ای برطرف و رابط کاربری کارتابل و صدور گزارش با استانداردهای رسمی مصوب دادگستری و قابلیت استفاده در تمام ابعاد صفحه تایید شد.
+
 ### LEGACY-DESKTOP-V221 — راستی‌آزمایی مستقل تحویل اصلاح F-085 و مسیر بلهٔ شخصی
 
 - تاریخ: 2026-09-27؛ سطح شاهد: `STATIC CODE REVIEW / ISOLATED SYNTHETIC RUNTIME REPRO / FULL OFFLINE BACKEND / UI TYPECHECK / UI OBSERVABILITY / DOC INTEGRITY / REMOTE REF`.
