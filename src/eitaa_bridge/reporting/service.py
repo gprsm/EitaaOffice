@@ -511,6 +511,7 @@ class ReportingService:
         macro_category: str | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
+        program_code: str | None = None,
     ) -> list[ReportedEvent]:
         """Load confirmed events from persistent storage."""
         if self.store is not None:
@@ -521,6 +522,7 @@ class ReportingService:
                 macro_category=macro_category,
                 date_from=date_from,
                 date_to=date_to,
+                program_code=program_code,
             )
         return []
 
